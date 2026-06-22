@@ -1,0 +1,569 @@
+{
+  "users": [
+    {
+      "id": "u-superadmin",
+      "name": "Super Admin",
+      "email": "superadmin@stream.com",
+      "password": "$2a$10$RI6jSwqtfpablK82u9zmdO7xXZfAK0yjfEg1/ZN53s672dv4I7g/e",
+      "mobile": "1234567890",
+      "role": "super_admin",
+      "status": "active",
+      "avatar": "",
+      "devices": [
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+          "lastLogin": "2026-06-22T08:39:51.956Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+          "lastLogin": "2026-06-10T08:03:55.633Z"
+        }
+      ]
+    },
+    {
+      "id": "u-admin1",
+      "name": "Admin One",
+      "email": "admin1@stream.com",
+      "password": "$2a$10$RI6jSwqtfpablK82u9zmdO7xXZfAK0yjfEg1/ZN53s672dv4I7g/e",
+      "mobile": "1234567891",
+      "role": "admin",
+      "status": "active",
+      "avatar": "",
+      "devices": [
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+          "lastLogin": "2026-06-22T07:41:11.702Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+          "lastLogin": "2026-06-10T07:39:22.626Z"
+        }
+      ]
+    },
+    {
+      "id": "u-user1",
+      "name": "End User One",
+      "email": "user1@stream.com",
+      "password": "$2a$10$RI6jSwqtfpablK82u9zmdO7xXZfAK0yjfEg1/ZN53s672dv4I7g/e",
+      "mobile": "1234567892",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "u-admin1",
+      "devices": [
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+          "lastLogin": "2026-06-22T08:25:55.379Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+          "lastLogin": "2026-06-10T07:53:02.136Z"
+        },
+        {
+          "agent": "Unknown Device",
+          "lastLogin": "2026-06-20T12:42:45.901Z"
+        }
+      ]
+    },
+    {
+      "id": "u-1781003969687",
+      "name": "varma",
+      "email": "varma@gmail.com",
+      "mobile": "12323213213",
+      "password": "$2a$10$euT1bnaxuQTN5BB8ikRJbO54e.6eDMQaE.esfiWWXo3jLqxRWn/7y",
+      "role": "admin",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "super_admin",
+      "devices": []
+    },
+    {
+      "id": "u-1782095297070",
+      "name": "Vishwa",
+      "email": "vishwa@gmail.com",
+      "mobile": "9834342323",
+      "password": "$2a$10$CTsRjYykU2h0FFXJX91R/ezw7jjUMwIWdW4WBg8NOlMXAbqZX9xZW",
+      "role": "admin",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "super_admin",
+      "devices": []
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat-science",
+      "name": "Science",
+      "description": "Physics, chemistry, biology and space exploration."
+    },
+    {
+      "id": "cat-education",
+      "name": "Education",
+      "description": "General academic courses and learning guides."
+    },
+    {
+      "id": "cat-tech",
+      "name": "Technology",
+      "description": "Software development, programming, and AI."
+    },
+    {
+      "id": "cat-math",
+      "name": "Mathematics",
+      "description": "Algebra, calculus, geometry, and problem solving."
+    },
+    {
+      "id": "cat-lang",
+      "name": "Language Learning",
+      "description": "Learn English, Spanish, French, and more."
+    },
+    {
+      "id": "cat-career",
+      "name": "Career Development",
+      "description": "Resume writing, job interviews, and workplace success."
+    },
+    {
+      "id": "cat-gk",
+      "name": "General Knowledge",
+      "description": "Trivia, facts, history, and geography."
+    },
+    {
+      "id": "cat-health",
+      "name": "Health",
+      "description": "Fitness, nutrition, mental health, and wellness."
+    },
+    {
+      "id": "cat-finance",
+      "name": "Finance",
+      "description": "Personal finance, investing, and accounting basics."
+    },
+    {
+      "id": "cat-ai",
+      "name": "AI",
+      "description": "Artificial Intelligence, machine learning and deep neural networks."
+    },
+    {
+      "id": "cat-coding",
+      "name": "Coding",
+      "description": "Programming languages, algorithms, and software development."
+    },
+    {
+      "id": "cat-business",
+      "name": "Business",
+      "description": "Entrepreneurship, marketing, startup strategies, and management."
+    }
+  ],
+  "videos": [
+    {
+      "id": "v-1",
+      "title": "Introduction to Quantum Mechanics",
+      "description": "An introductory guide to quantum physics, exploring wave-particle duality, superposition, and quantum entanglement.",
+      "category": "Science",
+      "thumbnail": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800",
+      "videoUrl": "/videos/sample1.mp4",
+      "tags": [
+        "quantum",
+        "physics",
+        "science"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 450,
+      "duration": 180,
+      "rating": 4.2,
+      "instructor": "Dr. Alice Carter",
+      "difficulty": "Beginner"
+    },
+    {
+      "id": "v-2",
+      "title": "React JS for Beginners",
+      "description": "Learn the basics of React, including components, props, state, hooks, and virtual DOM concepts.",
+      "category": "Technology",
+      "thumbnail": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800",
+      "videoUrl": "/videos/sample2.mp4",
+      "tags": [
+        "react",
+        "javascript",
+        "web"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 1200,
+      "duration": 240,
+      "rating": 4.6,
+      "instructor": "Prof. Sarah Jenkins",
+      "difficulty": "Intermediate"
+    },
+    {
+      "id": "v-3",
+      "title": "Understanding Compound Interest",
+      "description": "A comprehensive guide on how compound interest works, the rule of 72, and personal finance strategies.",
+      "category": "Finance",
+      "thumbnail": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800",
+      "videoUrl": "/videos/sample1.mp4",
+      "tags": [
+        "finance",
+        "money",
+        "investing"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 981,
+      "duration": 300,
+      "rating": 4.9,
+      "instructor": "Rahul Sharma",
+      "difficulty": "Advanced"
+    },
+    {
+      "id": "v-1781004749608",
+      "title": "Test Sample",
+      "description": "Test",
+      "category": "Science",
+      "thumbnail": "/uploads/thumbnail-1781004747324-920584811.jpg",
+      "videoUrl": "/uploads/video-1781004732571-235370854.avi",
+      "tags": [
+        "test"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 1,
+      "duration": 300,
+      "rating": 4.4,
+      "instructor": "Instructor Dev",
+      "difficulty": "Beginner"
+    },
+    {
+      "id": "v-ai-1",
+      "title": "Introduction to Artificial Intelligence",
+      "description": "Explore neural networks, deep learning, and natural language processing basics.",
+      "category": "AI",
+      "thumbnail": "https://images.unsplash.com/photo-1677442136019-21780efad99a?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+      "tags": [
+        "ai",
+        "intelligence",
+        "learning"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-superadmin",
+      "assignedAdmins": [
+        "u-superadmin",
+        "u-admin1"
+      ],
+      "views": 780,
+      "duration": 3600,
+      "rating": 4.9,
+      "instructor": "Dr. Sarah Jenkins",
+      "difficulty": "Beginner"
+    },
+    {
+      "id": "v-code-1",
+      "title": "Mastering Javascript & ES6",
+      "description": "Learn closures, promises, callbacks, and advanced arrow functions.",
+      "category": "Coding",
+      "thumbnail": "https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+      "tags": [
+        "javascript",
+        "web",
+        "coding"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-superadmin",
+      "assignedAdmins": [
+        "u-superadmin",
+        "u-admin1"
+      ],
+      "views": 1250,
+      "duration": 5400,
+      "rating": 4.8,
+      "instructor": "Instructor Dev",
+      "difficulty": "Intermediate"
+    },
+    {
+      "id": "v-bus-1",
+      "title": "Startup Valuation & Pitching",
+      "description": "Learn how venture capitalists evaluate startups and how to pitch your business idea successfully.",
+      "category": "Business",
+      "thumbnail": "https://images.unsplash.com/photo-1542744094-3a31f103e35f?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+      "tags": [
+        "startup",
+        "business",
+        "valuation"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 310,
+      "duration": 2400,
+      "rating": 4.6,
+      "instructor": "Prof. David Miller",
+      "difficulty": "Advanced"
+    },
+    {
+      "id": "v-health-1",
+      "title": "Diet, Nutrition & Wellness Guide",
+      "description": "Understanding macro-nutrients, hydration rules, and healthy lifestyle choices.",
+      "category": "Health",
+      "thumbnail": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4",
+      "tags": [
+        "diet",
+        "health",
+        "nutrition"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 940,
+      "duration": 1500,
+      "rating": 4.7,
+      "instructor": "Emily Davis",
+      "difficulty": "Beginner"
+    }
+  ],
+  "watchHistory": [
+    {
+      "id": "h-1",
+      "userId": "u-user1",
+      "videoId": "v-1",
+      "watchDate": "2026-06-22T03:11:51.889Z",
+      "watchTime": 10,
+      "lastPosition": 10,
+      "completionPercentage": 100,
+      "status": "completed"
+    },
+    {
+      "id": "h-2",
+      "userId": "u-user1",
+      "videoId": "v-2",
+      "watchDate": "2026-06-09T08:30:00.000Z",
+      "watchTime": 240,
+      "lastPosition": 240,
+      "completionPercentage": 100,
+      "status": "completed"
+    },
+    {
+      "id": "h-1781959376699",
+      "userId": "u-user1",
+      "videoId": "v-3",
+      "watchDate": "2026-06-20T12:43:02.161Z",
+      "watchTime": 10,
+      "lastPosition": 10,
+      "completionPercentage": 100,
+      "status": "completed"
+    },
+    {
+      "id": "h-1781960569412",
+      "userId": "u-user1",
+      "videoId": "v-1781004749608",
+      "watchDate": "2026-06-20T13:02:55.636Z",
+      "watchTime": 10,
+      "lastPosition": 10,
+      "completionPercentage": 100,
+      "status": "completed"
+    }
+  ],
+  "favorites": [
+    {
+      "userId": "u-user1",
+      "videoId": "v-2"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "n-1",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "Admin has uploaded 'React JS for Beginners'. Start watching now!",
+      "date": "2026-06-09T08:00:00.000Z",
+      "read": false
+    },
+    {
+      "id": "n-178100474961151",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "\"Test Sample\" has been uploaded in Science. Watch it now!",
+      "date": "2026-06-09T11:32:29.611Z",
+      "read": true
+    }
+  ],
+  "reportedVideos": [
+    {
+      "id": "rep-1",
+      "videoId": "v-1781004749608",
+      "videoTitle": "Test Sample",
+      "reportedBy": "u-user1",
+      "reason": "Copyright infringement - duplicate audio",
+      "date": "2026-06-20T12:45:00.000Z",
+      "status": "pending"
+    },
+    {
+      "id": "rep-2",
+      "videoId": "v-3",
+      "videoTitle": "Understanding Compound Interest",
+      "reportedBy": "u-user1",
+      "reason": "Spam/Advertising links in description",
+      "date": "2026-06-19T10:30:00.000Z",
+      "status": "pending"
+    }
+  ],
+  "subscriptionPlans": [
+    {
+      "id": "plan-basic",
+      "name": "Basic Learner",
+      "price": 299,
+      "durationDays": 30,
+      "features": [
+        "720p streaming",
+        "Access to assigned classes",
+        "Offline downloads (2 devices)"
+      ]
+    },
+    {
+      "id": "plan-premium",
+      "name": "Premium Scholar",
+      "price": 699,
+      "durationDays": 30,
+      "features": [
+        "1080p Ultra HD",
+        "Access to all courses",
+        "Unrestricted downloads",
+        "AI learning insights"
+      ]
+    },
+    {
+      "id": "plan-enterprise",
+      "name": "Enterprise Team",
+      "price": 4999,
+      "durationDays": 365,
+      "features": [
+        "1080p HD",
+        "Dedicated sub-admin accounts",
+        "SLA support responses",
+        "Custom brand options"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-1001",
+      "userId": "u-user1",
+      "userName": "End User One",
+      "planId": "plan-premium",
+      "planName": "Premium Scholar",
+      "amount": 699,
+      "status": "success",
+      "date": "2026-06-20T10:00:00.000Z",
+      "region": "North India"
+    },
+    {
+      "id": "tx-1002",
+      "userId": "u-user1",
+      "userName": "End User One",
+      "planId": "plan-basic",
+      "planName": "Basic Learner",
+      "amount": 299,
+      "status": "failed",
+      "date": "2026-06-18T14:22:00.000Z",
+      "region": "South India"
+    },
+    {
+      "id": "tx-1003",
+      "userId": "u-user1",
+      "userName": "End User One",
+      "planId": "plan-premium",
+      "planName": "Premium Scholar",
+      "amount": 699,
+      "status": "refunded",
+      "date": "2026-06-15T09:12:00.000Z",
+      "region": "West India"
+    }
+  ],
+  "liveStreams": [
+    {
+      "id": "stream-1",
+      "title": "Flutter Live App Build - Part 2",
+      "adminId": "u-admin1",
+      "adminName": "Admin One",
+      "viewers": 142,
+      "bitrate": 4500,
+      "fps": 60,
+      "errors": 0,
+      "status": "running"
+    },
+    {
+      "id": "stream-2",
+      "title": "Quantum Mechanics Q&A Session",
+      "adminId": "u-1781003969687",
+      "adminName": "varma",
+      "viewers": 34,
+      "bitrate": 2800,
+      "fps": 30,
+      "errors": 2,
+      "status": "running"
+    }
+  ],
+  "adminActivityLogs": [
+    {
+      "id": "log-1",
+      "adminId": "u-admin1",
+      "adminName": "Admin One",
+      "action": "login",
+      "details": "Admin logged in from Chrome browser",
+      "timestamp": "2026-06-22T07:30:00.000Z"
+    },
+    {
+      "id": "log-2",
+      "adminId": "u-admin1",
+      "adminName": "Admin One",
+      "action": "video_approval",
+      "details": "Approved video 'React JS for Beginners'",
+      "timestamp": "2026-06-22T07:35:00.000Z"
+    },
+    {
+      "id": "log-3",
+      "adminId": "u-superadmin",
+      "adminName": "Super Admin",
+      "action": "role_update",
+      "details": "Granted content manager access to Admin One",
+      "timestamp": "2026-06-22T07:40:00.000Z"
+    }
+  ],
+  "settings": {
+    "streamingQuality": "1080p",
+    "cdnConfig": "Cloudflare Edge CDN",
+    "adSettings": {
+      "enabled": true,
+      "frequencySeconds": 600,
+      "provider": "Google AdSense"
+    },
+    "paymentGateway": "Stripe Connect",
+    "languageSettings": [
+      "en",
+      "hi",
+      "kn"
+    ],
+    "securitySettings": {
+      "jwtExpiryHours": 24,
+      "mfaRequired": false,
+      "failedLoginLockout": 5
+    }
+  }
+}
