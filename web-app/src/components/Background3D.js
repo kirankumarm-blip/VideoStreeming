@@ -110,7 +110,7 @@ const Background3D = () => {
       });
 
       // Draw Grid lines
-      ctx.lineWidth = 1.0;
+      ctx.lineWidth = isLight ? 1.0 : 1.2;
       
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -125,7 +125,7 @@ const Background3D = () => {
               const alpha = ((p1.opacity + p2.opacity) / 2) * 0.12;
               ctx.strokeStyle = isLight 
                 ? `rgba(124, 58, 237, ${alpha * 1.5})` 
-                : `rgba(139, 92, 246, ${alpha})`; // Violet in light, Purple in dark
+                : `rgba(139, 92, 246, ${alpha * 3.5})`; // Violet in light, Purple in dark
               ctx.beginPath();
               ctx.moveTo(p1.x, p1.y);
               ctx.lineTo(p2.x, p2.y);
@@ -140,7 +140,7 @@ const Background3D = () => {
               const alpha = ((p1.opacity + p3.opacity) / 2) * 0.12;
               ctx.strokeStyle = isLight 
                 ? `rgba(37, 99, 235, ${alpha * 1.5})` 
-                : `rgba(229, 9, 20, ${alpha})`; // Royal Blue in light, Red in dark
+                : `rgba(229, 9, 20, ${alpha * 3.5})`; // Royal Blue in light, Red in dark
               ctx.beginPath();
               ctx.moveTo(p1.x, p1.y);
               ctx.lineTo(p3.x, p3.y);
@@ -153,7 +153,7 @@ const Background3D = () => {
             const alpha = p1.opacity * 0.35;
             ctx.fillStyle = isLight 
               ? `rgba(236, 72, 153, ${alpha * 1.4})` 
-              : `rgba(236, 72, 153, ${alpha})`; // Pink
+              : `rgba(236, 72, 153, ${alpha * 2.2})`; // Pink
             ctx.beginPath();
             ctx.arc(p1.x, p1.y, 1.8 * p1.opacity, 0, Math.PI * 2);
             ctx.fill();
@@ -168,8 +168,8 @@ const Background3D = () => {
         grad.addColorStop(0.5, 'rgba(124, 58, 237, 0.02)');
         grad.addColorStop(1, 'rgba(248, 250, 252, 0)');
       } else {
-        grad.addColorStop(0, 'rgba(139, 92, 246, 0.08)');
-        grad.addColorStop(0.5, 'rgba(229, 9, 20, 0.03)');
+        grad.addColorStop(0, 'rgba(139, 92, 246, 0.25)');
+        grad.addColorStop(0.5, 'rgba(229, 9, 20, 0.12)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       }
       ctx.fillStyle = grad;
