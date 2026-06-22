@@ -69,12 +69,12 @@ async function request(endpoint, options = {}) {
       } else {
         // Refresh token failed, logout user
         clearTokens();
-        window.location.href = '/login';
+        window.location.hash = '/login';
       }
     } catch (e) {
       console.error("Token refresh failed", e);
       clearTokens();
-      window.location.href = '/login';
+      window.location.hash = '/login';
     }
   }
 
