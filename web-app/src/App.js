@@ -56,7 +56,7 @@ const AppLayout = ({ theme, setTheme }) => {
   const showSidebar = !isAuthPage && user && user.role === 'user';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
       {!isAuthPage && user && (
         <Navigation 
           toggleSidebar={toggleSidebar} 

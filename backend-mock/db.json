@@ -53,7 +53,7 @@
       "devices": [
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-          "lastLogin": "2026-06-22T08:25:55.379Z"
+          "lastLogin": "2026-06-22T10:47:14.164Z"
         },
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
@@ -373,11 +373,11 @@
       "id": "h-1781960569412",
       "userId": "u-user1",
       "videoId": "v-1781004749608",
-      "watchDate": "2026-06-20T13:02:55.636Z",
-      "watchTime": 10,
-      "lastPosition": 10,
-      "completionPercentage": 100,
-      "status": "completed"
+      "watchDate": "2026-06-22T10:47:25.856Z",
+      "watchTime": 1,
+      "lastPosition": 1,
+      "completionPercentage": 10,
+      "status": "partially_watched"
     }
   ],
   "favorites": [

@@ -104,7 +104,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   if (!user) return null;
 
   return (
-    <nav style={{
+    <nav className="global-navbar" style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -182,7 +182,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* Premium Badge */}
         {user.role === 'user' && (
-          <div style={{
+          <div className="nav-premium-badge" style={{
             background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
             color: '#000',
             padding: '6px 14px',
@@ -201,7 +201,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
 
         {/* Recently Viewed Dropdown */}
         {user.role === 'user' && (
-          <div ref={recentlyViewedRef} style={{ position: 'relative' }}>
+          <div ref={recentlyViewedRef} style={{ position: 'relative' }} className="nav-recently-played">
             <button 
               onClick={() => setShowRecentlyViewed(!showRecentlyViewed)}
               style={{
@@ -288,7 +288,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         )}
 
         {/* Language Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} className="nav-lang-switcher">
           <span style={{ fontSize: '14px' }} title={t('nav.language')}>🌐</span>
           <select 
             value={language}
@@ -313,6 +313,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
 
         {/* Theme Switcher */}
         <button 
+          className="nav-theme-switcher"
           onClick={toggleTheme}
           style={{
             background: 'none',
@@ -329,7 +330,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
 
         {/* Notifications (End Users only) */}
         {user.role === 'user' && (
-          <div ref={notifRef} style={{ position: 'relative' }}>
+          <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
             <div onClick={() => setShowNotifDropdown(!showNotifDropdown)} className="notification-bell">
               <span style={{ fontSize: '20px' }}>🔔</span>
               {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
@@ -363,7 +364,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         )}
 
         {/* User Profile */}
-        <div ref={profileRef} style={{ position: 'relative' }}>
+        <div ref={profileRef} style={{ position: 'relative' }} className="nav-profile-avatar">
           <div 
             onClick={() => setShowProfileDropdown(!showProfileDropdown)} 
             style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
