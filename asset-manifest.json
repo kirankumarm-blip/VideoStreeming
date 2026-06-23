@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/VideoStreeming/static/css/main.d2f7abf0.css",
+    "main.js": "/VideoStreeming/static/js/main.fcfd98d2.js",
+    "static/js/453.62af62c4.chunk.js": "/VideoStreeming/static/js/453.62af62c4.chunk.js",
+    "index.html": "/VideoStreeming/index.html",
+    "main.d2f7abf0.css.map": "/VideoStreeming/static/css/main.d2f7abf0.css.map",
+    "main.fcfd98d2.js.map": "/VideoStreeming/static/js/main.fcfd98d2.js.map",
+    "453.62af62c4.chunk.js.map": "/VideoStreeming/static/js/453.62af62c4.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.d2f7abf0.css",
+    "static/js/main.fcfd98d2.js"
+  ]
+}
