@@ -568,7 +568,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         flexShrink: 0,
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-color)',
-        padding: '24px 12px',
+        padding: '8px 12px',
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',

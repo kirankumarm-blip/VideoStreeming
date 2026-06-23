@@ -466,7 +466,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         flexShrink: 0,
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-color)',
-        padding: '24px 12px',
+        padding: '8px 12px',
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
@@ -597,21 +597,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                 
                 {/* 4 Notices Alerts */}
                 <div className="dashboard-stats-grid alerts-box" style={{ gap: '16px' }}>
-                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #ef4444', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#ef4444' }}>⚠ Video Processing Failed</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Transcoder job #job-325 exited unexpectedly.</span>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderLeft: '4px solid #10b981', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#10b981' }}>🟢 Transcoding Engines Online</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>All uploads successfully transcoded to 1080p, 720p, and 480p H.264 profiles.</span>
                   </div>
-                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', borderLeft: '4px solid #f59e0b', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#f59e0b' }}>⚠ Storage 85% Full</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>AWS S3 bucket primary store exceeds 85%.</span>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', borderLeft: '4px solid #3b82f6', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#3b82f6' }}>🌐 CDN Edge hit rate: 94.2%</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Edge caching optimized across all regional media delivery nodes.</span>
                   </div>
-                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #ef4444', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#ef4444' }}>⚠ Payment Gateway Error</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Stripe webhook ping returned status code 502.</span>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderLeft: '4px solid #10b981', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#10b981' }}>🟢 Live Ingestion Stable</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>RTMP ingestion active with 0 frame drops and stable 4500kbps bitrate.</span>
                   </div>
-                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #ef4444', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#ef4444' }}>⚠ Copyright Strike Received</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>User upload 'v-178100' flagged by automatic scan.</span>
+                  <div style={{ background: 'rgba(245, 158, 11, 0.08)', borderLeft: '4px solid #f59e0b', padding: '12px 16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#f59e0b' }}>🗄️ Storage Synced</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Database assets fully synced. AWS S3 storage usage is at 68% capacity.</span>
                   </div>
                 </div>
 
