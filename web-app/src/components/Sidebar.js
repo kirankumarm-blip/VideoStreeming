@@ -56,7 +56,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           width: '240px',
           background: 'var(--bg-secondary)',
           borderRight: '1px solid var(--border-color)',
-          padding: '0px 12px',
+          paddingTop: '0px',
+          paddingBottom: '0px',
+          paddingLeft: '12px',
+          paddingRight: '12px',
+          marginTop: '0px',
           display: 'flex',
           flexDirection: 'column',
           gap: '6px',
@@ -68,7 +72,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           zIndex: 995
         }}
       >
-        {menuItems.map(item => {
+        {menuItems.map((item, idx) => {
           const isSelected = activeView === item.id;
           return (
             <button
@@ -89,7 +93,8 @@ const Sidebar = ({ isOpen, onClose }) => {
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'background 0.2s, color 0.2s',
-                outline: 'none'
+                outline: 'none',
+                marginTop: idx === 0 ? '0px' : undefined
               }}
               onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
               onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}

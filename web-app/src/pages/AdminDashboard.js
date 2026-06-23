@@ -441,7 +441,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
       {/* Mobile Backdrop Overlay */}
       {isSidebarOpen && (
         <div 
@@ -466,7 +466,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         flexShrink: 0,
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-color)',
-        padding: '0px 12px',
+        paddingTop: '0px',
+        paddingBottom: '0px',
+        paddingLeft: '12px',
+        paddingRight: '12px',
+        marginTop: '0px',
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
@@ -477,8 +481,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         zIndex: 995,
         transition: 'transform 0.3s ease, left 0.3s ease'
       }} className={`youtube-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        {menuStructure.map(section => (
-          <div key={section.title} style={{ marginBottom: '8px' }}>
+        {menuStructure.map((section, idx) => (
+          <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
             <button 
               onClick={() => toggleSection(section.title)}
               className="admin-sidebar-header"
