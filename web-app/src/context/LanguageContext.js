@@ -5,7 +5,7 @@ const LanguageContext = createContext();
 const translations = {
   en: {
     // Navigation
-    'nav.brand': 'VPLAY STREAM',
+    'nav.brand': 'VStreem',
     'nav.home': 'Home',
     'nav.profile': 'My Profile',
     'nav.logout': 'Logout',
@@ -396,7 +396,7 @@ const translations = {
   },
   hi: {
     // Navigation
-    'nav.brand': 'वीप्ले स्ट्रीम',
+    'nav.brand': 'वीस्ट्रीम',
     'nav.home': 'मुख्य पृष्ठ',
     'nav.profile': 'मेरी प्रोफाइल',
     'nav.logout': 'लॉग आउट',
@@ -787,7 +787,7 @@ const translations = {
   },
   kn: {
     // Navigation
-    'nav.brand': 'ವಿಪ್ಲೇ ಸ್ಟ್ರೀಮ್',
+    'nav.brand': 'ವಿ-ಸ್ಟ್ರೀಮ್',
     'nav.home': 'ಮುಖಪುಟ',
     'nav.profile': 'ನನ್ನ ಪ್ರೊಫೈಲ್',
     'nav.logout': 'ಲಾಗ್ ಔಟ್',

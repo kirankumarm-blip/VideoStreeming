@@ -420,7 +420,7 @@ const UserDashboard = () => {
   };
 
   return (
-    <div style={{ flex: 1, padding: '32px 40px', overflowX: 'hidden', minWidth: 0 }} className="user-dashboard-content animate-fade-in">
+    <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="user-dashboard-content animate-fade-in">
         {loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
             {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
@@ -534,14 +534,13 @@ const UserDashboard = () => {
                   <button
                     onClick={() => {
                       setSelectedCategory('');
-                      setSearchParams({ view: 'explore' });
                     }}
                     style={{
                       padding: '8px 20px',
                       border: '1px solid var(--border-color)',
                       borderRadius: '24px',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--text-primary)',
+                      background: selectedCategory === '' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                      color: selectedCategory === '' ? '#fff' : 'var(--text-primary)',
                       fontSize: '13px',
                       fontWeight: 700,
                       cursor: 'pointer',
@@ -551,27 +550,27 @@ const UserDashboard = () => {
                       alignItems: 'center',
                       gap: '6px'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                    onMouseEnter={e => selectedCategory !== '' && (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
+                    onMouseLeave={e => selectedCategory !== '' && (e.currentTarget.style.borderColor = 'var(--border-color)')}
                   >
                     🧭 {t('user.allTopics')}
                   </button>
                   {categoriesWithIcons.map(cat => {
                     const dbCat = dashboardData?.categories.find(c => c.name === cat.name);
                     if (!dbCat) return null;
+                    const isSelected = selectedCategory === cat.name;
                     return (
                       <button
                         key={cat.name}
                         onClick={() => {
                           setSelectedCategory(cat.name);
-                          setSearchParams({ view: 'explore' });
                         }}
                         style={{
                           padding: '8px 20px',
                           border: '1px solid var(--border-color)',
                           borderRadius: '24px',
-                          background: 'var(--bg-secondary)',
-                          color: 'var(--text-primary)',
+                          background: isSelected ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                          color: isSelected ? '#fff' : 'var(--text-primary)',
                           fontSize: '13px',
                           fontWeight: 700,
                           cursor: 'pointer',
@@ -581,8 +580,8 @@ const UserDashboard = () => {
                           alignItems: 'center',
                           gap: '6px'
                         }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                        onMouseEnter={e => !isSelected && (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
+                        onMouseLeave={e => !isSelected && (e.currentTarget.style.borderColor = 'var(--border-color)')}
                       >
                         <span>{cat.icon}</span> {cat.name} ({dbCat.videoCount})
                       </button>
@@ -590,83 +589,126 @@ const UserDashboard = () => {
                   })}
                 </div>
 
-                {/* Continue Watching Section */}
-                {dashboardData?.continueWatching && dashboardData.continueWatching.length > 0 && (
-                  <div style={{ marginBottom: '40px' }}>
-                    <h3 className="video-section-title">{t('user.continueWatching')}</h3>
-                    <div className="horizontal-scroll-row">
-                      {dashboardData.continueWatching.map(video => (
-                        <div key={video.id} style={{ flex: '0 0 280px' }}>
-                          <VideoCard video={video} progress={video.progress} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recommended Section */}
-                <div style={{ marginBottom: '40px' }}>
-                  <h3 className="video-section-title">{t('user.recommended')}</h3>
-                  <div className="horizontal-scroll-row">
-                    {(dashboardData?.recommended || []).map(video => (
-                      <div key={video.id} style={{ flex: '0 0 280px' }}>
-                        <VideoCard video={video} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Trending Now Section */}
-                <div style={{ marginBottom: '40px' }}>
-                  <h3 className="video-section-title">🔥 {language === 'hi' ? 'ट्रेंडिंग वीडियो' : language === 'kn' ? 'ಟ್ರೆಂಡಿಂಗ್ ವೀಡಿಯೊಗಳು' : 'Trending Now'}</h3>
-                  <div className="horizontal-scroll-row">
-                    {(dashboardData?.trending || []).map(video => (
-                      <div key={video.id} style={{ flex: '0 0 280px' }}>
-                        <VideoCard video={video} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Because You Watched Contextual Recommendation */}
-                {dashboardData?.becauseYouWatched && dashboardData.becauseYouWatched.videos?.length > 0 && (
-                  <div style={{ marginBottom: '40px' }}>
-                    <h3 className="video-section-title">
-                      ✨ {language === 'hi' ? `चूंकि आपने ${dashboardData.becauseYouWatched.category} देखा` : language === 'kn' ? `ನೀವು ${dashboardData.becauseYouWatched.category} ವೀಕ್ಷಿಸಿದ್ದರಿಂದ` : `Because You Watched ${dashboardData.becauseYouWatched.category}`}
+                {/* Category Filtering Grid for Homepage */}
+                {selectedCategory !== '' ? (
+                  <div className="animate-fade-in" style={{ marginTop: '10px' }}>
+                    <h3 className="video-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>
+                        {selectedCategory} {language === 'hi' ? 'पाठ' : language === 'kn' ? 'ಪಾಠಗಳು' : 'Lessons'}
+                      </span>
+                      <button 
+                        onClick={() => setSelectedCategory('')} 
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--accent-primary)',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Clear Filter
+                      </button>
                     </h3>
-                    <div className="horizontal-scroll-row">
-                      {dashboardData.becauseYouWatched.videos.map(video => (
-                        <div key={video.id} style={{ flex: '0 0 280px' }}>
-                          <VideoCard video={video} />
+                    {(() => {
+                      const filtered = (dashboardData?.allVideos || []).filter(v => v.category === selectedCategory);
+                      if (filtered.length === 0) {
+                        return (
+                          <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center' }}>
+                            {language === 'hi' ? 'कोई वीडियो नहीं मिला।' : language === 'kn' ? 'ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No videos found matching this topic.'}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="youtube-video-grid" style={{ marginTop: '20px' }}>
+                          {filtered.map(video => (
+                            <VideoCard key={video.id} video={video} />
+                          ))}
                         </div>
-                      ))}
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <>
+                    {/* Continue Watching Section */}
+                    {dashboardData?.continueWatching && dashboardData.continueWatching.length > 0 && (
+                      <div style={{ marginBottom: '40px' }}>
+                        <h3 className="video-section-title">{t('user.continueWatching')}</h3>
+                        <div className="horizontal-scroll-row">
+                          {dashboardData.continueWatching.map(video => (
+                            <div key={video.id} style={{ flex: '0 0 280px' }}>
+                              <VideoCard video={video} progress={video.progress} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recommended Section */}
+                    <div style={{ marginBottom: '40px' }}>
+                      <h3 className="video-section-title">{t('user.recommended')}</h3>
+                      <div className="horizontal-scroll-row">
+                        {(dashboardData?.recommended || []).map(video => (
+                          <div key={video.id} style={{ flex: '0 0 280px' }}>
+                            <VideoCard video={video} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Trending Now Section */}
+                    <div style={{ marginBottom: '40px' }}>
+                      <h3 className="video-section-title">🔥 {language === 'hi' ? 'ट्रेंडिंग वीडियो' : language === 'kn' ? 'ಟ್ರೆಂಡಿಂಗ್ ವೀಡಿಯೊಗಳು' : 'Trending Now'}</h3>
+                      <div className="horizontal-scroll-row">
+                        {(dashboardData?.trending || []).map(video => (
+                          <div key={video.id} style={{ flex: '0 0 280px' }}>
+                            <VideoCard video={video} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Because You Watched Contextual Recommendation */}
+                    {dashboardData?.becauseYouWatched && dashboardData.becauseYouWatched.videos?.length > 0 && (
+                      <div style={{ marginBottom: '40px' }}>
+                        <h3 className="video-section-title">
+                          ✨ {language === 'hi' ? `चूंकि आपने ${dashboardData.becauseYouWatched.category} देखा` : language === 'kn' ? `ನೀವು ${dashboardData.becauseYouWatched.category} ವೀಕ್ಷಿಸಿದ್ದರಿಂದ` : `Because You Watched ${dashboardData.becauseYouWatched.category}`}
+                        </h3>
+                        <div className="horizontal-scroll-row">
+                          {dashboardData.becauseYouWatched.videos.map(video => (
+                            <div key={video.id} style={{ flex: '0 0 280px' }}>
+                              <VideoCard video={video} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Top Rated Section */}
+                    <div style={{ marginBottom: '40px' }}>
+                      <h3 className="video-section-title">⭐ {language === 'hi' ? 'शीर्ष रेटेड पाठ' : language === 'kn' ? 'ಉನ್ನತ ದರ್ಜೆಯ ಪಾಠಗಳು' : 'Top Rated Lessons'}</h3>
+                      <div className="horizontal-scroll-row">
+                        {(dashboardData?.topRated || []).map(video => (
+                          <div key={video.id} style={{ flex: '0 0 280px' }}>
+                            <VideoCard video={video} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Newly Added Section */}
+                    <div style={{ marginBottom: '40px' }}>
+                      <h3 className="video-section-title">🆕 {t('user.newlyAdded')}</h3>
+                      <div className="horizontal-scroll-row">
+                        {(dashboardData?.newVideos || []).map(video => (
+                          <div key={video.id} style={{ flex: '0 0 280px' }}>
+                            <VideoCard video={video} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
                 )}
-
-                {/* Top Rated Section */}
-                <div style={{ marginBottom: '40px' }}>
-                  <h3 className="video-section-title">⭐ {language === 'hi' ? 'शीर्ष रेटेड पाठ' : language === 'kn' ? 'ಉನ್ನತ ದರ್ಜೆಯ ಪಾಠಗಳು' : 'Top Rated Lessons'}</h3>
-                  <div className="horizontal-scroll-row">
-                    {(dashboardData?.topRated || []).map(video => (
-                      <div key={video.id} style={{ flex: '0 0 280px' }}>
-                        <VideoCard video={video} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Newly Added Section */}
-                <div style={{ marginBottom: '40px' }}>
-                  <h3 className="video-section-title">🆕 {t('user.newlyAdded')}</h3>
-                  <div className="horizontal-scroll-row">
-                    {(dashboardData?.newVideos || []).map(video => (
-                      <div key={video.id} style={{ flex: '0 0 280px' }}>
-                        <VideoCard video={video} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </>
             )}
 
@@ -736,7 +778,7 @@ const UserDashboard = () => {
                         key={cat.name}
                         onClick={() => {
                           setSelectedCategory(cat.name);
-                          setSearchParams({ view: 'explore' });
+                          setSearchParams({ view: 'home' });
                         }}
                         style={{
                           background: 'var(--bg-secondary)',

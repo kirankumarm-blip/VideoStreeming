@@ -412,39 +412,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       ]
     },
     {
-      title: 'Subscription Management',
-      icon: '💳',
-      items: [
-        { id: 'subs_plans', label: 'Plans' },
-        { id: 'subs_active', label: 'Active Subscriptions' },
-        { id: 'subs_expired', label: 'Expired Subscriptions' },
-        { id: 'subs_renewals', label: 'Renewals' },
-        { id: 'subs_coupons', label: 'Coupons' }
-      ]
-    },
-    {
-      title: 'Notifications',
-      icon: '🔔',
-      items: [
-        { id: 'notif_push', label: 'Push Notifications' },
-        { id: 'notif_email', label: 'Email Campaigns' },
-        { id: 'notif_sms', label: 'SMS Campaigns' },
-        { id: 'notif_ann', label: 'Announcements' }
-      ]
-    },
-    {
-      title: 'Security & Compliance',
-      icon: '🛡️',
-      items: [
-        { id: 'sec_logs', label: 'Login Logs' },
-        { id: 'sec_failed', label: 'Failed Login Attempts' },
-        { id: 'sec_ip', label: 'IP Monitoring' },
-        { id: 'sec_blocked', label: 'Blocked IPs' },
-        { id: 'sec_audit', label: 'Audit Logs' },
-        { id: 'sec_roles', label: 'Roles & Permissions' }
-      ]
-    },
-    {
       title: 'Reports',
       icon: '📊',
       items: [
@@ -478,18 +445,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         { id: 'ai_churn', label: 'Churn Prediction' },
         { id: 'ai_forecast', label: 'Revenue Forecast' },
         { id: 'ai_recs', label: 'User Recommendations' }
-      ]
-    },
-    {
-      title: 'System Monitoring',
-      icon: '🖥️',
-      items: [
-        { id: 'sys_health', label: 'Server Health' },
-        { id: 'sys_api', label: 'API Monitoring' },
-        { id: 'sys_db', label: 'Database Status' },
-        { id: 'sys_storage', label: 'Storage Usage' },
-        { id: 'sys_jobs', label: 'Background Jobs' },
-        { id: 'sys_queue', label: 'Video Processing Queue' }
       ]
     },
     {
@@ -543,7 +498,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       {/* Mobile Backdrop Overlay */}
       {isSidebarOpen && (
         <div 
@@ -583,6 +538,44 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         zIndex: 995,
         transition: 'transform 0.3s ease, left 0.3s ease'
       }} className={`youtube-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        {/* Mobile Sidebar Brand Header */}
+        <div className="mobile-sidebar-brand-header" style={{
+          alignItems: 'center',
+          gap: '16px',
+          padding: '12px 16px',
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '10px',
+          width: '100%',
+          justifyContent: 'flex-start'
+        }}>
+          <button 
+            onClick={toggleSidebar} 
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-primary)',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            type="button"
+          >
+            ✕
+          </button>
+          <span style={{ 
+            fontFamily: "'Space Grotesk', sans-serif", 
+            fontWeight: 700, 
+            fontSize: '18px', 
+            background: 'linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            VStreem
+          </span>
+        </div>
+
         {menuStructure.map((section, idx) => (
           <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
             <button 
@@ -657,7 +650,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       </div>
 
       {/* 2. MAIN WORKSPACE CONTAINER */}
-      <div style={{ flex: 1, padding: '32px 40px', overflowX: 'hidden', minWidth: 0 }} className="admin-content-container">
+      <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="admin-content-container">
         
         {/* Top Header Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
@@ -2252,7 +2245,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         <input 
                           type="text" 
                           className="form-input" 
-                          value={settings.appName || 'VPLAY STREAM'} 
+                          value={settings.appName || 'VStreem'} 
                           onChange={e => setSettings({ ...settings, appName: e.target.value })}
                         />
                       </div>

@@ -1007,3 +1007,14 @@ body {
     font-size: 12px !important;
   }
 }
+
+/* --- Mobile Sidebar Brand Header --- */
+.mobile-sidebar-brand-header {
+  display: none !important;
+}
+
+@media (max-width: 992px) {
+  .mobile-sidebar-brand-header {
+    display: flex !important;
+  }
+}

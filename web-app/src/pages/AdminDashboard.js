@@ -42,6 +42,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const [userForm, setUserForm] = useState({ name: '', email: '', mobile: '', password: '' });
   const [editingUser, setEditingUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
 
   // Video Upload states
   const [categories, setCategories] = useState([]);
@@ -320,9 +321,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       title: 'User Management',
       icon: '👥',
       items: [
-        { id: 'users_all', label: 'All Users' },
-        { id: 'users_active', label: 'Active Users' },
-        { id: 'users_inactive', label: 'Inactive Users' },
+        { id: 'users_all', label: 'Users' },
         { id: 'users_logs', label: 'User Activity Logs' },
         { id: 'users_subs', label: 'User Subscriptions' },
         { id: 'users_blocked', label: 'Blocked Users' }
@@ -441,7 +440,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       {/* Mobile Backdrop Overlay */}
       {isSidebarOpen && (
         <div 
@@ -481,6 +480,44 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         zIndex: 995,
         transition: 'transform 0.3s ease, left 0.3s ease'
       }} className={`youtube-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        {/* Mobile Sidebar Brand Header */}
+        <div className="mobile-sidebar-brand-header" style={{
+          alignItems: 'center',
+          gap: '16px',
+          padding: '12px 16px',
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '10px',
+          width: '100%',
+          justifyContent: 'flex-start'
+        }}>
+          <button 
+            onClick={toggleSidebar} 
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-primary)',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            type="button"
+          >
+            ✕
+          </button>
+          <span style={{ 
+            fontFamily: "'Space Grotesk', sans-serif", 
+            fontWeight: 700, 
+            fontSize: '18px', 
+            background: 'linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            VStreem
+          </span>
+        </div>
+
         {menuStructure.map((section, idx) => (
           <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
             <button 
@@ -556,7 +593,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       </div>
 
       {/* 2. MAIN ADMIN CONTENT CONTAINER */}
-      <div style={{ flex: 1, padding: '32px 40px', overflowX: 'hidden', minWidth: 0 }} className="admin-content-container">
+      <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="admin-content-container">
         
         {/* Top Header Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
@@ -930,19 +967,31 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
             {/* USERS_ALL CONTENT VIEW */}
             {activeTab === 'users_all' && (
               <div className="animate-fade-in glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
                   <h2 style={{ fontSize: '20px' }}>{t('admin.tabUsers')}</h2>
-                  <button 
-                    onClick={() => {
-                      setEditingUser(null);
-                      setUserForm({ name: '', email: '', mobile: '', password: '' });
-                      setShowUserModal(true);
-                    }}
-                    className="btn btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '13px' }}
-                  >
-                    {t('admin.addUser')}
-                  </button>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <select 
+                      value={userStatusFilter} 
+                      onChange={(e) => setUserStatusFilter(e.target.value)}
+                      className="form-input" 
+                      style={{ width: 'auto', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                    <button 
+                      onClick={() => {
+                        setEditingUser(null);
+                        setUserForm({ name: '', email: '', mobile: '', password: '' });
+                        setShowUserModal(true);
+                      }}
+                      className="btn btn-primary"
+                      style={{ padding: '8px 16px', fontSize: '13px' }}
+                    >
+                      {t('admin.addUser')}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="table-container">
@@ -957,7 +1006,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map(user => (
+                      {users
+                        .filter(user => {
+                          if (userStatusFilter === 'active') return user.status === 'active';
+                          if (userStatusFilter === 'inactive') return user.status === 'disabled';
+                          return true;
+                        })
+                        .map(user => (
                         <tr key={user.id}>
                           <td style={{ fontWeight: 600 }}>{user.name}</td>
                           <td>{user.email}</td>

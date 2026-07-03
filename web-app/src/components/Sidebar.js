@@ -72,6 +72,44 @@ const Sidebar = ({ isOpen, onClose }) => {
           zIndex: 995
         }}
       >
+        {/* Mobile Sidebar Brand Header */}
+        <div className="mobile-sidebar-brand-header" style={{
+          alignItems: 'center',
+          gap: '16px',
+          padding: '12px 16px',
+          borderBottom: '1px solid var(--border-color)',
+          marginBottom: '10px',
+          width: '100%',
+          justifyContent: 'flex-start'
+        }}>
+          <button 
+            onClick={onClose} 
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-primary)',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            type="button"
+          >
+            ✕
+          </button>
+          <span style={{ 
+            fontFamily: "'Space Grotesk', sans-serif", 
+            fontWeight: 700, 
+            fontSize: '18px', 
+            background: 'linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            VStreem
+          </span>
+        </div>
+
         {menuItems.map((item, idx) => {
           const isSelected = activeView === item.id;
           return (

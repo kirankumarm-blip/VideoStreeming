@@ -56,7 +56,7 @@ const AppLayout = ({ theme, setTheme }) => {
   const showSidebar = !isAuthPage && user && user.role === 'user';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       {!isAuthPage && user && (
         <Navigation 
           toggleSidebar={toggleSidebar} 
@@ -64,7 +64,7 @@ const AppLayout = ({ theme, setTheme }) => {
           setTheme={setTheme} 
         />
       )}
-      <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+      <div style={{ flex: 1, display: 'flex', position: 'relative', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
         {showSidebar && (
           <Sidebar 
             isOpen={isSidebarOpen} 
@@ -75,7 +75,9 @@ const AppLayout = ({ theme, setTheme }) => {
           flex: 1, 
           padding: !isAuthPage ? (user && (user.role === 'user' || user.role === 'admin' || user.role === 'super_admin') ? '0' : '40px') : '0',
           position: 'relative',
-          minWidth: 0
+          minWidth: 0,
+          height: '100%',
+          overflow: 'hidden'
         }}>
           <Routes>
           {/* Public Authentication routes */}

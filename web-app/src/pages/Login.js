@@ -14,12 +14,16 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   // States for forgot password flow
-  const [authMode, setAuthMode] = useState('login'); // 'login', 'forgot', 'reset'
+  const [authMode, setAuthMode] = useState('login'); // 'login', 'forgot', 'reset', 'otp'
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // OTP Verification States
+  const [tempLoginData, setTempLoginData] = useState(null);
+  const [otpCode, setOtpCode] = useState('');
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -28,24 +32,49 @@ const Login = () => {
 
     try {
       const res = await api.auth.login(email, password);
+      
+      // Temporarily clear tokens from local storage until OTP is verified
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', email);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
 
-      // Redirect based on role
-      if (res.user.role === 'super_admin') {
-        navigate('/super-admin');
-      } else if (res.user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/');
-      }
+      setTempLoginData(res);
+      setAuthMode('otp');
+      setSuccessMessage('OTP sent successfully! Please verify with static OTP: 123456');
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (otpCode === '123456') {
+      // Save tempLoginData tokens to local storage to finalize the login
+      localStorage.setItem('accessToken', tempLoginData.accessToken);
+      localStorage.setItem('refreshToken', tempLoginData.refreshToken);
+      localStorage.setItem('user', JSON.stringify(tempLoginData.user));
+      setSuccessMessage('');
+
+      // Redirect based on role
+      if (tempLoginData.user.role === 'super_admin') {
+        navigate('/super-admin');
+      } else if (tempLoginData.user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
+    } else {
+      setError('Invalid OTP code. Please enter the correct code.');
     }
   };
 
@@ -231,12 +260,43 @@ const Login = () => {
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}
             </button>
+          </form>
+        )}
 
-            <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
-              {t('auth.dontHaveAccount')}{' '}
-              <Link to="/signup" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
-                {t('auth.signUp')}
-              </Link>
+        {authMode === 'otp' && (
+          <form onSubmit={handleOtpSubmit}>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>
+              OTP Verification
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '24px' }}>
+              Please enter the 6-digit verification code sent to your registered email.
+            </p>
+
+            <div className="form-group">
+              <label className="form-label">Enter OTP</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="123456"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                required
+                maxLength="6"
+                style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '20px', fontWeight: 'bold' }}
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }}>
+              Verify OTP
+            </button>
+
+            <div style={{ textAlign: 'center', fontSize: '14px' }}>
+              <span 
+                onClick={() => { setAuthMode('login'); setError(''); setSuccessMessage(''); setOtpCode(''); }}
+                style={{ color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
+              >
+                {t('auth.backToSignIn')}
+              </span>
             </div>
           </form>
         )}
