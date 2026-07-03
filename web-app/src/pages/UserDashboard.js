@@ -14,6 +14,136 @@ const categoriesWithIcons = [
   { name: 'Coding', icon: '👨‍💻' }
 ];
 
+// Fallback static videos for categories that have no data
+const fallbackStaticVideos = [
+  {
+    id: 'sb-sci-1',
+    title: 'Introduction to Quantum Physics',
+    description: 'Learn the fundamentals of quantum mechanics, wave-particle duality, and the Schrödinger equation.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Science',
+    duration: 320,
+    views: 1200,
+    rating: 4.8,
+    instructor: 'Dr. Sarah Jenkins',
+    difficulty: 'Intermediate',
+    tags: ['quantum', 'physics', 'science']
+  },
+  {
+    id: 'sb-sci-2',
+    title: 'The Wonders of Organic Chemistry',
+    description: 'Explore the fascinating world of carbon compounds, reactions mechanisms, and molecular structures.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1532187863486-abf9d39d66e8?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Science',
+    duration: 280,
+    views: 950,
+    rating: 4.6,
+    instructor: 'Prof. Alan Turing',
+    difficulty: 'Beginner',
+    tags: ['chemistry', 'organic', 'science']
+  },
+  {
+    id: 'sb-tech-1',
+    title: 'How the Internet Works Under the Hood',
+    description: 'A deep dive into DNS, TCP/IP, IP routing, HTTP packets, and client-server architectures.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Technology',
+    duration: 450,
+    views: 3100,
+    rating: 4.9,
+    instructor: 'Markus Persson',
+    difficulty: 'Beginner',
+    tags: ['networking', 'internet', 'tech']
+  },
+  {
+    id: 'sb-tech-2',
+    title: 'Building Modern Cloud Infrastructures',
+    description: 'Deploying secure, load-balanced scalable services on AWS, Docker, and Kubernetes.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Technology',
+    duration: 620,
+    views: 1800,
+    rating: 4.7,
+    instructor: 'Linus Torvalds',
+    difficulty: 'Advanced',
+    tags: ['aws', 'kubernetes', 'cloud']
+  },
+  {
+    id: 'sb-fin-1',
+    title: 'Stock Market Essentials for Beginners',
+    description: 'Understanding stock tickers, market caps, P/E ratios, dividends, and compound interest growth.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Finance',
+    duration: 380,
+    views: 4200,
+    rating: 4.5,
+    instructor: 'Warren Buffett',
+    difficulty: 'Beginner',
+    tags: ['stocks', 'investing', 'finance']
+  },
+  {
+    id: 'sb-ai-1',
+    title: 'Demystifying Large Language Models',
+    description: 'How transformers, attention mechanisms, embeddings, and prompt tuning work in modern generative AI.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1677442136019-21780efad99a?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'AI',
+    duration: 510,
+    views: 5400,
+    rating: 4.9,
+    instructor: 'Andrew Ng',
+    difficulty: 'Intermediate',
+    tags: ['llm', 'generative ai', 'transformers']
+  },
+  {
+    id: 'sb-bus-1',
+    title: 'Negotiation Skills for Executives',
+    description: 'Master the art of leverage, active listening, win-win framing, and closing deals successfully.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Business',
+    duration: 340,
+    views: 1300,
+    rating: 4.7,
+    instructor: 'Sheryl Sandberg',
+    difficulty: 'Intermediate',
+    tags: ['negotiation', 'leadership', 'business']
+  },
+  {
+    id: 'sb-health-1',
+    title: 'The Science of Sleep and Brain Performance',
+    description: 'Optimize your circadian rhythm, REM cycles, and mental focus using evidence-based habits.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1511295742364-92791a13622d?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Health',
+    duration: 290,
+    views: 2900,
+    rating: 4.8,
+    instructor: 'Dr. Matthew Walker',
+    difficulty: 'Beginner',
+    tags: ['sleep', 'neuroscience', 'wellness']
+  },
+  {
+    id: 'sb-coding-1',
+    title: 'React 19 Core Concepts Explained',
+    description: 'Master React Server Components, server actions, useActionState, and the compiler in React 19.',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    category: 'Coding',
+    duration: 480,
+    views: 6700,
+    rating: 4.9,
+    instructor: 'Dan Abramov',
+    difficulty: 'Intermediate',
+    tags: ['react', 'javascript', 'coding']
+  }
+];
+
 // YouTube-Style Hover Silent Video Preview Component
 const HoverThumbnail = ({ video }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -224,19 +354,36 @@ const UserDashboard = () => {
     setComments(prev => prev.map(c => c.id === id ? { ...c, votes: c.votes + 1 } : c));
   };
 
-  // Helper to filter videos dynamically for Explore
-  const getFilteredExploreVideos = () => {
+  // Helper to compile a unified, deduplicated list of all videos (merging backend + static fallbacks)
+  const getAllVideosList = () => {
     const allVideosMap = {};
-    [
-      ...(dashboardData?.recommended || []), 
-      ...(dashboardData?.trending || []), 
-      ...(dashboardData?.topRated || []),
-      ...(dashboardData?.newVideos || [])
-    ].forEach(v => {
+    
+    // 1. Populate fallback static videos first
+    fallbackStaticVideos.forEach(v => {
       allVideosMap[v.id] = v;
     });
-    
-    let allList = Object.values(allVideosMap);
+
+    // 2. Overlay live assigned videos from backend
+    if (dashboardData) {
+      [
+        ...(dashboardData.recommended || []), 
+        ...(dashboardData.trending || []), 
+        ...(dashboardData.topRated || []),
+        ...(dashboardData.newVideos || []),
+        ...(dashboardData.continueWatching || []),
+        ...(dashboardData.recentlyWatched || []),
+        ...(dashboardData.favorites || [])
+      ].forEach(v => {
+        allVideosMap[v.id] = v;
+      });
+    }
+
+    return Object.values(allVideosMap);
+  };
+
+  // Helper to filter videos dynamically for Explore
+  const getFilteredExploreVideos = () => {
+    let allList = getAllVideosList();
 
     if (searchQuery) {
       allList = allList.filter(v => 
@@ -611,7 +758,7 @@ const UserDashboard = () => {
                       </button>
                     </h3>
                     {(() => {
-                      const filtered = (dashboardData?.allVideos || []).filter(v => v.category === selectedCategory);
+                      const filtered = getAllVideosList().filter(v => v.category === selectedCategory);
                       if (filtered.length === 0) {
                         return (
                           <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center' }}>
