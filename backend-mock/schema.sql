@@ -1,5 +1,7 @@
+-- ============================================================================
 -- SQL Database Schema Scripts for VPLAY STREAM Video Streaming Platform
--- Compatible with PostgreSQL (with JSONB support) and MySQL 8.0+ (standard modifications noted)
+-- Compatible with PostgreSQL (with JSONB support) and MySQL 8.0+
+-- ============================================================================
 
 -- 1. Create Categories Table
 CREATE TABLE categories (
@@ -45,13 +47,17 @@ CREATE TABLE videos (
     uploaded_by VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     assigned_admins JSONB DEFAULT '[]'::jsonb, -- Stores array of admin user IDs
     views INT NOT NULL DEFAULT 0,
-    duration INT NOT NULL DEFAULT 0 -- Duration in seconds
+    duration INT NOT NULL DEFAULT 0, -- Duration in seconds
+    rating DECIMAL(3, 2) DEFAULT 0.00,
+    instructor VARCHAR(100) DEFAULT '',
+    difficulty VARCHAR(20) DEFAULT 'Beginner' CHECK (difficulty IN ('Beginner', 'Intermediate', 'Advanced'))
 );
 
 -- Indexes for video searching and filtering
 CREATE INDEX idx_videos_category ON videos(category);
 CREATE INDEX idx_videos_uploaded_by ON videos(uploaded_by);
 CREATE INDEX idx_videos_visibility ON videos(visibility);
+CREATE INDEX idx_videos_views ON videos(views DESC);
 
 
 -- 4. Create Watch History Table
@@ -72,7 +78,7 @@ CREATE INDEX idx_watch_history_video_id ON watch_history(video_id);
 CREATE INDEX idx_watch_history_date ON watch_history(watch_date DESC);
 
 
--- 5. Create Favorites Table
+-- 5. Create Favorites Table (Bookmarks)
 CREATE TABLE favorites (
     user_id VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     video_id VARCHAR(50) NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
@@ -97,3 +103,84 @@ CREATE TABLE notifications (
 -- Indexes for notifications retrieval
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_read ON notifications(user_id, read);
+
+
+-- 7. Create Reported Videos Table
+CREATE TABLE reported_videos (
+    id VARCHAR(50) PRIMARY KEY,
+    video_id VARCHAR(50) NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    video_title VARCHAR(255) NOT NULL,
+    reported_by VARCHAR(50) REFERENCES users(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL,
+    date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dismissed', 'resolved'))
+);
+
+CREATE INDEX idx_reported_videos_status ON reported_videos(status);
+CREATE INDEX idx_reported_videos_video_id ON reported_videos(video_id);
+
+
+-- 8. Create Subscription Plans Table
+CREATE TABLE subscription_plans (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    price DECIMAL(10, 2) NOT NULL,
+    duration_days INT NOT NULL,
+    features JSONB DEFAULT '[]'::jsonb -- List of featured strings included in the plan
+);
+
+
+-- 9. Create Transactions Table
+CREATE TABLE transactions (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) REFERENCES users(id) ON DELETE SET NULL,
+    user_name VARCHAR(100) NOT NULL,
+    plan_id VARCHAR(50) REFERENCES subscription_plans(id) ON DELETE SET NULL,
+    plan_name VARCHAR(100) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed', 'refunded')),
+    date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    region VARCHAR(100) DEFAULT ''
+);
+
+CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX idx_transactions_status ON transactions(status);
+CREATE INDEX idx_transactions_date ON transactions(date DESC);
+
+
+-- 10. Create Live Streams Table
+CREATE TABLE live_streams (
+    id VARCHAR(50) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    admin_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+    admin_name VARCHAR(100) NOT NULL,
+    viewers INT DEFAULT 0,
+    bitrate INT DEFAULT 0, -- kbps
+    fps INT DEFAULT 30,
+    errors INT DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'ended'))
+);
+
+CREATE INDEX idx_live_streams_admin_id ON live_streams(admin_id);
+CREATE INDEX idx_live_streams_status ON live_streams(status);
+
+
+-- 11. Create Admin Activity Logs Table
+CREATE TABLE admin_activity_logs (
+    id VARCHAR(50) PRIMARY KEY,
+    admin_id VARCHAR(50) REFERENCES users(id) ON DELETE CASCADE,
+    admin_name VARCHAR(100) NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    details TEXT DEFAULT '',
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_admin_activity_logs_admin_id ON admin_activity_logs(admin_id);
+CREATE INDEX idx_admin_activity_logs_date ON admin_activity_logs(timestamp DESC);
+
+
+-- 12. Create Settings Table (Key-Value)
+CREATE TABLE settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL -- Stores configuration JSON structures dynamically
+);
