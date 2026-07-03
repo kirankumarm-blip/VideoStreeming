@@ -20,7 +20,7 @@ const fallbackStaticVideos = [
     id: 'sb-sci-1',
     title: 'Introduction to Quantum Physics',
     description: 'Learn the fundamentals of quantum mechanics, wave-particle duality, and the Schrödinger equation.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Science',
     duration: 320,
@@ -34,7 +34,7 @@ const fallbackStaticVideos = [
     id: 'sb-sci-2',
     title: 'The Wonders of Organic Chemistry',
     description: 'Explore the fascinating world of carbon compounds, reactions mechanisms, and molecular structures.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1532187863486-abf9d39d66e8?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1532187863486-abf9d39d66e8?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Science',
     duration: 280,
@@ -48,7 +48,7 @@ const fallbackStaticVideos = [
     id: 'sb-tech-1',
     title: 'How the Internet Works Under the Hood',
     description: 'A deep dive into DNS, TCP/IP, IP routing, HTTP packets, and client-server architectures.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Technology',
     duration: 450,
@@ -62,7 +62,7 @@ const fallbackStaticVideos = [
     id: 'sb-tech-2',
     title: 'Building Modern Cloud Infrastructures',
     description: 'Deploying secure, load-balanced scalable services on AWS, Docker, and Kubernetes.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Technology',
     duration: 620,
@@ -76,7 +76,7 @@ const fallbackStaticVideos = [
     id: 'sb-fin-1',
     title: 'Stock Market Essentials for Beginners',
     description: 'Understanding stock tickers, market caps, P/E ratios, dividends, and compound interest growth.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Finance',
     duration: 380,
@@ -90,7 +90,7 @@ const fallbackStaticVideos = [
     id: 'sb-ai-1',
     title: 'Demystifying Large Language Models',
     description: 'How transformers, attention mechanisms, embeddings, and prompt tuning work in modern generative AI.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1677442136019-21780efad99a?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1677442136019-21780efad99a?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'AI',
     duration: 510,
@@ -104,7 +104,7 @@ const fallbackStaticVideos = [
     id: 'sb-bus-1',
     title: 'Negotiation Skills for Executives',
     description: 'Master the art of leverage, active listening, win-win framing, and closing deals successfully.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Business',
     duration: 340,
@@ -118,7 +118,7 @@ const fallbackStaticVideos = [
     id: 'sb-health-1',
     title: 'The Science of Sleep and Brain Performance',
     description: 'Optimize your circadian rhythm, REM cycles, and mental focus using evidence-based habits.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1511295742364-92791a13622d?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1511295742364-92791a13622d?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Health',
     duration: 290,
@@ -132,7 +132,7 @@ const fallbackStaticVideos = [
     id: 'sb-coding-1',
     title: 'React 19 Core Concepts Explained',
     description: 'Master React Server Components, server actions, useActionState, and the compiler in React 19.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
+    thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
     videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     category: 'Coding',
     duration: 480,
@@ -187,6 +187,14 @@ const HoverThumbnail = ({ video }) => {
     return url;
   })();
 
+  const thumbUrl = (() => {
+    const thumb = video.thumbnail || '';
+    if (!thumb) {
+      return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
+    }
+    return thumb.startsWith('http') ? thumb : `http://localhost:5000${thumb}`;
+  })();
+
   return (
     <div 
       onMouseEnter={handleMouseEnter}
@@ -194,7 +202,7 @@ const HoverThumbnail = ({ video }) => {
       style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, overflow: 'hidden' }}
     >
       <img 
-        src={video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`} 
+        src={thumbUrl} 
         alt={video.title} 
         className="thumbnail-img" 
         style={{ 
