@@ -153,6 +153,19 @@ const VideoWatch = () => {
     saveProgress();
   };
 
+  const handlePlay = () => {
+    setIsPlaying(true);
+    startProgressTracking();
+  };
+
+  const handlePause = () => {
+    setIsPlaying(false);
+    stopProgressTracking();
+    if (videoRef.current && !videoRef.current.seeking && videoRef.current.currentTime < videoRef.current.duration) {
+      trackingDataRef.current.pausedCount += 1;
+    }
+  };
+
   const saveProgress = async () => {
     if (videoRef.current) {
       const pos = Math.round(videoRef.current.currentTime);
@@ -187,7 +200,6 @@ const VideoWatch = () => {
           videoRef.current.currentTime = thisRecord.lastPosition;
           prevTimeRef.current = thisRecord.lastPosition;
           videoRef.current.play().catch(e => console.log(e));
-          setIsPlaying(true);
         }
       });
     }
@@ -198,13 +210,8 @@ const VideoWatch = () => {
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause();
-        setIsPlaying(false);
-        stopProgressTracking();
-        trackingDataRef.current.pausedCount += 1;
       } else {
         videoRef.current.play().catch(e => console.log(e));
-        setIsPlaying(true);
-        startProgressTracking();
       }
     }
   };
@@ -304,8 +311,6 @@ const VideoWatch = () => {
   };
 
   const handleVideoEnded = () => {
-    setIsPlaying(false);
-    stopProgressTracking();
     saveProgress();
   };
 
@@ -354,6 +359,8 @@ const VideoWatch = () => {
             className="video-player-element"
             onTimeUpdate={handleTimeUpdate}
             onSeeking={handleSeeking}
+            onPlay={handlePlay}
+            onPause={handlePause}
             onEnded={handleVideoEnded}
             onClick={handlePlayPause}
             controls={false}
