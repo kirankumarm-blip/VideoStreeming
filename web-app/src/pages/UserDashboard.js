@@ -373,7 +373,7 @@ const UserDashboard = () => {
 
     // 2. Overlay live assigned videos from backend
     if (dashboardData) {
-      [
+      const liveList = dashboardData.allVideos || [
         ...(dashboardData.recommended || []), 
         ...(dashboardData.trending || []), 
         ...(dashboardData.topRated || []),
@@ -381,7 +381,8 @@ const UserDashboard = () => {
         ...(dashboardData.continueWatching || []),
         ...(dashboardData.recentlyWatched || []),
         ...(dashboardData.favorites || [])
-      ].forEach(v => {
+      ];
+      liveList.forEach(v => {
         allVideosMap[v.id] = v;
       });
     }

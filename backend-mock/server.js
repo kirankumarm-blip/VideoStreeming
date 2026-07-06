@@ -1060,7 +1060,8 @@ app.get('/api/dashboard/user', authenticateToken, authorizeRoles('user'), (req, 
     topRated,
     becauseYouWatched,
     userAnalytics,
-    progressDashboard
+    progressDashboard,
+    allVideos: assignedVideos
   });
 });
 
