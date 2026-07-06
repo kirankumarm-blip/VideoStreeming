@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VStreem</string>
+    <string name="title_activity_main">VStreem</string>
+    <string name="package_name">com.vstreem.app</string>
+    <string name="custom_url_scheme">com.vstreem.app</string>
+</resources>
