@@ -597,7 +597,7 @@ app.post('/api/videos/assign', authenticateToken, authorizeRoles('super_admin'),
 // ================= USER TRACKING & HISTORY =================
 
 app.post('/api/videos/track', authenticateToken, authorizeRoles('user'), (req, res) => {
-  const { videoId, lastPosition, duration } = req.body;
+  const { videoId, lastPosition, duration, isNewSession, watchTime, pausedCount, forwardedCount, backwardCount } = req.body;
   if (!videoId || lastPosition === undefined) return res.status(400).json({ message: "VideoId and lastPosition are required" });
 
   const db = readDB();
@@ -616,20 +616,38 @@ app.post('/api/videos/track', authenticateToken, authorizeRoles('user'), (req, r
 
   if (historyItem) {
     historyItem.watchDate = new Date().toISOString();
-    historyItem.watchTime = lastPosition;
     historyItem.lastPosition = lastPosition;
     historyItem.completionPercentage = watchPercentage;
     historyItem.status = status;
+    
+    // Increment views if new session
+    if (isNewSession) {
+      historyItem.views = (historyItem.views || 1) + 1;
+    }
+    
+    // Update counters
+    historyItem.pausedCount = pausedCount !== undefined ? pausedCount : (historyItem.pausedCount || 0);
+    historyItem.forwardedCount = forwardedCount !== undefined ? forwardedCount : (historyItem.forwardedCount || 0);
+    historyItem.backwardCount = backwardCount !== undefined ? backwardCount : (historyItem.backwardCount || 0);
+    
+    // Accumulate actual watch time seconds
+    if (watchTime !== undefined) {
+      historyItem.watchTime = (historyItem.watchTime || 0) + watchTime;
+    }
   } else {
     historyItem = {
       id: 'h-' + Date.now(),
       userId: req.user.id,
       videoId,
       watchDate: new Date().toISOString(),
-      watchTime: lastPosition,
+      watchTime: watchTime || lastPosition || 0,
       lastPosition,
       completionPercentage: watchPercentage,
-      status
+      status,
+      views: 1,
+      pausedCount: pausedCount || 0,
+      forwardedCount: forwardedCount || 0,
+      backwardCount: backwardCount || 0
     };
     db.watchHistory.push(historyItem);
     // Increment views
@@ -788,13 +806,35 @@ app.get('/api/dashboard/super-admin', authenticateToken, authorizeRoles('super_a
     { id: "job-4", videoTitle: "Hindi Grammer Basics", resolution: "480p", progress: 100, status: "completed" }
   ];
 
+  const watchHistoryDetails = db.watchHistory.map(h => {
+    const user = db.users.find(u => u.id === h.userId);
+    const video = db.videos.find(v => v.id === h.videoId);
+    return {
+      id: h.id,
+      userName: user ? user.name : 'Unknown User',
+      userEmail: user ? user.email : 'Unknown Email',
+      videoTitle: video ? video.title : 'Deleted Video',
+      videoCategory: video ? video.category : 'N/A',
+      views: h.views || 1,
+      completed: h.status === 'completed' ? 'Yes' : 'No',
+      completionPercentage: h.completionPercentage || 0,
+      watchTime: h.watchTime || h.lastPosition || 0,
+      pausedCount: h.pausedCount || 0,
+      forwardedCount: h.forwardedCount || 0,
+      backwardCount: h.backwardCount || 0,
+      lastPosition: h.lastPosition || 0,
+      watchDate: h.watchDate
+    };
+  });
+
   res.json({
     cards: { totalAdmins, totalUsers, totalVideos, totalCategories, videosWatchedToday, activeUsers },
     charts: { dailyWatchStats, categoryViews, userGrowth, adminUsage },
     recentActivities,
     storageMetrics,
     systemHealth,
-    encodingQueue
+    encodingQueue,
+    watchHistoryDetails
   });
 });
 
@@ -852,12 +892,34 @@ app.get('/api/dashboard/admin', authenticateToken, authorizeRoles('admin'), (req
     { id: "job-1", videoTitle: "Getting Started with Flutter", resolution: "1080p", progress: 85, status: "processing" }
   ];
 
+  const watchHistoryDetails = myWatchHistories.map(h => {
+    const user = db.users.find(u => u.id === h.userId);
+    const video = db.videos.find(v => v.id === h.videoId);
+    return {
+      id: h.id,
+      userName: user ? user.name : 'Unknown User',
+      userEmail: user ? user.email : 'Unknown Email',
+      videoTitle: video ? video.title : 'Deleted Video',
+      videoCategory: video ? video.category : 'N/A',
+      views: h.views || 1,
+      completed: h.status === 'completed' ? 'Yes' : 'No',
+      completionPercentage: h.completionPercentage || 0,
+      watchTime: h.watchTime || h.lastPosition || 0,
+      pausedCount: h.pausedCount || 0,
+      forwardedCount: h.forwardedCount || 0,
+      backwardCount: h.backwardCount || 0,
+      lastPosition: h.lastPosition || 0,
+      watchDate: h.watchDate
+    };
+  });
+
   res.json({
     cards: { totalUsers, totalVideos, totalViews, activeUsers },
     charts: { mostViewedVideos, categoryDistribution, userEngagement },
     storageMetrics,
     systemHealth,
-    encodingQueue
+    encodingQueue,
+    watchHistoryDetails
   });
 });
 

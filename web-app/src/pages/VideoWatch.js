@@ -18,6 +18,17 @@ const VideoWatch = () => {
   const [lastPositionLoaded, setLastPositionLoaded] = useState(false);
   const [savedPositionText, setSavedPositionText] = useState('');
 
+  // Playback detailed analytics tracking
+  const trackingDataRef = useRef({
+    isNewSession: true,
+    watchTime: 0,
+    pausedCount: 0,
+    forwardedCount: 0,
+    backwardCount: 0
+  });
+  const prevTimeRef = useRef(0);
+  const isResumingRef = useRef(false);
+
   // Player UI states
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -27,6 +38,18 @@ const VideoWatch = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [quality, setQuality] = useState('Auto');
   const [isQualitySwitching, setIsQualitySwitching] = useState(false);
+
+  useEffect(() => {
+    let interval = null;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        trackingDataRef.current.watchTime += 1;
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying]);
 
   // YouTube metadata engagement states
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -136,7 +159,18 @@ const VideoWatch = () => {
       const dur = Math.round(videoRef.current.duration || video?.duration || 300);
       if (pos > 0) {
         try {
-          await api.videos.track(id, pos, dur);
+          const deltaWatchTime = trackingDataRef.current.watchTime;
+          await api.videos.track(id, {
+            lastPosition: pos,
+            duration: dur,
+            isNewSession: trackingDataRef.current.isNewSession,
+            watchTime: deltaWatchTime,
+            pausedCount: trackingDataRef.current.pausedCount,
+            forwardedCount: trackingDataRef.current.forwardedCount,
+            backwardCount: trackingDataRef.current.backwardCount
+          });
+          trackingDataRef.current.watchTime -= deltaWatchTime;
+          trackingDataRef.current.isNewSession = false;
         } catch (e) {
           console.error("Failed to track video progress", e);
         }
@@ -149,7 +183,9 @@ const VideoWatch = () => {
       api.videos.getHistory().then(history => {
         const thisRecord = history.find(h => h.videoId === id);
         if (thisRecord && thisRecord.lastPosition) {
+          isResumingRef.current = true;
           videoRef.current.currentTime = thisRecord.lastPosition;
+          prevTimeRef.current = thisRecord.lastPosition;
           videoRef.current.play().catch(e => console.log(e));
           setIsPlaying(true);
         }
@@ -164,6 +200,7 @@ const VideoWatch = () => {
         videoRef.current.pause();
         setIsPlaying(false);
         stopProgressTracking();
+        trackingDataRef.current.pausedCount += 1;
       } else {
         videoRef.current.play().catch(e => console.log(e));
         setIsPlaying(true);
@@ -242,6 +279,27 @@ const VideoWatch = () => {
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
       setDuration(videoRef.current.duration || video?.duration || 0);
+      if (!videoRef.current.seeking) {
+        prevTimeRef.current = videoRef.current.currentTime;
+      }
+    }
+  };
+
+  const handleSeeking = () => {
+    if (videoRef.current) {
+      if (isResumingRef.current) {
+        isResumingRef.current = false;
+        prevTimeRef.current = videoRef.current.currentTime;
+        return;
+      }
+      const current = videoRef.current.currentTime;
+      const prev = prevTimeRef.current;
+      if (current > prev + 1.5) {
+        trackingDataRef.current.forwardedCount += 1;
+      } else if (current < prev - 1.5) {
+        trackingDataRef.current.backwardCount += 1;
+      }
+      prevTimeRef.current = current;
     }
   };
 
@@ -295,6 +353,7 @@ const VideoWatch = () => {
             src={srcUrl}
             className="video-player-element"
             onTimeUpdate={handleTimeUpdate}
+            onSeeking={handleSeeking}
             onEnded={handleVideoEnded}
             onClick={handlePlayPause}
             controls={false}

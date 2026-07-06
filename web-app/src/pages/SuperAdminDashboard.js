@@ -1910,6 +1910,110 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     </div>
                   </div>
                 </div>
+
+                {/* --- USER PLAYBACK BEHAVIOR METRICS --- */}
+                <div className="glass-card" style={{ marginTop: '24px' }}>
+                  <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    👤 User Video Playback Behavior Metrics
+                  </h3>
+                  <div className="table-container" style={{ overflowX: 'auto' }}>
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Category</th>
+                          <th>Video</th>
+                          <th style={{ textAlign: 'center' }}>Views</th>
+                          <th style={{ textAlign: 'center' }}>Completed</th>
+                          <th>Completion %</th>
+                          <th>Watch Time</th>
+                          <th style={{ textAlign: 'center' }}>Paused</th>
+                          <th style={{ textAlign: 'center' }}>Forwarded</th>
+                          <th style={{ textAlign: 'center' }}>Backward</th>
+                          <th style={{ textAlign: 'center' }}>Last Position</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats?.watchHistoryDetails && stats.watchHistoryDetails.length > 0 ? (
+                          stats.watchHistoryDetails.map((item, idx) => {
+                            const formatWatchTime = (seconds) => {
+                              if (!seconds) return '0s';
+                              const mins = Math.floor(seconds / 60);
+                              const secs = seconds % 60;
+                              if (mins > 0) {
+                                return `${mins}m ${secs > 0 ? secs + 's' : ''}`;
+                              }
+                              return `${secs}s`;
+                            };
+
+                            const formatPosition = (seconds) => {
+                              if (!seconds) return '00:00';
+                              const mins = Math.floor(seconds / 60);
+                              const secs = seconds % 60;
+                              return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                            };
+
+                            return (
+                              <tr key={item.id || idx}>
+                                <td style={{ fontWeight: 600 }}>
+                                  <div>{item.userName}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{item.userEmail}</div>
+                                </td>
+                                <td>
+                                  <span className="category-tag" style={{ fontSize: '12px' }}>
+                                    {item.videoCategory}
+                                  </span>
+                                </td>
+                                <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {item.videoTitle}
+                                </td>
+                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.views}</td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <span style={{ 
+                                    padding: '4px 8px', 
+                                    borderRadius: '12px', 
+                                    fontSize: '11px', 
+                                    fontWeight: 600,
+                                    background: item.completed === 'Yes' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    color: item.completed === 'Yes' ? '#10b981' : '#ef4444'
+                                  }}>
+                                    {item.completed}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ flex: 1, height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', minWidth: '60px' }}>
+                                      <div style={{ 
+                                        width: `${item.completionPercentage}%`, 
+                                        height: '100%', 
+                                        background: item.completionPercentage >= 95 ? '#10b981' : 'var(--accent-primary)',
+                                        borderRadius: '3px'
+                                      }} />
+                                    </div>
+                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{item.completionPercentage}%</span>
+                                  </div>
+                                </td>
+                                <td style={{ fontWeight: 500 }}>{formatWatchTime(item.watchTime)}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.pausedCount}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.forwardedCount}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.backwardCount}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, fontFamily: 'monospace' }}>
+                                  {item.completed === 'Yes' ? '100%' : formatPosition(item.lastPosition)}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan="11" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
+                              No playback logs registered yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
 

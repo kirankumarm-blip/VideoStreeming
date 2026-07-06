@@ -211,10 +211,10 @@ export const api = {
         body: JSON.stringify({ videoId, assignedAdmins }),
       });
     },
-    track: (videoId, lastPosition, duration) => {
+    track: (videoId, trackingData) => {
       return request('/videos/track', {
         method: 'POST',
-        body: JSON.stringify({ videoId, lastPosition, duration }),
+        body: JSON.stringify({ videoId, ...trackingData }),
       });
     },
     getHistory: () => request('/videos/history'),
