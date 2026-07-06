@@ -28,6 +28,7 @@ const VideoWatch = () => {
   });
   const prevTimeRef = useRef(0);
   const isResumingRef = useRef(false);
+  const seekStartTimeRef = useRef(0);
 
   // Player UI states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -218,7 +219,13 @@ const VideoWatch = () => {
 
   const handleSeek = (seconds) => {
     if (videoRef.current) {
+      isResumingRef.current = true;
       videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration, videoRef.current.currentTime + seconds));
+      if (seconds > 0) {
+        trackingDataRef.current.forwardedCount += 1;
+      } else {
+        trackingDataRef.current.backwardCount += 1;
+      }
     }
   };
 
@@ -304,6 +311,25 @@ const VideoWatch = () => {
       if (current > prev + 1.5) {
         trackingDataRef.current.forwardedCount += 1;
       } else if (current < prev - 1.5) {
+        trackingDataRef.current.backwardCount += 1;
+      }
+      prevTimeRef.current = current;
+    }
+  };
+
+  const handleTimelineDragStart = () => {
+    if (videoRef.current) {
+      seekStartTimeRef.current = videoRef.current.currentTime;
+    }
+  };
+
+  const handleTimelineDragEnd = () => {
+    if (videoRef.current) {
+      const current = videoRef.current.currentTime;
+      const start = seekStartTimeRef.current;
+      if (current > start + 1.5) {
+        trackingDataRef.current.forwardedCount += 1;
+      } else if (current < start - 1.5) {
         trackingDataRef.current.backwardCount += 1;
       }
       prevTimeRef.current = current;
@@ -481,6 +507,10 @@ const VideoWatch = () => {
                 onChange={(e) => {
                   if (videoRef.current) videoRef.current.currentTime = e.target.value;
                 }}
+                onMouseDown={handleTimelineDragStart}
+                onTouchStart={handleTimelineDragStart}
+                onMouseUp={handleTimelineDragEnd}
+                onTouchEnd={handleTimelineDragEnd}
                 style={{
                   flex: 1,
                   height: '4px',
