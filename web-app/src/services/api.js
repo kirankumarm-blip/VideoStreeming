@@ -1,4 +1,6 @@
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const getBaseUrl = () => {
+  return localStorage.getItem('serverUrl') || process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+};
 
 // Helper to get tokens
 export const getAccessToken = () => localStorage.getItem('accessToken');
@@ -27,7 +29,7 @@ export const setCurrentUser = (user) => {
 
 // Custom Fetch Wrapper with Auto Token Refresh
 async function request(endpoint, options = {}) {
-  const url = `${BASE_URL}${endpoint}`;
+  const url = `${getBaseUrl()}${endpoint}`;
   const headers = {
     ...options.headers,
   };
@@ -53,7 +55,7 @@ async function request(endpoint, options = {}) {
   // If unauthorized, try to refresh token
   if ((response.status === 401 || response.status === 403) && getRefreshToken()) {
     try {
-      const refreshResponse = await fetch(`${BASE_URL}/auth/refresh`, {
+      const refreshResponse = await fetch(`${getBaseUrl()}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: getRefreshToken() }),

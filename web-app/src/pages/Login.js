@@ -25,6 +25,20 @@ const Login = () => {
   const [tempLoginData, setTempLoginData] = useState(null);
   const [otpCode, setOtpCode] = useState('');
 
+  // Server configuration states
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverUrl, setServerUrl] = useState(localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
+
+  const handleSaveServerConfig = (e) => {
+    e.preventDefault();
+    localStorage.setItem('serverUrl', serverUrl);
+    setShowServerConfig(false);
+    setSuccessMessage('Server URL updated successfully!');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -396,6 +410,45 @@ const Login = () => {
             </div>
           </form>
         )}
+        {/* Server IP Config Drawer */}
+        <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px', textAlign: 'center' }}>
+          {!showServerConfig ? (
+            <span 
+              onClick={() => setShowServerConfig(true)}
+              style={{ fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            >
+              ⚙️ Configure Server IP Address
+            </span>
+          ) : (
+            <form onSubmit={handleSaveServerConfig} style={{ textAlign: 'left', marginTop: '8px' }}>
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Server API Base URL</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  placeholder="e.g. http://192.168.1.100:5000/api"
+                  required
+                  style={{ fontSize: '12px', padding: '8px 12px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px', flex: 1 }}>
+                  Save & Reload
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowServerConfig(false)}
+                  style={{ padding: '6px 12px', fontSize: '11px', flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
