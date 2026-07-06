@@ -292,7 +292,7 @@ const VideoWatch = () => {
     }
   };
 
-  const handleSeeking = () => {
+  const handleSeeked = () => {
     if (videoRef.current) {
       if (isResumingRef.current) {
         isResumingRef.current = false;
@@ -358,7 +358,7 @@ const VideoWatch = () => {
             src={srcUrl}
             className="video-player-element"
             onTimeUpdate={handleTimeUpdate}
-            onSeeking={handleSeeking}
+            onSeeked={handleSeeked}
             onPlay={handlePlay}
             onPause={handlePause}
             onEnded={handleVideoEnded}
