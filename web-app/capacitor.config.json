@@ -1,0 +1,6 @@
+{
+  "appId": "com.vstreem.app",
+  "appName": "VStreem",
+  "webDir": "build",
+  "bundledWebRuntime": false
+}
