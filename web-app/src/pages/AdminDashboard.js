@@ -1126,29 +1126,29 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '10px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Video File</label>
-                      <input 
-                        type="file" 
-                        id="videoInput"
-                        accept="video/*" 
-                        onChange={(e) => setVideoFile(e.target.files[0])}
-                        required
-                        style={{ fontSize: '13px' }}
-                      />
-                    </div>
+                  <div className="form-group" style={{ marginTop: '16px' }}>
+                    <label className="form-label">Video File</label>
+                    <input 
+                      type="file" 
+                      id="videoInput"
+                      accept="video/*" 
+                      onChange={(e) => setVideoFile(e.target.files[0])}
+                      required
+                      className="form-input"
+                      style={{ fontSize: '13px', padding: '10px' }}
+                    />
+                  </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Thumbnail Image</label>
-                      <input 
-                        type="file" 
-                        id="thumbInput"
-                        accept="image/*" 
-                        onChange={(e) => setThumbnailFile(e.target.files[0])}
-                        style={{ fontSize: '13px' }}
-                      />
-                    </div>
+                  <div className="form-group" style={{ marginTop: '16px' }}>
+                    <label className="form-label">Thumbnail Image</label>
+                    <input 
+                      type="file" 
+                      id="thumbInput"
+                      accept="image/*" 
+                      onChange={(e) => setThumbnailFile(e.target.files[0])}
+                      className="form-input"
+                      style={{ fontSize: '13px', padding: '10px' }}
+                    />
                   </div>
 
                   {uploadProgress && (
