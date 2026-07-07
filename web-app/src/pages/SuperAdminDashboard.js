@@ -81,6 +81,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const [planForm, setPlanForm] = useState({ name: '', price: '', durationDays: 30, features: '' });
   const [editingPlan, setEditingPlan] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
+
+  // Responsive state for mobile layout
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   const [moderationReports, setModerationReports] = useState({ reportedVideos: [], reportedUsers: [], copyrightIssues: [], spamDetection: [] });
   const [transactions, setTransactions] = useState([]);
@@ -2512,36 +2520,57 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
       {/* --- ADMIN CRUD MODAL --- */}
       {showAdminModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '580px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingAdmin ? 'Edit Admin' : 'Add Admin'}</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{
+            width: isMobile ? '90%' : '100%',
+            maxWidth: '640px',
+            padding: isMobile ? '24px 16px' : '32px',
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            color: '#333333',
+            maxHeight: isMobile ? '85vh' : 'auto',
+            overflowY: isMobile ? 'auto' : 'visible'
+          }}>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', color: '#111111' }}>{editingAdmin ? 'Edit Admin' : 'Add Admin'}</h3>
             <form onSubmit={handleAdminSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '8px', marginBottom: '24px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">First Name</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>First Name</label>
                   <input 
                     type="text" 
                     className="form-input" 
+                    placeholder="Enter first name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.firstName} 
                     onChange={e => setAdminForm({...adminForm, firstName: e.target.value})} 
                     required 
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Last Name</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Last Name</label>
                   <input 
                     type="text" 
                     className="form-input" 
+                    placeholder="Enter last name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.lastName} 
                     onChange={e => setAdminForm({...adminForm, lastName: e.target.value})} 
                     required 
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Email Address</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Email Address</label>
                   <input 
                     type="email" 
                     className="form-input" 
+                    placeholder="Enter email address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.email} 
                     onChange={e => setAdminForm({...adminForm, email: e.target.value})} 
                     required 
@@ -2549,23 +2578,25 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Phone Number</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number</label>
                   <input 
                     type="tel" 
                     className="form-input" 
+                    placeholder="Enter phone number"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.mobile} 
                     onChange={e => setAdminForm({...adminForm, mobile: e.target.value})} 
                     required 
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Gender</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Gender</label>
                   <select 
                     className="form-input" 
                     value={adminForm.gender} 
                     onChange={e => setAdminForm({...adminForm, gender: e.target.value})}
                     required
-                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                   >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
@@ -2574,50 +2605,59 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   </select>
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Date of Birth</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth</label>
                   <input 
                     type="date" 
                     className="form-input" 
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.dob} 
                     onChange={e => setAdminForm({...adminForm, dob: e.target.value})} 
                     required 
                   />
                 </div>
-                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
-                  <label className="form-label">Address</label>
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address</label>
                   <input 
                     type="text" 
                     className="form-input" 
+                    placeholder="Enter address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.address} 
                     onChange={e => setAdminForm({...adminForm, address: e.target.value})} 
                     required 
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">City</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City</label>
                   <input 
                     type="text" 
                     className="form-input" 
+                    placeholder="Enter city"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.city} 
                     onChange={e => setAdminForm({...adminForm, city: e.target.value})} 
                     required 
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">State</label>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State</label>
                   <input 
                     type="text" 
                     className="form-input" 
+                    placeholder="Enter state"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.state} 
                     onChange={e => setAdminForm({...adminForm, state: e.target.value})} 
                     required 
                   />
                 </div>
-                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
-                  <label className="form-label">Zipcode</label>
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Zipcode</label>
                   <input 
                     type="text" 
                     className="form-input" 
+                    placeholder="Enter zipcode"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.zipcode} 
                     onChange={e => setAdminForm({...adminForm, zipcode: e.target.value})} 
                     required 
@@ -2625,8 +2665,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowAdminModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Admin</button>
+                <button type="button" onClick={() => setShowAdminModal(false)} className="btn btn-secondary" style={{ background: '#e0e0e0', color: '#333333', border: 'none' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none' }}>Save Admin</button>
               </div>
             </form>
           </div>
