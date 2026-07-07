@@ -1,5 +1,5 @@
 const getBaseUrl = () => {
-  return localStorage.getItem('serverUrl') || process.env.REACT_APP_API_URL || 'https://uat-02-api.darpanx.com/webhook';
+  return 'https://uat-02-api.darpanx.com/webhook';
 };
 
 // Helper to get tokens
@@ -29,7 +29,15 @@ export const setCurrentUser = (user) => {
 
 // Custom Fetch Wrapper with Auto Token Refresh
 async function request(endpoint, options = {}) {
-  const url = `${getBaseUrl()}${endpoint}`;
+  let cleanEndpoint = endpoint;
+  if (cleanEndpoint.startsWith('/auth/login')) {
+    cleanEndpoint = '/vdlogin';
+  } else if (cleanEndpoint.startsWith('/')) {
+    cleanEndpoint = '/vd' + cleanEndpoint.substring(1);
+  } else {
+    cleanEndpoint = 'vd' + cleanEndpoint;
+  }
+  const url = `${getBaseUrl()}${cleanEndpoint}`;
   const headers = {
     ...options.headers,
   };
