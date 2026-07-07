@@ -1,5 +1,5 @@
 const getBaseUrl = () => {
-  return 'https://uat-02-api.darpanx.com/webhook';
+  return 'https://uat-02-admin-api.darpanx.com/webhook';
 };
 
 // Helper to get tokens
