@@ -93,7 +93,11 @@ async function request(endpoint, options = {}) {
     throw new Error(errorData.message || `Request failed with status ${response.status}`);
   }
 
-  return response.json();
+  const responseData = await response.json().catch(() => ({}));
+  if (Array.isArray(responseData)) {
+    return responseData[0] || {};
+  }
+  return responseData;
 }
 
 // API Endpoints
