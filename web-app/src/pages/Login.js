@@ -10,6 +10,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,6 +20,7 @@ const Login = () => {
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [successMessage, setSuccessMessage] = useState('');
   
   // OTP Verification States
@@ -28,6 +30,38 @@ const Login = () => {
   // OTP Timer & Resend States
   const [timer, setTimer] = useState(120);
   const [timerActive, setTimerActive] = useState(false);
+
+  // Custom Alert Modal States
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    type: 'success',
+    title: '',
+    message: '',
+    buttonText: 'Continue',
+    onConfirm: null
+  });
+
+  const showSuccess = (message, onConfirm = null) => {
+    setCustomAlert({
+      show: true,
+      type: 'success',
+      title: 'Success!',
+      message,
+      buttonText: 'Continue',
+      onConfirm
+    });
+  };
+
+  const showError = (message, onConfirm = null) => {
+    setCustomAlert({
+      show: true,
+      type: 'error',
+      title: 'Oooops!',
+      message,
+      buttonText: 'Try Again',
+      onConfirm
+    });
+  };
 
   // Server configuration states
   const [showServerConfig, setShowServerConfig] = useState(false);
@@ -41,7 +75,7 @@ const Login = () => {
       }, 1000);
     } else if (timer === 0 && timerActive) {
       setTimerActive(false);
-      alert('OTP Expired');
+      showError('OTP Expired');
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -70,27 +104,28 @@ const Login = () => {
       // 2. Call vdotp workflow to generate and send OTP
       await api.auth.otp(email, 'generateOtp');
 
-      alert('OTP sent successfully');
+      showSuccess('OTP sent successfully', () => {
+        // Clear existing tokens from storage until OTP is verified
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
 
-      // Clear existing tokens from storage until OTP is verified
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+        if (rememberMe) {
+          localStorage.setItem('rememberedEmail', email);
+        } else {
+          localStorage.removeItem('rememberedEmail');
+        }
 
-      if (rememberMe) {
-        localStorage.setItem('rememberedEmail', email);
-      } else {
-        localStorage.removeItem('rememberedEmail');
-      }
-
-      setTempLoginData(res);
-      setAuthMode('otp');
-      setTimer(120);
-      setTimerActive(true);
-      setSuccessMessage('OTP sent successfully! Please verify with the OTP code.');
+        setTempLoginData(res);
+        setAuthMode('otp');
+        setTimer(120);
+        setTimerActive(true);
+      });
     } catch (err) {
       if (err.status === 401) {
-        alert('Invalid Credentials');
+        showError('Invalid Credentials');
+      } else {
+        showError(err.message || 'Login failed. Please check your credentials.');
       }
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -138,7 +173,9 @@ const Login = () => {
       }
     } catch (err) {
       if (err.status === 402) {
-        alert('Invalid OTP');
+        showError('Invalid OTP');
+      } else {
+        showError(err.message || 'Invalid OTP code. Please enter the correct code.');
       }
       setError(err.message || 'Invalid OTP code. Please enter the correct code.');
     } finally {
@@ -151,11 +188,12 @@ const Login = () => {
     setLoading(true);
     try {
       await api.auth.otp(email, 'generateOtp');
-      alert('OTP sent successfully');
-      setTimer(120);
-      setTimerActive(true);
+      showSuccess('OTP sent successfully', () => {
+        setTimer(120);
+        setTimerActive(true);
+      });
     } catch (err) {
-      setError(err.message || 'Failed to resend OTP.');
+      showError(err.message || 'Failed to resend OTP.');
     } finally {
       setLoading(false);
     }
@@ -262,35 +300,7 @@ const Login = () => {
       <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10 }}>
         <div className="auth-logo">{t('nav.brand')}</div>
 
-        {error && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid #ef4444',
-            color: '#ef4444',
-            padding: '12px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            marginBottom: '20px',
-            textAlign: 'center'
-          }}>
-            {error}
-          </div>
-        )}
 
-        {successMessage && (
-          <div style={{
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid #10b981',
-            color: '#10b981',
-            padding: '12px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            marginBottom: '20px',
-            textAlign: 'center'
-          }}>
-            {successMessage}
-          </div>
-        )}
 
         {authMode === 'login' && (
           <form onSubmit={handleLoginSubmit}>
@@ -541,6 +551,107 @@ const Login = () => {
           )}
         </div>
       </div>
+
+      {/* --- CUSTOM ALERT MODAL --- */}
+      {customAlert.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333',
+            animation: 'scaleIn 0.25s ease'
+          }}>
+            {/* Circle Icon */}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: `3px solid ${customAlert.type === 'success' ? '#1890ff' : '#f5222d'}`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              {customAlert.type === 'success' ? (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1890ff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              )}
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: customAlert.type === 'success' ? '#1890ff' : '#f5222d',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: '#666666',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+
+            {/* Button */}
+            <button
+              onClick={() => {
+                setCustomAlert(prev => ({ ...prev, show: false }));
+                if (customAlert.onConfirm) customAlert.onConfirm();
+              }}
+              style={{
+                background: customAlert.type === 'success' ? '#3a78f2' : '#de2424',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '15px',
+                fontWeight: 600,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            >
+              {customAlert.buttonText}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
