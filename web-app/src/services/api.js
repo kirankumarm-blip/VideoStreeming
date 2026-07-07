@@ -99,14 +99,17 @@ async function request(endpoint, options = {}) {
 // API Endpoints
 export const api = {
   auth: {
-    login: async (email, password) => {
-      const data = await request('/auth/login', {
+    login: (email, password) => {
+      return request('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      setTokens(data.accessToken, data.refreshToken);
-      setCurrentUser(data.user);
-      return data;
+    },
+    otp: (email, formStep, otpCode = null) => {
+      return request('/otp', {
+        method: 'POST',
+        body: JSON.stringify({ email, formStep, otp: otpCode }),
+      });
     },
     signup: (name, email, mobile, password) => {
       return request('/auth/signup', {

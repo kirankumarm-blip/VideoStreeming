@@ -45,9 +45,13 @@ const Login = () => {
     setLoading(true);
 
     try {
+      // 1. Validate credentials
       const res = await api.auth.login(email, password);
       
-      // Temporarily clear tokens from local storage until OTP is verified
+      // 2. Call vdotp workflow to generate and send OTP
+      await api.auth.otp(email, 'generateOtp');
+
+      // Clear existing tokens from storage until OTP is verified
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
@@ -60,7 +64,7 @@ const Login = () => {
 
       setTempLoginData(res);
       setAuthMode('otp');
-      setSuccessMessage('OTP sent successfully! Please verify with static OTP: 123456');
+      setSuccessMessage('OTP sent successfully! Please verify with the OTP code.');
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -68,27 +72,37 @@ const Login = () => {
     }
   };
 
-  const handleOtpSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    if (otpCode === '123456') {
-      // Save tempLoginData tokens to local storage to finalize the login
-      localStorage.setItem('accessToken', tempLoginData.accessToken);
-      localStorage.setItem('refreshToken', tempLoginData.refreshToken);
-      localStorage.setItem('user', JSON.stringify(tempLoginData.user));
+    try {
+      // 3. Call vdotp workflow to verify OTP
+      const otpRes = await api.auth.otp(email, 'verifyOtp', otpCode);
+      
+      const finalToken = otpRes.accessToken || tempLoginData.accessToken;
+      const finalRefreshToken = otpRes.refreshToken || tempLoginData.refreshToken;
+      const finalUser = otpRes.user || tempLoginData.user;
+
+      // Save tokens to local storage to finalize session login
+      localStorage.setItem('accessToken', finalToken);
+      localStorage.setItem('refreshToken', finalRefreshToken);
+      localStorage.setItem('user', JSON.stringify(finalUser));
       setSuccessMessage('');
 
       // Redirect based on role
-      if (tempLoginData.user.role === 'super_admin') {
+      if (finalUser.role === 'super_admin') {
         navigate('/super-admin');
-      } else if (tempLoginData.user.role === 'admin') {
+      } else if (finalUser.role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/');
       }
-    } else {
-      setError('Invalid OTP code. Please enter the correct code.');
+    } catch (err) {
+      setError(err.message || 'Invalid OTP code. Please enter the correct code.');
+    } finally {
+      setLoading(false);
     }
   };
 
