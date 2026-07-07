@@ -81,20 +81,30 @@ const Login = () => {
       // 3. Call vdotp workflow to verify OTP
       const otpRes = await api.auth.otp(email, 'verifyOtp', otpCode);
       
-      const finalToken = otpRes.accessToken || tempLoginData.accessToken;
-      const finalRefreshToken = otpRes.refreshToken || tempLoginData.refreshToken;
-      const finalUser = otpRes.user || tempLoginData.user;
+      // Map flat keys directly from the UAT response payload
+      const token = otpRes.token || otpRes.accessToken || (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '');
+      const role = otpRes.role || (tempLoginData ? tempLoginData.role : '');
+      const name = otpRes.name || (tempLoginData ? tempLoginData.name : '');
+      const userEmail = otpRes.email || email;
+      const userId = otpRes.id || (tempLoginData ? tempLoginData.id : null);
+
+      const finalUser = {
+        id: userId,
+        name: name,
+        email: userEmail,
+        role: role
+      };
 
       // Save tokens to local storage to finalize session login
-      localStorage.setItem('accessToken', finalToken);
-      localStorage.setItem('refreshToken', finalRefreshToken);
+      localStorage.setItem('accessToken', token);
+      localStorage.setItem('refreshToken', token);
       localStorage.setItem('user', JSON.stringify(finalUser));
       setSuccessMessage('');
 
       // Redirect based on role
-      if (finalUser.role === 'super_admin') {
+      if (role === 'super_admin') {
         navigate('/super-admin');
-      } else if (finalUser.role === 'admin') {
+      } else if (role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/');
