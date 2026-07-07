@@ -55,8 +55,14 @@ async function request(endpoint, options = {}) {
 
   const config = {
     ...options,
+    method: 'POST', // Force POST for all UAT n8n Webhook APIs
     headers,
   };
+
+  // Provide an empty JSON body if none exists for the POST request
+  if (!config.body) {
+    config.body = JSON.stringify({});
+  }
 
   let response = await fetch(url, config);
 
