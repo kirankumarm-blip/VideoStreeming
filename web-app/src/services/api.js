@@ -111,7 +111,10 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Request failed with status ${response.status}`);
+    const errMsg = errorData.message || `Request failed with status ${response.status}`;
+    const error = new Error(errMsg);
+    error.status = response.status;
+    throw error;
   }
 
   const responseData = await response.json().catch(() => ({}));
@@ -161,7 +164,12 @@ export const api = {
     }
   },
   dashboard: {
-    getSuperAdmin: () => request('/dashboard/super-admin'),
+    getSuperAdmin: (formStep = 'overview') => {
+      return request('/dashboard/super-admin', {
+        method: 'POST',
+        body: JSON.stringify({ formStep }),
+      });
+    },
     getAdmin: () => request('/dashboard/admin'),
     getUser: () => request('/dashboard/user'),
   },
@@ -201,17 +209,22 @@ export const api = {
     }
   },
   admins: {
-    list: () => request('/admins'),
-    create: (name, email, mobile, password) => {
+    list: () => {
       return request('/admins', {
         method: 'POST',
-        body: JSON.stringify({ name, email, mobile, password }),
+        body: JSON.stringify({ formStep: "getAllAdmins" }),
+      });
+    },
+    create: (data) => {
+      return request('/admins', {
+        method: 'POST',
+        body: JSON.stringify({ formStep: "AddAdmin", ...data }),
       });
     },
     update: (id, data) => {
       return request(`/admins/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
+        method: 'POST',
+        body: JSON.stringify({ formStep: "AddAdmin", id, ...data }),
       });
     }
   },

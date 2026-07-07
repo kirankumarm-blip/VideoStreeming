@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Background3D from '../components/Background3D';
@@ -25,9 +25,28 @@ const Login = () => {
   const [tempLoginData, setTempLoginData] = useState(null);
   const [otpCode, setOtpCode] = useState('');
 
+  // OTP Timer & Resend States
+  const [timer, setTimer] = useState(120);
+  const [timerActive, setTimerActive] = useState(false);
+
   // Server configuration states
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState(localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
+
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0 && timerActive) {
+      setTimerActive(false);
+      alert('OTP Expired');
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timer, timerActive]);
 
   const handleSaveServerConfig = (e) => {
     e.preventDefault();
@@ -51,6 +70,8 @@ const Login = () => {
       // 2. Call vdotp workflow to generate and send OTP
       await api.auth.otp(email, 'generateOtp');
 
+      alert('OTP sent successfully');
+
       // Clear existing tokens from storage until OTP is verified
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -64,8 +85,13 @@ const Login = () => {
 
       setTempLoginData(res);
       setAuthMode('otp');
+      setTimer(120);
+      setTimerActive(true);
       setSuccessMessage('OTP sent successfully! Please verify with the OTP code.');
     } catch (err) {
+      if (err.status === 401) {
+        alert('Invalid Credentials');
+      }
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -100,6 +126,7 @@ const Login = () => {
       localStorage.setItem('refreshToken', token);
       localStorage.setItem('user', JSON.stringify(finalUser));
       setSuccessMessage('');
+      setTimerActive(false);
 
       // Redirect based on role
       if (role === 'super_admin') {
@@ -110,7 +137,25 @@ const Login = () => {
         navigate('/');
       }
     } catch (err) {
+      if (err.status === 402) {
+        alert('Invalid OTP');
+      }
       setError(err.message || 'Invalid OTP code. Please enter the correct code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await api.auth.otp(email, 'generateOtp');
+      alert('OTP sent successfully');
+      setTimer(120);
+      setTimerActive(true);
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP.');
     } finally {
       setLoading(false);
     }
@@ -324,13 +369,35 @@ const Login = () => {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }}>
-              Verify OTP
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
+              {loading ? 'Verifying...' : 'Verify OTP'}
             </button>
+
+            <div style={{ textAlign: 'center', marginBottom: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {timer > 0 ? (
+                <span>Resend OTP in {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-primary)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontWeight: 600,
+                    padding: 0
+                  }}
+                >
+                  Resend OTP
+                </button>
+              )}
+            </div>
 
             <div style={{ textAlign: 'center', fontSize: '14px' }}>
               <span 
-                onClick={() => { setAuthMode('login'); setError(''); setSuccessMessage(''); setOtpCode(''); }}
+                onClick={() => { setAuthMode('login'); setError(''); setSuccessMessage(''); setOtpCode(''); setTimerActive(false); }}
                 style={{ color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
               >
                 {t('auth.backToSignIn')}

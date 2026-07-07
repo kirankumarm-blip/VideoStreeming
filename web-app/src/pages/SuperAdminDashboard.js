@@ -39,7 +39,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   // Admins CRUD states
   const [admins, setAdmins] = useState([]);
-  const [adminForm, setAdminForm] = useState({ name: '', email: '', mobile: '', password: '' });
+  const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
 
@@ -87,19 +87,29 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const [settings, setSettings] = useState({});
 
   useEffect(() => {
-    fetchDashboardData();
-    fetchAdmins();
+    // Initial fetch based on current activeTab (defaults to overview)
+    if (activeTab === 'overview') {
+      fetchDashboardData('overview');
+    } else if (activeTab === 'analytics') {
+      fetchDashboardData('analytics');
+    } else if (activeTab === 'admins_all') {
+      fetchAdmins();
+    }
     fetchCategories();
     fetchVideos();
     fetchUsers();
-    fetchAnalyticsData();
-    fetchMonitoringData();
-    fetchTransactions();
   }, []);
 
   useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchDashboardData('overview');
+    }
     if (activeTab === 'analytics' || activeTab.includes('analytics')) {
+      fetchDashboardData('analytics');
       fetchAnalyticsData();
+    }
+    if (activeTab === 'admins_all') {
+      fetchAdmins();
     }
     if (activeTab === 'realtime' || activeTab.includes('sys_') || activeTab.includes('sec_')) {
       fetchMonitoringData();
@@ -200,10 +210,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (formStep = 'overview') => {
     setLoading(true);
     try {
-      const data = await api.dashboard.getSuperAdmin();
+      const data = await api.dashboard.getSuperAdmin(formStep);
       setStats(data);
       setActivities(data.recentActivities || []);
     } catch (err) {
@@ -256,10 +266,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       if (editingAdmin) {
         await api.admins.update(editingAdmin.id, adminForm);
       } else {
-        await api.admins.create(adminForm.name, adminForm.email, adminForm.mobile, adminForm.password);
+        await api.admins.create(adminForm);
       }
       setShowAdminModal(false);
-      setAdminForm({ name: '', email: '', mobile: '', password: '' });
+      setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
       setEditingAdmin(null);
       fetchAdmins();
       fetchDashboardData();
@@ -1110,7 +1120,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   <button 
                     onClick={() => {
                       setEditingAdmin(null);
-                      setAdminForm({ name: '', email: '', mobile: '', password: '' });
+                      setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
                       setShowAdminModal(true);
                     }}
                     className="btn btn-primary"
@@ -1134,7 +1144,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <tbody>
                       {admins.map(admin => (
                         <tr key={admin.id}>
-                          <td style={{ fontWeight: 600 }}>{admin.name}</td>
+                          <td style={{ fontWeight: 600 }}>{admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin'}</td>
                           <td>{admin.email}</td>
                           <td>{admin.mobile}</td>
                           <td>
@@ -1147,7 +1157,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                               <button 
                                 onClick={() => {
                                   setEditingAdmin(admin);
-                                  setAdminForm({ name: admin.name, email: admin.email, mobile: admin.mobile, password: '' });
+                                  setAdminForm({
+                                    firstName: admin.first_name || admin.firstName || '',
+                                    lastName: admin.last_name || admin.lastName || '',
+                                    email: admin.email || '',
+                                    mobile: admin.mobile || admin.phonenumber || '',
+                                    gender: admin.gender || '',
+                                    dob: admin.dob || '',
+                                    city: admin.city || '',
+                                    state: admin.state || '',
+                                    zipcode: admin.zipcode || '',
+                                    address: admin.address || ''
+                                  });
                                   setShowAdminModal(true);
                                 }}
                                 className="btn btn-secondary"
@@ -2492,51 +2513,118 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       {/* --- ADMIN CRUD MODAL --- */}
       {showAdminModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '580px', padding: '32px' }}>
             <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingAdmin ? 'Edit Admin' : 'Add Admin'}</h3>
             <form onSubmit={handleAdminSubmit}>
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={adminForm.name} 
-                  onChange={e => setAdminForm({...adminForm, name: e.target.value})} 
-                  required 
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '8px', marginBottom: '24px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">First Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={adminForm.firstName} 
+                    onChange={e => setAdminForm({...adminForm, firstName: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Last Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={adminForm.lastName} 
+                    onChange={e => setAdminForm({...adminForm, lastName: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Email Address</label>
+                  <input 
+                    type="email" 
+                    className="form-input" 
+                    value={adminForm.email} 
+                    onChange={e => setAdminForm({...adminForm, email: e.target.value})} 
+                    required 
+                    disabled={!!editingAdmin}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    className="form-input" 
+                    value={adminForm.mobile} 
+                    onChange={e => setAdminForm({...adminForm, mobile: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Gender</label>
+                  <select 
+                    className="form-input" 
+                    value={adminForm.gender} 
+                    onChange={e => setAdminForm({...adminForm, gender: e.target.value})}
+                    required
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Date of Birth</label>
+                  <input 
+                    type="date" 
+                    className="form-input" 
+                    value={adminForm.dob} 
+                    onChange={e => setAdminForm({...adminForm, dob: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                  <label className="form-label">Address</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={adminForm.address} 
+                    onChange={e => setAdminForm({...adminForm, address: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">City</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={adminForm.city} 
+                    onChange={e => setAdminForm({...adminForm, city: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">State</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={adminForm.state} 
+                    onChange={e => setAdminForm({...adminForm, state: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                  <label className="form-label">Zipcode</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={adminForm.zipcode} 
+                    onChange={e => setAdminForm({...adminForm, zipcode: e.target.value})} 
+                    required 
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input 
-                  type="email" 
-                  className="form-input" 
-                  value={adminForm.email} 
-                  onChange={e => setAdminForm({...adminForm, email: e.target.value})} 
-                  required 
-                  disabled={!!editingAdmin}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Mobile Number</label>
-                <input 
-                  type="tel" 
-                  className="form-input" 
-                  value={adminForm.mobile} 
-                  onChange={e => setAdminForm({...adminForm, mobile: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Password {editingAdmin && '(Leave blank to keep current)'}</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
-                  value={adminForm.password} 
-                  onChange={e => setAdminForm({...adminForm, password: e.target.value})} 
-                  required={!editingAdmin}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setShowAdminModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Save Admin</button>
               </div>
