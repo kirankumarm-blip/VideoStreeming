@@ -1,5 +1,5 @@
 const getBaseUrl = () => {
-  return localStorage.getItem('serverUrl') || process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  return localStorage.getItem('serverUrl') || process.env.REACT_APP_API_URL || 'https://uat-02-api.darpanx.com/webhook';
 };
 
 // Helper to get tokens
