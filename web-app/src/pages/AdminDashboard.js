@@ -232,26 +232,64 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('title', uploadForm.title);
-    formData.append('description', uploadForm.description);
-    formData.append('category', uploadForm.category);
-    formData.append('tags', uploadForm.tags);
-    formData.append('visibility', uploadForm.visibility);
-    formData.append('video', videoFile);
-    if (thumbnailFile) {
-      formData.append('thumbnail', thumbnailFile);
-    }
+    const uploadFileInChunks = async (file, fileRoleLabel) => {
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      setUploadProgress(`Initiating chunked upload for ${fileRoleLabel}...`);
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
+      const uploadId = initRes.uploadId;
 
-    setUploadProgress('Uploading video files...');
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+
+        const percent = Math.round((chunkIndex / totalChunks) * 100);
+        setUploadProgress(`Uploading ${fileRoleLabel}: ${percent}% (${chunkIndex + 1}/${totalChunks} chunks)`);
+
+        await api.videos.uploadChunk(chunkFormData);
+      }
+
+      setUploadProgress(`Finalizing and assembling ${fileRoleLabel} in MinIO...`);
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      return completeRes.minioUrl;
+    };
+
     try {
-      await api.videos.upload(formData);
-      setUploadSuccess('Video uploaded and processed successfully!');
+      // 1. Upload video file chunks
+      const videoUrl = await uploadFileInChunks(videoFile, 'Video');
+
+      // 2. Upload thumbnail file chunks (if selected)
+      let thumbnailUrl = '';
+      if (thumbnailFile) {
+        thumbnailUrl = await uploadFileInChunks(thumbnailFile, 'Thumbnail');
+      }
+
+      // 3. Register metadata directly to UAT n8n webhook
+      setUploadProgress('Registering video metadata with database...');
+      await api.videos.upload({
+        title: uploadForm.title,
+        description: uploadForm.description,
+        category: uploadForm.category,
+        tags: uploadForm.tags,
+        visibility: uploadForm.visibility,
+        videoUrl,
+        thumbnailUrl
+      });
+
+      setUploadSuccess('Video uploaded and registered successfully!');
+      
       // Reset form
       setUploadForm({
         title: '',
         description: '',
-        category: categories[0]?.name || '',
+        category: categories[0]?.id || categories[0]?.name || '',
         tags: '',
         visibility: 'public'
       });
@@ -266,6 +304,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       fetchVideos();
       fetchDashboardData();
     } catch (err) {
+      console.error(err);
       setError(err.message || 'Failed to upload video');
     } finally {
       setUploadProgress('');
