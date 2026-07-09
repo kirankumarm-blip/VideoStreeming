@@ -39,19 +39,31 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   // Users CRUD states
   const [users, setUsers] = useState([]);
-  const [userForm, setUserForm] = useState({ name: '', email: '', mobile: '', password: '' });
+  const [userForm, setUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    gender: '',
+    dob: '',
+    city: '',
+    state: '',
+    zipcode: '',
+    address: ''
+  });
   const [editingUser, setEditingUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
   // Video Upload states
   const [categories, setCategories] = useState([]);
+  const [visibilities, setVisibilities] = useState([]);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
     category: '',
     tags: '',
-    visibility: 'public'
+    visibility: ''
   });
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
@@ -76,16 +88,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchDashboardData();
     fetchUsers();
     fetchCategories();
     fetchVideos();
-    fetchAnalyticsData();
     fetchMonitoringData();
   }, []);
 
   useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchDashboardData('overview');
+    }
+    if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
+      fetchUsers();
+    }
+    if (activeTab === 'video_upload') {
+      fetchCategories();
+      fetchVisibilities();
+    }
+    if (activeTab === 'video_all') {
+      fetchVideos();
+    }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
+      fetchDashboardData('analytics');
       fetchAnalyticsData();
     }
     if (activeTab === 'realtime' || activeTab.startsWith('mon_')) {
@@ -149,10 +173,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (formStep = 'overview') => {
     setLoading(true);
     try {
-      const data = await api.dashboard.getAdmin();
+      const data = await api.dashboard.getAdmin(formStep);
       setStats(data);
     } catch (err) {
       setError('Failed to load admin dashboard data');
@@ -163,7 +187,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   const fetchUsers = async () => {
     try {
-      const data = await api.users.list();
+      let data;
+      if (activeTab === 'users_blocked') {
+        data = await api.users.listBlocked();
+      } else {
+        data = await api.users.list();
+      }
       setUsers(data);
     } catch (e) {
       console.error(e);
@@ -175,7 +204,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       const data = await api.categories.list();
       setCategories(data);
       if (data.length > 0) {
-        setUploadForm(prev => ({ ...prev, category: data[0].name }));
+        setUploadForm(prev => ({ ...prev, category: data[0].id }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchVisibilities = async () => {
+    try {
+      const data = await api.videos.listVisibilities();
+      setVisibilities(data);
+      if (data.length > 0) {
+        setUploadForm(prev => ({ ...prev, visibility: data[0].id }));
       }
     } catch (e) {
       console.error(e);
@@ -195,13 +236,37 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const handleUserSubmit = async (e) => {
     e.preventDefault();
     try {
+      const dataToSave = {
+        first_name: userForm.firstName,
+        last_name: userForm.lastName,
+        email: userForm.email,
+        phonenumber: userForm.mobile,
+        gender: userForm.gender,
+        date_of_birth: userForm.dob,
+        address: userForm.address,
+        city: userForm.city,
+        state: userForm.state,
+        zipcode: userForm.zipcode
+      };
+
       if (editingUser) {
-        await api.users.update(editingUser.id, userForm);
+        await api.users.update(editingUser.id, dataToSave);
       } else {
-        await api.users.create(userForm.name, userForm.email, userForm.mobile, userForm.password);
+        await api.users.create(dataToSave);
       }
       setShowUserModal(false);
-      setUserForm({ name: '', email: '', mobile: '', password: '' });
+      setUserForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        mobile: '',
+        gender: '',
+        dob: '',
+        city: '',
+        state: '',
+        zipcode: '',
+        address: ''
+      });
       setEditingUser(null);
       fetchUsers();
       fetchDashboardData();
@@ -210,13 +275,50 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const handleToggleUserStatus = async (user) => {
-    const nextStatus = user.status === 'active' ? 'disabled' : 'active';
+  const handleEditClick = async (user) => {
+    setEditingUser(user);
+    let userData = user;
     try {
-      await api.users.update(user.id, { status: nextStatus });
+      const res = await api.users.get(user.id);
+      if (res && (res.id || res.email)) {
+        userData = res;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch user details, using local data", e);
+    }
+    
+    setUserForm({
+      firstName: userData.first_name || userData.firstName || '',
+      lastName: userData.last_name || userData.lastName || '',
+      email: userData.email || '',
+      mobile: userData.phonenumber || userData.mobile || '',
+      gender: userData.gender || '',
+      dob: userData.date_of_birth || userData.dob || '',
+      city: userData.city || '',
+      state: userData.state || '',
+      zipcode: userData.zipcode || '',
+      address: userData.address || ''
+    });
+    setShowUserModal(true);
+  };
+
+  const handleToggleUserStatus = async (user, statusVal, isBlock = false) => {
+    try {
+      await api.users.changeStatus(user.id, statusVal, isBlock);
       fetchUsers();
     } catch (err) {
       console.error(err);
+      setError(err.message || 'Failed to update user status');
+    }
+  };
+
+  const handleUnblockUser = async (user) => {
+    try {
+      await api.users.unblock(user.id);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to unblock user');
     }
   };
 
@@ -232,28 +334,66 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('title', uploadForm.title);
-    formData.append('description', uploadForm.description);
-    formData.append('category', uploadForm.category);
-    formData.append('tags', uploadForm.tags);
-    formData.append('visibility', uploadForm.visibility);
-    formData.append('video', videoFile);
-    if (thumbnailFile) {
-      formData.append('thumbnail', thumbnailFile);
-    }
+    const uploadFileInChunks = async (file, fileRoleLabel) => {
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      setUploadProgress(`Initiating chunked upload for ${fileRoleLabel}...`);
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
+      const uploadId = initRes.uploadId;
 
-    setUploadProgress('Uploading video files...');
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+
+        const percent = Math.round((chunkIndex / totalChunks) * 100);
+        setUploadProgress(`Uploading ${fileRoleLabel}: ${percent}% (${chunkIndex + 1}/${totalChunks} chunks)`);
+
+        await api.videos.uploadChunk(chunkFormData);
+      }
+
+      setUploadProgress(`Finalizing and assembling ${fileRoleLabel} in MinIO...`);
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      return completeRes.minioUrl;
+    };
+
     try {
-      await api.videos.upload(formData);
-      setUploadSuccess('Video uploaded and processed successfully!');
+      // 1. Upload video file chunks
+      const videoUrl = await uploadFileInChunks(videoFile, 'Video');
+
+      // 2. Upload thumbnail file chunks (if selected)
+      let thumbnailUrl = '';
+      if (thumbnailFile) {
+        thumbnailUrl = await uploadFileInChunks(thumbnailFile, 'Thumbnail');
+      }
+
+      // 3. Register metadata and notify database via n8n webhook
+      setUploadProgress('Registering video metadata with database...');
+      await api.videos.registerVideo({
+        title: uploadForm.title,
+        description: uploadForm.description,
+        category: uploadForm.category,
+        tags: uploadForm.tags,
+        visibility: uploadForm.visibility,
+        videoUrl,
+        thumbnailUrl
+      });
+
+      setUploadSuccess('Video uploaded and registered successfully!');
+      
       // Reset form
       setUploadForm({
         title: '',
         description: '',
-        category: categories[0]?.name || '',
+        category: categories[0]?.id || '',
         tags: '',
-        visibility: 'public'
+        visibility: visibilities[0]?.id || ''
       });
       setVideoFile(null);
       setThumbnailFile(null);
@@ -266,6 +406,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       fetchVideos();
       fetchDashboardData();
     } catch (err) {
+      console.error(err);
       setError(err.message || 'Failed to upload video');
     } finally {
       setUploadProgress('');
@@ -323,7 +464,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       items: [
         { id: 'users_all', label: 'Users' },
         { id: 'users_logs', label: 'User Activity Logs' },
-        { id: 'users_subs', label: 'User Subscriptions' },
         { id: 'users_blocked', label: 'Blocked Users' }
       ]
     },
@@ -599,7 +739,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, textTransform: 'capitalize' }}>
-              {activeTab.replace(/_/g, ' ')}
+              {activeTab === 'users_all' ? 'Users' : activeTab.replace(/_/g, ' ')}
             </h1>
             <p style={{ color: 'var(--text-secondary)' }}>Welcome to the Admin Command Control center.</p>
           </div>
@@ -983,7 +1123,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <button 
                       onClick={() => {
                         setEditingUser(null);
-                        setUserForm({ name: '', email: '', mobile: '', password: '' });
+                        setUserForm({
+                          firstName: '',
+                          lastName: '',
+                          email: '',
+                          mobile: '',
+                          gender: '',
+                          dob: '',
+                          city: '',
+                          state: '',
+                          zipcode: '',
+                          address: ''
+                        });
                         setShowUserModal(true);
                       }}
                       className="btn btn-primary"
@@ -998,9 +1149,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>{t('auth.fullName')}</th>
+                        <th>Name</th>
                         <th>{t('auth.emailAddress')}</th>
-                        <th>{t('auth.mobileNumber')}</th>
+                        <th>Mobile</th>
                         <th>Status</th>
                         <th>{t('admin.tableActions')}</th>
                       </tr>
@@ -1008,50 +1159,63 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <tbody>
                       {users
                         .filter(user => {
-                          if (userStatusFilter === 'active') return user.status === 'active';
-                          if (userStatusFilter === 'inactive') return user.status === 'disabled';
+                          const isUserActive = user.status === true || String(user.status).toLowerCase() === 'true' || String(user.status).toLowerCase() === 'active';
+                          if (userStatusFilter === 'active') return isUserActive;
+                          if (userStatusFilter === 'inactive') return !isUserActive;
                           return true;
                         })
-                        .map(user => (
-                        <tr key={user.id}>
-                          <td style={{ fontWeight: 600 }}>{user.name}</td>
-                          <td>{user.email}</td>
-                          <td>{user.mobile}</td>
-                          <td>
-                            <span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                              {user.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => {
-                                  setEditingUser(user);
-                                  setUserForm({ name: user.name, email: user.email, mobile: user.mobile, password: '' });
-                                  setShowUserModal(true);
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                {t('admin.editBtn')}
-                              </button>
-                              <button 
-                                onClick={() => handleToggleUserStatus(user)}
-                                className="btn"
-                                style={{ 
-                                  padding: '6px 12px', 
-                                  fontSize: '12px', 
-                                  border: 'none', 
-                                  backgroundColor: user.status === 'active' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', 
-                                  color: user.status === 'active' ? '#ef4444' : '#10b981' 
-                                }}
-                              >
-                                {user.status === 'active' ? t('admin.disableBtn') : t('admin.enableBtn')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                        .map(user => {
+                          const isUserActive = user.status === true || String(user.status).toLowerCase() === 'true' || String(user.status).toLowerCase() === 'active';
+                          return (
+                            <tr key={user.id}>
+                              <td style={{ fontWeight: 600 }}>{user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.name || 'User'}</td>
+                              <td>{user.email}</td>
+                              <td>{user.phonenumber || user.mobile}</td>
+                              <td>
+                                <span className={`badge ${isUserActive ? 'badge-active' : 'badge-disabled'}`}>
+                                  {isUserActive ? 'Active' : 'InActive'}
+                                </span>
+                              </td>
+                              <td onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button 
+                                    onClick={() => handleEditClick(user)}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    onClick={() => handleToggleUserStatus(user, isUserActive ? false : true)}
+                                    className="btn"
+                                    style={{ 
+                                      padding: '6px 12px', 
+                                      fontSize: '12px', 
+                                      border: 'none', 
+                                      backgroundColor: isUserActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                                      color: isUserActive ? '#ef4444' : '#10b981' 
+                                    }}
+                                  >
+                                    {isUserActive ? 'Disable' : 'Enable'}
+                                  </button>
+                                  <button 
+                                    onClick={() => handleToggleUserStatus(user, false, true)}
+                                    className="btn"
+                                    style={{ 
+                                      padding: '6px 12px', 
+                                      fontSize: '12px', 
+                                      border: 'none', 
+                                      backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                                      color: '#f59e0b' 
+                                    }}
+                                  >
+                                    Block
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -1097,7 +1261,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         required
                       >
                         {categories.map(cat => (
-                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                       </select>
                     </div>
@@ -1108,9 +1272,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         className="form-input"
                         value={uploadForm.visibility}
                         onChange={(e) => setUploadForm({ ...uploadForm, visibility: e.target.value })}
+                        required
                       >
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
+                        {visibilities.map(vis => (
+                          <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1184,43 +1350,50 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {myVideos.map(video => (
-                        <tr key={video.id} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
-                          <td>
-                            <img 
-                              src={video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`} 
-                              alt={video.title} 
-                              style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
-                            />
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{video.title}</td>
-                          <td>{video.category}</td>
-                          <td>{video.views || 0}</td>
-                          <td>
-                            <span className={`badge ${video.visibility === 'public' ? 'badge-active' : 'badge-disabled'}`}>
-                              {video.visibility.toUpperCase()}
-                            </span>
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => setReviewVideo(video)}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                {t('admin.playReviewBtn')}
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteVideo(video.id)}
-                                className="btn"
-                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
-                              >
-                                {t('admin.deleteBtn')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {myVideos.map(video => {
+                        const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
+                        const thumbUrl = hasThumbnail 
+                          ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) 
+                          : 'https://placehold.co/180x101?text=No+Thumbnail';
+                        const isPublic = String(video.visibility || '').toLowerCase() === 'scheduler' || String(video.visibility || '').toLowerCase() === 'public';
+                        return (
+                          <tr key={video.id} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
+                            <td>
+                              <img 
+                                src={thumbUrl} 
+                                alt={video.title || 'Video'} 
+                                style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                              />
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{video.title || 'Untitled'}</td>
+                            <td>{video.category || 'Uncategorized'}</td>
+                            <td>{video.views || 0}</td>
+                            <td>
+                              <span className={`badge ${isPublic ? 'badge-active' : 'badge-disabled'}`}>
+                                {String(video.visibility || 'Public').toUpperCase()}
+                              </span>
+                            </td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  onClick={() => setReviewVideo(video)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                >
+                                  {t('admin.playReviewBtn')}
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteVideo(video.id)}
+                                  className="btn"
+                                  style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                                >
+                                  {t('admin.deleteBtn')}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1228,7 +1401,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
             )}
             
             {/* --- DYNAMIC USER MANAGEMENT VIEWS --- */}
-            {activeTab.startsWith('users_') && activeTab !== 'users_logs' && (
+            {activeTab.startsWith('users_') && activeTab !== 'users_logs' && activeTab !== 'users_all' && (
               <div className="animate-fade-in glass-card">
                 <h2 style={{ fontSize: '20px', marginBottom: '24px', textTransform: 'capitalize' }}>
                   {activeTab.replace(/_/g, ' ')}
@@ -1248,47 +1421,83 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <tbody>
                       {users
                         .filter(u => {
-                          if (activeTab === 'users_active') return u.status === 'active';
-                          if (activeTab === 'users_inactive') return u.status === 'disabled';
-                          if (activeTab === 'users_blocked') return u.status === 'blocked';
+                          const isUActive = u.status === true || String(u.status).toLowerCase() === 'true' || String(u.status).toLowerCase() === 'active';
+                          if (activeTab === 'users_active') return isUActive;
+                          if (activeTab === 'users_inactive') return !isUActive;
+                          if (activeTab === 'users_blocked') return true;
                           return true;
                         })
-                        .map(u => (
-                          <tr key={u.id}>
-                            <td style={{ fontWeight: 600 }}>{u.name}</td>
-                            <td>{u.email}</td>
-                            <td>{u.mobile}</td>
-                            <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{u.role}</span></td>
-                            <td>
-                              <span className={`badge ${u.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                                {u.status.toUpperCase()}
-                              </span>
-                            </td>
-                            <td>
-                              <button 
-                                onClick={async () => {
-                                  const nextStatus = u.status === 'active' ? 'disabled' : 'active';
-                                  try {
-                                    await api.users.update(u.id, { status: nextStatus });
-                                    fetchUsers();
-                                  } catch (err) {
-                                    alert(err.message);
-                                  }
-                                }}
-                                className="btn"
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: '12px',
-                                  backgroundColor: u.status === 'active' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                  color: u.status === 'active' ? '#ef4444' : '#10b981',
-                                  border: 'none'
-                                }}
-                              >
-                                {u.status === 'active' ? t('admin.action.ban', 'Ban') : t('admin.action.unban', 'Unban')}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        .map(u => {
+                          const isUActive = u.status === true || String(u.status).toLowerCase() === 'true' || String(u.status).toLowerCase() === 'active';
+                          return (
+                            <tr key={u.id}>
+                              <td style={{ fontWeight: 600 }}>{u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.name || 'User'}</td>
+                              <td>{u.email}</td>
+                              <td>{u.phonenumber || u.mobile}</td>
+                              <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{u.role || 'user'}</span></td>
+                              <td>
+                                <span className={`badge ${isUActive ? 'badge-active' : 'badge-disabled'}`}>
+                                  {isUActive ? 'Active' : 'InActive'}
+                                </span>
+                              </td>
+                              <td onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  {activeTab === 'users_blocked' ? (
+                                    <button 
+                                      onClick={() => handleUnblockUser(u)}
+                                      className="btn"
+                                      style={{ 
+                                        padding: '6px 12px', 
+                                        fontSize: '12px', 
+                                        border: 'none', 
+                                        backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                                        color: '#10b981' 
+                                      }}
+                                    >
+                                      Unblock
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button 
+                                        onClick={() => handleEditClick(u)}
+                                        className="btn btn-secondary"
+                                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button 
+                                        onClick={() => handleToggleUserStatus(u, isUActive ? false : true)}
+                                        className="btn"
+                                        style={{ 
+                                          padding: '6px 12px', 
+                                          fontSize: '12px', 
+                                          border: 'none', 
+                                          backgroundColor: isUActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                                          color: isUActive ? '#ef4444' : '#10b981' 
+                                        }}
+                                      >
+                                        {isUActive ? 'Disable' : 'Enable'}
+                                      </button>
+                                      <button 
+                                        onClick={() => handleToggleUserStatus(u, false, true)}
+                                        className="btn"
+                                        style={{ 
+                                          padding: '6px 12px', 
+                                          fontSize: '12px', 
+                                          border: 'none', 
+                                          backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                                          color: '#f59e0b' 
+                                        }}
+                                      >
+                                        Block
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -1513,7 +1722,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                           <td>₹{tx.amount}</td>
                           <td>
                             <span className={`badge ${tx.status === 'success' ? 'badge-active' : 'badge-disabled'}`}>
-                              {tx.status.toUpperCase()}
+                              {String(tx.status || '').toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -1728,54 +1937,153 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
       {/* --- USER MODAL --- */}
       {showUserModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingUser ? t('admin.editUser') : t('admin.addUser')}</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{
+            width: '90%',
+            maxWidth: '640px',
+            padding: '32px',
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            color: '#333333',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', color: '#111111' }}>{editingUser ? 'Edit User' : 'Add User'}</h3>
             <form onSubmit={handleUserSubmit}>
-              <div className="form-group">
-                <label className="form-label">{t('auth.fullName')}</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={userForm.name} 
-                  onChange={e => setUserForm({...userForm, name: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('auth.emailAddress')}</label>
-                <input 
-                  type="email" 
-                  className="form-input" 
-                  value={userForm.email} 
-                  onChange={e => setUserForm({...userForm, email: e.target.value})} 
-                  required 
-                  disabled={!!editingUser}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('auth.mobileNumber')}</label>
-                <input 
-                  type="tel" 
-                  className="form-input" 
-                  value={userForm.mobile} 
-                  onChange={e => setUserForm({...userForm, mobile: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Password {editingUser && '(Leave blank to keep current)'}</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
-                  value={userForm.password} 
-                  onChange={e => setUserForm({...userForm, password: e.target.value})} 
-                  required={!editingUser}
-                />
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>First Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter first name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.firstName} 
+                    onChange={e => setUserForm({...userForm, firstName: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Last Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter last name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.lastName} 
+                    onChange={e => setUserForm({...userForm, lastName: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Email Address</label>
+                  <input 
+                    type="email" 
+                    className="form-input" 
+                    placeholder="Enter email address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.email} 
+                    onChange={e => setUserForm({...userForm, email: e.target.value})} 
+                    required 
+                    disabled={!!editingUser}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    className="form-input" 
+                    placeholder="Enter phone number"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.mobile} 
+                    onChange={e => setUserForm({...userForm, mobile: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Gender</label>
+                  <select 
+                    className="form-input" 
+                    value={userForm.gender} 
+                    onChange={e => setUserForm({...userForm, gender: e.target.value})}
+                    required
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth</label>
+                  <input 
+                    type="date" 
+                    className="form-input" 
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.dob} 
+                    onChange={e => setUserForm({...userForm, dob: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.address} 
+                    onChange={e => setUserForm({...userForm, address: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter city"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.city} 
+                    onChange={e => setUserForm({...userForm, city: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter state"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.state} 
+                    onChange={e => setUserForm({...userForm, state: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Zipcode</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter zipcode"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.zipcode} 
+                    onChange={e => setUserForm({...userForm, zipcode: e.target.value})} 
+                    required 
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
-                <button type="button" onClick={() => setShowUserModal(false)} className="btn btn-secondary">{t('admin.cancel')}</button>
-                <button type="submit" className="btn btn-primary">{t('admin.saveUser')}</button>
+                <button type="button" onClick={() => setShowUserModal(false)} className="btn btn-secondary" style={{ background: '#e0e0e0', color: '#333333', border: 'none' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none' }}>Save User</button>
               </div>
             </form>
           </div>
