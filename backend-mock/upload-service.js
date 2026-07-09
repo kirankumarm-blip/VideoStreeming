@@ -182,8 +182,9 @@ app.post('/api/upload/register-video', async (req, res) => {
     };
 
     console.log("Sending metadata registration to n8n:", payload);
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'https://uat-02-admin-api.darpanx.com/webhook/vdadminVideos';
     const n8nResponse = await axios.post(
-      'https://uat-02-api.darpanx.com/webhook/vdadminVideos',
+      n8nUrl,
       payload,
       {
         headers: {
