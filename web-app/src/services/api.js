@@ -119,88 +119,9 @@ async function request(endpoint, options = {}) {
 
   const responseData = await response.json().catch(() => ({}));
   if (Array.isArray(responseData)) {
-    // Determine if the URL or formStep/payload indicates a list
-    const urlPath = cleanEndpoint.split('?')[0];
-    let bodyObj = {};
-    if (options.body && typeof options.body === 'string') {
-      try {
-        bodyObj = JSON.parse(options.body);
-      } catch (e) {}
-    }
-    
-    const isList = 
-      urlPath.endsWith('/admins') ||
-      urlPath.endsWith('/users') ||
-      urlPath.endsWith('/adminUsers') ||
-      urlPath.endsWith('/adminVideos') ||
-      urlPath.endsWith('/categories') ||
-      urlPath.endsWith('/videos') ||
-      urlPath.endsWith('/notifications') ||
-      urlPath.endsWith('/subscriptions') ||
-      urlPath.endsWith('/plans') ||
-      urlPath.includes('/history') ||
-      urlPath.includes('/favorites') ||
-      urlPath.includes('/transactions') ||
-      urlPath.includes('/reports') ||
-      urlPath.includes('/admin-logs') ||
-      urlPath.includes('/monitoring') ||
-      bodyObj.formStep === 'getAllAdmins' ||
-      bodyObj.formStep === 'getMyUsers' ||
-      bodyObj.formStep === 'blockedUsers' ||
-      bodyObj.formStep === 'getAllVideos' ||
-      bodyObj.formStep === 'getCategories' ||
-      bodyObj.formStep === 'getVisibilities' ||
-      bodyObj.formStep === 'list';
-
-    // Check if it's n8n style wrapping: [{ json: ... }]
-    const isN8n = responseData.length > 0 && responseData[0] && typeof responseData[0] === 'object' && 'json' in responseData[0];
-    
-    if (isN8n) {
-      // Check if it's a single item containing an array: [{ json: [...] }]
-      if (responseData.length === 1 && Array.isArray(responseData[0].json)) {
-        return responseData[0].json;
-      }
-      
-      const mapped = responseData.map(item => item.json);
-      if (isList || (options && options.expectArray)) {
-        return mapped;
-      }
-      return mapped[0] || {};
-    } else {
-      // Standard array (like from mock server or flat UAT webhook responses)
-      if (isList || (options && options.expectArray)) {
-        return responseData;
-      }
-      return responseData[0] || {};
-    }
+    return responseData[0] || {};
   }
   return responseData;
-}
-
-const UPLOAD_SERVICE_URL = 'http://localhost:5050';
-
-async function uploadRequest(endpoint, options = {}) {
-  const url = `${UPLOAD_SERVICE_URL}${endpoint}`;
-  const headers = {
-    ...options.headers,
-  };
-  const token = getAccessToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  if (!(options.body instanceof FormData)) {
-    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
-  }
-  const config = {
-    ...options,
-    headers,
-  };
-  const response = await fetch(url, config);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Upload request failed with status ${response.status}`);
-  }
-  return response.json();
 }
 
 // API Endpoints
@@ -249,21 +170,11 @@ export const api = {
         body: JSON.stringify({ formStep }),
       });
     },
-    getAdmin: (formStep = 'overview') => {
-      return request('/dashboard/admin', {
-        method: 'POST',
-        body: JSON.stringify({ formStep }),
-      });
-    },
+    getAdmin: () => request('/dashboard/admin'),
     getUser: () => request('/dashboard/user'),
   },
   categories: {
-    list: () => {
-      return request('/adminVideos', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "getCategories" }),
-      });
-    },
+    list: () => request('/categories'),
     create: (name, description) => {
       return request('/categories', {
         method: 'POST',
@@ -283,54 +194,17 @@ export const api = {
     }
   },
   users: {
-    list: () => {
-      return request('/adminUsers', {
+    list: () => request('/users'),
+    create: (name, email, mobile, password) => {
+      return request('/users', {
         method: 'POST',
-        body: JSON.stringify({ formStep: "getMyUsers" }),
+        body: JSON.stringify({ name, email, mobile, password }),
       });
     },
-    listBlocked: () => {
-      return request('/adminUsers', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "blockedUsers" }),
-      });
-    },
-    create: (data) => {
-      return request('/adminUsers', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "AddUser", ...data }),
-      });
-    },
-    update: (userId, data) => {
-      return request('/adminUsers', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "AddUser", user_id: userId, ...data }),
-      });
-    },
-    get: (userId) => {
-      return request('/adminUsers', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "getUser", user_id: userId }),
-      });
-    },
-    changeStatus: (userId, statusVal, isBlock = false) => {
-      return request('/adminUsers', {
-        method: 'POST',
-        body: JSON.stringify({
-          formStep: isBlock ? "BlockUser" : "activeStatus",
-          user_id: userId,
-          status: statusVal
-        }),
-      });
-    },
-    unblock: (userId) => {
-      return request('/adminUsers', {
-        method: 'POST',
-        body: JSON.stringify({
-          formStep: "unBlockUser",
-          user_id: userId,
-          status: "UnBlock"
-        }),
+    update: (id, data) => {
+      return request(`/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
       });
     }
   },
@@ -348,67 +222,25 @@ export const api = {
       });
     },
     update: (id, data) => {
-      return request('/admins', {
+      return request(`/admins/${id}`, {
         method: 'POST',
-        body: JSON.stringify({ formStep: "AddAdmin", id, user_id: id, ...data }),
-      });
-    },
-    get: (userId) => {
-      return request('/admins', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "getAdmin", user_id: userId }),
-      });
-    },
-    toggleStatus: (userId) => {
-      return request('/admins', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "activeStatus", user_id: userId }),
+        body: JSON.stringify({ formStep: "AddAdmin", id, ...data }),
       });
     }
   },
   videos: {
     list: (params = {}) => {
-      return request('/adminVideos', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "getAllVideos" }),
-      });
+      const query = new URLSearchParams();
+      if (params.search) query.append('search', params.search);
+      if (params.category) query.append('category', params.category);
+      const queryString = query.toString();
+      return request(`/videos${queryString ? `?${queryString}` : ''}`);
     },
     get: (id) => request(`/videos/${id}`),
     upload: (formData) => {
-      formData.append('formStep', 'uploadVideo');
-      return request('/adminVideos', {
+      return request('/videos/upload', {
         method: 'POST',
-        body: formData,
-      });
-    },
-    initiateChunkUpload: (fileName, fileSize, fileType) => {
-      return uploadRequest('/api/upload/initiate', {
-        method: 'POST',
-        body: JSON.stringify({ fileName, fileSize, fileType })
-      });
-    },
-    uploadChunk: (formData) => {
-      return uploadRequest('/api/upload/chunk', {
-        method: 'POST',
-        body: formData
-      });
-    },
-    completeChunkUpload: (uploadId, fileName, totalChunks) => {
-      return uploadRequest('/api/upload/complete', {
-        method: 'POST',
-        body: JSON.stringify({ uploadId, fileName, totalChunks })
-      });
-    },
-    registerVideo: (payload) => {
-      return uploadRequest('/api/upload/register-video', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-    },
-    listVisibilities: () => {
-      return request('/adminVideos', {
-        method: 'POST',
-        body: JSON.stringify({ formStep: "getVisibilities" }),
+        body: formData, // FormData contains title, description, category, video, thumbnail, tags, assignedAdmins
       });
     },
     update: (id, data) => {
