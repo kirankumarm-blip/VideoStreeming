@@ -400,9 +400,12 @@ export const api = {
       });
     },
     registerVideo: (payload) => {
-      return uploadRequest('/api/upload/register-video', {
+      return request('/adminVideos', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          ...payload,
+          formStep: 'uploadVideo'
+        })
       });
     },
     listVisibilities: () => {
