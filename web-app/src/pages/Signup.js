@@ -144,7 +144,7 @@ const Signup = () => {
       </button>
 
       {/* Form Container */}
-      <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10 }}>
+      <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10, maxWidth: '640px' }}>
         <div className="auth-logo">{t('nav.brand')}</div>
 
         {error && (
@@ -182,58 +182,60 @@ const Signup = () => {
             {t('auth.signUp')}
           </h2>
           
-          <div className="form-group">
-            <label className="form-label">First Name</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Enter first name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">First Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Enter first name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Last Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Enter last name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Last Name</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Enter last name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Gender</label>
-            <select
-              className="form-input"
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            >
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Date of Birth</label>
-            <input
-              type="date"
-              className="form-input"
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Gender</label>
+              <select
+                className="form-input"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Date of Birth</label>
+              <input
+                type="date"
+                className="form-input"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              />
+            </div>
           </div>
 
           <div className="form-group">
