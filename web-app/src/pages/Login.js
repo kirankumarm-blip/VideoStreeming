@@ -369,23 +369,7 @@ const Login = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', fontSize: '14px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                {t('auth.rememberMe')}
-              </label>
-              
-              <span 
-                onClick={() => { setAuthMode('forgot'); setError(''); setSuccessMessage(''); }}
-                style={{ color: 'var(--accent-secondary)', cursor: 'pointer', fontWeight: 600 }}
-              >
-                {t('auth.forgotPassword')}
-              </span>
-            </div>
+
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}

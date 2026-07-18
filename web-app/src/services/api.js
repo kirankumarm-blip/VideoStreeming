@@ -237,10 +237,19 @@ export const api = {
         body: JSON.stringify({ email, formStep, otp: otpCode }),
       });
     },
-    signup: (name, email, mobile, password) => {
+    signup: (data) => {
       return request('/auth/signup', {
         method: 'POST',
-        body: JSON.stringify({ name, email, mobile, password }),
+        body: JSON.stringify({ 
+          name: `${data.firstName} ${data.lastName}`,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          gender: data.gender,
+          date_of_birth: data.dob,
+          email: data.email,
+          mobile: data.mobile || '0000000000',
+          password: data.password
+        }),
       });
     },
     changePassword: (oldPassword, newPassword) => {
