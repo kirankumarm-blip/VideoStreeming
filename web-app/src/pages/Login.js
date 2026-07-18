@@ -374,6 +374,13 @@ const Login = () => {
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}
             </button>
+
+            <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Don't have an account?{' '}
+              <Link to="/signup" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
+                Sign Up
+              </Link>
+            </div>
           </form>
         )}
 
