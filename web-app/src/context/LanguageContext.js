@@ -94,10 +94,10 @@ const translations = {
     'admin.tabVideosAssign': '🎥 Videos & Assignment',
 
     // Metrics / Stats
-    'admin.statTotalUsers': 'Total Assigned Users',
+    'admin.statTotalUsers': 'Total Users',
     'admin.statTotalVideos': 'Uploaded Videos',
     'admin.statTotalViews': 'Total Video Views',
-    'admin.statActiveUsers': 'Active Users (7 Days)',
+    'admin.statActiveUsers': 'Total Courses',
     'admin.statTotalAdmins': 'Total Admins',
     'admin.statTotalEndUsers': 'Total End Users',
     'admin.statTotalVideosAsset': 'Total Video Assets',
@@ -487,10 +487,10 @@ const translations = {
     'admin.tabVideosAssign': '🎥 वीडियो और असाइनमेंट',
 
     // Metrics / Stats
-    'admin.statTotalUsers': 'कुल असाइन किए गए उपयोगकर्ता',
+    'admin.statTotalUsers': 'कुल उपयोगकर्ता',
     'admin.statTotalVideos': 'अपलोड किए गए वीडियो',
     'admin.statTotalViews': 'कुल वीडियो व्यूज',
-    'admin.statActiveUsers': 'सक्रिय उपयोगकर्ता (7 दिन)',
+    'admin.statActiveUsers': 'कुल पाठ्यक्रम',
     'admin.statTotalAdmins': 'कुल एडमिन',
     'admin.statTotalEndUsers': 'कुल अंतिम उपयोगकर्ता',
     'admin.statTotalVideosAsset': 'कुल वीडियो संपत्ति',
@@ -880,10 +880,10 @@ const translations = {
     'admin.tabVideosAssign': '🎥 ವೀಡಿಯೊಗಳು ಮತ್ತು ನಿಯೋಜನೆ',
 
     // Metrics / Stats
-    'admin.statTotalUsers': 'ನಿಯೋಜಿಸಲಾದ ಒಟ್ಟು ಬಳಕೆದಾರರು',
+    'admin.statTotalUsers': 'ಒಟ್ಟು ಬಳಕೆದಾರರು',
     'admin.statTotalVideos': 'ಅಪ್‌ಲೋಡ್ ಮಾಡಿದ ವೀಡಿಯೊಗಳು',
     'admin.statTotalViews': 'ಒಟ್ಟು ವೀಡಿಯೊ ವೀಕ್ಷಣೆಗಳು',
-    'admin.statActiveUsers': 'ಸಕ್ರಿಯ ಬಳಕೆದಾರರು (7 ದಿನಗಳು)',
+    'admin.statActiveUsers': 'ಒಟ್ಟು ಕೋರ್ಸ್‌ಗಳು',
     'admin.statTotalAdmins': 'ಒಟ್ಟು ಅಡ್ಮಿನ್‌ಗಳು',
     'admin.statTotalEndUsers': 'ಒಟ್ಟು ಅಂತಿಮ ಬಳಕೆದಾರರು',
     'admin.statTotalVideosAsset': 'ಒಟ್ಟು ವಿಡಿಯೋ ಸ್ವತ್ತುಗಳು',

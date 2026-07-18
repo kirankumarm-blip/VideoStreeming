@@ -146,7 +146,10 @@ export const BarChart = ({ data = [] }) => {
                   fontWeight={isHovered ? "600" : "normal"}
                   style={{ transition: 'all 0.2s', pointerEvents: 'none' }}
                 >
-                  {item.name ? (item.name.length > 8 ? `${item.name.slice(0, 7)}..` : item.name) : item.label}
+                  {(() => {
+                    const rawLabel = item.name || item.label || '';
+                    return rawLabel.length > 10 ? `${rawLabel.slice(0, 10)}...` : rawLabel;
+                  })()}
                 </text>
               </g>
             );

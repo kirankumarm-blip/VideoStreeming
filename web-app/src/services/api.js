@@ -129,10 +129,13 @@ async function request(endpoint, options = {}) {
     }
     
     const isList = 
+      urlPath.endsWith('/vdUser') ||
       urlPath.endsWith('/admins') ||
       urlPath.endsWith('/users') ||
       urlPath.endsWith('/adminUsers') ||
+      urlPath.includes('/vdadminUsers') ||
       urlPath.endsWith('/adminVideos') ||
+      urlPath.includes('/vdadminVideos') ||
       urlPath.endsWith('/categories') ||
       urlPath.endsWith('/videos') ||
       urlPath.endsWith('/notifications') ||
@@ -144,12 +147,25 @@ async function request(endpoint, options = {}) {
       urlPath.includes('/reports') ||
       urlPath.includes('/admin-logs') ||
       urlPath.includes('/monitoring') ||
+      urlPath.includes('analytics') ||
       bodyObj.formStep === 'getAllAdmins' ||
       bodyObj.formStep === 'getMyUsers' ||
       bodyObj.formStep === 'blockedUsers' ||
+      bodyObj.formStep === 'getUserLogs' ||
       bodyObj.formStep === 'getAllVideos' ||
       bodyObj.formStep === 'getCategories' ||
       bodyObj.formStep === 'getVisibilities' ||
+      bodyObj.formStep === 'analytics' ||
+      bodyObj.formStep === 'getAdmin' ||
+      bodyObj.formstep === 'GetAdmins' ||
+      bodyObj.formStep === 'GetAdmins' ||
+      bodyObj.formstep === 'users_all' ||
+      bodyObj.formstep === 'users_logs' ||
+      bodyObj.formstep === 'users_blocked' ||
+      bodyObj.formstep === 'getAllVidoes' ||
+      bodyObj.formstep === 'getCategories' ||
+      bodyObj.formstep === 'analytics' ||
+      bodyObj.formstep === 'levels' ||
       bodyObj.formStep === 'list';
 
     // Check if it's n8n style wrapping: [{ json: ... }]
@@ -167,11 +183,14 @@ async function request(endpoint, options = {}) {
       }
       return mapped[0] || {};
     } else {
-      // Standard array (like from mock server or flat UAT webhook responses)
-      if (isList || (options && options.expectArray)) {
-        return responseData;
+      // Standard array or object (like from mock server or flat UAT webhook responses)
+      if (Array.isArray(responseData)) {
+        if (isList || (options && options.expectArray)) {
+          return responseData;
+        }
+        return responseData[0] || {};
       }
-      return responseData[0] || {};
+      return responseData;
     }
   }
   return responseData;
@@ -243,10 +262,12 @@ export const api = {
     }
   },
   dashboard: {
-    getSuperAdmin: (formStep = 'overview') => {
+    getSuperAdmin: (formstep = 'overview', payload = {}) => {
+      const expectArray = formstep === 'GetAdmins' || formstep === 'users_all' || formstep === 'users_logs' || formstep === 'users_blocked' || formstep === 'getAllVidoes' || formstep === 'getCategories' || formstep === 'analytics' || formstep === 'levels';
       return request('/dashboard/super-admin', {
         method: 'POST',
-        body: JSON.stringify({ formStep }),
+        body: JSON.stringify({ formstep, ...payload }),
+        expectArray
       });
     },
     getAdmin: (formStep = 'overview') => {
@@ -255,7 +276,16 @@ export const api = {
         body: JSON.stringify({ formStep }),
       });
     },
-    getUser: () => request('/dashboard/user'),
+    getUser: (formStep = null, payload = {}) => {
+      const body = { ...payload };
+      if (formStep) {
+        body.formStep = formStep;
+      }
+      return request('/User', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
   },
   categories: {
     list: () => {
@@ -267,13 +297,22 @@ export const api = {
     create: (name, description) => {
       return request('/categories', {
         method: 'POST',
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ 
+          formstep: "addCategory",
+          name, 
+          description 
+        }),
       });
     },
     update: (id, name, description) => {
-      return request(`/categories/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ name, description }),
+      return request('/categories', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "editCategory",
+          id,
+          name, 
+          description 
+        }),
       });
     },
     delete: (id) => {
@@ -332,6 +371,12 @@ export const api = {
           status: "UnBlock"
         }),
       });
+    },
+    getUserLogs: () => {
+      return request('/adminUsers', {
+        method: 'POST',
+        body: JSON.stringify({ formStep: "getUserLogs" }),
+      });
     }
   },
   admins: {
@@ -359,10 +404,14 @@ export const api = {
         body: JSON.stringify({ formStep: "getAdmin", user_id: userId }),
       });
     },
-    toggleStatus: (userId) => {
+    toggleStatus: (userId, nextStatus) => {
       return request('/admins', {
         method: 'POST',
-        body: JSON.stringify({ formStep: "activeStatus", user_id: userId }),
+        body: JSON.stringify({ 
+          formstep: "activeStatus",
+          user_id: userId,
+          status: nextStatus
+        }),
       });
     }
   },
@@ -373,14 +422,18 @@ export const api = {
         body: JSON.stringify({ formStep: "getAllVideos" }),
       });
     },
-    get: (id) => request(`/videos/${id}`),
-    upload: (payload) => {
+    getLevels: () => {
       return request('/adminVideos', {
         method: 'POST',
-        body: JSON.stringify({
-          ...payload,
-          formStep: 'uploadVideo'
-        }),
+        body: JSON.stringify({ formstep: "levels" }),
+      });
+    },
+    get: (id) => request(`/videos/${id}`),
+    upload: (formData) => {
+      formData.append('formStep', 'uploadVideo');
+      return request('/adminVideos', {
+        method: 'POST',
+        body: formData,
       });
     },
     initiateChunkUpload: (fileName, fileSize, fileType) => {
@@ -401,12 +454,47 @@ export const api = {
         body: JSON.stringify({ uploadId, fileName, totalChunks })
       });
     },
-    registerVideo: (payload) => {
-      return uploadRequest('/api/upload/register-video', {
+    registerVideo: async (payload) => {
+      const url = `${getBaseUrl()}/vdadminVideos`;
+      const token = getAccessToken();
+      const bodyObj = {
+        ...payload,
+        formStep: 'uploadVideo'
+      };
+      if (token) {
+        bodyObj.token = token;
+      }
+      const response = await fetch(url, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(bodyObj)
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to register video metadata: ${response.status}`);
+      }
+      return response.json();
+    },
+
+    uploadCourse: (payload) => {
+      return request('/adminVideos', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...payload,
+          formStep: "UploadCouse"
+        })
       });
     },
+
+    listCourses: () => {
+      return request('/adminVideos', {
+        method: 'POST',
+        body: JSON.stringify({ formStep: "getAllCourses" }),
+      });
+    },
+
     listVisibilities: () => {
       return request('/adminVideos', {
         method: 'POST',

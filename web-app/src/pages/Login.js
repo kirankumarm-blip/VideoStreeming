@@ -9,6 +9,7 @@ const Login = () => {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState('');
@@ -142,12 +143,14 @@ const Login = () => {
       // 3. Call vdotp workflow to verify OTP
       const otpRes = await api.auth.otp(email, 'verifyOtp', otpCode);
       
-      // Map flat keys directly from the UAT response payload
+      // Map flat or nested keys from the UAT response payload
+      const userObj = otpRes.user || (tempLoginData ? tempLoginData.user : null);
+      
       const token = otpRes.token || otpRes.accessToken || (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '');
-      const role = otpRes.role || (tempLoginData ? tempLoginData.role : '');
-      const name = otpRes.name || (tempLoginData ? tempLoginData.name : '');
-      const userEmail = otpRes.email || email;
-      const userId = otpRes.id || (tempLoginData ? tempLoginData.id : null);
+      const role = otpRes.role || (userObj ? userObj.role : '') || (tempLoginData ? tempLoginData.role : '');
+      const name = otpRes.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '');
+      const userEmail = otpRes.email || (userObj ? userObj.email : '') || email;
+      const userId = otpRes.id || (userObj ? userObj.id : null) || (tempLoginData ? tempLoginData.id : null);
 
       const finalUser = {
         id: userId,
@@ -322,14 +325,48 @@ const Login = () => {
 
             <div className="form-group">
               <label className="form-label">{t('auth.password')}</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder={t('auth.enterPassword')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="form-input"
+                  placeholder={t('auth.enterPassword')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ width: '100%', paddingRight: '50px' }}
+                  required
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
+                    transition: 'color 0.2s',
+                    outline: 'none'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-secondary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.815 7.815 3 3m-3-3-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', fontSize: '14px' }}>
@@ -372,7 +409,7 @@ const Login = () => {
                 className="form-input"
                 placeholder="123456"
                 value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                 required
                 maxLength="6"
                 style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '20px', fontWeight: 'bold' }}
@@ -511,45 +548,6 @@ const Login = () => {
             </div>
           </form>
         )}
-        {/* Server IP Config Drawer */}
-        <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px', textAlign: 'center' }}>
-          {!showServerConfig ? (
-            <span 
-              onClick={() => setShowServerConfig(true)}
-              style={{ fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              ⚙️ Configure Server IP Address
-            </span>
-          ) : (
-            <form onSubmit={handleSaveServerConfig} style={{ textAlign: 'left', marginTop: '8px' }}>
-              <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label className="form-label" style={{ fontSize: '11px' }}>Server API Base URL</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={serverUrl}
-                  onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="e.g. http://192.168.1.100:5000/api"
-                  required
-                  style={{ fontSize: '12px', padding: '8px 12px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '11px', flex: 1 }}>
-                  Save & Reload
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setShowServerConfig(false)}
-                  style={{ padding: '6px 12px', fontSize: '11px', flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
       </div>
 
       {/* --- CUSTOM ALERT MODAL --- */}

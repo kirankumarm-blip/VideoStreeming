@@ -3,7 +3,16 @@ import { api } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 
-const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
+const getFormattedSeconds = (sec) => {
+  if (sec === undefined || sec === null) return '';
+  const s = parseFloat(sec);
+  if (isNaN(s)) return sec;
+  if (s >= 3600) return `${(s / 3600).toFixed(1)} hrs`;
+  if (s >= 60) return `${Math.round(s / 60)} min`;
+  return `${Math.round(s)} sec`;
+};
+
+const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, users_all, video_upload, etc.
   const [stats, setStats] = useState(null);
@@ -39,27 +48,57 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   // Users CRUD states
   const [users, setUsers] = useState([]);
-  const [userForm, setUserForm] = useState({ name: '', email: '', mobile: '', password: '' });
+  const [userLogs, setUserLogs] = useState([]);
+  const [userForm, setUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    gender: '',
+    dob: '',
+    city: '',
+    state: '',
+    zipcode: '',
+    address: ''
+  });
   const [editingUser, setEditingUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
   // Video Upload states
   const [categories, setCategories] = useState([]);
+  const [visibilities, setVisibilities] = useState([]);
+  const [levels, setLevels] = useState([]);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
     category: '',
     tags: '',
-    visibility: 'public'
+    visibility: ''
   });
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
 
-  // My Videos list states
   const [myVideos, setMyVideos] = useState([]);
+
+  const [courses, setCourses] = useState([]);
+  const [courseForm, setCourseForm] = useState({
+    title: '',
+    description: '',
+    category: '',
+    visibility: '',
+    instructor: '',
+    level: 'Beginner',
+    tags: '',
+    totalChapters: '',
+    totalLessons: '',
+    totalDuration: ''
+  });
+  const [courseThumbnail, setCourseThumbnail] = useState(null);
+  const [courseBanner, setCourseBanner] = useState(null);
+  const [chapters, setChapters] = useState([]);
 
   // New State variables for dynamic sections
   const [userAnalytics, setUserAnalytics] = useState(null);
@@ -76,16 +115,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchDashboardData();
     fetchUsers();
     fetchCategories();
     fetchVideos();
-    fetchAnalyticsData();
     fetchMonitoringData();
   }, []);
 
   useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchDashboardData('overview');
+    }
+    if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
+      fetchUsers();
+    }
+    if (activeTab === 'video_upload' || activeTab === 'course_upload') {
+      fetchCategories();
+      fetchVisibilities();
+      fetchLevels();
+    }
+    if (activeTab === 'video_all') {
+      fetchVideos();
+    }
+    if (activeTab === 'course_all') {
+      fetchCourses();
+    }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
+      fetchDashboardData('analytics');
       fetchAnalyticsData();
     }
     if (activeTab === 'realtime' || activeTab.startsWith('mon_')) {
@@ -102,17 +157,38 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const fetchAnalyticsData = async () => {
     try {
       const u = await api.analytics.getUser();
+      console.log("Fetched user analytics data u:", u);
       setUserAnalytics(u);
+    } catch (err) {
+      console.error("Failed to fetch user analytics", err);
+    }
+
+    try {
       const c = await api.analytics.getContent();
       setContentAnalytics(c);
+    } catch (err) {
+      console.error("Failed to fetch content analytics", err);
+    }
+
+    try {
       const r = await api.analytics.getRevenue();
       setRevenueAnalytics(r);
+    } catch (err) {
+      console.error("Failed to fetch revenue analytics", err);
+    }
+
+    try {
       const e = await api.analytics.getEngagement();
       setEngagementAnalytics(e);
+    } catch (err) {
+      console.error("Failed to fetch engagement analytics", err);
+    }
+
+    try {
       const s = await api.analytics.getStreaming();
       setStreamingAnalytics(s);
     } catch (err) {
-      console.error('Failed to load analytics data', err);
+      console.error("Failed to fetch streaming analytics", err);
     }
   };
 
@@ -149,10 +225,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (formStep = 'overview') => {
     setLoading(true);
     try {
-      const data = await api.dashboard.getAdmin();
+      const data = await api.dashboard.getAdmin(formStep);
       setStats(data);
     } catch (err) {
       setError('Failed to load admin dashboard data');
@@ -163,19 +239,56 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   const fetchUsers = async () => {
     try {
-      const data = await api.users.list();
-      setUsers(data);
+      let data;
+      if (activeTab === 'users_blocked') {
+        data = await api.users.listBlocked();
+        setUsers(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'users_logs') {
+        data = await api.users.getUserLogs();
+        setUserLogs(Array.isArray(data) ? data : []);
+      } else {
+        data = await api.users.list();
+        setUsers(Array.isArray(data) ? data : []);
+      }
     } catch (e) {
       console.error(e);
+      setUsers([]);
+      setUserLogs([]);
     }
   };
 
   const fetchCategories = async () => {
     try {
       const data = await api.categories.list();
-      setCategories(data);
+      setCategories(Array.isArray(data) ? data : []);
       if (data.length > 0) {
-        setUploadForm(prev => ({ ...prev, category: data[0].name }));
+        setUploadForm(prev => ({ ...prev, category: data[0].id }));
+      }
+    } catch (e) {
+      console.error(e);
+      setCategories([]);
+    }
+  };
+
+  const fetchVisibilities = async () => {
+    try {
+      const data = await api.videos.listVisibilities();
+      setVisibilities(data);
+      if (data.length > 0) {
+        setUploadForm(prev => ({ ...prev, visibility: data[0].id }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchLevels = async () => {
+    try {
+      const data = await api.videos.getLevels();
+      const levelsList = Array.isArray(data) ? data : [];
+      setLevels(levelsList);
+      if (levelsList.length > 0) {
+        setCourseForm(prev => ({ ...prev, level: levelsList[0].id || levelsList[0].level }));
       }
     } catch (e) {
       console.error(e);
@@ -185,23 +298,332 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const fetchVideos = async () => {
     try {
       const data = await api.videos.list();
-      setMyVideos(data);
+      setMyVideos(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
+      setMyVideos([]);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const data = await api.videos.listCourses();
+      setCourses(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setCourses([]);
+    }
+  };
+
+  const addChapter = () => {
+    const newId = chapters.length > 0 ? Math.max(...chapters.map(c => c.id)) + 1 : 1;
+    setChapters([
+      ...chapters,
+      {
+        id: newId,
+        title: `Chapter ${newId}`,
+        description: '',
+        order: newId,
+        videos: []
+      }
+    ]);
+  };
+
+  const removeChapter = (id) => {
+    setChapters(chapters.filter(c => c.id !== id));
+  };
+
+  const updateChapterProp = (id, prop, val) => {
+    setChapters(chapters.map(c => c.id === id ? { ...c, [prop]: val } : c));
+  };
+
+  const addVideoToChapter = (chapterId) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      const newId = ch.videos.length > 0 ? Math.max(...ch.videos.map(v => v.id)) + 1 : 1;
+      return {
+        ...ch,
+        videos: [
+          ...ch.videos,
+          { id: newId, title: 'New Lesson', file: null, fileName: '', thumbnail: null, thumbName: '', duration: '00:00', isPreview: false }
+        ]
+      };
+    }));
+  };
+
+  const removeVideoFromChapter = (chapterId, videoId) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      return {
+        ...ch,
+        videos: ch.videos.filter(v => v.id !== videoId)
+      };
+    }));
+  };
+
+  const updateVideoProp = (chapterId, videoId, prop, val) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      return {
+        ...ch,
+        videos: ch.videos.map(v => v.id === videoId ? { ...v, [prop]: val } : v)
+      };
+    }));
+  };
+
+  const [courseThumbnailUrl, setCourseThumbnailUrl] = useState('');
+  const [courseBannerUrl, setCourseBannerUrl] = useState('');
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+
+  const handleCourseThumbnailUpload = async (file) => {
+    if (!file) return;
+    setThumbnailUploading(true);
+    try {
+      const CHUNK_SIZE = 5 * 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
+      const uploadId = initRes.uploadId;
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+        await api.videos.uploadChunk(chunkFormData);
+      }
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      setCourseThumbnailUrl(completeRes.minioUrl);
+    } catch (err) {
+      alert(`Failed to upload thumbnail: ${err.message}`);
+    } finally {
+      setThumbnailUploading(false);
+    }
+  };
+
+  const handleCourseBannerUpload = async (file) => {
+    if (!file) return;
+    setBannerUploading(true);
+    try {
+      const CHUNK_SIZE = 5 * 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
+      const uploadId = initRes.uploadId;
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+        await api.videos.uploadChunk(chunkFormData);
+      }
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      setCourseBannerUrl(completeRes.minioUrl);
+    } catch (err) {
+      alert(`Failed to upload banner: ${err.message}`);
+    } finally {
+      setBannerUploading(false);
+    }
+  };
+
+  const handleChapterVideoUpload = async (chapterId, videoId, file) => {
+    if (!file) return;
+    
+    updateVideoProp(chapterId, videoId, 'uploadStatus', 'uploading');
+    updateVideoProp(chapterId, videoId, 'fileName', file.name);
+    
+    try {
+      const CHUNK_SIZE = 5 * 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
+      const uploadId = initRes.uploadId;
+
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+
+        const percent = Math.round((chunkIndex / totalChunks) * 100);
+        updateVideoProp(chapterId, videoId, 'uploadProgress', percent);
+
+        await api.videos.uploadChunk(chunkFormData);
+      }
+
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      
+      updateVideoProp(chapterId, videoId, 'uploadStatus', 'success');
+      updateVideoProp(chapterId, videoId, 'videoUrl', completeRes.minioUrl);
+    } catch (err) {
+      console.error(err);
+      updateVideoProp(chapterId, videoId, 'uploadStatus', 'error');
+      alert(`Failed to upload video: ${err.message}`);
+    }
+  };
+
+  const handleChapterThumbnailUpload = async (chapterId, videoId, file) => {
+    if (!file) return;
+    
+    updateVideoProp(chapterId, videoId, 'thumbStatus', 'uploading');
+    updateVideoProp(chapterId, videoId, 'thumbName', file.name);
+    
+    try {
+      const CHUNK_SIZE = 5 * 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
+      const uploadId = initRes.uploadId;
+
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+
+        await api.videos.uploadChunk(chunkFormData);
+      }
+
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      
+      updateVideoProp(chapterId, videoId, 'thumbStatus', 'success');
+      updateVideoProp(chapterId, videoId, 'thumbnailUrl', completeRes.minioUrl);
+    } catch (err) {
+      console.error(err);
+      updateVideoProp(chapterId, videoId, 'thumbStatus', 'error');
+      alert(`Failed to upload thumbnail: ${err.message}`);
+    }
+  };
+
+  const handleCourseSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setUploadProgress('Submitting course...');
+    try {
+      const payload = {
+        title: courseForm.title,
+        description: courseForm.description,
+        category: courseForm.category,
+        visibility: courseForm.visibility,
+        instructor: courseForm.instructor,
+        level: courseForm.level,
+        tags: courseForm.tags,
+        totalChapters: courseForm.totalChapters || chapters.length.toString(),
+        totalLessons: courseForm.totalLessons || chapters.reduce((acc, c) => acc + c.videos.length, 0).toString(),
+        totalDuration: courseForm.totalDuration || '10.5',
+        thumbnail: courseThumbnailUrl,
+        banner: courseBannerUrl,
+        chapters: chapters.map(ch => ({
+          title: ch.title,
+          description: ch.description,
+          order: ch.order,
+          videos: ch.videos.map(v => ({
+            title: v.title,
+            fileName: v.fileName || 'video.mp4',
+            videoUrl: v.videoUrl || '',
+            thumbName: v.thumbName || 'thumbnail.png',
+            thumbnailUrl: v.thumbnailUrl || '',
+            duration: v.duration,
+            isPreview: v.isPreview
+          }))
+        }))
+      };
+
+      await api.videos.uploadCourse(payload);
+      setUploadSuccess('Course created successfully!');
+      setUploadProgress('');
+      
+      // Reset
+      setCourseForm({
+        title: '',
+        description: '',
+        category: '',
+        visibility: '',
+        instructor: '',
+        level: levels[0]?.id || levels[0]?.level || 'Beginner',
+        tags: '',
+        totalChapters: '',
+        totalLessons: '',
+        totalDuration: ''
+      });
+      setChapters([]);
+      setCourseThumbnailUrl('');
+      setCourseBannerUrl('');
+      fetchCourses();
+      setActiveTab('course_all');
+    } catch (e) {
+      console.error(e);
+      setUploadProgress('');
+      alert('Failed to submit course: ' + e.message);
     }
   };
 
   // --- User CRUD Handlers ---
   const handleUserSubmit = async (e) => {
     e.preventDefault();
+
+    // Email regex validation (e.g. marco@gmail.com)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(userForm.email)) {
+      alert('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
+      return;
+    }
+
+    // Phone number length validation
+    if (userForm.mobile.length !== 10) {
+      alert('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    // Zipcode length validation
+    if (userForm.zipcode.length !== 6) {
+      alert('Zipcode must be exactly 6 digits');
+      return;
+    }
+
     try {
+      const dataToSave = {
+        first_name: userForm.firstName,
+        last_name: userForm.lastName,
+        email: userForm.email,
+        phonenumber: userForm.mobile,
+        gender: userForm.gender,
+        date_of_birth: userForm.dob,
+        address: userForm.address,
+        city: userForm.city,
+        state: userForm.state,
+        zipcode: userForm.zipcode
+      };
+
       if (editingUser) {
-        await api.users.update(editingUser.id, userForm);
+        await api.users.update(editingUser.id, dataToSave);
       } else {
-        await api.users.create(userForm.name, userForm.email, userForm.mobile, userForm.password);
+        await api.users.create(dataToSave);
       }
       setShowUserModal(false);
-      setUserForm({ name: '', email: '', mobile: '', password: '' });
+      setUserForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        mobile: '',
+        gender: '',
+        dob: '',
+        city: '',
+        state: '',
+        zipcode: '',
+        address: ''
+      });
       setEditingUser(null);
       fetchUsers();
       fetchDashboardData();
@@ -210,13 +632,50 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const handleToggleUserStatus = async (user) => {
-    const nextStatus = user.status === 'active' ? 'disabled' : 'active';
+  const handleEditClick = async (user) => {
+    setEditingUser(user);
+    let userData = user;
     try {
-      await api.users.update(user.id, { status: nextStatus });
+      const res = await api.users.get(user.id);
+      if (res && (res.id || res.email)) {
+        userData = res;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch user details, using local data", e);
+    }
+    
+    setUserForm({
+      firstName: userData.first_name || userData.firstName || '',
+      lastName: userData.last_name || userData.lastName || '',
+      email: userData.email || '',
+      mobile: userData.phonenumber || userData.mobile || '',
+      gender: userData.gender || '',
+      dob: userData.date_of_birth || userData.dob || '',
+      city: userData.city || '',
+      state: userData.state || '',
+      zipcode: userData.zipcode || '',
+      address: userData.address || ''
+    });
+    setShowUserModal(true);
+  };
+
+  const handleToggleUserStatus = async (user, statusVal, isBlock = false) => {
+    try {
+      await api.users.changeStatus(user.id, statusVal, isBlock);
       fetchUsers();
     } catch (err) {
       console.error(err);
+      setError(err.message || 'Failed to update user status');
+    }
+  };
+
+  const handleUnblockUser = async (user) => {
+    try {
+      await api.users.unblock(user.id);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to unblock user');
     }
   };
 
@@ -271,9 +730,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         thumbnailUrl = await uploadFileInChunks(thumbnailFile, 'Thumbnail');
       }
 
-      // 3. Register metadata directly to UAT n8n webhook
+      // 3. Register metadata and notify database via n8n webhook
       setUploadProgress('Registering video metadata with database...');
-      await api.videos.upload({
+      await api.videos.registerVideo({
         title: uploadForm.title,
         description: uploadForm.description,
         category: uploadForm.category,
@@ -289,9 +748,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       setUploadForm({
         title: '',
         description: '',
-        category: categories[0]?.id || categories[0]?.name || '',
+        category: categories[0]?.id || '',
         tags: '',
-        visibility: 'public'
+        visibility: visibilities[0]?.id || ''
       });
       setVideoFile(null);
       setThumbnailFile(null);
@@ -350,11 +809,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     {
       title: 'Dashboard',
       icon: '📊',
-      items: [
-        { id: 'overview', label: 'Overview' },
-        { id: 'analytics', label: 'Analytics' },
-        { id: 'realtime', label: 'Real-Time Monitoring' }
-      ]
+      items: []
     },
     {
       title: 'User Management',
@@ -362,7 +817,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       items: [
         { id: 'users_all', label: 'Users' },
         { id: 'users_logs', label: 'User Activity Logs' },
-        { id: 'users_subs', label: 'User Subscriptions' },
         { id: 'users_blocked', label: 'Blocked Users' }
       ]
     },
@@ -371,13 +825,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       icon: '🎬',
       items: [
         { id: 'video_upload', label: 'Upload Video' },
+        { id: 'course_upload', label: 'Upload Course' },
         { id: 'video_all', label: 'All Videos' },
-        { id: 'video_pending', label: 'Pending Videos' },
-        { id: 'video_queue', label: 'Processing Queue' },
-        { id: 'video_featured', label: 'Featured Videos' },
-        { id: 'categories', label: 'Categories' },
-        { id: 'tags', label: 'Tags' },
-        { id: 'comments_mod', label: 'Comments Moderation' }
+        { id: 'course_all', label: 'All Courses' }
       ]
     },
     {
@@ -385,12 +835,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       icon: '📈',
       items: [
         { id: 'analytics_video', label: 'Video Analytics' },
-        { id: 'analytics_user', label: 'User Analytics' },
-        { id: 'analytics_watch', label: 'Watch Time Analytics' },
-        { id: 'analytics_completion', label: 'Completion Analytics' },
-        { id: 'analytics_device', label: 'Device Analytics' },
-        { id: 'analytics_geo', label: 'Geographic Analytics' },
-        { id: 'analytics_traffic', label: 'Traffic Sources' }
+        { id: 'analytics_user', label: 'User Analytics' }
       ]
     },
     {
@@ -399,19 +844,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       items: [
         { id: 'engage_likes', label: 'Likes & Reactions' },
         { id: 'engage_comments', label: 'Comments' },
-        { id: 'engage_reviews', label: 'Reviews & Ratings' },
-        { id: 'engage_watchlist', label: 'Watchlist Analytics' }
-      ]
-    },
-    {
-      title: 'Monitoring',
-      icon: '🔔',
-      items: [
-        { id: 'mon_live', label: 'Live Users' },
-        { id: 'mon_sys', label: 'System Logs' },
-        { id: 'mon_err', label: 'Error Logs' },
-        { id: 'mon_storage', label: 'Storage Usage' },
-        { id: 'mon_transcode', label: 'Video Processing Status' }
+        { id: 'engage_reviews', label: 'Reviews & Ratings' }
       ]
     },
     {
@@ -420,9 +853,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       items: [
         { id: 'rep_daily', label: 'Daily Reports' },
         { id: 'rep_weekly', label: 'Weekly Reports' },
-        { id: 'rep_monthly', label: 'Monthly Reports' },
-        { id: 'rep_custom', label: 'Custom Reports' },
-        { id: 'rep_export', label: 'Export Center' }
+        { id: 'rep_monthly', label: 'Monthly Reports' }
       ]
     },
     {
@@ -430,13 +861,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       icon: '⚙',
       items: [
         { id: 'set_general', label: 'General Settings' },
-        { id: 'set_branding', label: 'Branding' },
-        { id: 'set_languages', label: 'Languages' },
-        { id: 'set_gateway', label: 'Payment Gateway' },
-        { id: 'set_email', label: 'Email Settings' },
-        { id: 'set_sms', label: 'SMS Settings' },
-        { id: 'set_keys', label: 'API Keys' },
-        { id: 'set_security', label: 'Security Settings' }
+        { id: 'set_languages', label: 'Languages' }
       ]
     },
     {
@@ -477,6 +902,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     { label: 'Sat', count: 850 },
     { label: 'Sun', count: 980 }
   ];
+
+  const getActiveTabLabel = () => {
+    for (const section of menuStructure) {
+      const item = section.items.find(i => i.id === activeTab);
+      if (item) return item.label;
+    }
+    if (activeTab === 'users_all') return 'Users';
+    return activeTab.replace(/_/g, ' ');
+  };
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
@@ -557,36 +991,55 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
           </span>
         </div>
 
-        {menuStructure.map((section, idx) => (
-          <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
-            <button 
-              onClick={() => toggleSection(section.title)}
-              className="admin-sidebar-header"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                padding: '10px 14px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                fontSize: '13px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.8px',
-                cursor: 'pointer',
-                borderRadius: '8px',
-                textAlign: 'left'
-              }}
-              type="button"
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>{section.icon}</span>
-                <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
-              </span>
-              <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
-            </button>
+        {menuStructure.map((section, idx) => {
+          const isDashboard = section.title === 'Dashboard';
+          const isSelected = isDashboard && activeTab === 'overview';
+          return (
+            <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
+              <button 
+                onClick={() => {
+                  if (isDashboard) {
+                    setActiveTab('overview');
+                    setError('');
+                    setUploadSuccess('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else {
+                    toggleSection(section.title);
+                  }
+                }}
+                className="admin-sidebar-header"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: isSelected ? 'rgba(229, 9, 20, 0.12)' : 'none',
+                  border: 'none',
+                  color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  textAlign: 'left',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
+                type="button"
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>{section.icon}</span>
+                  <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
+                </span>
+                {!isDashboard && (
+                  <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
+                )}
+              </button>
             
             {expandedSections[section.title] && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '12px', borderLeft: '1px solid var(--border-color)', paddingLeft: '8px', marginTop: '4px' }}>
@@ -628,7 +1081,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
               </div>
             )}
           </div>
-        ))}
+        )})}
       </div>
 
       {/* 2. MAIN ADMIN CONTENT CONTAINER */}
@@ -637,8 +1090,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         {/* Top Header Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, textTransform: 'capitalize' }}>
-              {activeTab.replace(/_/g, ' ')}
+            <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
+              {getActiveTabLabel()}
             </h1>
             <p style={{ color: 'var(--text-secondary)' }}>Welcome to the Admin Command Control center.</p>
           </div>
@@ -699,38 +1152,61 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                 <div className="dashboard-stats-grid">
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.statTotalUsers', 'Total Users')}</span>
-                    <span className="stat-value">{stats?.cards?.totalUsers || users.length || 0}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 12% this month</span>
+                    <span className="stat-value">{stats?.total_users || stats?.cards?.totalUsers || users.length || 0}</span>
+                    <span style={{ 
+                      fontSize: '11px', 
+                      color: parseFloat(stats?.users_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
+                      fontWeight: 600 
+                    }}>
+                      {stats?.users_growth_percent 
+                        ? `${parseFloat(stats.users_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.users_growth_percent))}% this month` 
+                        : '↑ 12% this month'}
+                    </span>
                   </div>
                   <div className="glass-card stat-card">
-                    <span className="stat-label">{t('admin.statActiveUsers', 'Active Users Today')}</span>
-                    <span className="stat-value">{stats?.cards?.activeUsers || 87}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔴 Live now</span>
+                    <span className="stat-label">{t('admin.statActiveUsers', 'Total Courses')}</span>
+                    <span className="stat-value">{stats?.total_courses || stats?.cards?.totalCourses || (Array.isArray(courses) ? courses.length : 0) || 0}</span>
+                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🟢 Active in catalog</span>
                   </div>
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.dashboard.totalVideosUploaded', 'Total Videos Uploaded')}</span>
-                    <span className="stat-value">{stats?.cards?.totalVideos || myVideos.length || 0}</span>
+                    <span className="stat-value">{stats?.total_videos || stats?.cards?.totalVideos || (Array.isArray(myVideos) ? myVideos.length : 0) || 0}</span>
                     <span style={{ fontSize: '11px', color: '#a0a0ab' }}>All transcode jobs completed</span>
                   </div>
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.statTotalViews', 'Total Views')}</span>
-                    <span className="stat-value">{stats?.cards?.totalViews || 2630}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 34% this week</span>
+                    <span className="stat-value">{stats?.total_video_views || stats?.cards?.totalViews || 0}</span>
+                    <span style={{ 
+                      fontSize: '11px', 
+                      color: parseFloat(stats?.video_views_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
+                      fontWeight: 600 
+                    }}>
+                      {stats?.video_views_growth_percent 
+                        ? `${parseFloat(stats.video_views_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.video_views_growth_percent))}% this week` 
+                        : '↑ 34% this week'}
+                    </span>
                   </div>
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.dashboard.dailyWatchTime', 'Daily Watch Time')}</span>
-                    <span className="stat-value">{(contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) || 150) + " min"}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 8% vs yesterday</span>
+                    <span className="stat-value">{getFormattedSeconds(stats?.today_watch_sec) || (contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) || 150) + " min"}</span>
+                    <span style={{ 
+                      fontSize: '11px', 
+                      color: parseFloat(stats?.daily_watch_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
+                      fontWeight: 600 
+                    }}>
+                      {stats?.daily_watch_growth_percent 
+                        ? `${parseFloat(stats.daily_watch_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.daily_watch_growth_percent))}% vs yesterday` 
+                        : '↑ 8% vs yesterday'}
+                    </span>
                   </div>
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.dashboard.monthlyWatchTime', 'Monthly Watch Time')}</span>
-                    <span className="stat-value">{((contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) * 30) || 4500) + " min"}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>92% of monthly target</span>
-                  </div>
-                  <div className="glass-card stat-card">
-                    <span className="stat-label">{t('admin.dashboard.liveStreamsRunning', 'Live Streams Running')}</span>
-                    <span className="stat-value" style={{ color: 'var(--accent-primary)' }}>{liveStreams?.length || 2}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔴 Live Stream Active</span>
+                    <span className="stat-value">{getFormattedSeconds(stats?.month_watch_sec) || ((contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) * 30) || 4500) + " min"}</span>
+                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      {stats?.monthly_target_percent 
+                        ? `${stats.monthly_target_percent}% of monthly target` 
+                        : '92% of monthly target'}
+                    </span>
                   </div>
                 </div>
 
@@ -743,23 +1219,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <div className="dashboard-charts-grid charts-grid-row">
                       <div className="glass-card">
                         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Growth Trend</h3>
-                        <LineChart data={userGrowthData} />
+                        <LineChart data={stats?.user_growth || stats?.userGrowth || userAnalytics?.registrations || userGrowthData} />
                         <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                          <span>Daily signups: +5</span>
+                          <span>Daily signups: {stats?.daily_signups || stats?.dailySignups || '+5'}</span>
                           <span>•</span>
-                          <span>Monthly signups: +120</span>
+                          <span>Monthly signups: {stats?.monthly_signups || stats?.monthlySignups || '+120'}</span>
                           <span>•</span>
-                          <span>Active users: 87</span>
+                          <span>Active users: {stats?.total_users || stats?.cards?.activeUsers || 87}</span>
                         </div>
                       </div>
                       
                       <div className="glass-card">
                         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Video Performance Trend</h3>
-                        <LineChart data={videoViewsTrend} />
+                        <LineChart data={stats?.video_views || stats?.videoViews || contentAnalytics?.viewsTrend || videoViewsTrend} />
                         <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                          <span>Views per Day: 850 avg</span>
+                          <span>Views per Day: {stats?.views_per_day_avg || stats?.viewsPerDayAvg || '850 avg'}</span>
                           <span>•</span>
-                          <span>Watch Hours: 42h avg</span>
+                          <span>Watch Hours: {stats?.watch_hours_avg || stats?.watchHoursAvg || '42h avg'}</span>
                         </div>
                       </div>
                     </div>
@@ -768,12 +1244,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <div className="glass-card">
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>User Engagement Funnel</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {[
-                          { label: 'Registered Users', count: 1000, color: 'var(--accent-primary)', pct: 100 },
-                          { label: 'Logged In', count: 850, color: 'var(--accent-secondary)', pct: 85 },
-                          { label: 'Started Video', count: 600, color: '#3b82f6', pct: 60 },
-                          { label: 'Completed Video', count: 400, color: '#10b981', pct: 40 }
-                        ].map(level => (
+                        {(() => {
+                          const registeredCount = parseInt(stats?.total_users || stats?.cards?.totalUsers || users.length || 1000, 10);
+                          const loggedInCount = parseInt(stats?.funnel?.loggedIn || 850, 10);
+                          const startedCount = parseInt(stats?.funnel?.startedVideo || 600, 10);
+                          const completedCount = parseInt(stats?.funnel?.completedVideo || 400, 10);
+
+                          const loggedInPct = Math.round((loggedInCount / Math.max(1, registeredCount)) * 100);
+                          const startedPct = Math.round((startedCount / Math.max(1, registeredCount)) * 100);
+                          const completedPct = Math.round((completedCount / Math.max(1, registeredCount)) * 100);
+
+                          const funnelData = stats?.engagementFunnel || [
+                            { label: 'Registered Users', count: registeredCount, color: 'var(--accent-primary)', pct: 100 },
+                            { label: 'Logged In', count: loggedInCount, color: 'var(--accent-secondary)', pct: Math.min(100, loggedInPct) },
+                            { label: 'Started Video', count: startedCount, color: '#3b82f6', pct: Math.min(100, startedPct) },
+                            { label: 'Completed Video', count: completedCount, color: '#10b981', pct: Math.min(100, completedPct) }
+                          ];
+                          return funnelData;
+                        })().map(level => (
                           <div key={level.label} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600, width: '130px' }}>{level.label}</span>
                             <div style={{ flex: 1, height: '24px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
@@ -808,16 +1296,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                             </tr>
                           </thead>
                           <tbody>
-                            {[
-                              { title: 'React JS for Beginners', views: 1200, time: '650h', comp: '85%', likes: 540 },
-                              { title: 'Understanding Compound Interest', views: 980, time: '410h', comp: '70%', likes: 320 },
-                              { title: 'Introduction to Quantum Mechanics', views: 450, time: '180h', comp: '62%', likes: 110 }
-                            ].map((row, idx) => (
+                            {(stats?.top_content || stats?.topContent || [
+                              { videoLesson: 'React JS for Beginners', views: 1200, watchTime: '650h', completionPercentage: 85, likes: 540 },
+                              { videoLesson: 'Understanding Compound Interest', views: 980, watchTime: '410h', completionPercentage: 70, likes: 320 },
+                              { videoLesson: 'Introduction to Quantum Mechanics', views: 450, watchTime: '180h', completionPercentage: 62, likes: 110 }
+                            ]).map((row, idx) => (
                               <tr key={idx}>
-                                <td style={{ fontWeight: 600 }}>{row.title}</td>
+                                <td style={{ fontWeight: 600 }}>{row.videoLesson || row.title}</td>
                                 <td>{row.views}</td>
-                                <td>{row.time}</td>
-                                <td>{row.comp}</td>
+                                <td>{row.watchTime || row.time}</td>
+                                <td>{row.completionPercentage !== undefined ? `${row.completionPercentage}%` : row.comp}</td>
                                 <td>{row.likes}</td>
                               </tr>
                             ))}
@@ -840,14 +1328,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                               </tr>
                             </thead>
                             <tbody>
-                              {[
-                                { name: 'Science', count: 25, views: '50K' },
-                                { name: 'Finance', count: 18, views: '42K' },
-                                { name: 'Technology', count: 12, views: '35K' }
-                              ].map((cat, idx) => (
+                              {(stats?.category_performance || stats?.categoryPerformance || [
+                                { categoryName: 'Science', videos: 25, views: '50K' },
+                                { categoryName: 'Finance', videos: 18, views: '42K' },
+                                { categoryName: 'Technology', videos: 12, views: '35K' }
+                              ]).map((cat, idx) => (
                                 <tr key={idx}>
-                                  <td style={{ fontWeight: 600 }}>{cat.name}</td>
-                                  <td>{cat.count}</td>
+                                  <td style={{ fontWeight: 600 }}>{cat.categoryName || cat.name}</td>
+                                  <td>{cat.videos !== undefined ? cat.videos : cat.count}</td>
                                   <td>{cat.views}</td>
                                 </tr>
                               ))}
@@ -899,31 +1387,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   {/* Right Column: Telemetry, AI, Activity, Geo */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', minWidth: 0 }}>
                     
-                    {/* Real-Time Monitoring */}
-                    <div className="glass-card" style={{ border: '1px solid var(--accent-glow)' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#ef4444', borderRadius: '50%' }} />
-                        Real-Time Monitoring
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Live Users:</span>
-                          <span style={{ fontWeight: 700 }}>87</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Watching Videos:</span>
-                          <span style={{ fontWeight: 700 }}>54</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Online Devices:</span>
-                          <span style={{ fontWeight: 700 }}>102</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Bandwidth Usage:</span>
-                          <span style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>2.4 GB/min</span>
-                        </div>
-                      </div>
-                    </div>
 
                     {/* AI Insights Panel */}
                     <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(229, 9, 20, 0.05) 100%)', border: '1px solid var(--accent-secondary)' }}>
@@ -1022,7 +1485,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <button 
                       onClick={() => {
                         setEditingUser(null);
-                        setUserForm({ name: '', email: '', mobile: '', password: '' });
+                        setUserForm({
+                          firstName: '',
+                          lastName: '',
+                          email: '',
+                          mobile: '',
+                          gender: '',
+                          dob: '',
+                          city: '',
+                          state: '',
+                          zipcode: '',
+                          address: ''
+                        });
                         setShowUserModal(true);
                       }}
                       className="btn btn-primary"
@@ -1037,60 +1511,73 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>{t('auth.fullName')}</th>
+                        <th>Name</th>
                         <th>{t('auth.emailAddress')}</th>
-                        <th>{t('auth.mobileNumber')}</th>
+                        <th>Mobile</th>
                         <th>Status</th>
                         <th>{t('admin.tableActions')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {users
+                      {(Array.isArray(users) ? users : [])
                         .filter(user => {
-                          if (userStatusFilter === 'active') return user.status === 'active';
-                          if (userStatusFilter === 'inactive') return user.status === 'disabled';
+                          const isUserActive = user.status === true || String(user.status).toLowerCase() === 'true' || String(user.status).toLowerCase() === 'active';
+                          if (userStatusFilter === 'active') return isUserActive;
+                          if (userStatusFilter === 'inactive') return !isUserActive;
                           return true;
                         })
-                        .map(user => (
-                        <tr key={user.id}>
-                          <td style={{ fontWeight: 600 }}>{user.name}</td>
-                          <td>{user.email}</td>
-                          <td>{user.mobile}</td>
-                          <td>
-                            <span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                              {user.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => {
-                                  setEditingUser(user);
-                                  setUserForm({ name: user.name, email: user.email, mobile: user.mobile, password: '' });
-                                  setShowUserModal(true);
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                {t('admin.editBtn')}
-                              </button>
-                              <button 
-                                onClick={() => handleToggleUserStatus(user)}
-                                className="btn"
-                                style={{ 
-                                  padding: '6px 12px', 
-                                  fontSize: '12px', 
-                                  border: 'none', 
-                                  backgroundColor: user.status === 'active' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', 
-                                  color: user.status === 'active' ? '#ef4444' : '#10b981' 
-                                }}
-                              >
-                                {user.status === 'active' ? t('admin.disableBtn') : t('admin.enableBtn')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                        .map(user => {
+                          const isUserActive = user.status === true || String(user.status).toLowerCase() === 'true' || String(user.status).toLowerCase() === 'active';
+                          return (
+                            <tr key={user.id}>
+                              <td style={{ fontWeight: 600 }}>{user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.name || 'User'}</td>
+                              <td>{user.email}</td>
+                              <td>{user.phonenumber || user.mobile}</td>
+                              <td>
+                                <span className={`badge ${isUserActive ? 'badge-active' : 'badge-disabled'}`}>
+                                  {isUserActive ? 'Active' : 'InActive'}
+                                </span>
+                              </td>
+                              <td onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button 
+                                    onClick={() => handleEditClick(user)}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    onClick={() => handleToggleUserStatus(user, isUserActive ? false : true)}
+                                    className="btn"
+                                    style={{ 
+                                      padding: '6px 12px', 
+                                      fontSize: '12px', 
+                                      border: 'none', 
+                                      backgroundColor: isUserActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                                      color: isUserActive ? '#ef4444' : '#10b981' 
+                                    }}
+                                  >
+                                    {isUserActive ? 'Disable' : 'Enable'}
+                                  </button>
+                                  <button 
+                                    onClick={() => handleToggleUserStatus(user, false, true)}
+                                    className="btn"
+                                    style={{ 
+                                      padding: '6px 12px', 
+                                      fontSize: '12px', 
+                                      border: 'none', 
+                                      backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                                      color: '#f59e0b' 
+                                    }}
+                                  >
+                                    Block
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -1136,7 +1623,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         required
                       >
                         {categories.map(cat => (
-                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                       </select>
                     </div>
@@ -1147,9 +1634,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         className="form-input"
                         value={uploadForm.visibility}
                         onChange={(e) => setUploadForm({ ...uploadForm, visibility: e.target.value })}
+                        required
                       >
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
+                        {visibilities.map(vis => (
+                          <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1205,6 +1694,410 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                 </form>
               </div>
             )}
+            {activeTab === 'course_upload' && (() => {
+              const isLight = theme === 'light';
+              const containerBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
+              const textColor = isLight ? '#18181b' : 'var(--text-primary)';
+              const borderColor = isLight ? '#e4e4e7' : 'rgba(255,255,255,0.08)';
+              const inputBg = isLight ? '#ffffff' : 'rgba(255,255,255,0.04)';
+              const inputBorder = isLight ? '#d4d4d8' : 'rgba(255,255,255,0.12)';
+              const subtitleColor = isLight ? '#71717a' : 'var(--text-secondary)';
+              const dragBg = isLight ? '#f9fafb' : 'rgba(255,255,255,0.01)';
+              const tableHeaderBg = isLight ? '#f4f4f5' : 'rgba(255,255,255,0.03)';
+
+              return (
+                <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>Upload Course</h1>
+                      <p style={{ color: subtitleColor, fontSize: '14px', marginTop: '4px' }}>
+                        Add course details, chapters and multiple videos.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export CSV</button>
+                      <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export Excel</button>
+                      <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px' }}>Export PDF</button>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleCourseSubmit}>
+                    {/* Part 1: Course Information */}
+                    <div style={{ backgroundColor: containerBg, padding: '20px', borderRadius: '12px', border: `1px solid ${borderColor}`, marginBottom: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#e50914', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>1</div>
+                        <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: textColor }}>Course Information</h2>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Title *</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="e.g. Complete Python Programming"
+                            value={courseForm.title}
+                            onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Description *</label>
+                          <textarea
+                            className="form-input"
+                            rows="1"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="Provide a detailed description of this course..."
+                            value={courseForm.description}
+                            onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Category *</label>
+                          <select
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            value={courseForm.category}
+                            onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
+                            required
+                          >
+                            <option value="">Select Category</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Visibility *</label>
+                          <select
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            value={courseForm.visibility}
+                            onChange={(e) => setCourseForm({ ...courseForm, visibility: e.target.value })}
+                            required
+                          >
+                            <option value="">Select Visibility</option>
+                            {visibilities.map((vis) => (
+                              <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="e.g. John Doe"
+                            value={courseForm.instructor}
+                            onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Level</label>
+                          <select
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            value={courseForm.level}
+                            onChange={(e) => setCourseForm({ ...courseForm, level: e.target.value })}
+                            required
+                          >
+                            <option value="">Select Level</option>
+                            {levels.map(lvl => (
+                              <option key={lvl.id || lvl.level} value={lvl.id || lvl.level}>
+                                {lvl.level || lvl.level_name || lvl.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Tags (Comma separated)</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="e.g. programming, python, tutorial"
+                            value={courseForm.tags}
+                            onChange={(e) => setCourseForm({ ...courseForm, tags: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Thumbnail *</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="form-input"
+                            style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            onChange={(e) => handleCourseThumbnailUpload(e.target.files[0])}
+                          />
+                          {thumbnailUploading && <span style={{ fontSize: '11px', color: '#e50914', display: 'block', marginTop: '4px' }}>Uploading thumbnail...</span>}
+                          {courseThumbnailUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Banner (Optional)</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="form-input"
+                            style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            onChange={(e) => handleCourseBannerUpload(e.target.files[0])}
+                          />
+                          {bannerUploading && <span style={{ fontSize: '11px', color: '#e50914', display: 'block', marginTop: '4px' }}>Uploading banner...</span>}
+                          {courseBannerUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Chapters</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="e.g. 10"
+                            value={courseForm.totalChapters}
+                            onChange={(e) => setCourseForm({ ...courseForm, totalChapters: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Lessons / Videos</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="e.g. 45"
+                            value={courseForm.totalLessons}
+                            onChange={(e) => setCourseForm({ ...courseForm, totalLessons: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Duration (Hours)</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            placeholder="e.g. 12.5"
+                            value={courseForm.totalDuration}
+                            onChange={(e) => setCourseForm({ ...courseForm, totalDuration: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Part 2: Chapters & Videos */}
+                    <div style={{ backgroundColor: containerBg, padding: '20px', borderRadius: '12px', border: `1px solid ${borderColor}`, marginBottom: '24px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#e50914', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>2</div>
+                          <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: textColor }}>Chapters & Videos</h2>
+                        </div>
+                        <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '8px' }} onClick={addChapter}>
+                          + Add Chapter
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isLight ? '#f4f4f5' : 'rgba(255,255,255,0.04)', border: `1px solid ${borderColor}`, padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '13px', color: subtitleColor }}>
+                        <span style={{ fontSize: '14px' }}>ℹ️</span> Add chapters and upload multiple videos for each chapter.
+                      </div>
+
+                      {chapters.length === 0 ? (
+                        <div style={{ padding: '40px', textAlign: 'center', border: `1px dashed ${borderColor}`, borderRadius: '10px', color: subtitleColor }}>
+                          No chapters added yet. Click "+ Add Chapter" above to create one.
+                        </div>
+                      ) : (
+                        chapters.map((ch, chIdx) => (
+                          <div key={ch.id} style={{ border: `1px solid ${borderColor}`, borderRadius: '10px', padding: '16px', marginBottom: '20px', backgroundColor: containerBg }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '13px', color: '#e50914', fontWeight: 'bold' }}>Chapter {chIdx + 1}</span>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  style={{ width: '200px', padding: '6px 12px', fontSize: '13px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                  value={ch.title}
+                                  onChange={(e) => updateChapterProp(ch.id, 'title', e.target.value)}
+                                />
+                              </div>
+                              <button type="button" style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', cursor: 'pointer' }} onClick={() => removeChapter(ch.id)}>
+                                🗑️ Remove Chapter
+                              </button>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Chapter Description (Optional)</label>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                  placeholder="e.g. This chapter covers the basics..."
+                                  value={ch.description}
+                                  onChange={(e) => updateChapterProp(ch.id, 'description', e.target.value)}
+                                />
+                              </div>
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Chapter Order</label>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                  value={ch.order}
+                                  onChange={(e) => updateChapterProp(ch.id, 'order', parseInt(e.target.value) || 1)}
+                                />
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+                              <span style={{ fontSize: '12px', color: textColor, fontWeight: 'bold' }}>Videos in this chapter</span>
+                              <div style={{ display: 'flex', gap: '10px' }}>
+                                <button type="button" className="btn" style={{ padding: '6px 12px', fontSize: '12px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '6px' }}>Upload Multiple Videos</button>
+                                <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '6px' }} onClick={() => addVideoToChapter(ch.id)}>+ Add Video</button>
+                              </div>
+                            </div>
+
+                            {/* Videos Table */}
+                            <div className="table-container" style={{ marginBottom: '16px', border: `1px solid ${borderColor}`, borderRadius: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                              <table className="data-table" style={{ fontSize: '12px', width: '100%', borderCollapse: 'collapse', backgroundColor: containerBg }}>
+                                <thead>
+                                  <tr style={{ backgroundColor: tableHeaderBg, borderBottom: `1px solid ${borderColor}` }}>
+                                    <th style={{ width: '40px', padding: '10px', color: textColor }}>#</th>
+                                    <th style={{ color: textColor, padding: '10px' }}>Video Title</th>
+                                    <th style={{ color: textColor, padding: '10px' }}>Video File</th>
+                                    <th style={{ color: textColor, padding: '10px' }}>Thumbnail</th>
+                                    <th style={{ width: '90px', color: textColor, padding: '10px' }}>Duration</th>
+                                    <th style={{ width: '60px', color: textColor, padding: '10px' }}>Preview</th>
+                                    <th style={{ width: '50px', color: textColor, padding: '10px' }}>Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {ch.videos.length === 0 ? (
+                                    <tr>
+                                      <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: subtitleColor, backgroundColor: containerBg }}>
+                                        No videos added yet. Click "+ Add Video" or drop files below.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    ch.videos.map((vid, vidIdx) => (
+                                      <tr key={vid.id} style={{ borderBottom: `1px solid ${borderColor}`, backgroundColor: containerBg }}>
+                                        <td style={{ padding: '10px', color: textColor }}>{vidIdx + 1}</td>
+                                        <td style={{ padding: '10px' }}>
+                                          <input
+                                            type="text"
+                                            className="form-input"
+                                            style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px' }}
+                                            value={vid.title}
+                                            onChange={(e) => updateVideoProp(ch.id, vid.id, 'title', e.target.value)}
+                                          />
+                                        </td>
+                                        <td style={{ padding: '10px' }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <input
+                                              type="file"
+                                              accept="video/*"
+                                              style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
+                                              onChange={(e) => {
+                                                const file = e.target.files[0];
+                                                handleChapterVideoUpload(ch.id, vid.id, file);
+                                              }}
+                                            />
+                                            {vid.uploadStatus === 'uploading' && (
+                                              <span style={{ fontSize: '10px', color: '#e50914' }}>Uploading: {vid.uploadProgress || 0}%</span>
+                                            )}
+                                            {vid.uploadStatus === 'success' && (
+                                              <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Done</span>
+                                            )}
+                                            {vid.uploadStatus === 'error' && (
+                                              <span style={{ fontSize: '10px', color: '#ef4444' }}>❌ Error</span>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td style={{ padding: '10px' }}>
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
+                                              onChange={(e) => {
+                                                const file = e.target.files[0];
+                                                handleChapterThumbnailUpload(ch.id, vid.id, file);
+                                              }}
+                                            />
+                                            {vid.thumbStatus === 'uploading' && (
+                                              <span style={{ fontSize: '10px', color: '#e50914' }}>Uploading...</span>
+                                            )}
+                                            {vid.thumbStatus === 'success' && (
+                                              <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Done</span>
+                                            )}
+                                            {vid.thumbStatus === 'error' && (
+                                              <span style={{ fontSize: '10px', color: '#ef4444' }}>❌ Error</span>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td style={{ padding: '10px' }}>
+                                          <input
+                                            type="text"
+                                            className="form-input"
+                                            style={{ padding: '4px 8px', fontSize: '12px', textAlign: 'center', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px' }}
+                                            value={vid.duration}
+                                            onChange={(e) => updateVideoProp(ch.id, vid.id, 'duration', e.target.value)}
+                                          />
+                                        </td>
+                                        <td style={{ textAlign: 'center', padding: '10px' }}>
+                                          <input
+                                            type="checkbox"
+                                            checked={vid.isPreview}
+                                            onChange={(e) => updateVideoProp(ch.id, vid.id, 'isPreview', e.target.checked)}
+                                          />
+                                        </td>
+                                        <td style={{ textAlign: 'center', padding: '10px' }}>
+                                          <button type="button" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }} onClick={() => removeVideoFromChapter(ch.id, vid.id)}>
+                                            🗑️
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Drag and Drop zone */}
+                            <div style={{ border: `2px dashed ${borderColor}`, borderRadius: '8px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', backgroundColor: dragBg }}>
+                              <span style={{ fontSize: '28px' }}>☁️</span>
+                              <span style={{ fontSize: '13px', color: subtitleColor }}>
+                                Drag & drop videos here or <span style={{ color: '#e50914', textDecoration: 'underline' }}>click to browse</span>
+                              </span>
+                              <span style={{ fontSize: '11px', color: subtitleColor }}>You can upload multiple videos at once</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {uploadProgress && (
+                      <div style={{ margin: '20px 0', fontSize: '13px', color: '#e50914', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="spinner" style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #e50914', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s infinite linear' }} />
+                        {uploadProgress}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '24px' }}>
+                      <button type="button" className="btn" style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }} onClick={() => alert('Draft Saved!')}>
+                        Save as Draft
+                      </button>
+                      <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
+                        Submit Course
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              );
+            })()}
 
             {/* VIDEO_ALL CONTENT VIEW */}
             {activeTab === 'video_all' && (
@@ -1223,43 +2116,133 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {myVideos.map(video => (
-                        <tr key={video.id} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
-                          <td>
-                            <img 
-                              src={video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`} 
-                              alt={video.title} 
-                              style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
-                            />
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{video.title}</td>
-                          <td>{video.category}</td>
-                          <td>{video.views || 0}</td>
-                          <td>
-                            <span className={`badge ${video.visibility === 'public' ? 'badge-active' : 'badge-disabled'}`}>
-                              {video.visibility.toUpperCase()}
-                            </span>
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => setReviewVideo(video)}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                {t('admin.playReviewBtn')}
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteVideo(video.id)}
-                                className="btn"
-                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
-                              >
-                                {t('admin.deleteBtn')}
-                              </button>
-                            </div>
+                      {(Array.isArray(myVideos) ? myVideos : []).map(video => {
+                        const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
+                        const thumbUrl = hasThumbnail 
+                          ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) 
+                          : 'https://placehold.co/180x101?text=No+Thumbnail';
+                        const isPublic = String(video.visibility || '').toLowerCase() === 'scheduler' || String(video.visibility || '').toLowerCase() === 'public';
+                        return (
+                          <tr key={video.id} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
+                            <td>
+                              <img 
+                                src={thumbUrl} 
+                                alt={video.title || 'Video'} 
+                                style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                              />
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{video.title || 'Untitled'}</td>
+                            <td>{video.category || 'Uncategorized'}</td>
+                            <td>{video.views || 0}</td>
+                            <td>
+                              <span className={`badge ${isPublic ? 'badge-active' : 'badge-disabled'}`}>
+                                {String(video.visibility || 'Public').toUpperCase()}
+                              </span>
+                            </td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  onClick={() => setReviewVideo(video)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                >
+                                  {t('admin.playReviewBtn')}
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteVideo(video.id)}
+                                  className="btn"
+                                  style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                                >
+                                  {t('admin.deleteBtn')}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* COURSE_ALL CONTENT VIEW */}
+            {activeTab === 'course_all' && (
+              <div className="animate-fade-in glass-card">
+                <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>All Courses</h2>
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Banner</th>
+                        <th>Course Title</th>
+                        <th>Instructor</th>
+                        <th>Category</th>
+                        <th>Chapters</th>
+                        <th>Lessons</th>
+                        <th>Price</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courses.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            No courses found. Click "Upload Course" to add one.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        courses.map((course) => {
+                          const displayTitle = course.course_title || course.title || 'Untitled Course';
+                          const courseBanner = course.banner || course.thumbnail || course.thumbnailUrl || '';
+                          
+                          // Safely resolve chapters count
+                          const chaptersCount = Array.isArray(course.chapters)
+                            ? course.chapters.length
+                            : (course.totalChapters || course.chapters || 0);
+
+                          // Safely resolve lessons count
+                          const lessonsCount = course.totalLessons || course.lessons || 
+                            (Array.isArray(course.chapters)
+                              ? course.chapters.reduce((acc, ch) => acc + (Array.isArray(ch.videos) ? ch.videos.length : Array.isArray(ch.lessons) ? ch.lessons.length : 0), 0)
+                              : (course.videos || 0));
+
+                          return (
+                            <tr key={course.id || displayTitle}>
+                              <td>
+                                {courseBanner ? (
+                                  <img 
+                                    src={courseBanner} 
+                                    alt={displayTitle} 
+                                    style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                  />
+                                ) : (
+                                  <div style={{ width: '80px', height: '45px', borderRadius: '4px', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#a1a1aa' }}>
+                                    🎬
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ fontWeight: 'bold' }}>{displayTitle}</td>
+                              <td>{course.instructor || 'N/A'}</td>
+                              <td>{course.category || 'N/A'}</td>
+                              <td>{chaptersCount}</td>
+                              <td>{lessonsCount}</td>
+                              <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
+                              <td>
+                                <button 
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  onClick={() => {
+                                    alert(`Viewing course: ${displayTitle}`);
+                                  }}
+                                >
+                                  View Details
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1267,7 +2250,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
             )}
             
             {/* --- DYNAMIC USER MANAGEMENT VIEWS --- */}
-            {activeTab.startsWith('users_') && activeTab !== 'users_logs' && (
+            {activeTab.startsWith('users_') && activeTab !== 'users_logs' && activeTab !== 'users_all' && (
               <div className="animate-fade-in glass-card">
                 <h2 style={{ fontSize: '20px', marginBottom: '24px', textTransform: 'capitalize' }}>
                   {activeTab.replace(/_/g, ' ')}
@@ -1285,49 +2268,85 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {users
+                      {(Array.isArray(users) ? users : [])
                         .filter(u => {
-                          if (activeTab === 'users_active') return u.status === 'active';
-                          if (activeTab === 'users_inactive') return u.status === 'disabled';
-                          if (activeTab === 'users_blocked') return u.status === 'blocked';
+                          const isUActive = u.status === true || String(u.status).toLowerCase() === 'true' || String(u.status).toLowerCase() === 'active';
+                          if (activeTab === 'users_active') return isUActive;
+                          if (activeTab === 'users_inactive') return !isUActive;
+                          if (activeTab === 'users_blocked') return true;
                           return true;
                         })
-                        .map(u => (
-                          <tr key={u.id}>
-                            <td style={{ fontWeight: 600 }}>{u.name}</td>
-                            <td>{u.email}</td>
-                            <td>{u.mobile}</td>
-                            <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{u.role}</span></td>
-                            <td>
-                              <span className={`badge ${u.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                                {u.status.toUpperCase()}
-                              </span>
-                            </td>
-                            <td>
-                              <button 
-                                onClick={async () => {
-                                  const nextStatus = u.status === 'active' ? 'disabled' : 'active';
-                                  try {
-                                    await api.users.update(u.id, { status: nextStatus });
-                                    fetchUsers();
-                                  } catch (err) {
-                                    alert(err.message);
-                                  }
-                                }}
-                                className="btn"
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: '12px',
-                                  backgroundColor: u.status === 'active' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                  color: u.status === 'active' ? '#ef4444' : '#10b981',
-                                  border: 'none'
-                                }}
-                              >
-                                {u.status === 'active' ? t('admin.action.ban', 'Ban') : t('admin.action.unban', 'Unban')}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        .map(u => {
+                          const isUActive = u.status === true || String(u.status).toLowerCase() === 'true' || String(u.status).toLowerCase() === 'active';
+                          return (
+                            <tr key={u.id}>
+                              <td style={{ fontWeight: 600 }}>{u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.name || 'User'}</td>
+                              <td>{u.email}</td>
+                              <td>{u.phonenumber || u.mobile}</td>
+                              <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{u.role || 'user'}</span></td>
+                              <td>
+                                <span className={`badge ${isUActive ? 'badge-active' : 'badge-disabled'}`}>
+                                  {isUActive ? 'Active' : 'InActive'}
+                                </span>
+                              </td>
+                              <td onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  {activeTab === 'users_blocked' ? (
+                                    <button 
+                                      onClick={() => handleUnblockUser(u)}
+                                      className="btn"
+                                      style={{ 
+                                        padding: '6px 12px', 
+                                        fontSize: '12px', 
+                                        border: 'none', 
+                                        backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                                        color: '#10b981' 
+                                      }}
+                                    >
+                                      Unblock
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button 
+                                        onClick={() => handleEditClick(u)}
+                                        className="btn btn-secondary"
+                                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button 
+                                        onClick={() => handleToggleUserStatus(u, isUActive ? false : true)}
+                                        className="btn"
+                                        style={{ 
+                                          padding: '6px 12px', 
+                                          fontSize: '12px', 
+                                          border: 'none', 
+                                          backgroundColor: isUActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                                          color: isUActive ? '#ef4444' : '#10b981' 
+                                        }}
+                                      >
+                                        {isUActive ? 'Disable' : 'Enable'}
+                                      </button>
+                                      <button 
+                                        onClick={() => handleToggleUserStatus(u, false, true)}
+                                        className="btn"
+                                        style={{ 
+                                          padding: '6px 12px', 
+                                          fontSize: '12px', 
+                                          border: 'none', 
+                                          backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                                          color: '#f59e0b' 
+                                        }}
+                                      >
+                                        Block
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -1344,22 +2363,35 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       <tr>
                         <th>User</th>
                         <th>Video</th>
+                        <th>Date/Time</th>
                         <th>Action</th>
-                        <th>Timestamp</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { user: 'Rahul', video: 'React JS for Beginners', action: 'started watching', time: new Date() },
-                        { user: 'Priya', video: 'Understanding Compound Interest', action: 'finished watching', time: new Date(Date.now() - 3600000) }
-                      ].map((act, i) => (
-                        <tr key={i}>
-                          <td style={{ fontWeight: 600 }}>{act.user}</td>
-                          <td>{act.video}</td>
-                          <td><span style={{ color: '#10b981', fontWeight: 500 }}>{act.action.toUpperCase()}</span></td>
-                          <td>{act.time.toLocaleString()}</td>
+                      {userLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No user watch activity logs found.</td>
                         </tr>
-                      ))}
+                      ) : (
+                        userLogs.map((act, i) => {
+                          const logItem = act.json || act;
+                          return (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 600 }}>{logItem.user_name || ''}</td>
+                              <td>{logItem.video || ''}</td>
+                              <td>{logItem.date || ''}</td>
+                              <td>
+                                <span style={{ 
+                                  color: String(logItem.watch_activity || '').toLowerCase().includes('complete') || String(logItem.watch_activity || '').toLowerCase().includes('finish') ? '#10b981' : '#3b82f6', 
+                                  fontWeight: 500 
+                                }}>
+                                  {logItem.watch_activity || ''}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1447,8 +2479,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {stats?.watchHistoryDetails && stats.watchHistoryDetails.length > 0 ? (
-                          stats.watchHistoryDetails.map((item, idx) => {
+                        {(() => {
+                          const logsList = Array.isArray(stats)
+                            ? stats.map(item => item.json || item)
+                            : (stats && typeof stats === 'object' && stats.watchHistoryDetails
+                               ? stats.watchHistoryDetails
+                               : (Array.isArray(userAnalytics)
+                                  ? userAnalytics.map(item => item.json || item)
+                                  : (userAnalytics && typeof userAnalytics === 'object' && (userAnalytics.id || userAnalytics.videoId || userAnalytics.user_id || userAnalytics.json)
+                                     ? [userAnalytics.json || userAnalytics]
+                                     : [])));
+
+                          if (logsList.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan="11" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
+                                  No playback logs registered yet.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return logsList.map((item, idx) => {
                             const formatWatchTime = (seconds) => {
                               if (!seconds) return '0s';
                               const mins = Math.floor(seconds / 60);
@@ -1466,63 +2518,75 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                               return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
                             };
 
+                            const completed = (item.status === true || String(item.status).toLowerCase() === 'true' || item.completed === 'Yes');
+                            const completedText = completed ? 'Completed' : 'Partially Completed';
+                            const completionPct = parseFloat(item.completion_percentage || item.completionPercentage || 0);
+                            
+                            const displayWatchTime = item.watch_duration_sec !== undefined
+                              ? formatWatchTime(parseInt(item.watch_duration_sec, 10))
+                              : (typeof item.watchTime === 'string' && item.watchTime.includes(':') 
+                                 ? item.watchTime 
+                                 : formatWatchTime(item.watchTime || item.watchtime || 0));
+
+                            const pausedVal = item.total_pause_count !== undefined ? item.total_pause_count : (item.pausedCount || 0);
+                            const forwardedVal = item.total_seek_forward !== undefined ? item.total_seek_forward : (item.forwardedCount || 0);
+                            const backwardVal = item.total_seek_backward !== undefined ? item.total_seek_backward : (item.backwardCount || 0);
+
+                            const lastPosDisplay = item.last_position_sec 
+                              ? item.last_position_sec 
+                              : formatPosition(item.lastPosition || 0);
+
                             return (
                               <tr key={item.id || idx}>
                                 <td style={{ fontWeight: 600 }}>
-                                  <div>{item.userName}</div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{item.userEmail}</div>
+                                  <div>{item.user_name || item.userName || `User ${item.user_id || item.userId || ''}`}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{item.user_email || item.userEmail || ''}</div>
                                 </td>
                                 <td>
                                   <span className="category-tag" style={{ fontSize: '12px' }}>
-                                    {item.videoCategory}
+                                    {item.category_name || item.videoCategory || 'Uncategorized'}
                                   </span>
                                 </td>
                                 <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {item.videoTitle}
+                                  {item.title || item.videoTitle || 'Untitled Video'}
                                 </td>
-                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.views}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.views || 0}</td>
                                 <td style={{ textAlign: 'center' }}>
                                   <span style={{ 
                                     padding: '4px 8px', 
                                     borderRadius: '12px', 
                                     fontSize: '11px', 
                                     fontWeight: 600,
-                                    background: item.completed === 'Yes' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                    color: item.completed === 'Yes' ? '#10b981' : '#ef4444'
+                                    background: completed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                    color: completed ? '#10b981' : '#f59e0b'
                                   }}>
-                                    {item.completed}
+                                    {completedText}
                                   </span>
                                 </td>
                                 <td>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div style={{ flex: 1, height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', minWidth: '60px' }}>
                                       <div style={{ 
-                                        width: `${item.completionPercentage}%`, 
+                                        width: `${completionPct}%`, 
                                         height: '100%', 
-                                        background: item.completionPercentage >= 95 ? '#10b981' : 'var(--accent-primary)',
+                                        background: completionPct >= 90 ? '#10b981' : 'var(--accent-primary)',
                                         borderRadius: '3px'
                                       }} />
                                     </div>
-                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{item.completionPercentage}%</span>
+                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{completionPct}%</span>
                                   </div>
                                 </td>
-                                <td style={{ fontWeight: 500 }}>{formatWatchTime(item.watchTime)}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.pausedCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.forwardedCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.backwardCount}</td>
+                                <td style={{ fontWeight: 500 }}>{displayWatchTime}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{pausedVal}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{forwardedVal}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{backwardVal}</td>
                                 <td style={{ textAlign: 'center', fontWeight: 600, fontFamily: 'monospace' }}>
-                                  {item.completed === 'Yes' ? '100%' : formatPosition(item.lastPosition)}
+                                  {completed ? '100%' : lastPosDisplay}
                                 </td>
                               </tr>
                             );
-                          })
-                        ) : (
-                          <tr>
-                            <td colSpan="11" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                              No playback logs registered yet.
-                            </td>
-                          </tr>
-                        )}
+                          });
+                        })()}
                       </tbody>
                     </table>
                   </div>
@@ -1552,7 +2616,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                           <td>₹{tx.amount}</td>
                           <td>
                             <span className={`badge ${tx.status === 'success' ? 'badge-active' : 'badge-disabled'}`}>
-                              {tx.status.toUpperCase()}
+                              {String(tx.status || '').toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -1670,6 +2734,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
              !activeTab.startsWith('users_') && 
              activeTab !== 'video_upload' && 
              activeTab !== 'video_all' && 
+             activeTab !== 'course_upload' && 
+             activeTab !== 'course_all' && 
              !activeTab.includes('analytics') &&
              !activeTab.startsWith('mon_') &&
              activeTab !== 'realtime' &&
@@ -1737,7 +2803,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
             <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', aspectRatio: '16/9', marginBottom: '16px' }}>
               <video 
                 src={(() => {
-                  const url = reviewVideo.videoUrl;
+                  const url = reviewVideo.videoUrl || reviewVideo.video_url;
                   if (!url || url.includes('commondatastorage.googleapis.com') || url.startsWith('/videos/')) {
                     return 'https://www.w3schools.com/html/mov_bbb.mp4';
                   }
@@ -1752,6 +2818,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                 })()} 
                 controls 
                 autoPlay
+                onContextMenu={(e) => e.preventDefault()}
                 style={{ width: '100%', height: '100%', display: 'block' }}
               />
             </div>
@@ -1767,54 +2834,159 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
       {/* --- USER MODAL --- */}
       {showUserModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingUser ? t('admin.editUser') : t('admin.addUser')}</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{
+            width: '90%',
+            maxWidth: '640px',
+            padding: '32px',
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            color: '#333333',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', color: '#111111' }}>{editingUser ? 'Edit User' : 'Add User'}</h3>
             <form onSubmit={handleUserSubmit}>
-              <div className="form-group">
-                <label className="form-label">{t('auth.fullName')}</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={userForm.name} 
-                  onChange={e => setUserForm({...userForm, name: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('auth.emailAddress')}</label>
-                <input 
-                  type="email" 
-                  className="form-input" 
-                  value={userForm.email} 
-                  onChange={e => setUserForm({...userForm, email: e.target.value})} 
-                  required 
-                  disabled={!!editingUser}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t('auth.mobileNumber')}</label>
-                <input 
-                  type="tel" 
-                  className="form-input" 
-                  value={userForm.mobile} 
-                  onChange={e => setUserForm({...userForm, mobile: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Password {editingUser && '(Leave blank to keep current)'}</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
-                  value={userForm.password} 
-                  onChange={e => setUserForm({...userForm, password: e.target.value})} 
-                  required={!editingUser}
-                />
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>First Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter first name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.firstName} 
+                    onChange={e => setUserForm({...userForm, firstName: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Last Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter last name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.lastName} 
+                    onChange={e => setUserForm({...userForm, lastName: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Email Address</label>
+                  <input 
+                    type="email" 
+                    className="form-input" 
+                    placeholder="Enter email address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.email} 
+                    onChange={e => setUserForm({...userForm, email: e.target.value})} 
+                    required 
+                    disabled={!!editingUser}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    className="form-input" 
+                    placeholder="Enter phone number"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.mobile} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setUserForm({...userForm, mobile: value});
+                    }} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Gender</label>
+                  <select 
+                    className="form-input" 
+                    value={userForm.gender} 
+                    onChange={e => setUserForm({...userForm, gender: e.target.value})}
+                    required
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth</label>
+                  <input 
+                    type="date" 
+                    className="form-input" 
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.dob} 
+                    onChange={e => setUserForm({...userForm, dob: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.address} 
+                    onChange={e => setUserForm({...userForm, address: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter city"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.city} 
+                    onChange={e => setUserForm({...userForm, city: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter state"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.state} 
+                    onChange={e => setUserForm({...userForm, state: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Zipcode</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter zipcode"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={userForm.zipcode} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setUserForm({...userForm, zipcode: value});
+                    }} 
+                    required 
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
-                <button type="button" onClick={() => setShowUserModal(false)} className="btn btn-secondary">{t('admin.cancel')}</button>
-                <button type="submit" className="btn btn-primary">{t('admin.saveUser')}</button>
+                <button type="button" onClick={() => setShowUserModal(false)} className="btn btn-secondary" style={{ background: '#e0e0e0', color: '#333333', border: 'none' }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none' }}>Save User</button>
               </div>
             </form>
           </div>

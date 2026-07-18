@@ -181,24 +181,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        {/* Premium Badge */}
-        {user.role === 'user' && (
-          <div className="nav-premium-badge" style={{
-            background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-            color: '#000',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 2px 8px rgba(255, 215, 0, 0.3)',
-            whiteSpace: 'nowrap'
-          }}>
-            👑 {language === 'hi' ? 'प्रीमियम प्लान | 12 दिन शेष' : language === 'kn' ? 'ಪ್ರೀಮಿಯಂ ಯೋಜನೆ | 12 ದಿನಗಳು ಉಳಿದಿವೆ' : 'Premium Plan | 12 days left'}
-          </div>
-        )}
+
 
         {/* Recently Viewed Dropdown */}
         {user.role === 'user' && (
@@ -222,7 +205,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
             >
-              <span>⌛</span> {t('user.recentlyPlayed')}
+              {t('user.recentlyPlayed')}
             </button>
 
             {showRecentlyViewed && (
@@ -266,7 +249,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <img 
-                            src={video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`} 
+                            src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5000${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
                             alt={video.title} 
                             style={{ width: '60px', height: '34px', objectFit: 'cover', borderRadius: '4px' }}
                           />
@@ -385,11 +368,11 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               {user.avatar ? (
                 <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                user.name.charAt(0).toUpperCase()
+                (user.name || user.email || 'U').charAt(0).toUpperCase()
               )}
             </div>
             <span style={{ fontSize: '14px', fontWeight: 600, display: 'none' }} className="desktop-username">
-              {user.name}
+              {user.name || user.email}
             </span>
           </div>
 

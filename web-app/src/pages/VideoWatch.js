@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 const VideoWatch = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   
   const [video, setVideo] = useState(null);
@@ -29,6 +30,61 @@ const VideoWatch = () => {
   const prevTimeRef = useRef(0);
   const isResumingRef = useRef(false);
   const seekStartTimeRef = useRef(0);
+  const idRef = useRef(id);
+  const currentTimeRef = useRef(0);
+  const videoRefData = useRef(null);
+
+  useEffect(() => {
+    idRef.current = id;
+  }, [id]);
+
+  useEffect(() => {
+    videoRefData.current = video;
+    if (videoRef.current && video) {
+      videoRef.current.load();
+      setIsPlaying(true);
+      videoRef.current.play().catch(err => {
+        console.log("Autoplay prevented:", err);
+        setIsPlaying(false);
+      });
+    }
+  }, [video]);
+
+  const [ipAddress, setIpAddress] = useState('127.0.0.1');
+  const sessionStartedAtRef = useRef(new Date().toISOString());
+
+  useEffect(() => {
+    sessionStartedAtRef.current = new Date().toISOString();
+  }, [id]);
+
+  useEffect(() => {
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(data => setIpAddress(data.ip))
+      .catch(err => console.log("Failed to fetch IP, using fallback", err));
+  }, []);
+
+  const getDeviceType = () => {
+    const ua = navigator.userAgent;
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+      return "Tablet";
+    }
+    if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) {
+      return "Mobile";
+    }
+    return "Desktop";
+  };
+
+  const getPlatform = () => {
+    const ua = navigator.userAgent;
+    if (ua.indexOf("Win") !== -1) return "Windows";
+    if (ua.indexOf("Mac") !== -1) return "MacOS";
+    if (ua.indexOf("X11") !== -1) return "UNIX";
+    if (ua.indexOf("Linux") !== -1) return "Linux";
+    if (/iPhone|iPad|iPod/.test(ua)) return "iOS";
+    if (/Android/.test(ua)) return "Android";
+    return navigator.platform || "Unknown";
+  };
 
   // Player UI states
   const [isPlaying, setIsPlaying] = useState(false);
@@ -59,14 +115,29 @@ const VideoWatch = () => {
   const [isDisliked, setIsDisliked] = useState(false);
 
   useEffect(() => {
-    fetchVideoAndRecommendations();
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    fetchVideoAndRecommendations(location.state?.video);
     setLastPositionLoaded(false);
     setSavedPositionText('');
     
     return () => {
       clearInterval(trackingIntervalRef.current);
+      saveProgress();
+      
+      if (currentTimeRef.current >= 1) {
+        api.dashboard.getUser('watchHistory', { 
+          id: idRef.current,
+          title: videoRefData.current?.title || '',
+          thumbnail: videoRefData.current?.thumbnail || videoRefData.current?.thumbnailUrl || videoRefData.current?.thumbnail_url || '',
+          video_url: videoRefData.current?.videoUrl || videoRefData.current?.video_url || ''
+        }).catch(err => {
+          console.error("Failed to register watchHistory", err);
+        });
+      }
     };
-  }, [id]);
+  }, [id, location.state]);
 
   // Keyboard Hotkeys listener
   useEffect(() => {
@@ -114,10 +185,22 @@ const VideoWatch = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, volume, isMuted]);
 
-  const fetchVideoAndRecommendations = async () => {
+  const fetchVideoAndRecommendations = async (passedVideo = null) => {
     setLoading(true);
     try {
-      const videoData = await api.videos.get(id);
+      let videoData = passedVideo || location.state?.video;
+      if (!videoData) {
+        try {
+          videoData = await api.videos.get(id);
+        } catch (apiError) {
+          console.warn("Could not load video details from API, using state or fallback", apiError);
+        }
+      }
+
+      if (!videoData) {
+        throw new Error('Video details not found');
+      }
+
       setVideo(videoData);
       setLikesCount(videoData.views ? Math.round(videoData.views * 0.12) : 12);
       setIsLiked(false);
@@ -125,7 +208,7 @@ const VideoWatch = () => {
       setIsSubscribed(false);
 
       // Fetch watch history
-      const history = await api.videos.getHistory();
+      const history = await api.videos.getHistory().catch(() => []);
       const thisRecord = history.find(h => h.videoId === id);
       if (thisRecord && thisRecord.lastPosition > 5 && thisRecord.completionPercentage < 95) {
         const mins = Math.floor(thisRecord.lastPosition / 60);
@@ -134,24 +217,85 @@ const VideoWatch = () => {
       }
 
       // Fetch related recommendations
-      const list = await api.videos.list({ category: videoData.category });
-      setRecommendations(list.filter(v => v.id !== id).slice(0, 4));
+      let list = [];
+      try {
+        list = await api.videos.list({ category: videoData.category });
+      } catch (listError) {
+        console.warn("Could not load recommendations", listError);
+      }
+      
+      const filteredRecs = Array.isArray(list) 
+        ? list.filter(v => String(v.id) !== String(id)) 
+        : [];
+      setRecommendations(filteredRecs.slice(0, 4));
     } catch (e) {
+      console.error(e);
       setError('Failed to load video details');
     } finally {
       setLoading(false);
     }
   };
 
+  const getCourseLessonsList = (courseObj) => {
+    if (!courseObj) return [];
+    if (Array.isArray(courseObj.chapters)) {
+      const list = [];
+      courseObj.chapters.forEach(chap => {
+        if (Array.isArray(chap.videos)) {
+          list.push(...chap.videos);
+        } else if (Array.isArray(chap.lessons)) {
+          list.push(...chap.lessons);
+        }
+      });
+      if (list.length > 0) {
+        return list.map((v, i) => {
+          if (typeof v === 'string') {
+            return { id: `${courseObj.id}-v-${i}`, title: `Lesson ${i + 1}`, videoUrl: v, thumbnailUrl: courseObj.thumbnail || '', thumbnail: courseObj.thumbnail || '' };
+          }
+          const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
+          return { ...v, thumbnail: tUrl, thumbnailUrl: tUrl };
+        });
+      }
+    }
+    if (Array.isArray(courseObj.videos)) {
+      return courseObj.videos.map((v, index) => {
+        if (typeof v === 'string') {
+          return {
+            id: `${courseObj.id}-v-${index}`,
+            title: `Lesson ${index + 1}`,
+            videoUrl: v,
+            thumbnailUrl: courseObj.thumbnail || '',
+            thumbnail: courseObj.thumbnail || ''
+          };
+        }
+        const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
+        return { ...v, thumbnail: tUrl, thumbnailUrl: tUrl };
+      });
+    }
+    if (Array.isArray(courseObj.lessons)) {
+      return courseObj.lessons.map((l, index) => {
+        if (typeof l === 'string') {
+          return {
+            id: `${courseObj.id}-l-${index}`,
+            title: `Lesson ${index + 1}`,
+            videoUrl: l,
+            thumbnailUrl: courseObj.thumbnail || '',
+            thumbnail: courseObj.thumbnail || ''
+          };
+        }
+        const tUrl = l.video_thumbnail || l.videoThumbnail || l.thumbnail || l.thumbnailUrl || l.thumbnail_url || courseObj.thumbnail || '';
+        return { ...l, thumbnail: tUrl, thumbnailUrl: tUrl };
+      });
+    }
+    return [];
+  };
+
   const startProgressTracking = () => {
-    trackingIntervalRef.current = setInterval(() => {
-      saveProgress();
-    }, 5000);
+    // Silent local tracking of metrics (watchTime increments automatically in active play interval)
   };
 
   const stopProgressTracking = () => {
     clearInterval(trackingIntervalRef.current);
-    saveProgress();
   };
 
   const handlePlay = () => {
@@ -167,27 +311,47 @@ const VideoWatch = () => {
     }
   };
 
-  const saveProgress = async () => {
-    if (videoRef.current) {
-      const pos = Math.round(videoRef.current.currentTime);
-      const dur = Math.round(videoRef.current.duration || video?.duration || 300);
-      if (pos > 0) {
-        try {
-          const deltaWatchTime = trackingDataRef.current.watchTime;
-          await api.videos.track(id, {
-            lastPosition: pos,
-            duration: dur,
-            isNewSession: trackingDataRef.current.isNewSession,
-            watchTime: deltaWatchTime,
-            pausedCount: trackingDataRef.current.pausedCount,
-            forwardedCount: trackingDataRef.current.forwardedCount,
-            backwardCount: trackingDataRef.current.backwardCount
-          });
-          trackingDataRef.current.watchTime -= deltaWatchTime;
-          trackingDataRef.current.isNewSession = false;
-        } catch (e) {
-          console.error("Failed to track video progress", e);
-        }
+  async function saveProgress() {
+    const pos = Math.round(videoRef.current ? videoRef.current.currentTime : (currentTimeRef.current || 0));
+    const dur = Math.round(videoRef.current ? (videoRef.current.duration || video?.duration || 300) : (video?.duration || 300));
+    const deltaWatchTime = trackingDataRef.current.watchTime;
+    
+    // Only call API if they actually watched some duration since last save
+    if (pos > 0 && deltaWatchTime > 0) {
+      try {
+        await api.dashboard.getUser('watchsession', {
+          id,
+          videoid: id,
+          videoId: id,
+          lastPosition: pos,
+          lastPositionTime: formatTime(pos),
+          duration: formatTime(dur),
+          isNewSession: trackingDataRef.current.isNewSession,
+          watchTime: formatTime(deltaWatchTime),
+          pausedCount: trackingDataRef.current.pausedCount,
+          forwardedCount: trackingDataRef.current.forwardedCount,
+          backwardCount: trackingDataRef.current.backwardCount,
+          title: video?.title || '',
+          thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
+          video_url: video?.videoUrl || video?.video_url || '',
+          device_type: getDeviceType(),
+          platform: getPlatform(),
+          started_at: sessionStartedAtRef.current,
+          ended_at: new Date().toISOString(),
+          watch_duration_sec: deltaWatchTime,
+          video_duration_sec: dur,
+          status: Math.min(100, Math.round((pos / dur) * 100)) >= 90,
+          staus: Math.min(100, Math.round((pos / dur) * 100)) >= 90,
+          completion_percentage: Math.min(100, Math.round((pos / dur) * 100)),
+          playback_speed: playbackSpeed,
+          quality: quality,
+          ip_address: ipAddress
+        });
+        // Reset watchTime to prevent duplicate calls on unmount
+        trackingDataRef.current.watchTime = 0;
+        trackingDataRef.current.isNewSession = false;
+      } catch (e) {
+        console.error("Failed to track video progress", e);
       }
     }
   };
@@ -292,6 +456,7 @@ const VideoWatch = () => {
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
+      currentTimeRef.current = videoRef.current.currentTime;
       setDuration(videoRef.current.duration || video?.duration || 0);
       if (!videoRef.current.seeking) {
         prevTimeRef.current = videoRef.current.currentTime;
@@ -340,17 +505,80 @@ const VideoWatch = () => {
     saveProgress();
   };
 
-  const formatTime = (timeInSeconds) => {
+  function formatTime(timeInSeconds) {
     const mins = Math.floor(timeInSeconds / 60);
     const secs = Math.floor(timeInSeconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const handleSaveToWatchLater = async () => {
+    try {
+      await api.dashboard.getUser('watchLater', { 
+        id,
+        title: video?.title || '',
+        thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
+        video_url: video?.videoUrl || video?.video_url || ''
+      });
+      alert("Added to Watch Later");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to add to Watch Later");
+    }
+  };
+
+  const handleDownloadVideo = async () => {
+    try {
+      alert("Downloading video...");
+      const videoUrl = video?.videoUrl || video?.video_url;
+      if (!videoUrl) {
+        alert("Video URL not available");
+        return;
+      }
+      
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      const filename = videoUrl.split('/').pop().split('?')[0] || 'video.mp4';
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      await api.dashboard.getUser('download_video', { 
+        id,
+        title: video?.title || '',
+        thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
+        video_url: videoUrl
+      });
+      alert("Download completed!");
+    } catch (e) {
+      console.error("Download failed", e);
+      try {
+        const videoUrl = video?.videoUrl || video?.video_url;
+        if (videoUrl) {
+          window.open(videoUrl, '_blank');
+          await api.dashboard.getUser('download_video', { 
+            id,
+            title: video?.title || '',
+            thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
+            video_url: videoUrl
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   if (loading) return <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '100px' }}>{t('admin.loading')}</div>;
   if (error || !video) return <div style={{ color: '#ef4444', textAlign: 'center', padding: '100px' }}>{error || 'Video not found'}</div>;
 
   const srcUrl = (() => {
-    const url = video.videoUrl;
+    const url = video.videoUrl || video.video_url;
     if (!url || url.includes('commondatastorage.googleapis.com') || url.startsWith('/videos/')) {
       return 'https://www.w3schools.com/html/mov_bbb.mp4';
     }
@@ -389,6 +617,7 @@ const VideoWatch = () => {
             onPause={handlePause}
             onEnded={handleVideoEnded}
             onClick={handlePlayPause}
+            onContextMenu={(e) => e.preventDefault()}
             controls={false}
             preload="auto"
           />
@@ -619,25 +848,7 @@ const VideoWatch = () => {
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>120K subscribers</span>
               </div>
               
-              {/* Subscribe button */}
-              <button 
-                onClick={() => setIsSubscribed(!isSubscribed)}
-                style={{
-                  marginLeft: '12px',
-                  padding: '10px 18px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  background: isSubscribed ? 'var(--bg-tertiary)' : 'var(--text-primary)',
-                  color: isSubscribed ? 'var(--text-primary)' : 'var(--bg-primary)',
-                  transition: 'all 0.2s'
-                }}
-                className="subscribe-btn"
-              >
-                {isSubscribed ? `✓ ${t('watch.subscribed')}` : t('watch.subscribe')}
-              </button>
+
             </div>
 
             {/* Engagement buttons */}
@@ -734,7 +945,7 @@ const VideoWatch = () => {
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer'
-              }} onClick={() => alert("Downloading video to simulated local storage...")}>
+              }} onClick={handleDownloadVideo}>
                 📥 Download
               </button>
 
@@ -751,7 +962,7 @@ const VideoWatch = () => {
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer'
-              }} onClick={() => alert("Added to Playlist (Simulated)")}>
+              }} onClick={handleSaveToWatchLater}>
                 ➕ Save
               </button>
             </div>
@@ -791,45 +1002,275 @@ const VideoWatch = () => {
 
       </div>
 
-      {/* RIGHT COLUMN: RECOMMENDATIONS */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{t('watch.recommended')}</h3>
-        {recommendations.length === 0 ? (
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('watch.noRelatedVideos')} {video.category}</div>
-        ) : (
-          recommendations.map(rec => (
-            <div 
-              key={rec.id} 
-              onClick={() => navigate(`/watch/${rec.id}`)}
-              style={{
-                display: 'flex',
-                gap: '12px',
-                cursor: 'pointer',
-                background: 'var(--bg-secondary)',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                border: '1px solid var(--border-color)',
-                transition: 'transform 0.2s',
-                padding: '8px'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              <img 
-                src={rec.thumbnail.startsWith('http') ? rec.thumbnail : `http://localhost:5000${rec.thumbnail}`} 
-                alt={rec.title} 
-                style={{ width: '100px', height: '56px', objectFit: 'cover', borderRadius: '4px' }} 
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {rec.title}
+      {/* RIGHT COLUMN: RECOMMENDATIONS OR COURSE PLAYLIST */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {location.state?.course && getCourseLessonsList(location.state.course).length > 0 ? (
+          (() => {
+            const courseLessons = getCourseLessonsList(location.state.course);
+            const courseTitle = location.state.course.title || location.state.course.course_name || 'Course';
+            
+            // Calculate completion progress
+            const currentIdx = courseLessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url));
+            const completedCount = currentIdx === -1 ? 0 : currentIdx; // Index represents number of lessons watched before this one
+            const percent = courseLessons.length > 0 ? Math.round((completedCount / courseLessons.length) * 100) : 0;
+            const displayPercent = Math.min(100, Math.max(0, percent));
+            
+            // SVG Circular Progress Ring math
+            const radius = 16;
+            const circumference = 2 * Math.PI * radius;
+            const strokeDashoffset = circumference - (displayPercent / 100) * circumference;
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '380px' }}>
+                {/* Course Playlist Card Header Box */}
+                <div style={{ 
+                  padding: '20px', 
+                  borderRadius: '16px', 
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>📖</span> Course Playlist
+                      </h3>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                        {courseTitle} ({courseLessons.length} Lessons)
+                      </div>
+                    </div>
+                    {/* SVG Progress Ring */}
+                    <div style={{ position: 'relative', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="48" height="48" viewBox="0 0 48 48">
+                        <circle cx="24" cy="24" r={radius} fill="transparent" stroke="var(--bg-tertiary)" strokeWidth="3" />
+                        <circle cx="24" cy="24" r={radius} fill="transparent" stroke="#6366f1" strokeWidth="3" 
+                          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+                          transform="rotate(-90 24 24)" />
+                      </svg>
+                      <span style={{ position: 'absolute', fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>{displayPercent}%</span>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                    {completedCount} of {courseLessons.length} completed
+                  </div>
+                  <div style={{ width: '100%', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${displayPercent}%`, height: '100%', background: '#6366f1', borderRadius: '3px' }} />
+                  </div>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  {rec.views} {t('user.viewsCount')}
+
+                {/* Lessons vertical list of cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {courseLessons.map((lesson, idx) => {
+                    const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
+                    const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
+                    const lessonDuration = lesson.duration || (idx === 0 ? '5:21' : idx === 1 ? '8:45' : idx === 2 ? '6:30' : '7:15');
+
+                    return (
+                      <div 
+                        key={idx}
+                        onClick={() => navigate(`/watch/${lesson.id || idx}`, { state: { video: lesson, course: location.state.course } })}
+                        style={{
+                          display: 'flex',
+                          gap: '12px',
+                          padding: '12px',
+                          cursor: 'pointer',
+                          background: 'var(--bg-secondary)',
+                          borderRadius: '12px',
+                          border: isLessonActive ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
+                          boxShadow: isLessonActive ? '0 4px 15px rgba(99, 102, 241, 0.08)' : 'none',
+                          transition: 'border 0.2s, background 0.2s'
+                        }}
+                      >
+                        {/* Thumbnail on left */}
+                        <div style={{ position: 'relative', width: '90px', height: '54px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
+                          <img 
+                            src={lessonThumb} 
+                            alt={lesson.title || `Lesson ${idx + 1}`} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                          {isLessonActive && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              backgroundColor: 'rgba(0,0,0,0.4)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <div style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '50%',
+                                backgroundColor: '#6366f1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <span style={{ fontSize: '7px', color: '#fff', marginLeft: '1px' }}>▶</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Title and duration info */}
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ 
+                              fontSize: '13px', 
+                              fontWeight: '600', 
+                              color: isLessonActive ? '#6366f1' : 'var(--text-primary)',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              lineHeight: '1.3'
+                            }}>
+                              <span style={{ color: 'var(--text-secondary)', marginRight: '6px', fontWeight: '500' }}>{idx + 1}</span>
+                              {lesson.title || lesson.name || `Lesson ${idx + 1}`}
+                            </div>
+                            {isLessonActive && (
+                              <span style={{
+                                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                                color: '#6366f1',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '9px',
+                                fontWeight: '700',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                Now Playing
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            <span>{lessonDuration}</span>
+                            {!isLessonActive && idx > completedCount && (
+                              <span style={{ fontSize: '11px' }}>🔒</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+
+                {/* Continue Learning card at bottom */}
+                {completedCount + 1 < courseLessons.length && (
+                  <div style={{ marginTop: '4px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>
+                      Continue Learning
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px',
+                      borderRadius: '12px',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      cursor: 'pointer'
+                    }} onClick={() => {
+                      const nextIdx = completedCount + 1;
+                      const nextLesson = courseLessons[nextIdx];
+                      navigate(`/watch/${nextLesson.id || nextIdx}`, { state: { video: nextLesson, course: location.state.course } });
+                    }}>
+                      <div style={{ width: '70px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                        <img 
+                          src={courseLessons[completedCount + 1]?.thumbnail || courseLessons[completedCount + 1]?.thumbnailUrl || courseLessons[completedCount + 1]?.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600'} 
+                          alt="Next" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {courseLessons[completedCount + 1]?.title || 'Next Lesson'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          Lesson {completedCount + 2} • {courseLessons[completedCount + 1]?.duration || '9:10'}
+                        </div>
+                      </div>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 'bold' }}>&gt;</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* View Full Course Content Button */}
+                <button 
+                  onClick={() => alert("Showing full course content details...")}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid #6366f1',
+                    color: '#6366f1',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <span>📋</span> View Full Course Content
+                </button>
               </div>
-            </div>
-          ))
+            );
+          })()
+        ) : (
+          <>
+            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{t('watch.recommended')}</h3>
+            {recommendations.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('watch.noRelatedVideos')} {video?.category}</div>
+            ) : (
+              recommendations.map(rec => (
+                <div 
+                  key={rec.id} 
+                  onClick={() => navigate(`/watch/${rec.id}`, { state: { video: rec } })}
+                  style={{
+                    display: 'flex',
+                    gap: '12px',
+                    cursor: 'pointer',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '1px solid var(--border-color)',
+                    transition: 'transform 0.2s',
+                    padding: '8px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <img 
+                    src={(() => {
+                      const thumb = rec.thumbnail || rec.thumbnailUrl || rec.thumbnail_url || '';
+                      if (!thumb) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
+                      return thumb.startsWith('http') ? thumb : `http://localhost:5000${thumb}`;
+                    })()} 
+                    alt={rec.title} 
+                    style={{ width: '100px', height: '56px', objectFit: 'cover', borderRadius: '4px' }} 
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {rec.title}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      {rec.views} {t('user.viewsCount')}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </>
         )}
       </div>
 

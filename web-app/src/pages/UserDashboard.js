@@ -173,8 +173,8 @@ const HoverThumbnail = ({ video }) => {
   }, []);
 
   const srcUrl = (() => {
-    const url = video.videoUrl;
-    if (!url || url.includes('commondatastorage.googleapis.com') || url.startsWith('/videos/')) {
+    const url = video.videoUrl || video.video_url;
+    if (!url) {
       return 'https://www.w3schools.com/html/mov_bbb.mp4';
     }
     if (url.startsWith('/uploads')) {
@@ -223,6 +223,7 @@ const HoverThumbnail = ({ video }) => {
         muted
         loop
         playsInline
+        onContextMenu={(e) => e.preventDefault()}
         style={{
           width: '100%',
           height: '100%',
@@ -268,6 +269,9 @@ const UserDashboard = () => {
   // Favorites
   const [favIds, setFavIds] = useState(new Set());
   const [favoritesList, setFavoritesList] = useState([]);
+  const [downloadsList, setDownloadsList] = useState([]);
+  const [exploreVideosList, setExploreVideosList] = useState([]);
+  const [categoryVideosList, setCategoryVideosList] = useState([]);
 
   // Detailed Watch History state
   const [historyList, setHistoryList] = useState([]);
@@ -286,19 +290,133 @@ const UserDashboard = () => {
   }, [urlSearchQuery]);
 
   useEffect(() => {
-    fetchDashboard();
     fetchHistory();
     fetchFavorites();
   }, []);
 
-  const fetchDashboard = async () => {
+  useEffect(() => {
+    if (activeView === 'home') {
+      fetchDashboard('Dashboard');
+    } else if (activeView === 'watch_later') {
+      fetchDashboard('getwatchLaterVideos');
+    } else if (activeView === 'downloads') {
+      fetchDashboard('download_history');
+    } else if (activeView === 'explore') {
+      fetchExploreVideos();
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    if (selectedCategory) {
+      const matchedCat = (dashboardData?.categories || []).find(c => c.name === selectedCategory);
+      if (matchedCat && matchedCat.id) {
+        fetchCategoryVideos(matchedCat.id);
+      } else {
+        fetchCategoryVideos(selectedCategory);
+      }
+    } else {
+      setCategoryVideosList([]);
+    }
+  }, [selectedCategory, dashboardData]);
+
+  const fetchExploreVideos = async () => {
     setLoading(true);
     try {
-      const data = await api.dashboard.getUser();
-      setDashboardData(data);
+      const data = await api.dashboard.getUser('getExplore Video');
+      console.log("Explore videos from API:", data);
+      const list = Array.isArray(data) ? data : (data.json || data.videos || []);
+      setExploreVideosList(list);
+    } catch (e) {
+      console.error("Failed to load explore videos", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCategoryVideos = async (categoryId) => {
+    setLoading(true);
+    try {
+      const data = await api.dashboard.getUser('getCategoryVideo', { category_id: categoryId });
+      console.log(`Category videos for ${categoryId} from API:`, data);
+      const list = Array.isArray(data) ? data : (data.json || data.videos || []);
+      setCategoryVideosList(list);
+    } catch (e) {
+      console.error("Failed to load category videos", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDashboard = async (formStep = 'Dashboard') => {
+    setLoading(true);
+    try {
+      const data = await api.dashboard.getUser(formStep);
+      console.log(`User dashboard data (${formStep || 'home'}) from API:`, data);
       
-      const favs = data.favorites || [];
-      setFavIds(new Set(favs.map(f => f.id)));
+      if (formStep === 'getwatchLaterVideos' || formStep === 'watchLater') {
+        const list = Array.isArray(data) ? data : (data.json || data.favorites || data.watchLater || data.watchLaterVideos || []);
+        setFavoritesList(list);
+      } else if (formStep === 'download_history' || formStep === 'downloads') {
+        const list = Array.isArray(data) ? data : (data.json || data.downloads || data.downloadHistory || data.download_history || []);
+        setDownloadsList(list);
+      } else {
+        const actualData = Array.isArray(data) ? (data[0] || {}) : (data.json || data || {});
+        
+        const categoriesList = actualData.categories || [];
+        const recommended = actualData.recommended || [];
+        const trending = actualData.trending || [];
+        const topRated = actualData.top_rated || actualData.topRated || [];
+        const newVideos = actualData.new_lessons || actualData.newVideos || [];
+        let yourCourses = actualData.your_courses || actualData.yourCourses || [];
+        if (!yourCourses || yourCourses.length === 0) {
+          yourCourses = [
+            {
+              id: 'c1',
+              title: 'Quantum Computing Basics',
+              thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=60',
+              total_chapters: 12,
+              total_lessons: 24,
+              progress: 75
+            },
+            {
+              id: 'c2',
+              title: 'Full Stack Web Development',
+              thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
+              total_chapters: 8,
+              total_lessons: 32,
+              progress: 40
+            },
+            {
+              id: 'c3',
+              title: 'Data Science with Python',
+              thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60',
+              total_chapters: 10,
+              total_lessons: 28,
+              progress: 60
+            },
+            {
+              id: 'c4',
+              title: 'Mobile App Design',
+              thumbnail: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&auto=format&fit=crop&q=60',
+              total_chapters: 6,
+              total_lessons: 18,
+              progress: 30
+            }
+          ];
+        }
+
+        setDashboardData({
+          ...actualData,
+          categories: categoriesList,
+          recommended,
+          trending,
+          topRated,
+          newVideos,
+          yourCourses
+        });
+        const favs = actualData.favorites || [];
+        setFavIds(new Set(favs.map(f => f.id)));
+      }
     } catch (e) {
       console.error("Failed to load user dashboard", e);
     } finally {
@@ -341,8 +459,64 @@ const UserDashboard = () => {
     }
   };
 
-  const handleVideoCardClick = (id) => {
-    navigate(`/watch/${id}`);
+  const getCourseLessonsList = (courseObj) => {
+    if (!courseObj) return [];
+    if (Array.isArray(courseObj.chapters)) {
+      const list = [];
+      courseObj.chapters.forEach(chap => {
+        if (Array.isArray(chap.videos)) {
+          list.push(...chap.videos);
+        } else if (Array.isArray(chap.lessons)) {
+          list.push(...chap.lessons);
+        }
+      });
+      if (list.length > 0) {
+        return list.map((v, i) => {
+          if (typeof v === 'string') {
+            return { id: `${courseObj.id}-v-${i}`, title: `Lesson ${i + 1}`, videoUrl: v, thumbnailUrl: courseObj.thumbnail || '', thumbnail: courseObj.thumbnail || '' };
+          }
+          const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
+          return { ...v, thumbnail: tUrl, thumbnailUrl: tUrl };
+        });
+      }
+    }
+    if (Array.isArray(courseObj.videos)) {
+      return courseObj.videos.map((v, index) => {
+        if (typeof v === 'string') {
+          return {
+            id: `${courseObj.id}-v-${index}`,
+            title: `Lesson ${index + 1}`,
+            videoUrl: v,
+            thumbnailUrl: courseObj.thumbnail || '',
+            thumbnail: courseObj.thumbnail || ''
+          };
+        }
+        const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
+        return { ...v, thumbnail: tUrl, thumbnailUrl: tUrl };
+      });
+    }
+    if (Array.isArray(courseObj.lessons)) {
+      return courseObj.lessons.map((l, index) => {
+        if (typeof l === 'string') {
+          return {
+            id: `${courseObj.id}-l-${index}`,
+            title: `Lesson ${index + 1}`,
+            videoUrl: l,
+            thumbnailUrl: courseObj.thumbnail || '',
+            thumbnail: courseObj.thumbnail || ''
+          };
+        }
+        const tUrl = l.video_thumbnail || l.videoThumbnail || l.thumbnail || l.thumbnailUrl || l.thumbnail_url || courseObj.thumbnail || '';
+        return { ...l, thumbnail: tUrl, thumbnailUrl: tUrl };
+      });
+    }
+    return [];
+  };
+
+  const handleVideoCardClick = (video, courseContext = null) => {
+    const id = typeof video === 'object' && video ? (video.id || video.videoUrl || video.video_url) : video;
+    const videoObj = typeof video === 'object' && video ? video : getAllVideosList().find(v => v.id === id);
+    navigate(`/watch/${id}`, { state: { video: videoObj, course: courseContext } });
   };
 
   const handleAddComment = () => {
@@ -392,7 +566,7 @@ const UserDashboard = () => {
 
   // Helper to filter videos dynamically for Explore
   const getFilteredExploreVideos = () => {
-    let allList = getAllVideosList();
+    let allList = exploreVideosList.length > 0 ? exploreVideosList : getAllVideosList();
 
     if (searchQuery) {
       allList = allList.filter(v => 
@@ -451,7 +625,7 @@ const UserDashboard = () => {
     return (
       <div 
         className="video-card" 
-        onClick={() => handleVideoCardClick(video.id)}
+        onClick={() => handleVideoCardClick(video)}
         style={{
           borderRadius: '16px',
           overflow: 'hidden',
@@ -575,6 +749,123 @@ const UserDashboard = () => {
     );
   };
 
+  const CourseCard = ({ course }) => {
+    const thumbUrl = course.thumbnail || 'https://placehold.co/360x203?text=Course+Thumbnail';
+    const progress = course.progress || course.completion_percentage || course.completionPercentage || 0;
+    const chaptersCount = typeof course.chapters === 'number' ? course.chapters : (course.total_chapters || course.chapters_count || (Array.isArray(course.chapters) ? course.chapters.length : 0) || 0);
+    const lessonsCount = typeof course.videos === 'number' ? course.videos : (course.total_lessons || course.lessons_count || (Array.isArray(course.lessons) ? course.lessons.length : 0) || (Array.isArray(course.videos) ? course.videos.length : 0) || 0);
+    
+    return (
+      <div 
+        className="course-card-custom" 
+        onClick={() => {
+          const lessonsList = getCourseLessonsList(course);
+          if (lessonsList && lessonsList.length > 0) {
+            const firstVideo = lessonsList[0];
+            const videoPayload = {
+              id: firstVideo.id || firstVideo.videoUrl || firstVideo.video_url || `${course.id}-v0`,
+              title: firstVideo.title || firstVideo.name || 'Lesson 1',
+              videoUrl: firstVideo.videoUrl || firstVideo.video_url || '',
+              thumbnail: firstVideo.thumbnailUrl || firstVideo.thumbnail_url || course.thumbnail || '',
+              category: course.category || '',
+              description: firstVideo.description || course.description || ''
+            };
+            handleVideoCardClick(videoPayload, course);
+          } else if (course.videoUrl || course.video_url) {
+            handleVideoCardClick({
+              id: course.id,
+              title: course.title || course.course_name,
+              videoUrl: course.videoUrl || course.video_url,
+              thumbnail: course.thumbnail,
+              category: course.category,
+              description: course.description
+            }, course);
+          } else {
+            alert(`Opening course: "${course.title || course.course_name}"!`);
+          }
+        }}
+        style={{
+          borderRadius: '16px',
+          overflow: 'hidden',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          cursor: 'pointer',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+          transition: 'transform 0.2s, box-shadow 0.2s'
+        }}
+      >
+        {/* Thumbnail container */}
+        <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', overflow: 'hidden' }}>
+          <img 
+            src={thumbUrl} 
+            alt={course.title || course.course_name} 
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          {/* Chapter badge with play icon */}
+          <div 
+            style={{
+              position: 'absolute',
+              bottom: '12px',
+              left: '12px',
+              zIndex: 10,
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              color: '#ffffff',
+              padding: '5px 12px',
+              borderRadius: '24px',
+              fontSize: '11px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backdropFilter: 'blur(4px)'
+            }}
+          >
+            <div 
+              style={{
+                width: '18px',
+                height: '18px',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <span style={{ fontSize: '7px', color: '#fff', marginLeft: '1px' }}>▶</span>
+            </div>
+            <span>{chaptersCount} Chapters</span>
+          </div>
+        </div>
+        
+        {/* Details container */}
+        <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <h4 style={{ fontSize: '15px', fontWeight: '700', margin: '0 0 4px 0', lineHeight: '1.4', color: 'var(--text-primary)' }}>
+              {course.title || course.course_name}
+            </h4>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+              {lessonsCount} Lessons
+            </div>
+          </div>
+          
+          {/* Progress bar and indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#6366f1', borderRadius: '3px' }} />
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+              {progress}% Complete
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="user-dashboard-content animate-fade-in">
         {loading ? (
@@ -625,7 +916,7 @@ const UserDashboard = () => {
                           </p>
                           <button 
                             className="btn btn-primary"
-                            onClick={() => handleVideoCardClick(lastWatched.id)}
+                            onClick={() => handleVideoCardClick(lastWatched)}
                             style={{
                               padding: '12px 28px',
                               borderRadius: '24px',
@@ -669,7 +960,7 @@ const UserDashboard = () => {
                         className="btn btn-primary"
                         onClick={() => {
                           const firstRec = dashboardData?.recommended?.[0];
-                          if (firstRec) handleVideoCardClick(firstRec.id);
+                          if (firstRec) handleVideoCardClick(firstRec);
                         }}
                         style={{
                           padding: '12px 28px',
@@ -712,7 +1003,7 @@ const UserDashboard = () => {
                     🧭 {t('user.allTopics')}
                   </button>
                   {categoriesWithIcons.map(cat => {
-                    const dbCat = dashboardData?.categories.find(c => c.name === cat.name);
+                    const dbCat = (dashboardData?.categories || []).find(c => c.name === cat.name);
                     if (!dbCat) return null;
                     const isSelected = selectedCategory === cat.name;
                     return (
@@ -739,7 +1030,7 @@ const UserDashboard = () => {
                         onMouseEnter={e => !isSelected && (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
                         onMouseLeave={e => !isSelected && (e.currentTarget.style.borderColor = 'var(--border-color)')}
                       >
-                        <span>{cat.icon}</span> {cat.name} ({dbCat.videoCount})
+                        <span>{cat.icon}</span> {cat.name} ({dbCat.videoCount || dbCat.video_count || 0})
                       </button>
                     );
                   })}
@@ -767,7 +1058,7 @@ const UserDashboard = () => {
                       </button>
                     </h3>
                     {(() => {
-                      const filtered = getAllVideosList().filter(v => v.category === selectedCategory);
+                      const filtered = categoryVideosList.length > 0 ? categoryVideosList : getAllVideosList().filter(v => v.category === selectedCategory);
                       if (filtered.length === 0) {
                         return (
                           <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center' }}>
@@ -794,6 +1085,22 @@ const UserDashboard = () => {
                           {dashboardData.continueWatching.map(video => (
                             <div key={video.id} style={{ flex: '0 0 280px' }}>
                               <VideoCard video={video} progress={video.progress} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Your Courses Section */}
+                    {dashboardData?.yourCourses && dashboardData.yourCourses.length > 0 && (
+                      <div style={{ marginBottom: '40px' }}>
+                        <h3 className="video-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '18px' }}>📖</span> Your Courses
+                        </h3>
+                        <div className="horizontal-scroll-row">
+                          {dashboardData.yourCourses.map(course => (
+                            <div key={course.id} style={{ flex: '0 0 280px' }}>
+                              <CourseCard course={course} />
                             </div>
                           ))}
                         </div>
@@ -926,8 +1233,8 @@ const UserDashboard = () => {
                 <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>{t('sidebar.categories')}</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
                   {categoriesWithIcons.map(cat => {
-                    const matched = dashboardData?.categories.find(c => c.name === cat.name);
-                    const count = matched?.videoCount || 0;
+                    const matched = (dashboardData?.categories || []).find(c => c.name === cat.name);
+                    const count = matched?.videoCount || matched?.video_count || 0;
                     
                     return (
                       <div 
@@ -1061,9 +1368,15 @@ const UserDashboard = () => {
                   <span className="badge badge-active" style={{ fontSize: '12px' }}>{t('user.offlineSyncActive')}</span>
                 </div>
                 <div className="youtube-video-grid">
-                  {dashboardData?.recommended?.slice(0, 2).map(video => (
-                    <VideoCard key={video.id} video={{ ...video, title: `[Offline] ${video.title}` }} />
-                  ))}
+                  {downloadsList.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                      {language === 'hi' ? 'कोई डाउनलोड किए गए वीडियो नहीं मिले।' : language === 'kn' ? 'ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No downloaded videos found.'}
+                    </div>
+                  ) : (
+                    downloadsList.map(video => (
+                      <VideoCard key={video.id} video={video} />
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -1223,7 +1536,7 @@ const UserDashboard = () => {
                         fontWeight: 700,
                         fontSize: '16px'
                       }}>
-                        {c.user.charAt(0).toUpperCase()}
+                        {(c.user || 'U').charAt(0).toUpperCase()}
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>

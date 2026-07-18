@@ -97,6 +97,7 @@ const Profile = () => {
   };
 
   if (loading) return <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '100px' }}>{t('admin.loading')}</div>;
+  if (!profile) return <div style={{ color: '#ef4444', textAlign: 'center', padding: '100px' }}>Failed to load profile. Please try again.</div>;
 
   return (
     <div className="main-content" style={{ marginLeft: 0, maxWidth: '800px', margin: '0 auto' }}>
@@ -141,7 +142,7 @@ const Profile = () => {
                 {profile.avatar ? (
                   <img src={profile.avatar.startsWith('http') ? profile.avatar : `http://localhost:5000${profile.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  profile.name.charAt(0).toUpperCase()
+                  (profile.name || profile.email || 'U').charAt(0).toUpperCase()
                 )}
               </div>
               <div>

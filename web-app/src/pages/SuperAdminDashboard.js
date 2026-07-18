@@ -3,6 +3,15 @@ import { api } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 
+const getFormattedSeconds = (sec) => {
+  if (sec === undefined || sec === null) return '';
+  const s = parseFloat(sec);
+  if (isNaN(s)) return sec;
+  if (s >= 3600) return `${(s / 3600).toFixed(1)} hrs`;
+  if (s >= 60) return `${Math.round(s / 60)} min`;
+  return `${Math.round(s)} sec`;
+};
+
 const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, admins_all, categories, etc.
@@ -93,6 +102,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   const [moderationReports, setModerationReports] = useState({ reportedVideos: [], reportedUsers: [], copyrightIssues: [], spamDetection: [] });
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState({});
+  const [dropdownAdmins, setDropdownAdmins] = useState([]);
+  const [selectedAdminId, setSelectedAdminId] = useState('');
 
   useEffect(() => {
     // Initial fetch based on current activeTab (defaults to overview)
@@ -103,6 +114,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     } else if (activeTab === 'admins_all') {
       fetchAdmins();
     }
+    fetchDropdownAdmins();
     fetchCategories();
     fetchVideos();
     fetchUsers();
@@ -110,10 +122,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   useEffect(() => {
     if (activeTab === 'overview') {
-      fetchDashboardData('overview');
+      fetchDashboardData('overview', selectedAdminId);
     }
     if (activeTab === 'analytics' || activeTab.includes('analytics')) {
-      fetchDashboardData('analytics');
+      fetchDashboardData('analytics', selectedAdminId);
       fetchAnalyticsData();
     }
     if (activeTab === 'admins_all') {
@@ -136,6 +148,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
     if (activeTab === 'rep_export') {
       fetchTransactions();
+    }
+    if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
+      fetchUsers();
+    }
+    if (activeTab === 'content_videos') {
+      fetchVideos();
+    }
+    if (activeTab === 'categories') {
+      fetchCategories();
     }
   }, [activeTab]);
 
@@ -218,17 +239,77 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const fetchDashboardData = async (formStep = 'overview') => {
+  const fetchDashboardData = async (formStep = 'overview', adminId = selectedAdminId) => {
     setLoading(true);
     try {
-      const data = await api.dashboard.getSuperAdmin(formStep);
-      setStats(data);
-      setActivities(data.recentActivities || []);
+      const payload = {};
+      if (adminId) {
+        payload.admin_id = adminId;
+      }
+      
+      let data;
+      if (formStep === 'content_videos') {
+        data = await api.dashboard.getSuperAdmin('getAllVidoes', payload);
+        setVideos(Array.isArray(data) ? data : []);
+      } else if (formStep === 'categories') {
+        data = await api.dashboard.getSuperAdmin('getCategories', payload);
+        setCategories(Array.isArray(data) ? data : []);
+      } else {
+        data = await api.dashboard.getSuperAdmin(formStep, payload);
+        if (formStep === 'users_all' || formStep === 'users_blocked') {
+          setUsers(Array.isArray(data) ? data : []);
+        } else if (formStep === 'users_logs') {
+          setActivities(Array.isArray(data) ? data : []);
+        } else if (formStep === 'analytics') {
+          const watchHistoryList = Array.isArray(data) ? data : [];
+          setStats(prev => ({
+            ...prev,
+            watchHistoryDetails: watchHistoryList
+          }));
+        } else {
+          const dashboardStats = Array.isArray(data) ? data[0] : data;
+          setStats(dashboardStats);
+          setActivities(dashboardStats?.recentActivities || []);
+        }
+      }
     } catch (err) {
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchDropdownAdmins = async () => {
+    try {
+      const res = await api.dashboard.getSuperAdmin('GetAdmins');
+      console.log('Fetched dropdown admins:', res);
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res.map(item => item.json || item);
+      } else if (res && Array.isArray(res.admins)) {
+        list = res.admins.map(item => item.json || item);
+      } else if (res && Array.isArray(res.data)) {
+        list = res.data.map(item => item.json || item);
+      } else if (res && typeof res === 'object') {
+        const arrayProp = Object.values(res).find(val => Array.isArray(val));
+        if (arrayProp) list = arrayProp.map(item => item.json || item);
+      }
+      setDropdownAdmins(list);
+      
+      // Auto-select the first admin if none selected
+      if (list.length > 0 && !selectedAdminId) {
+        setSelectedAdminId(list[0].id);
+        fetchDashboardData(activeTab, list[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dropdown admins', err);
+    }
+  };
+
+  const handleAdminChange = (e) => {
+    const value = e.target.value;
+    setSelectedAdminId(value);
+    fetchDashboardData(activeTab, value);
   };
 
   const fetchAdmins = async () => {
@@ -241,40 +322,68 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
   };
 
   const fetchCategories = async () => {
-    try {
-      const data = await api.categories.list();
-      setCategories(data);
-    } catch (e) {
-      console.error(e);
-    }
+    fetchDashboardData('categories', selectedAdminId);
   };
 
   const fetchVideos = async () => {
-    try {
-      const data = await api.videos.list();
-      setVideos(data);
-    } catch (e) {
-      console.error(e);
-    }
+    fetchDashboardData('content_videos', selectedAdminId);
   };
 
   const fetchUsers = async () => {
-    try {
-      const data = await api.users.list();
-      setUsers(data);
-    } catch (e) {
-      console.error(e);
+    if (activeTab === 'users_all' || activeTab === 'users_blocked' || activeTab === 'users_logs') {
+      fetchDashboardData(activeTab, selectedAdminId);
+    } else {
+      try {
+        const data = await api.users.list();
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error(e);
+        setUsers([]);
+      }
     }
   };
 
   // --- Admin CRUD Handlers ---
   const handleAdminSubmit = async (e) => {
     e.preventDefault();
+    
+    // Email regex validation (e.g. marco@gmail.com)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(adminForm.email)) {
+      alert('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
+      return;
+    }
+
+    // Phone number length validation
+    if (adminForm.mobile.length !== 10) {
+      alert('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    // Zipcode length validation
+    if (adminForm.zipcode.length !== 6) {
+      alert('Zipcode must be exactly 6 digits');
+      return;
+    }
+
     try {
+      const dataToSave = {
+        first_name: adminForm.firstName,
+        last_name: adminForm.lastName,
+        email: adminForm.email,
+        phonenumber: adminForm.mobile,
+        gender: adminForm.gender,
+        date_of_birth: adminForm.dob,
+        address: adminForm.address,
+        city: adminForm.city,
+        state: adminForm.state,
+        zipcode: adminForm.zipcode
+      };
+
       if (editingAdmin) {
-        await api.admins.update(editingAdmin.id, adminForm);
+        await api.admins.update(editingAdmin.id, dataToSave);
       } else {
-        await api.admins.create(adminForm);
+        await api.admins.create(dataToSave);
       }
       setShowAdminModal(false);
       setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
@@ -287,13 +396,42 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     }
   };
 
-  const handleToggleAdminStatus = async (admin) => {
-    const nextStatus = admin.status === 'active' ? 'disabled' : 'active';
+  const handleEditClick = async (admin) => {
+    setEditingAdmin(admin);
+    let adminData = admin;
     try {
-      await api.admins.update(admin.id, { status: nextStatus });
+      const res = await api.admins.get(admin.id);
+      if (res && (res.id || res.email)) {
+        adminData = res;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch admin details, using local data", e);
+    }
+    
+    setAdminForm({
+      firstName: adminData.first_name || adminData.firstName || '',
+      lastName: adminData.last_name || adminData.lastName || '',
+      email: adminData.email || '',
+      mobile: adminData.phonenumber || adminData.mobile || '',
+      gender: adminData.gender || '',
+      dob: adminData.date_of_birth || adminData.dob || '',
+      city: adminData.city || '',
+      state: adminData.state || '',
+      zipcode: adminData.zipcode || '',
+      address: adminData.address || ''
+    });
+    setShowAdminModal(true);
+  };
+
+  const handleToggleAdminStatus = async (admin) => {
+    const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
+    const nextStatus = !isAdminActive;
+    try {
+      await api.admins.toggleStatus(admin.id, nextStatus);
       fetchAdmins();
     } catch (err) {
       console.error(err);
+      setError(err.message || 'Failed to update admin status');
     }
   };
 
@@ -365,11 +503,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
   // Filter activities
   const filteredActivities = activities.filter(act => {
+    if (!act) return false;
+    const userVal = String(act.user_name || act.user || '');
+    const videoVal = String(act.video_name || act.video || act.videoLesson || '');
+    const actionVal = String(act.watch_activity || act.action || '');
     const q = searchQuery.toLowerCase();
     return (
-      act.user.toLowerCase().includes(q) ||
-      act.video.toLowerCase().includes(q) ||
-      act.action.toLowerCase().includes(q)
+      userVal.toLowerCase().includes(q) ||
+      videoVal.toLowerCase().includes(q) ||
+      actionVal.toLowerCase().includes(q)
     );
   });
 
@@ -377,19 +519,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
     {
       title: 'Dashboard',
       icon: '🏠',
-      items: [
-        { id: 'overview', label: 'Overview' },
-        { id: 'analytics', label: 'Analytics' },
-        { id: 'realtime', label: 'Real-Time Monitoring' }
-      ]
+      items: []
     },
     {
       title: 'Admin Management',
       icon: '👨💼',
       items: [
         { id: 'admins_all', label: 'All Admins' },
-        { id: 'admins_perf', label: 'Admin Performance' },
-        { id: 'admins_logs', label: 'Admin Activity Logs' },
         { id: 'admins_perms', label: 'Admin Permissions' }
       ]
     },
@@ -398,11 +534,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       icon: '👥',
       items: [
         { id: 'users_all', label: 'All Users' },
-        { id: 'users_active', label: 'Active Users' },
-        { id: 'users_inactive', label: 'Inactive Users' },
-        { id: 'users_premium', label: 'Premium Users' },
-        { id: 'users_blocked', label: 'Blocked Users' },
-        { id: 'users_logs', label: 'User Activity Logs' }
+        { id: 'users_logs', label: 'User Activity Logs' },
+        { id: 'users_blocked', label: 'Blocked Users' }
       ]
     },
     {
@@ -410,23 +543,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       icon: '🎬',
       items: [
         { id: 'content_videos', label: 'All Videos' },
-        { id: 'content_approval', label: 'Video Approval' },
-        { id: 'content_reported', label: 'Reported Videos' },
-        { id: 'categories', label: 'Categories' },
-        { id: 'content_tags', label: 'Tags' },
-        { id: 'content_featured', label: 'Featured Content' }
+        { id: 'categories', label: 'Categories' }
       ]
     },
     {
       title: 'Analytics',
       icon: '📈',
       items: [
-        { id: 'platform_analytics', label: 'Platform Analytics' },
         { id: 'user_analytics', label: 'User Analytics' },
-        { id: 'video_analytics', label: 'Video Analytics' },
-        { id: 'engage_analytics', label: 'Engagement Analytics' },
-        { id: 'geo_analytics', label: 'Geographic Analytics' },
-        { id: 'device_analytics', label: 'Device Analytics' }
+        { id: 'video_analytics', label: 'Video Analytics' }
       ]
     },
     {
@@ -435,9 +560,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       items: [
         { id: 'rep_daily', label: 'Daily Reports' },
         { id: 'rep_weekly', label: 'Weekly Reports' },
-        { id: 'rep_monthly', label: 'Monthly Reports' },
-        { id: 'rep_custom', label: 'Custom Reports' },
-        { id: 'rep_export', label: 'Export Reports' }
+        { id: 'rep_monthly', label: 'Monthly Reports' }
       ]
     },
     {
@@ -445,14 +568,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       icon: '⚙️',
       items: [
         { id: 'set_general', label: 'General Settings' },
-        { id: 'set_branding', label: 'Branding' },
-        { id: 'set_languages', label: 'Languages' },
-        { id: 'set_email', label: 'Email Settings' },
-        { id: 'set_sms', label: 'SMS Settings' },
-        { id: 'set_gateway', label: 'Payment Gateway' },
-        { id: 'set_storage', label: 'Storage Settings' },
-        { id: 'set_cdn', label: 'CDN Settings' },
-        { id: 'set_keys', label: 'API Keys' }
+        { id: 'set_languages', label: 'Languages' }
       ]
     },
     {
@@ -594,36 +710,55 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
           </span>
         </div>
 
-        {menuStructure.map((section, idx) => (
-          <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
-            <button 
-              onClick={() => toggleSection(section.title)}
-              className="admin-sidebar-header"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                padding: '10px 14px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                fontSize: '13px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.8px',
-                cursor: 'pointer',
-                borderRadius: '8px',
-                textAlign: 'left'
-              }}
-              type="button"
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>{section.icon}</span>
-                <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
-              </span>
-              <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
-            </button>
+        {menuStructure.map((section, idx) => {
+          const isDashboard = section.title === 'Dashboard';
+          const isSelected = isDashboard && activeTab === 'overview';
+          return (
+            <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
+              <button 
+                onClick={() => {
+                  if (isDashboard) {
+                    setActiveTab('overview');
+                    fetchDropdownAdmins();
+                    setError('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else {
+                    toggleSection(section.title);
+                  }
+                }}
+                className="admin-sidebar-header"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: isSelected ? 'rgba(229, 9, 20, 0.12)' : 'none',
+                  border: 'none',
+                  color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  textAlign: 'left',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
+                type="button"
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>{section.icon}</span>
+                  <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
+                </span>
+                {!isDashboard && (
+                  <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
+                )}
+              </button>
             
             {expandedSections[section.title] && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginLeft: '12px', borderLeft: '1px solid var(--border-color)', paddingLeft: '8px', marginTop: '4px' }}>
@@ -664,7 +799,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
               </div>
             )}
           </div>
-        ))}
+        )})}
       </div>
 
       {/* 2. MAIN WORKSPACE CONTAINER */}
@@ -674,11 +809,35 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, textTransform: 'capitalize' }}>
-              {activeTab.replace(/_/g, ' ')}
+              {activeTab === 'admins_all' ? 'All Admins' : (activeTab === 'users_all' ? 'All Users' : activeTab.replace(/_/g, ' '))}
             </h1>
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
+              <select 
+                value={selectedAdminId} 
+                onChange={handleAdminChange} 
+                className="btn btn-secondary" 
+                style={{ 
+                  fontSize: '13px', 
+                  padding: '8px 16px', 
+                  background: 'rgba(255, 255, 255, 0.08)', 
+                  border: '1px solid var(--border-color)', 
+                  color: 'var(--text-primary)', 
+                  borderRadius: '8px', 
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {dropdownAdmins.map(admin => (
+                  <option key={admin.id} value={admin.id}>
+                    {admin.name || admin.username || admin.email || `Admin ${admin.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
               Export CSV
             </button>
@@ -710,24 +869,32 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   {/* Row 1 */}
                   <div className="dashboard-stats-grid">
                     <div className="glass-card stat-card">
-                      <span className="stat-label">{t('admin.statTotalAdmins', 'Total Admins')}</span>
-                      <span className="stat-value">{stats?.cards?.totalAdmins || admins.length || 5}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 1 active today</span>
+                      <span className="stat-label">{t('admin.statActiveLearners', 'Active Learners')}</span>
+                      <span className="stat-value">{stats?.active_lerners ?? 92}</span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.active_leraners_percenatge !== undefined ? `+${stats.active_leraners_percenatge}% today` : '+15 today'}
+                      </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statTotalUsers', 'Total Users')}</span>
-                      <span className="stat-value">{stats?.cards?.totalUsers || users.length || 240}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 12% this month</span>
+                      <span className="stat-value">{stats?.total_users ?? stats?.cards?.totalUsers ?? users.length ?? 0}</span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.users_growth_percent ? `↑ ${stats.users_growth_percent}% this month` : '↑ 12% this month'}
+                      </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.dashboard.totalVideosUploaded', 'Total Videos Uploaded')}</span>
-                      <span className="stat-value">{stats?.cards?.totalVideos || videos.length || 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 12% this month</span>
+                      <span className="stat-value">{stats?.total_videos ?? stats?.cards?.totalVideos ?? videos.length ?? 0}</span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.upload_change !== undefined ? `+${stats.upload_change} today` : '↑ 12% this month'}
+                      </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statTotalViews', 'Total Views')}</span>
-                      <span className="stat-value">12,850</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 24% weekly</span>
+                      <span className="stat-value">{stats?.total_video_views ?? '12,850'}</span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.video_views_growth_percent ? `↑ ${stats.video_views_growth_percent}% weekly` : '↑ 24% weekly'}
+                      </span>
                     </div>
                   </div>
 
@@ -735,44 +902,36 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   <div className="dashboard-stats-grid">
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.dashboard.dailyWatchTime', 'Daily Watch Time')}</span>
-                      <span className="stat-value">{(contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) || 150) + " min"}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 8% vs yesterday</span>
+                      <span className="stat-value">
+                        {stats?.today_watch_sec !== undefined ? getFormattedSeconds(stats.today_watch_sec) : '150 min'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.daily_watch_growth_percent ? `↑ ${stats.daily_watch_growth_percent}% vs yesterday` : '↑ 8% vs yesterday'}
+                      </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.dashboard.monthlyWatchTime', 'Monthly Watch Time')}</span>
-                      <span className="stat-value">{((contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) * 30) || 4500) + " min"}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>92% of monthly target</span>
+                      <span className="stat-value">
+                        {stats?.month_watch_sec !== undefined ? getFormattedSeconds(stats.month_watch_sec) : '4500 min'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.monthly_target_percent ? `${stats.monthly_target_percent}% of monthly target` : '92% of monthly target'}
+                      </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statActiveUsers', 'Active Users')}</span>
-                      <span className="stat-value">{stats?.cards?.activeUsers || 87}</span>
+                      <span className="stat-value">{stats?.dau ?? stats?.cards?.activeUsers ?? 87}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔴 Live Watching now</span>
                     </div>
                     <div className="glass-card stat-card">
-                      <span className="stat-label">{t('admin.statNewRegistrationsToday', 'New Registrations Today')}</span>
-                      <span className="stat-value">14</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>↑ 40% vs average</span>
+                      <span className="stat-label">{t('admin.statVideosUploadedToday', 'Videos Uploaded Today')}</span>
+                      <span className="stat-value">{stats?.today_uploads ?? 12}</span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                        {stats?.upload_change !== undefined ? `${stats.upload_change >= 0 ? '+' : ''}${stats.upload_change} vs yesterday` : '+4 vs yesterday'}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Row 3 */}
-                  <div className="dashboard-stats-grid">
-                    <div className="glass-card stat-card">
-                      <span className="stat-label">{t('admin.dashboard.liveStreamsRunning', 'Live Streams Running')}</span>
-                      <span className="stat-value" style={{ color: 'var(--accent-primary)' }}>{liveStreams?.length || 2}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔴 Live Stream Active</span>
-                    </div>
-                    <div className="glass-card stat-card">
-                      <span className="stat-label">{t('admin.dashboard.pendingApprovals', 'Pending Approvals')}</span>
-                      <span className="stat-value" style={{ color: 'var(--accent-primary)' }}>5</span>
-                      <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: 600 }}>⚠️ Awaiting review</span>
-                    </div>
-                    <div className="glass-card stat-card">
-                      <span className="stat-label">{t('admin.dashboard.reportedVideos', 'Reported Videos')}</span>
-                      <span className="stat-value" style={{ color: '#ef4444' }}>{moderationReports?.reportedVideos?.length || 2}</span>
-                      <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600 }}>⚠️ Critical infractions</span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* 📊 PLATFORM ANALYTICS GRID (Two Columns) */}
@@ -785,13 +944,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     <div className="dashboard-charts-grid">
                       <div className="glass-card">
                         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Growth Trend</h3>
-                        <LineChart data={superAdminUserGrowth} />
+                        <LineChart data={stats?.user_growth || superAdminUserGrowth} />
                         <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                          <span>Daily: +14</span>
+                          <span>Daily: {stats?.daily_signups !== undefined ? stats.daily_signups : '+14'}</span>
                           <span>•</span>
                           <span>Weekly: +112</span>
                           <span>•</span>
-                          <span>Monthly: +480</span>
+                          <span>Monthly: {stats?.monthly_signups !== undefined ? stats.monthly_signups : '+480'}</span>
                         </div>
                       </div>
 
@@ -800,15 +959,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>DAU (Daily Active Users)</span>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-secondary)' }}>87</span>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-secondary)' }}>{stats?.dau ?? 87}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>WAU (Weekly Active Users)</span>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#3b82f6' }}>420</span>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#3b82f6' }}>{stats?.wau ?? 420}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>MAU (Monthly Active Users)</span>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#10b981' }}>1,250</span>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#10b981' }}>{stats?.mau ?? 1250}</span>
                           </div>
                         </div>
                       </div>
@@ -817,48 +976,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     {/* Top 10 Videos Bar Chart */}
                     <div className="glass-card">
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Top 10 Videos by Views</h3>
-                      <BarChart data={top10VideosData} />
-                    </div>
-
-                    {/* Admin Performance comparative list */}
-                    <div className="glass-card">
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Admin Performance</h3>
-                      <div className="table-container">
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th>Admin</th>
-                              <th>Users</th>
-                              <th>Videos</th>
-                              <th>Revenue</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td style={{ fontWeight: 600 }}>Admin A</td>
-                              <td>1200</td>
-                              <td>500</td>
-                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>₹2.5L</td>
-                              <td><span className="badge badge-active">ACTIVE</span></td>
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: 600 }}>Admin B</td>
-                              <td>850</td>
-                              <td>320</td>
-                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>₹1.8L</td>
-                              <td><span className="badge badge-active">ACTIVE</span></td>
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: 600 }}>Admin C</td>
-                              <td>410</td>
-                              <td>150</td>
-                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>₹95K</td>
-                              <td><span className="badge badge-disabled">DISABLED</span></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                      <BarChart data={stats?.top_videos || []} />
                     </div>
 
                     {/* Trending Content */}
@@ -875,96 +993,47 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                             </tr>
                           </thead>
                           <tbody>
-                            <tr>
-                              <td style={{ fontWeight: 600 }}>React Course</td>
-                              <td>50K</td>
-                              <td>2.1K hrs</td>
-                              <td style={{ color: '#10b981', fontWeight: 700 }}>+35%</td>
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: 600 }}>Kannada Grammar</td>
-                              <td>24K</td>
-                              <td>980 hrs</td>
-                              <td style={{ color: '#10b981', fontWeight: 700 }}>+18%</td>
-                            </tr>
-                            <tr>
-                              <td style={{ fontWeight: 600 }}>Personal Finance 101</td>
-                              <td>18K</td>
-                              <td>750 hrs</td>
-                              <td style={{ color: '#10b981', fontWeight: 700 }}>+25%</td>
-                            </tr>
+                            {stats?.top_content && stats.top_content.length > 0 ? (
+                              stats.top_content.map((content, idx) => (
+                                <tr key={content.id || idx}>
+                                  <td style={{ fontWeight: 600 }}>{content.videoLesson || content.title}</td>
+                                  <td>{content.views}</td>
+                                  <td>{content.watchTime}</td>
+                                  <td style={{ color: '#10b981', fontWeight: 700 }}>{content.completionPercentage}%</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
+                                  No data available
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
-                      </div>
-                    </div>
-
-                    {/* Video Performance, Categories and Engagement Metrics */}
-                    <div className="dashboard-widgets-grid">
-                      <div className="glass-card">
-                        <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>Video Status Analytics</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                            <span>Total Uploaded Videos</span>
-                            <span style={{ fontWeight: 700 }}>{videos.length || 48}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                            <span>Published Videos</span>
-                            <span style={{ fontWeight: 700, color: '#10b981' }}>42</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                            <span>Draft Videos</span>
-                            <span style={{ fontWeight: 700 }}>1</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Pending Approval</span>
-                            <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>5</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="glass-card">
-                        <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>Content Categories</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                            <span>Most Watched Category</span>
-                            <span style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>Technology</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                            <span>Least Watched Category</span>
-                            <span style={{ fontWeight: 700 }}>Arts & Humanities</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                            <span>Average Watch Time</span>
-                            <span style={{ fontWeight: 700 }}>45 minutes</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Completion Rate</span>
-                            <span style={{ fontWeight: 700, color: '#10b981' }}>72%</span>
-                          </div>
-                        </div>
                       </div>
                     </div>
 
                     {/* Donut Chart: User Engagement */}
                     <div className="glass-card">
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Engagement</h3>
-                      <DonutChart data={engagementShare} />
+                      <DonutChart data={stats?.engagement_donut_graph?.engagementShare || engagementShare} />
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '20px' }} className="engage-cards">
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Session</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700 }}>18.5 min</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgSession || '18.5 min'}</span>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Watch Time</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700 }}>32.4 min</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgWatchTime || '32.4 min'}</span>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Retention Rate</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>68%</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{stats?.engagement_donut_graph?.engagementMetrics?.retentionRate || '68%'}</span>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Bounce Rate</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)' }}>22%</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)' }}>{stats?.engagement_donut_graph?.engagementMetrics?.bounceRate || '22%'}</span>
                         </div>
                       </div>
                     </div>
@@ -974,39 +1043,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                   {/* Right Column (Live, AI, Warnings, Geo & Device) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', minWidth: 0 }}>
                     
-                    {/* Real-Time Monitoring */}
-                    <div className="glass-card" style={{ border: '1px solid var(--accent-glow)' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#ef4444', borderRadius: '50%' }} />
-                        Real-Time Monitoring
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Users Online:</span>
-                          <span style={{ fontWeight: 700 }}>87</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Videos Being Watched:</span>
-                          <span style={{ fontWeight: 700 }}>54</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Bandwidth Usage:</span>
-                          <span style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>2.4 GB/min</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>CPU Usage:</span>
-                          <span style={{ fontWeight: 700 }}>35%</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>RAM Usage:</span>
-                          <span style={{ fontWeight: 700 }}>62%</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Server Health:</span>
-                          <span style={{ color: '#10b981', fontWeight: 700 }}>Healthy</span>
-                        </div>
-                      </div>
-                    </div>
 
                     {/* Alerts & Notifications */}
                     <div className="glass-card" style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid #ef4444' }}>
@@ -1150,57 +1186,45 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {admins.map(admin => (
-                        <tr key={admin.id}>
-                          <td style={{ fontWeight: 600 }}>{admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin'}</td>
-                          <td>{admin.email}</td>
-                          <td>{admin.mobile}</td>
-                          <td>
-                            <span className={`badge ${admin.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                              {admin.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => {
-                                  setEditingAdmin(admin);
-                                  setAdminForm({
-                                    firstName: admin.first_name || admin.firstName || '',
-                                    lastName: admin.last_name || admin.lastName || '',
-                                    email: admin.email || '',
-                                    mobile: admin.mobile || admin.phonenumber || '',
-                                    gender: admin.gender || '',
-                                    dob: admin.dob || '',
-                                    city: admin.city || '',
-                                    state: admin.state || '',
-                                    zipcode: admin.zipcode || '',
-                                    address: admin.address || ''
-                                  });
-                                  setShowAdminModal(true);
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => handleToggleAdminStatus(admin)}
-                                className="btn"
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: '12px',
-                                  backgroundColor: admin.status === 'active' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                  color: admin.status === 'active' ? '#ef4444' : '#10b981',
-                                  border: 'none'
-                                }}
-                              >
-                                {admin.status === 'active' ? 'Disable' : 'Enable'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {admins.map(admin => {
+                        const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
+                        return (
+                          <tr key={admin.id}>
+                            <td style={{ fontWeight: 600 }}>{admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin'}</td>
+                            <td>{admin.email}</td>
+                            <td>{admin.phonenumber || admin.mobile}</td>
+                            <td>
+                              <span className={`badge ${isAdminActive ? 'badge-active' : 'badge-disabled'}`}>
+                                {isAdminActive ? 'Active' : 'InActive'}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  onClick={() => handleEditClick(admin)}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                >
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={() => handleToggleAdminStatus(admin)}
+                                  className="btn"
+                                  style={{
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    backgroundColor: isAdminActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                    color: isAdminActive ? '#ef4444' : '#10b981',
+                                    border: 'none'
+                                  }}
+                                >
+                                  {isAdminActive ? 'Disable' : 'Enable'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1360,7 +1384,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                           <tr key={video.id} style={{ cursor: 'pointer' }} onClick={() => setReviewVideo(video)}>
                             <td>
                               <img 
-                                src={video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`} 
+                                src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5000${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
                                 alt="Thumb" 
                                 style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
                               />
@@ -1628,7 +1652,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
               <div className="animate-fade-in glass-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h2 style={{ fontSize: '20px', textTransform: 'capitalize' }}>
-                    {activeTab.replace(/_/g, ' ')}
+                    {activeTab === 'users_all' ? 'All Users' : (activeTab === 'users_blocked' ? 'Blocked Users' : activeTab.replace(/_/g, ' '))}
                   </h2>
                 </div>
 
@@ -1641,55 +1665,40 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         <th>Mobile</th>
                         <th>Role</th>
                         <th>Status</th>
-                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {users
+                      {(Array.isArray(users) ? users : [])
                         .filter(u => {
-                          if (activeTab === 'users_active') return u.status === 'active';
-                          if (activeTab === 'users_inactive') return u.status === 'disabled';
-                          if (activeTab === 'users_blocked') return u.status === 'blocked';
+                          if (!u) return false;
+                          if (activeTab === 'users_all' || activeTab === 'users_blocked') return true;
+                          const uStatus = String(u.status || '').toLowerCase();
+                          if (activeTab === 'users_active') return uStatus === 'active';
+                          if (activeTab === 'users_inactive') return uStatus === 'disabled';
                           return true;
                         })
-                        .map(u => (
-                          <tr key={u.id}>
-                            <td style={{ fontWeight: 600 }}>{u.name}</td>
-                            <td>{u.email}</td>
-                            <td>{u.mobile}</td>
-                            <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{u.role}</span></td>
-                            <td>
-                              <span className={`badge ${u.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                                {u.status.toUpperCase()}
-                              </span>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <button 
-                                  onClick={async () => {
-                                    const nextStatus = u.status === 'active' ? 'disabled' : 'active';
-                                    try {
-                                      await api.users.update(u.id, { status: nextStatus });
-                                      fetchUsers();
-                                    } catch (err) {
-                                      alert(err.message || 'Failed to update user status');
-                                    }
-                                  }}
-                                  className="btn"
-                                  style={{
-                                    padding: '6px 12px',
-                                    fontSize: '12px',
-                                    backgroundColor: u.status === 'active' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                    color: u.status === 'active' ? '#ef4444' : '#10b981',
-                                    border: 'none'
-                                  }}
-                                >
-                                  {u.status === 'active' ? t('admin.action.ban', 'Ban') : t('admin.action.unban', 'Unban')}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        .map((u, idx) => {
+                          const nameVal = u.user_name || u.name || `User ${u.id || u.user_id || ''}`;
+                          const emailVal = u.user_email || u.email || '';
+                          const mobileVal = u.phonenumber || u.mobile || '';
+                          const roleVal = u.role || 'user';
+                          const statusVal = String(u.status || '').toLowerCase();
+                          const isActive = statusVal === 'active' || statusVal === 'blocked'; // Blocked users are displayed with blocked badge/status
+                          const idVal = u.id || u.user_id || idx;
+                          return (
+                            <tr key={idVal}>
+                              <td style={{ fontWeight: 600 }}>{nameVal}</td>
+                              <td>{emailVal}</td>
+                              <td>{mobileVal}</td>
+                              <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{roleVal}</span></td>
+                              <td>
+                                <span className={`badge ${statusVal === 'blocked' ? 'badge-disabled' : (isActive ? 'badge-active' : 'badge-disabled')}`}>
+                                  {statusVal ? statusVal.toUpperCase() : 'ACTIVE'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -1722,21 +1731,27 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredActivities.map((act, index) => (
-                        <tr key={act.id || index}>
-                          <td style={{ fontWeight: 600 }}>{act.user}</td>
-                          <td>{act.video}</td>
-                          <td>
-                            <span style={{
-                              color: act.action.includes('finished') ? '#10b981' : 'var(--accent-secondary)',
-                              fontWeight: 500
-                            }}>
-                              {act.action.toUpperCase()}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{new Date(act.time).toLocaleString()}</td>
-                        </tr>
-                      ))}
+                      {filteredActivities.map((act, index) => {
+                        const userVal = act.user_name || act.user || 'N/A';
+                        const videoVal = act.video_name || act.video || act.videoLesson || 'N/A';
+                        const actionVal = act.watch_activity || act.action || 'N/A';
+                        const timeVal = act.created_at || act.time || act.timestamp || '';
+                        return (
+                          <tr key={act.id || index}>
+                            <td style={{ fontWeight: 600 }}>{userVal}</td>
+                            <td>{videoVal}</td>
+                            <td>
+                              <span style={{
+                                color: String(actionVal).toLowerCase().includes('finished') || String(actionVal).toLowerCase().includes('completed') ? '#10b981' : 'var(--accent-secondary)',
+                                fontWeight: 500
+                              }}>
+                                {String(actionVal).toUpperCase()}
+                              </span>
+                            </td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{timeVal ? new Date(timeVal).toLocaleString() : 'N/A'}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1763,7 +1778,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                         <tr key={v.id}>
                           <td>
                             <img 
-                              src={v.thumbnail.startsWith('http') ? v.thumbnail : `http://localhost:5000${v.thumbnail}`} 
+                              src={v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : (v.thumbnail ? `http://localhost:5000${v.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
                               alt="Thumb" 
                               style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
                             />
@@ -1877,71 +1892,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
             {/* --- ANALYTICS MODULE VIEWS --- */}
             {activeTab.includes('analytics') && (
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-                  <div className="glass-card">
-                    <h3>DAU / MAU Retention</h3>
-                    <LineChart data={userAnalytics?.registrations || superAdminUserGrowth} />
-                    <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '12px', marginTop: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                      <span>DAU: <strong>{userAnalytics?.dau || 87}</strong></span>
-                      <span>MAU: <strong>{userAnalytics?.mau || 240}</strong></span>
-                      <span>Retention: <strong>{userAnalytics?.retentionRate || 78}%</strong></span>
-                    </div>
-                  </div>
-                  
-                  <div className="glass-card">
-                    <h3>Device Distribution</h3>
-                    <DonutChart data={userAnalytics?.deviceUsage || deviceShare} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
-                  <div className="glass-card">
-                    <h3>Content Engagement Statistics</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Total Likes:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.likes || 1540}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Total Comments:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.comments || 640}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Total Shares:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.shares || 1020}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Watchlist Saves:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.saves || 1920}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="glass-card">
-                    <h3>CDN & Bitrate Performance</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>CDN Latency:</span>
-                        <span style={{ fontWeight: 700, color: '#10b981' }}>{streamingAnalytics?.cdnPerformanceMs || 38} ms</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Avg Bitrate:</span>
-                        <span style={{ fontWeight: 700 }}>{streamingAnalytics?.streamBitrateKbps || 4500} Kbps</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Buffering Ratio:</span>
-                        <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{streamingAnalytics?.bufferingRatioPercent || 0.85}%</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Playback Failures:</span>
-                        <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{streamingAnalytics?.playbackFailuresPercent || 0.12}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+                
                 {/* --- USER PLAYBACK BEHAVIOR METRICS --- */}
-                <div className="glass-card" style={{ marginTop: '24px' }}>
+                <div className="glass-card">
                   <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     👤 User Video Playback Behavior Metrics
                   </h3>
@@ -1967,8 +1920,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                           stats.watchHistoryDetails.map((item, idx) => {
                             const formatWatchTime = (seconds) => {
                               if (!seconds) return '0s';
-                              const mins = Math.floor(seconds / 60);
-                              const secs = seconds % 60;
+                              const secNum = parseInt(seconds, 10) || 0;
+                              const mins = Math.floor(secNum / 60);
+                              const secs = secNum % 60;
                               if (mins > 0) {
                                 return `${mins}m ${secs > 0 ? secs + 's' : ''}`;
                               }
@@ -1977,57 +1931,72 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
 
                             const formatPosition = (seconds) => {
                               if (!seconds) return '00:00';
-                              const mins = Math.floor(seconds / 60);
-                              const secs = seconds % 60;
+                              if (typeof seconds === 'string' && seconds.includes(':')) return seconds;
+                              const secNum = parseInt(seconds, 10) || 0;
+                              const mins = Math.floor(secNum / 60);
+                              const secs = secNum % 60;
                               return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
                             };
+
+                            const userNameVal = item.userName || item.user_name || 'N/A';
+                            const userEmailVal = item.userEmail || item.user_email || 'N/A';
+                            const categoryVal = item.videoCategory || item.category_name || 'N/A';
+                            const titleVal = item.videoTitle || item.title || 'N/A';
+                            const viewsVal = item.views || 0;
+                            const isCompleted = item.completed === 'Yes' || item.status === true || String(item.status).toLowerCase() === 'true' || parseFloat(item.completion_percentage || 0) >= 95;
+                            const completionPct = item.completionPercentage || (item.completion_percentage ? parseFloat(item.completion_percentage).toFixed(0) : '0');
+                            const watchTimeSec = item.watchTime || item.watch_duration_sec || 0;
+                            const pauseCount = item.pausedCount || item.total_pause_count || 0;
+                            const forwardCount = item.forwardedCount || item.total_seek_forward || 0;
+                            const backwardCount = item.backwardCount || item.total_seek_backward || 0;
+                            const lastPositionSec = item.lastPosition || item.last_position_sec || 0;
 
                             return (
                               <tr key={item.id || idx}>
                                 <td style={{ fontWeight: 600 }}>
-                                  <div>{item.userName}</div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{item.userEmail}</div>
+                                  <div>{userNameVal}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{userEmailVal}</div>
                                 </td>
                                 <td>
                                   <span className="category-tag" style={{ fontSize: '12px' }}>
-                                    {item.videoCategory}
+                                    {categoryVal}
                                   </span>
                                 </td>
                                 <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {item.videoTitle}
+                                  {titleVal}
                                 </td>
-                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.views}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{viewsVal}</td>
                                 <td style={{ textAlign: 'center' }}>
                                   <span style={{ 
                                     padding: '4px 8px', 
                                     borderRadius: '12px', 
                                     fontSize: '11px', 
                                     fontWeight: 600,
-                                    background: item.completed === 'Yes' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                    color: item.completed === 'Yes' ? '#10b981' : '#ef4444'
+                                    background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                    color: isCompleted ? '#10b981' : '#ef4444'
                                   }}>
-                                    {item.completed}
+                                    {isCompleted ? 'Yes' : 'No'}
                                   </span>
                                 </td>
                                 <td>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div style={{ flex: 1, height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', minWidth: '60px' }}>
                                       <div style={{ 
-                                        width: `${item.completionPercentage}%`, 
+                                        width: `${completionPct}%`, 
                                         height: '100%', 
-                                        background: item.completionPercentage >= 95 ? '#10b981' : 'var(--accent-primary)',
+                                        background: parseFloat(completionPct) >= 95 ? '#10b981' : 'var(--accent-primary)',
                                         borderRadius: '3px'
                                       }} />
                                     </div>
-                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{item.completionPercentage}%</span>
+                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{completionPct}%</span>
                                   </div>
                                 </td>
-                                <td style={{ fontWeight: 500 }}>{formatWatchTime(item.watchTime)}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.pausedCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.forwardedCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{item.backwardCount}</td>
+                                <td style={{ fontWeight: 500 }}>{formatWatchTime(watchTimeSec)}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{pauseCount}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{forwardCount}</td>
+                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{backwardCount}</td>
                                 <td style={{ textAlign: 'center', fontWeight: 600, fontFamily: 'monospace' }}>
-                                  {item.completed === 'Yes' ? '100%' : formatPosition(item.lastPosition)}
+                                  {isCompleted ? '100%' : formatPosition(lastPositionSec)}
                                 </td>
                               </tr>
                             );
@@ -2132,7 +2101,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                           <td>{sub.endDate}</td>
                           <td>
                             <span className={`badge ${sub.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                              {sub.status.toUpperCase()}
+                              {String(sub.status || '').toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -2166,7 +2135,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                           <td>₹{tx.amount}</td>
                           <td>
                             <span className={`badge ${tx.status === 'success' ? 'badge-active' : (tx.status === 'refunded' ? 'badge-disabled' : 'badge-disabled')}`}>
-                              {tx.status.toUpperCase()}
+                              {String(tx.status || '').toUpperCase()}
                             </span>
                           </td>
                           <td>
@@ -2490,8 +2459,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
             <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', aspectRatio: '16/9', marginBottom: '16px' }}>
               <video 
                 src={(() => {
-                  const url = reviewVideo.videoUrl;
-                  if (!url || url.includes('commondatastorage.googleapis.com') || url.startsWith('/videos/')) {
+                  const url = reviewVideo.video_url || reviewVideo.videoUrl;
+                  if (!url) {
                     return 'https://www.w3schools.com/html/mov_bbb.mp4';
                   }
                   if (url.startsWith('/uploads')) {
@@ -2505,6 +2474,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                 })()} 
                 controls 
                 autoPlay
+                onContextMenu={(e) => e.preventDefault()}
                 style={{ width: '100%', height: '100%', display: 'block' }}
               />
             </div>
@@ -2585,7 +2555,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     placeholder="Enter phone number"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.mobile} 
-                    onChange={e => setAdminForm({...adminForm, mobile: e.target.value})} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setAdminForm({...adminForm, mobile: value});
+                    }} 
                     required 
                   />
                 </div>
@@ -2659,7 +2632,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
                     placeholder="Enter zipcode"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.zipcode} 
-                    onChange={e => setAdminForm({...adminForm, zipcode: e.target.value})} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setAdminForm({...adminForm, zipcode: value});
+                    }} 
                     required 
                   />
                 </div>

@@ -568,29 +568,40 @@ body {
   opacity: 0.7;
 }
 
-/* Video Player Styling */
 .video-player-container {
   width: 100%;
-  max-width: 900px;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
   background: #000;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow-lg);
-  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .video-player-element {
   width: 100%;
+  height: 100%;
+  object-fit: contain;
   display: block;
   outline: none;
 }
 
 .video-player-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
   padding: 16px;
-  background: #111;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 70%, transparent 100%);
   display: flex;
   align-items: center;
   gap: 16px;
+  box-sizing: border-box;
+  z-index: 10;
 }
 
 /* Tables & Lists */

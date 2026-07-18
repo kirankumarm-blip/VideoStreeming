@@ -107,7 +107,7 @@ const AppLayout = ({ theme, setTheme }) => {
           {/* Admin Specific Paths */}
           <Route path="/admin" element={
             <RoleRoute allowedRoles={['admin']}>
-              <AdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+              <AdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
             </RoleRoute>
           } />
 

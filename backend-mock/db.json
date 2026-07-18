@@ -12,11 +12,15 @@
       "devices": [
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-          "lastLogin": "2026-06-22T08:39:51.956Z"
+          "lastLogin": "2026-07-07T08:16:11.756Z"
         },
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
           "lastLogin": "2026-06-22T11:18:18.653Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+          "lastLogin": "2026-07-06T08:40:43.330Z"
         }
       ]
     },
@@ -32,11 +36,19 @@
       "devices": [
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-          "lastLogin": "2026-06-23T06:06:27.947Z"
+          "lastLogin": "2026-07-06T08:48:21.736Z"
         },
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
           "lastLogin": "2026-06-10T07:39:22.626Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+          "lastLogin": "2026-07-04T11:02:23.311Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0",
+          "lastLogin": "2026-07-06T10:43:52.115Z"
         }
       ]
     },
@@ -53,7 +65,7 @@
       "devices": [
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
-          "lastLogin": "2026-06-23T05:54:05.975Z"
+          "lastLogin": "2026-07-07T06:16:49.282Z"
         },
         {
           "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
@@ -62,6 +74,10 @@
         {
           "agent": "Unknown Device",
           "lastLogin": "2026-06-20T12:42:45.901Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+          "lastLogin": "2026-07-06T08:26:25.635Z"
         }
       ]
     },
@@ -83,6 +99,30 @@
       "email": "vishwa@gmail.com",
       "mobile": "9834342323",
       "password": "$2a$10$CTsRjYykU2h0FFXJX91R/ezw7jjUMwIWdW4WBg8NOlMXAbqZX9xZW",
+      "role": "admin",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "super_admin",
+      "devices": []
+    },
+    {
+      "id": "u-1783161013670",
+      "name": "Surya",
+      "email": "surya@gmail.com",
+      "mobile": "9843232323",
+      "password": "$2a$10$JJ3bfEH4nxlCZsIB9g6y0e8IuwFp9ySpPgTgUxjnlVgty7qqz8Ib2",
+      "role": "admin",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "super_admin",
+      "devices": []
+    },
+    {
+      "id": "u-1783161162187",
+      "name": "kiran",
+      "email": "ki@gmail.com",
+      "mobile": "4545454545",
+      "password": "$2a$10$kPVp/zltz7R/aOmLkgt9Ke41PS1E4aaeTfJkg5I06my5cQ9JECMOW",
       "role": "admin",
       "status": "active",
       "avatar": "",
@@ -285,7 +325,7 @@
         "u-superadmin",
         "u-admin1"
       ],
-      "views": 1250,
+      "views": 1251,
       "duration": 5400,
       "rating": 4.8,
       "instructor": "Instructor Dev",
@@ -336,56 +376,157 @@
       "rating": 4.7,
       "instructor": "Emily Davis",
       "difficulty": "Beginner"
+    },
+    {
+      "id": "v-1783160868310",
+      "title": "MainStream",
+      "description": "Test",
+      "category": "Science",
+      "thumbnail": "/uploads/thumbnail-1783160868303-865260846.jpg",
+      "videoUrl": "/uploads/video-1783160868201-113435163.mp4",
+      "tags": [
+        "math"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 1,
+      "duration": 300
+    },
+    {
+      "id": "v-1783335443828",
+      "title": "Mainstream",
+      "description": "For student who don't know about science",
+      "category": "Science",
+      "thumbnail": "/uploads/thumbnail-1783335443819-319390133.jpg",
+      "videoUrl": "/uploads/video-1783335443739-730573726.mp4",
+      "tags": [
+        "Students"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 1,
+      "duration": 300
+    },
+    {
+      "id": "v-1783335988415",
+      "title": "Technology",
+      "description": "Art Of Technology",
+      "category": "Technology",
+      "thumbnail": "/uploads/thumbnail-1783335988409-874274500.jpg",
+      "videoUrl": "/uploads/video-1783335988093-238108433.mp4",
+      "tags": [
+        "Students with less knowledge"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 1,
+      "duration": 300
+    },
+    {
+      "id": "v-1783337770886",
+      "title": "Student",
+      "description": "Student",
+      "category": "Education",
+      "thumbnail": "/uploads/thumbnail-1783337770873-394782119.jpg",
+      "videoUrl": "/uploads/video-1783337770616-848866319.mp4",
+      "tags": [
+        "Student"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 0,
+      "duration": 300
+    },
+    {
+      "id": "v-1783337866892",
+      "title": "Student Data",
+      "description": "Student Data",
+      "category": "Technology",
+      "thumbnail": "/uploads/thumbnail-1783337866887-180910316.jpg",
+      "videoUrl": "/uploads/video-1783337866663-808560750.mp4",
+      "tags": [
+        "Student Data"
+      ],
+      "visibility": "public",
+      "uploadedBy": "u-admin1",
+      "assignedAdmins": [
+        "u-admin1"
+      ],
+      "views": 1,
+      "duration": 300
     }
   ],
   "watchHistory": [
     {
-      "id": "h-1",
+      "id": "h-1783335666960",
       "userId": "u-user1",
-      "videoId": "v-1",
-      "watchDate": "2026-06-23T05:56:46.950Z",
-      "watchTime": 1,
-      "lastPosition": 1,
-      "completionPercentage": 10,
-      "status": "partially_watched"
-    },
-    {
-      "id": "h-2",
-      "userId": "u-user1",
-      "videoId": "v-2",
-      "watchDate": "2026-06-09T08:30:00.000Z",
-      "watchTime": 240,
-      "lastPosition": 240,
-      "completionPercentage": 100,
-      "status": "completed"
-    },
-    {
-      "id": "h-1781959376699",
-      "userId": "u-user1",
-      "videoId": "v-3",
-      "watchDate": "2026-06-20T12:43:02.161Z",
-      "watchTime": 10,
+      "videoId": "v-code-1",
+      "watchDate": "2026-07-06T11:01:12.009Z",
+      "watchTime": 21,
       "lastPosition": 10,
       "completionPercentage": 100,
-      "status": "completed"
+      "status": "completed",
+      "views": 1,
+      "pausedCount": 0,
+      "forwardedCount": 0,
+      "backwardCount": 0
     },
     {
-      "id": "h-1781960569412",
+      "id": "h-1783335835204",
       "userId": "u-user1",
-      "videoId": "v-1781004749608",
-      "watchDate": "2026-06-22T11:31:40.199Z",
-      "watchTime": 5,
+      "videoId": "v-1783335443828",
+      "watchDate": "2026-07-06T11:32:06.456Z",
+      "watchTime": 112,
       "lastPosition": 5,
-      "completionPercentage": 50,
-      "status": "partially_watched"
-    }
-  ],
-  "favorites": [
+      "completionPercentage": 63,
+      "status": "partially_watched",
+      "views": 7,
+      "pausedCount": 2,
+      "forwardedCount": 1,
+      "backwardCount": 1
+    },
     {
+      "id": "h-1783336040867",
       "userId": "u-user1",
-      "videoId": "v-2"
+      "videoId": "v-1783335988415",
+      "watchDate": "2026-07-06T11:12:40.119Z",
+      "watchTime": 23,
+      "lastPosition": 7,
+      "completionPercentage": 70,
+      "status": "partially_watched",
+      "views": 3,
+      "pausedCount": 2,
+      "forwardedCount": 0,
+      "backwardCount": 3
+    },
+    {
+      "id": "h-1783337958355",
+      "userId": "u-user1",
+      "videoId": "v-1783337866892",
+      "watchDate": "2026-07-06T11:59:53.266Z",
+      "watchTime": 74,
+      "lastPosition": 17,
+      "completionPercentage": 100,
+      "status": "completed",
+      "views": 2,
+      "pausedCount": 0,
+      "forwardedCount": 1,
+      "backwardCount": 0
     }
   ],
+  "favorites": [],
   "notifications": [
     {
       "id": "n-1",
@@ -402,6 +543,46 @@
       "message": "\"Test Sample\" has been uploaded in Science. Watch it now!",
       "date": "2026-06-09T11:32:29.611Z",
       "read": true
+    },
+    {
+      "id": "n-178316086831346",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "\"MainStream\" has been uploaded in Science. Watch it now!",
+      "date": "2026-07-04T10:27:48.313Z",
+      "read": false
+    },
+    {
+      "id": "n-178333544383174",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "\"Mainstream\" has been uploaded in Science. Watch it now!",
+      "date": "2026-07-06T10:57:23.831Z",
+      "read": false
+    },
+    {
+      "id": "n-17833359884192",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "\"Technology\" has been uploaded in Technology. Watch it now!",
+      "date": "2026-07-06T11:06:28.419Z",
+      "read": false
+    },
+    {
+      "id": "n-178333777089151",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "\"Student\" has been uploaded in Education. Watch it now!",
+      "date": "2026-07-06T11:36:10.892Z",
+      "read": false
+    },
+    {
+      "id": "n-178333786689834",
+      "userId": "u-user1",
+      "title": "New Video Added",
+      "message": "\"Student Data\" has been uploaded in Technology. Watch it now!",
+      "date": "2026-07-06T11:37:46.898Z",
+      "read": false
     }
   ],
   "reportedVideos": [
