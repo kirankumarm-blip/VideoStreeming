@@ -14,6 +14,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [showRecentlyViewed, setShowRecentlyViewed] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('Last 7 days');
+  const [loadingHistory, setLoadingHistory] = useState(false);
   
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -22,7 +24,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   useEffect(() => {
     if (user && user.role === 'user') {
       fetchNotifications();
-      fetchRecentlyViewed();
+      fetchRecentlyViewedByFilter(activeFilter);
       // Poll notifications every 30s
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
@@ -55,12 +57,36 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     }
   };
 
-  const fetchRecentlyViewed = async () => {
+  const fetchRecentlyViewedByFilter = async (filterValue) => {
     try {
-      const data = await api.videos.getHistory();
-      setRecentlyViewed(data || []);
+      setLoadingHistory(true);
+      const response = await api.dashboard.getUser('recently_palyed', { 
+        formstep: 'recently_palyed', 
+        filter: filterValue 
+      });
+      
+      const list = Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
+      
+      const formatted = list.map((item, idx) => {
+        if (item && item.video) {
+          return {
+            id: item.id || idx,
+            video: item.video,
+            completionPercentage: item.completionPercentage ?? 100
+          };
+        }
+        return {
+          id: (item && item.id) || idx,
+          video: item || {},
+          completionPercentage: (item && item.completionPercentage) ?? 100
+        };
+      });
+      
+      setRecentlyViewed(formatted);
     } catch (e) {
-      console.error("Failed to load recently viewed", e);
+      console.error("Failed to load recently viewed with filter", e);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -196,7 +222,13 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         {user.role === 'user' && (
           <div ref={recentlyViewedRef} style={{ position: 'relative' }} className="nav-recently-played">
             <button 
-              onClick={() => setShowRecentlyViewed(!showRecentlyViewed)}
+              onClick={() => {
+                const newShow = !showRecentlyViewed;
+                setShowRecentlyViewed(newShow);
+                if (newShow) {
+                  fetchRecentlyViewedByFilter(activeFilter);
+                }
+              }}
               style={{
                 background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border-color)',
@@ -222,14 +254,60 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                 position: 'absolute',
                 top: '45px',
                 right: 0,
-                width: '300px',
+                width: '320px',
                 zIndex: 1000,
                 padding: '12px'
               }} className="glass-card">
                 <div style={{ fontWeight: 700, paddingBottom: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px', fontSize: '14px' }}>
                   {t('user.recentlyPlayed')}
                 </div>
-                {recentlyViewed.length === 0 ? (
+                
+                {/* Filter Selector Row */}
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                  {['Last 7 days', 'last 1 month', 'more than 1 month'].map(filter => (
+                    <button
+                      key={filter}
+                      onClick={() => {
+                        setActiveFilter(filter);
+                        fetchRecentlyViewedByFilter(filter);
+                      }}
+                      style={{
+                        flex: 1,
+                        fontSize: '10px',
+                        padding: '4px 2px',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: activeFilter === filter ? 'var(--accent-primary)' : 'var(--border-color)',
+                        background: activeFilter === filter ? 'var(--accent-primary)' : 'transparent',
+                        color: activeFilter === filter ? '#ffffff' : 'var(--text-secondary)',
+                        fontWeight: activeFilter === filter ? 600 : 400,
+                        transition: 'all 0.2s',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {filter === 'Last 7 days' ? t('filter.7days', 'Last 7 days') :
+                       filter === 'last 1 month' ? t('filter.1month', 'Last 1 month') :
+                       t('filter.more1month', 'More than 1 month')}
+                    </button>
+                  ))}
+                </div>
+
+                {loadingHistory ? (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '24px 0', textAlign: 'center' }}>
+                    <div style={{ 
+                      display: 'inline-block', 
+                      width: '18px', 
+                      height: '18px', 
+                      border: '2px solid var(--accent-primary)', 
+                      borderTopColor: 'transparent', 
+                      borderRadius: '50%', 
+                      animation: 'spin 0.8s linear infinite',
+                      marginBottom: '6px'
+                    }} />
+                    <div>Loading...</div>
+                  </div>
+                ) : recentlyViewed.length === 0 ? (
                   <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '12px 0', textAlign: 'center' }}>
                     {t('user.noVideosWatched')}
                   </div>
