@@ -149,21 +149,30 @@ const Signup = () => {
     const fetchGenders = async () => {
       try {
         const response = await api.auth.getGenders();
-        let genderList = [];
+        let rawList = [];
         if (Array.isArray(response)) {
-          genderList = response;
+          rawList = response;
         } else if (response && Array.isArray(response.data)) {
-          genderList = response.data;
+          rawList = response.data;
         } else if (response && Array.isArray(response.genders)) {
-          genderList = response.genders;
+          rawList = response.genders;
         } else if (response && typeof response === 'object') {
           for (const key in response) {
             if (Array.isArray(response[key])) {
-              genderList = response[key];
+              rawList = response[key];
               break;
             }
           }
         }
+
+        // Extract the nested 'json' object if present (e.g. UAT network responses)
+        const genderList = rawList.map(item => {
+          if (item && item.json) {
+            return item.json;
+          }
+          return item;
+        });
+
         setGenders(genderList);
       } catch (err) {
         console.error('Failed to fetch genders:', err);
