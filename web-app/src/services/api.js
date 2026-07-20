@@ -244,12 +244,18 @@ export const api = {
           name: `${data.firstName} ${data.lastName}`,
           first_name: data.firstName,
           last_name: data.lastName,
-          gender: data.gender,
+          gender_id: data.genderId,
           date_of_birth: data.dob,
           email: data.email,
           mobile: data.mobile || '0000000000',
           password: data.password
         }),
+      });
+    },
+    getGenders: () => {
+      return request('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: 'getGender' }),
       });
     },
     changePassword: (oldPassword, newPassword) => {

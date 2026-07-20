@@ -9,7 +9,8 @@ const Signup = () => {
   const { t } = useLanguage();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [gender, setGender] = useState('');
+  const [genderId, setGenderId] = useState('');
+  const [genders, setGenders] = useState([]);
   const [dob, setDob] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
@@ -83,7 +84,7 @@ const Signup = () => {
     setSuccess('');
 
     // Field Validations
-    if (!firstName || !lastName || !gender || !dob || !email || !mobile || !password || !confirmPassword) {
+    if (!firstName || !lastName || !genderId || !dob || !email || !mobile || !password || !confirmPassword) {
       showError('All fields are required');
       return;
     }
@@ -116,8 +117,8 @@ const Signup = () => {
       await api.auth.signup({
         firstName,
         lastName,
-        gender,
-        dob,
+        genderId,
+        dob: new Date(dob).toISOString(),
         email,
         mobile,
         password
@@ -143,6 +144,33 @@ const Signup = () => {
       document.body.classList.remove('light-theme');
     }
   }, [theme]);
+
+  React.useEffect(() => {
+    const fetchGenders = async () => {
+      try {
+        const response = await api.auth.getGenders();
+        let genderList = [];
+        if (Array.isArray(response)) {
+          genderList = response;
+        } else if (response && Array.isArray(response.data)) {
+          genderList = response.data;
+        } else if (response && Array.isArray(response.genders)) {
+          genderList = response.genders;
+        } else if (response && typeof response === 'object') {
+          for (const key in response) {
+            if (Array.isArray(response[key])) {
+              genderList = response[key];
+              break;
+            }
+          }
+        }
+        setGenders(genderList);
+      } catch (err) {
+        console.error('Failed to fetch genders:', err);
+      }
+    };
+    fetchGenders();
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -252,15 +280,17 @@ const Signup = () => {
               <label className="form-label">Gender</label>
               <select
                 className="form-input"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
+                value={genderId}
+                onChange={(e) => setGenderId(e.target.value)}
                 required
                 style={{ width: '100%' }}
               >
                 <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
+                {genders.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name || g.gender_name || g.title}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>

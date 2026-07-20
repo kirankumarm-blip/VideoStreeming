@@ -167,6 +167,14 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.post('/api/auth/signup', (req, res) => {
+  if (req.body.formstep === 'getGender') {
+    return res.json([
+      { id: 1, name: "Male" },
+      { id: 2, name: "Female" },
+      { id: 3, name: "Other" }
+    ]);
+  }
+
   const { name, email, mobile, password } = req.body;
   
   if (!name || !email || !mobile || !password) {
