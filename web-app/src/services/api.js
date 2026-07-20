@@ -166,6 +166,8 @@ async function request(endpoint, options = {}) {
       bodyObj.formstep === 'getCategories' ||
       bodyObj.formstep === 'analytics' ||
       bodyObj.formstep === 'levels' ||
+      bodyObj.formstep === 'getGender' ||
+      bodyObj.formStep === 'getGender' ||
       bodyObj.formStep === 'list';
 
     // Check if it's n8n style wrapping: [{ json: ... }]
@@ -256,6 +258,7 @@ export const api = {
       return request('/auth/signup', {
         method: 'POST',
         body: JSON.stringify({ formstep: 'getGender' }),
+        expectArray: true
       });
     },
     changePassword: (oldPassword, newPassword) => {
