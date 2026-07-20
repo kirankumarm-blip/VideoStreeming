@@ -38,6 +38,38 @@ const Profile = () => {
       });
       return true;
     }
+
+    // Helper to run skin tone analysis on canvas pixels
+    const analyzePixels = (ctx, width, height) => {
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+      let skinPixels = 0;
+      const totalPixels = width * height;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+        
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const diff = max - min;
+        
+        const isSkin = (
+          r > 95 && g > 40 && b > 20 &&
+          diff > 15 &&
+          Math.abs(r - g) > 15 &&
+          r > g && r > b
+        );
+        
+        if (isSkin) {
+          skinPixels++;
+        }
+      }
+      
+      const percentage = (skinPixels / totalPixels) * 100;
+      return percentage > 18;
+    };
     
     // 2. Skin tone skin-pixel scan (only for images)
     if (file.type.startsWith('image/')) {
@@ -52,35 +84,8 @@ const Profile = () => {
               canvas.height = 80;
               const ctx = canvas.getContext('2d');
               ctx.drawImage(img, 0, 0, 80, 80);
-              
-              const imgData = ctx.getImageData(0, 0, 80, 80);
-              const data = imgData.data;
-              let skinPixels = 0;
-              const totalPixels = 80 * 80;
-              
-              for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i+1];
-                const b = data[i+2];
-                
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const diff = max - min;
-                
-                const isSkin = (
-                  r > 95 && g > 40 && b > 20 &&
-                  diff > 15 &&
-                  Math.abs(r - g) > 15 &&
-                  r > g && r > b
-                );
-                
-                if (isSkin) {
-                  skinPixels++;
-                }
-              }
-              
-              const percentage = (skinPixels / totalPixels) * 100;
-              resolve(percentage > 18);
+              const flagged = analyzePixels(ctx, 80, 80);
+              resolve(flagged);
             } catch (err) {
               resolve(false);
             }
@@ -92,6 +97,56 @@ const Profile = () => {
         reader.readAsDataURL(file);
       });
       
+      if (hasNudity) {
+        setCustomAlert({
+          show: true,
+          title: 'Moderation Alert',
+          message: 'Inappropriate content has been detected in the uploaded file.',
+          type: 'error',
+          buttonText: 'OK'
+        });
+        return true;
+      }
+    }
+
+    // 3. Skin tone skin-pixel scan (only for videos)
+    if (file.type.startsWith('video/')) {
+      const hasNudity = await new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        
+        const objectUrl = URL.createObjectURL(file);
+        video.src = objectUrl;
+        
+        video.onloadeddata = () => {
+          const seekTime = Math.min(1.0, video.duration / 2);
+          video.currentTime = seekTime;
+        };
+        
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 80;
+            canvas.height = 80;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, 80, 80);
+            const flagged = analyzePixels(ctx, 80, 80);
+            resolve(flagged);
+          } catch (err) {
+            resolve(false);
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+          }
+        };
+        
+        video.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(false);
+        };
+      });
+
       if (hasNudity) {
         setCustomAlert({
           show: true,
