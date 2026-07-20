@@ -12,6 +12,7 @@ const Signup = () => {
   const [gender, setGender] = useState('');
   const [dob, setDob] = useState('');
   const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +21,38 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+
+  // Custom Alert Modal States
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    type: 'success',
+    title: '',
+    message: '',
+    buttonText: 'Continue',
+    onConfirm: null
+  });
+
+  const showSuccess = (message, onConfirm = null) => {
+    setCustomAlert({
+      show: true,
+      type: 'success',
+      title: 'Success!',
+      message,
+      buttonText: 'Continue',
+      onConfirm
+    });
+  };
+
+  const showError = (message, onConfirm = null) => {
+    setCustomAlert({
+      show: true,
+      type: 'error',
+      title: 'Oooops!',
+      message,
+      buttonText: 'Try Again',
+      onConfirm
+    });
+  };
 
   // Password strength checker
   const getPasswordStrength = (pwd) => {
@@ -50,25 +83,30 @@ const Signup = () => {
     setSuccess('');
 
     // Field Validations
-    if (!firstName || !lastName || !gender || !dob || !email || !password || !confirmPassword) {
-      setError('All fields are required');
+    if (!firstName || !lastName || !gender || !dob || !email || !mobile || !password || !confirmPassword) {
+      showError('All fields are required');
+      return;
+    }
+
+    if (mobile.length !== 10) {
+      showError('Phone number must be exactly 10 digits');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      showError('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      showError('Password must be at least 6 characters long');
       return;
     }
 
     // Email regex check with TLD verification
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address (e.g. name@domain.com)');
+      showError('Please enter a valid email address (e.g. name@domain.com)');
       return;
     }
 
@@ -81,14 +119,14 @@ const Signup = () => {
         gender,
         dob,
         email,
+        mobile,
         password
       });
-      setSuccess('Account created successfully! Redirecting to login page...');
-      setTimeout(() => {
+      showSuccess('Account created successfully! Redirecting to login page...', () => {
         navigate('/login');
-      }, 2000);
+      });
     } catch (err) {
-      setError(err.message || 'Registration failed. Check if email is already in use.');
+      showError(err.message || 'Registration failed. Check if email is already in use.');
     } finally {
       setLoading(false);
     }
@@ -251,6 +289,19 @@ const Signup = () => {
             />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Phone Number</label>
+            <input
+              type="tel"
+              className="form-input"
+              placeholder="Enter 10-digit phone number"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              required
+              style={{ width: '100%' }}
+            />
+          </div>
+
           <div className="form-group" style={{ marginBottom: '10px' }}>
             <label className="form-label">{t('auth.password')}</label>
             <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
@@ -368,6 +419,106 @@ const Signup = () => {
           </div>
         </form>
       </div>
+
+      {customAlert.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333',
+            animation: 'scaleIn 0.25s ease'
+          }}>
+            {/* Circle Icon */}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: `3px solid ${customAlert.type === 'success' ? '#1890ff' : '#f5222d'}`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              {customAlert.type === 'success' ? (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1890ff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              )}
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: customAlert.type === 'success' ? '#1890ff' : '#f5222d',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: '#666666',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+
+            {/* Button */}
+            <button
+              onClick={() => {
+                setCustomAlert(prev => ({ ...prev, show: false }));
+                if (customAlert.onConfirm) customAlert.onConfirm();
+              }}
+              style={{
+                background: customAlert.type === 'success' ? '#3a78f2' : '#de2424',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '15px',
+                fontWeight: 600,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            >
+              {customAlert.buttonText}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
