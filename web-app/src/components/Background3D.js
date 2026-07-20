@@ -109,8 +109,8 @@ const Background3D = () => {
         };
       });
 
-      // Draw Grid lines
-      ctx.lineWidth = isLight ? 1.0 : 1.2;
+      // Draw Grid lines (made darker and thicker for high visibility)
+      ctx.lineWidth = isLight ? 1.6 : 1.8;
       
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -122,10 +122,10 @@ const Background3D = () => {
           if (c < cols - 1) {
             const p2 = projected[idx + 1];
             if (p2) {
-              const alpha = ((p1.opacity + p2.opacity) / 2) * 0.12;
+              const alpha = ((p1.opacity + p2.opacity) / 2) * 0.45;
               ctx.strokeStyle = isLight 
-                ? `rgba(124, 58, 237, ${alpha * 1.5})` 
-                : `rgba(139, 92, 246, ${alpha * 3.5})`; // Violet in light, Purple in dark
+                ? `rgba(90, 40, 200, ${alpha * 1.5})` 
+                : `rgba(147, 51, 234, ${alpha * 3.5})`; // Rich Violet in light, Purple in dark
               ctx.beginPath();
               ctx.moveTo(p1.x, p1.y);
               ctx.lineTo(p2.x, p2.y);
@@ -137,10 +137,10 @@ const Background3D = () => {
           if (r < rows - 1) {
             const p3 = projected[idx + cols];
             if (p3) {
-              const alpha = ((p1.opacity + p3.opacity) / 2) * 0.12;
+              const alpha = ((p1.opacity + p3.opacity) / 2) * 0.45;
               ctx.strokeStyle = isLight 
-                ? `rgba(37, 99, 235, ${alpha * 1.5})` 
-                : `rgba(229, 9, 20, ${alpha * 3.5})`; // Royal Blue in light, Red in dark
+                ? `rgba(25, 75, 210, ${alpha * 1.5})` 
+                : `rgba(37, 99, 235, ${alpha * 3.5})`; // Royal Blue in light, Sky Blue in dark
               ctx.beginPath();
               ctx.moveTo(p1.x, p1.y);
               ctx.lineTo(p3.x, p3.y);
@@ -150,12 +150,12 @@ const Background3D = () => {
 
           // Draw grid intersection node dots
           if (r % 2 === 0 && c % 2 === 0) {
-            const alpha = p1.opacity * 0.35;
+            const alpha = p1.opacity * 0.65;
             ctx.fillStyle = isLight 
-              ? `rgba(236, 72, 153, ${alpha * 1.4})` 
-              : `rgba(236, 72, 153, ${alpha * 2.2})`; // Pink
+              ? `rgba(219, 39, 119, ${alpha * 1.8})` 
+              : `rgba(236, 72, 153, ${alpha * 2.8})`; // Pink
             ctx.beginPath();
-            ctx.arc(p1.x, p1.y, 1.8 * p1.opacity, 0, Math.PI * 2);
+            ctx.arc(p1.x, p1.y, 2.2 * p1.opacity, 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -164,12 +164,12 @@ const Background3D = () => {
       // Add a soft center glow blob in the background
       const grad = ctx.createRadialGradient(centerX, centerY - 50, 50, centerX, centerY, width * 0.4);
       if (isLight) {
-        grad.addColorStop(0, 'rgba(37, 99, 235, 0.05)');
-        grad.addColorStop(0.5, 'rgba(124, 58, 237, 0.02)');
+        grad.addColorStop(0, 'rgba(37, 99, 235, 0.08)');
+        grad.addColorStop(0.5, 'rgba(124, 58, 237, 0.04)');
         grad.addColorStop(1, 'rgba(248, 250, 252, 0)');
       } else {
-        grad.addColorStop(0, 'rgba(139, 92, 246, 0.25)');
-        grad.addColorStop(0.5, 'rgba(229, 9, 20, 0.12)');
+        grad.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+        grad.addColorStop(0.5, 'rgba(229, 9, 20, 0.18)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       }
       ctx.fillStyle = grad;
