@@ -61,7 +61,6 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     try {
       setLoadingHistory(true);
       const response = await api.dashboard.getUser('recently_palyed', { 
-        formstep: 'recently_palyed', 
         filter: filterValue 
       });
       

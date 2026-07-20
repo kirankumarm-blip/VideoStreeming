@@ -297,7 +297,11 @@ export const api = {
     getUser: (formStep = null, payload = {}) => {
       const body = { ...payload };
       if (formStep) {
-        body.formStep = formStep;
+        if (formStep === 'recently_palyed') {
+          body.formstep = 'recently_palyed';
+        } else {
+          body.formStep = formStep;
+        }
       }
       return request('/User', {
         method: 'POST',
