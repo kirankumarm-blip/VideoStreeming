@@ -106,7 +106,18 @@ const Sidebar = ({ isOpen, onClose }) => {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
-            VStreem
+            <svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+              <defs>
+                <linearGradient id="logoGradSide" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#9333ea" />
+                  <stop offset="50%" stopColor="#2563eb" />
+                  <stop offset="100%" stopColor="#06b6d4" />
+                </linearGradient>
+              </defs>
+              <path d="M34,16 C26,16 22,22 22,30 L22,70 C22,78 28,84 36,84 L44,84 C58,84 76,74 76,58 C76,42 58,32 44,32 L44,45 C52,45 62,50 62,58 C62,66 52,71 44,71 C38,71 35,67 35,62 L35,30 C35,24 38,20 44,20 L52,20 L52,8 L34,16 Z" fill="url(#logoGradSide)" />
+              <path d="M44,48 L56,55 L44,62 Z" fill="#2563eb" />
+            </svg>
+            LurnAx
           </span>
         </div>
 

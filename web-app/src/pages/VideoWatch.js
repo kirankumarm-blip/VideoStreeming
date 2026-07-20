@@ -841,10 +841,10 @@ const VideoWatch = () => {
                 fontWeight: 700,
                 fontSize: '16px'
               }}>
-                VS
+                LA
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 700, fontSize: '15px' }}>VStreem Education</span>
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>LurnAx Education</span>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>120K subscribers</span>
               </div>
               
