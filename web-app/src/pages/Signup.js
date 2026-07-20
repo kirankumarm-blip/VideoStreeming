@@ -190,6 +190,149 @@ const Signup = () => {
       {/* 3D Motion Graphics Canvas Background */}
       <Background3D />
 
+      {/* Top Left Branding Logo */}
+      <div style={{
+        position: 'absolute',
+        top: '32px',
+        left: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        zIndex: 100
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          borderRadius: '10px',
+          background: 'linear-gradient(135deg, #a855f7 0%, #ff333d 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)'
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+        <span style={{
+          fontSize: '22px',
+          fontWeight: 800,
+          fontFamily: "'Space Grotesk', sans-serif",
+          color: 'var(--text-primary)',
+          letterSpacing: '-0.5px'
+        }}>
+          VStream
+        </span>
+      </div>
+
+      {/* Floating SVG Educational/Media Assets in the Background */}
+      <div className="floating-asset" style={{
+        position: 'absolute',
+        top: '15%',
+        left: '12%',
+        animation: 'float 6s ease-in-out infinite',
+        opacity: 0.7,
+        filter: 'drop-shadow(0 15px 25px rgba(139, 92, 246, 0.2))',
+        zIndex: 1
+      }}>
+        {/* Graduation Cap */}
+        <svg width="90" height="90" viewBox="0 0 24 24" fill="none" stroke="url(#purpleGrad)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+          <defs>
+            <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#ec4899" />
+            </linearGradient>
+          </defs>
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z" fill="url(#purpleGrad)" fillOpacity="0.08" />
+          <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
+        </svg>
+      </div>
+
+      <div className="floating-asset" style={{
+        position: 'absolute',
+        top: '36%',
+        left: '8%',
+        animation: 'float-delayed 8s ease-in-out infinite',
+        opacity: 0.7,
+        filter: 'drop-shadow(0 15px 25px rgba(139, 92, 246, 0.15))',
+        zIndex: 1
+      }}>
+        {/* Play Button Icon */}
+        <div style={{
+          width: '76px',
+          height: '76px',
+          borderRadius: '50%',
+          border: '1.5px solid rgba(139, 92, 246, 0.25)',
+          background: 'rgba(139, 92, 246, 0.05)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#a855f7" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: '4px' }}>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="floating-asset" style={{
+        position: 'absolute',
+        top: '18%',
+        right: '12%',
+        animation: 'float 7s ease-in-out infinite',
+        opacity: 0.7,
+        filter: 'drop-shadow(0 15px 25px rgba(139, 92, 246, 0.2))',
+        zIndex: 1
+      }}>
+        {/* Book Icon */}
+        <svg width="90" height="90" viewBox="0 0 24 24" fill="none" stroke="url(#purpleGrad)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V5A2.5 2.5 0 0 1 6.5 2.5H20v20H6.5A2.5 2.5 0 0 1 4 19.5z" fill="url(#purpleGrad)" fillOpacity="0.08" />
+        </svg>
+      </div>
+
+      <div className="floating-asset" style={{
+        position: 'absolute',
+        top: '42%',
+        right: '9%',
+        animation: 'float-delayed 9s ease-in-out infinite',
+        opacity: 0.7,
+        filter: 'drop-shadow(0 15px 25px rgba(139, 92, 246, 0.15))',
+        zIndex: 1
+      }}>
+        {/* Video Camera SVG */}
+        <svg width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="url(#purpleGrad)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 7l-7 5 7 5V7z" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" fill="url(#purpleGrad)" fillOpacity="0.08" />
+        </svg>
+      </div>
+
+      {/* Floating Glass Spheres */}
+      <div className="floating-asset" style={{
+        position: 'absolute',
+        top: '60%',
+        left: '6%',
+        width: '40px',
+        height: '40px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8) 0%, rgba(168, 85, 247, 0.4) 50%, rgba(124, 58, 237, 0.1) 100%)',
+        boxShadow: '0 8px 24px rgba(139, 92, 246, 0.2)',
+        animation: 'float 5s ease-in-out infinite',
+        zIndex: 1
+      }}></div>
+      
+      <div className="floating-asset" style={{
+        position: 'absolute',
+        top: '70%',
+        right: '15%',
+        width: '48px',
+        height: '48px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8) 0%, rgba(168, 85, 247, 0.4) 50%, rgba(124, 58, 237, 0.1) 100%)',
+        boxShadow: '0 8px 24px rgba(139, 92, 246, 0.2)',
+        animation: 'float-delayed 6s ease-in-out infinite',
+        zIndex: 1
+      }}></div>
+
       {/* Floating Theme Toggle */}
       <button 
         onClick={toggleTheme}
@@ -219,8 +362,7 @@ const Signup = () => {
       </button>
 
       {/* Form Container */}
-      <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10, maxWidth: '640px' }}>
-        <div className="auth-logo">{t('nav.brand')}</div>
+      <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10, maxWidth: '640px', borderRadius: '32px', border: '1px solid rgba(255, 255, 255, 0.4)', padding: '52px 48px' }}>
 
         {error && (
           <div style={{
