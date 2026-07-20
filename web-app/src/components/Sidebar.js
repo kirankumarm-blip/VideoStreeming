@@ -15,12 +15,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     { id: 'home', label: t('nav.home'), icon: '🏠', path: '/' },
     { id: 'explore', label: t('sidebar.explore', 'Explore'), icon: '🧭', path: '/?view=explore' },
     { id: 'categories', label: t('sidebar.categories', 'Categories'), icon: '🏷️', path: '/?view=categories' },
-    { id: 'my_learning', label: t('sidebar.myLearning', 'My Learning'), icon: '📖', path: '/?view=my_learning' },
     { id: 'watch_later', label: t('sidebar.watchLater', 'Watch Later'), icon: '⏳', path: '/?view=watch_later' },
     { id: 'downloads', label: t('sidebar.downloads', 'Downloads'), icon: '📥', path: '/?view=downloads' },
-    { id: 'certificates', label: t('sidebar.certificates', 'Certificates'), icon: '🏆', path: '/?view=certificates' },
-    { id: 'progress', label: t('sidebar.progressTracker', 'Progress Tracker'), icon: '📊', path: '/?view=progress' },
-    { id: 'community', label: t('sidebar.community', 'Community'), icon: '💬', path: '/?view=community' },
     { id: 'settings', label: t('sidebar.settings', 'Settings'), icon: '⚙️', path: '/?view=settings' }
   ];
 
