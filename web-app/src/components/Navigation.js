@@ -67,17 +67,18 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       const list = Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
       
       const formatted = list.map((item, idx) => {
-        if (item && item.video) {
-          return {
-            id: item.id || idx,
-            video: item.video,
-            completionPercentage: item.completionPercentage ?? 100
-          };
-        }
+        const data = item?.json || item || {};
         return {
-          id: (item && item.id) || idx,
-          video: item || {},
-          completionPercentage: (item && item.completionPercentage) ?? 100
+          id: data.id || item.id || idx,
+          video: {
+            id: data.video_id || data.id || idx,
+            title: data.title || '',
+            thumbnail: data.thumbnail || '',
+          },
+          completionPercentage: parseFloat(data.completion_percentage || 0),
+          watchDuration: data.watch_duration || '',
+          watchStatus: data.watch_status || '',
+          startedAt: data.started_at || ''
         };
       });
       
@@ -337,15 +338,31 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           <img 
                             src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5000${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
                             alt={video.title} 
-                            style={{ width: '60px', height: '34px', objectFit: 'cover', borderRadius: '4px' }}
+                            style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                           />
-                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: '2px' }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {video.title}
                             </div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                              {item.completionPercentage}% {t('user.watchedPercent')}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                              <span style={{ 
+                                color: item.watchStatus === 'Completed' ? '#10b981' : 'var(--accent-primary)', 
+                                fontWeight: 600 
+                              }}>
+                                {item.watchStatus || 'Watched'} ({item.completionPercentage}%)
+                              </span>
+                              {item.watchDuration && (
+                                <>
+                                  <span>•</span>
+                                  <span>{item.watchDuration}</span>
+                                </>
+                              )}
                             </div>
+                            {item.startedAt && (
+                              <div style={{ fontSize: '10px', color: 'var(--text-secondary)', opacity: 0.8 }}>
+                                📅 {item.startedAt}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
