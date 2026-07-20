@@ -26,12 +26,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     buttonText: 'OK'
   });
 
-  const checkInappropriateContent = (file) => {
+  const verifyFileContent = async (file) => {
     if (!file) return false;
+    
+    // 1. Filename keyword check
     const name = file.name.toLowerCase();
     const keywords = ['explicit', 'minor', 'nudity', 'sex', 'pornography', 'porn', 'illegal', 'inappropriate', 'adult'];
-    const isInappropriate = keywords.some(keyword => name.includes(keyword));
-    if (isInappropriate) {
+    const isNameInappropriate = keywords.some(keyword => name.includes(keyword));
+    if (isNameInappropriate) {
       setCustomAlert({
         show: true,
         title: 'Moderation Alert',
@@ -41,6 +43,72 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       });
       return true;
     }
+    
+    // 2. Skin tone skin-pixel scan (only for images)
+    if (file.type.startsWith('image/')) {
+      const hasNudity = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = 80;
+              canvas.height = 80;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, 80, 80);
+              
+              const imgData = ctx.getImageData(0, 0, 80, 80);
+              const data = imgData.data;
+              let skinPixels = 0;
+              const totalPixels = 80 * 80;
+              
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i+1];
+                const b = data[i+2];
+                
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const diff = max - min;
+                
+                const isSkin = (
+                  r > 95 && g > 40 && b > 20 &&
+                  diff > 15 &&
+                  Math.abs(r - g) > 15 &&
+                  r > g && r > b
+                );
+                
+                if (isSkin) {
+                  skinPixels++;
+                }
+              }
+              
+              const percentage = (skinPixels / totalPixels) * 100;
+              resolve(percentage > 18);
+            } catch (err) {
+              resolve(false);
+            }
+          };
+          img.onerror = () => resolve(false);
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(false);
+        reader.readAsDataURL(file);
+      });
+      
+      if (hasNudity) {
+        setCustomAlert({
+          show: true,
+          title: 'Moderation Alert',
+          message: 'Inappropriate content has been detected in the uploaded file.',
+          type: 'error',
+          buttonText: 'OK'
+        });
+        return true;
+      }
+    }
+    
     return false;
   };
 
@@ -403,7 +471,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleCourseThumbnailUpload = async (file) => {
     if (!file) return;
-    if (checkInappropriateContent(file)) return;
+    if (await verifyFileContent(file)) return;
     setThumbnailUploading(true);
     try {
       const CHUNK_SIZE = 5 * 1024 * 1024;
@@ -431,7 +499,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleCourseBannerUpload = async (file) => {
     if (!file) return;
-    if (checkInappropriateContent(file)) return;
+    if (await verifyFileContent(file)) return;
     setBannerUploading(true);
     try {
       const CHUNK_SIZE = 5 * 1024 * 1024;
@@ -459,7 +527,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleChapterVideoUpload = async (chapterId, videoId, file) => {
     if (!file) return;
-    if (checkInappropriateContent(file)) return;
+    if (await verifyFileContent(file)) return;
     
     updateVideoProp(chapterId, videoId, 'uploadStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'fileName', file.name);
@@ -500,7 +568,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleChapterThumbnailUpload = async (chapterId, videoId, file) => {
     if (!file) return;
-    if (checkInappropriateContent(file)) return;
+    if (await verifyFileContent(file)) return;
     
     updateVideoProp(chapterId, videoId, 'thumbStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'thumbName', file.name);
@@ -720,8 +788,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       return;
     }
 
-    if (checkInappropriateContent(videoFile)) return;
-    if (thumbnailFile && checkInappropriateContent(thumbnailFile)) return;
+    if (await verifyFileContent(videoFile)) return;
+    if (thumbnailFile && await verifyFileContent(thumbnailFile)) return;
 
     const uploadFileInChunks = async (file, fileRoleLabel) => {
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -1684,9 +1752,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         type="file" 
                         id="videoInput"
                         accept="video/*" 
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files[0];
-                          if (file && checkInappropriateContent(file)) {
+                          if (file && await verifyFileContent(file)) {
                             e.target.value = '';
                             return;
                           }
@@ -1704,9 +1772,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         type="file" 
                         id="thumbInput"
                         accept="image/*" 
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files[0];
-                          if (file && checkInappropriateContent(file)) {
+                          if (file && await verifyFileContent(file)) {
                             e.target.value = '';
                             return;
                           }
@@ -1870,9 +1938,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             accept="image/*"
                             className="form-input"
                             style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files[0];
-                              if (file && checkInappropriateContent(file)) {
+                              if (file && await verifyFileContent(file)) {
                                 e.target.value = '';
                                 return;
                               }
@@ -1892,9 +1960,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             accept="image/*"
                             className="form-input"
                             style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files[0];
-                              if (file && checkInappropriateContent(file)) {
+                              if (file && await verifyFileContent(file)) {
                                 e.target.value = '';
                                 return;
                               }
@@ -2051,9 +2119,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                               type="file"
                                               accept="video/*"
                                               style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
-                                              onChange={(e) => {
+                                              onChange={async (e) => {
                                                 const file = e.target.files[0];
-                                                if (file && checkInappropriateContent(file)) {
+                                                if (file && await verifyFileContent(file)) {
                                                   e.target.value = '';
                                                   return;
                                                 }
@@ -2077,9 +2145,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                               type="file"
                                               accept="image/*"
                                               style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
-                                              onChange={(e) => {
+                                              onChange={async (e) => {
                                                 const file = e.target.files[0];
-                                                if (file && checkInappropriateContent(file)) {
+                                                if (file && await verifyFileContent(file)) {
                                                   e.target.value = '';
                                                   return;
                                                 }

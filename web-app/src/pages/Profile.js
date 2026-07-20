@@ -21,12 +21,14 @@ const Profile = () => {
     buttonText: 'OK'
   });
 
-  const checkInappropriateContent = (file) => {
+  const verifyFileContent = async (file) => {
     if (!file) return false;
+    
+    // 1. Filename keyword check
     const name = file.name.toLowerCase();
     const keywords = ['explicit', 'minor', 'nudity', 'sex', 'pornography', 'porn', 'illegal', 'inappropriate', 'adult'];
-    const isInappropriate = keywords.some(keyword => name.includes(keyword));
-    if (isInappropriate) {
+    const isNameInappropriate = keywords.some(keyword => name.includes(keyword));
+    if (isNameInappropriate) {
       setCustomAlert({
         show: true,
         title: 'Moderation Alert',
@@ -36,6 +38,72 @@ const Profile = () => {
       });
       return true;
     }
+    
+    // 2. Skin tone skin-pixel scan (only for images)
+    if (file.type.startsWith('image/')) {
+      const hasNudity = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = 80;
+              canvas.height = 80;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, 80, 80);
+              
+              const imgData = ctx.getImageData(0, 0, 80, 80);
+              const data = imgData.data;
+              let skinPixels = 0;
+              const totalPixels = 80 * 80;
+              
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i+1];
+                const b = data[i+2];
+                
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const diff = max - min;
+                
+                const isSkin = (
+                  r > 95 && g > 40 && b > 20 &&
+                  diff > 15 &&
+                  Math.abs(r - g) > 15 &&
+                  r > g && r > b
+                );
+                
+                if (isSkin) {
+                  skinPixels++;
+                }
+              }
+              
+              const percentage = (skinPixels / totalPixels) * 100;
+              resolve(percentage > 18);
+            } catch (err) {
+              resolve(false);
+            }
+          };
+          img.onerror = () => resolve(false);
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(false);
+        reader.readAsDataURL(file);
+      });
+      
+      if (hasNudity) {
+        setCustomAlert({
+          show: true,
+          title: 'Moderation Alert',
+          message: 'Inappropriate content has been detected in the uploaded file.',
+          type: 'error',
+          buttonText: 'OK'
+        });
+        return true;
+      }
+    }
+    
     return false;
   };
 
@@ -66,6 +134,10 @@ const Profile = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (avatarFile && await verifyFileContent(avatarFile)) {
+      return;
+    }
 
     const formData = new FormData();
     formData.append('name', name);
@@ -175,9 +247,9 @@ const Profile = () => {
                 <input 
                   type="file" 
                   accept="image/*"
-                  onChange={e => {
+                  onChange={async (e) => {
                     const file = e.target.files[0];
-                    if (file && checkInappropriateContent(file)) {
+                    if (file && await verifyFileContent(file)) {
                       e.target.value = '';
                       return;
                     }
