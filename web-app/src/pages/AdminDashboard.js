@@ -979,7 +979,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           >
             ✕
           </button>
-          <img src="/logo.png" alt="LurnAx" style={{ height: '30px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
         </div>
 
         {menuStructure.map((section, idx) => {

@@ -140,7 +140,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             cursor: 'pointer'
           }}
         >
-          <img src="/logo.png" alt="LurnAx" style={{ height: '36px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="LurnAx" style={{ height: '52px', objectFit: 'contain' }} />
         </div>
       </div>
 

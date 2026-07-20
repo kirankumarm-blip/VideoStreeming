@@ -274,11 +274,11 @@ const Login = () => {
       {/* Top Left Branding Logo */}
       <div style={{
         position: 'absolute',
-        top: '32px',
+        top: '24px',
         left: '40px',
         zIndex: 100
       }}>
-        <img src="/logo.png" alt="LurnAx" style={{ height: '40px', objectFit: 'contain' }} />
+        <img src="/logo.png" alt="LurnAx" style={{ height: '65px', objectFit: 'contain' }} />
       </div>
 
       {/* Floating Theme Toggle */}

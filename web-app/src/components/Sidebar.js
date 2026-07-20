@@ -98,7 +98,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           >
             ✕
           </button>
-          <img src="/logo.png" alt="LurnAx" style={{ height: '30px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
         </div>
 
         {menuItems.map((item, idx) => {
