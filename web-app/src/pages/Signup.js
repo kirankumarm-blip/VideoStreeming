@@ -194,10 +194,10 @@ const Signup = () => {
       <div style={{
         position: 'absolute',
         top: '24px',
-        left: '40px',
+        left: '24px',
         zIndex: 100
       }}>
-        <img src="/logo.png" alt="LurnAx" style={{ height: '80px', width: '250px', objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src="/logo.png" alt="LurnAx" style={{ height: '100px', width: '300px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Theme Toggle */}
