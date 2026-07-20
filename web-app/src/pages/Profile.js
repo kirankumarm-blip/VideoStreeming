@@ -13,6 +13,31 @@ const Profile = () => {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    title: '',
+    message: '',
+    type: 'error',
+    buttonText: 'OK'
+  });
+
+  const checkInappropriateContent = (file) => {
+    if (!file) return false;
+    const name = file.name.toLowerCase();
+    const keywords = ['explicit', 'minor', 'nudity', 'sex', 'pornography', 'porn', 'illegal', 'inappropriate', 'adult'];
+    const isInappropriate = keywords.some(keyword => name.includes(keyword));
+    if (isInappropriate) {
+      setCustomAlert({
+        show: true,
+        title: 'Moderation Alert',
+        message: 'Inappropriate content has been detected in the uploaded file.',
+        type: 'error',
+        buttonText: 'OK'
+      });
+      return true;
+    }
+    return false;
+  };
 
   // Password change states
   const [oldPassword, setOldPassword] = useState('');
@@ -150,7 +175,14 @@ const Profile = () => {
                 <input 
                   type="file" 
                   accept="image/*"
-                  onChange={e => setAvatarFile(e.target.files[0])}
+                  onChange={e => {
+                    const file = e.target.files[0];
+                    if (file && checkInappropriateContent(file)) {
+                      e.target.value = '';
+                      return;
+                    }
+                    setAvatarFile(file);
+                  }}
                   style={{ fontSize: '13px' }}
                 />
               </div>
@@ -279,6 +311,89 @@ const Profile = () => {
         </div>
 
       </div>
+
+      {/* --- CUSTOM ALERT MODAL --- */}
+      {customAlert.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: '3px solid #f5222d',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: '#f5222d',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+            <p style={{
+              fontSize: '14px',
+              color: '#666666',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+            <button
+              onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+              style={{
+                background: '#de2424',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '15px',
+                fontWeight: 600,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            >
+              {customAlert.buttonText}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

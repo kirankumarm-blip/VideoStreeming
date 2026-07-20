@@ -18,6 +18,31 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    title: '',
+    message: '',
+    type: 'error',
+    buttonText: 'OK'
+  });
+
+  const checkInappropriateContent = (file) => {
+    if (!file) return false;
+    const name = file.name.toLowerCase();
+    const keywords = ['explicit', 'minor', 'nudity', 'sex', 'pornography', 'porn', 'illegal', 'inappropriate', 'adult'];
+    const isInappropriate = keywords.some(keyword => name.includes(keyword));
+    if (isInappropriate) {
+      setCustomAlert({
+        show: true,
+        title: 'Moderation Alert',
+        message: 'Inappropriate content has been detected in the uploaded file.',
+        type: 'error',
+        buttonText: 'OK'
+      });
+      return true;
+    }
+    return false;
+  };
 
   // Accordion Sections State
   const [expandedSections, setExpandedSections] = useState({
@@ -378,6 +403,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleCourseThumbnailUpload = async (file) => {
     if (!file) return;
+    if (checkInappropriateContent(file)) return;
     setThumbnailUploading(true);
     try {
       const CHUNK_SIZE = 5 * 1024 * 1024;
@@ -405,6 +431,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleCourseBannerUpload = async (file) => {
     if (!file) return;
+    if (checkInappropriateContent(file)) return;
     setBannerUploading(true);
     try {
       const CHUNK_SIZE = 5 * 1024 * 1024;
@@ -432,6 +459,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleChapterVideoUpload = async (chapterId, videoId, file) => {
     if (!file) return;
+    if (checkInappropriateContent(file)) return;
     
     updateVideoProp(chapterId, videoId, 'uploadStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'fileName', file.name);
@@ -472,6 +500,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleChapterThumbnailUpload = async (chapterId, videoId, file) => {
     if (!file) return;
+    if (checkInappropriateContent(file)) return;
     
     updateVideoProp(chapterId, videoId, 'thumbStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'thumbName', file.name);
@@ -690,6 +719,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setError('Please select a video file to upload');
       return;
     }
+
+    if (checkInappropriateContent(videoFile)) return;
+    if (thumbnailFile && checkInappropriateContent(thumbnailFile)) return;
 
     const uploadFileInChunks = async (file, fileRoleLabel) => {
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -1652,7 +1684,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         type="file" 
                         id="videoInput"
                         accept="video/*" 
-                        onChange={(e) => setVideoFile(e.target.files[0])}
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file && checkInappropriateContent(file)) {
+                            e.target.value = '';
+                            return;
+                          }
+                          setVideoFile(file);
+                        }}
                         required
                         className="form-input"
                         style={{ fontSize: '13px', padding: '10px' }}
@@ -1665,7 +1704,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         type="file" 
                         id="thumbInput"
                         accept="image/*" 
-                        onChange={(e) => setThumbnailFile(e.target.files[0])}
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file && checkInappropriateContent(file)) {
+                            e.target.value = '';
+                            return;
+                          }
+                          setThumbnailFile(file);
+                        }}
                         className="form-input"
                         style={{ fontSize: '13px', padding: '10px' }}
                       />
@@ -1824,7 +1870,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             accept="image/*"
                             className="form-input"
                             style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            onChange={(e) => handleCourseThumbnailUpload(e.target.files[0])}
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file && checkInappropriateContent(file)) {
+                                e.target.value = '';
+                                return;
+                              }
+                              handleCourseThumbnailUpload(file);
+                            }}
                           />
                           {thumbnailUploading && <span style={{ fontSize: '11px', color: '#e50914', display: 'block', marginTop: '4px' }}>Uploading thumbnail...</span>}
                           {courseThumbnailUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
@@ -1839,7 +1892,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             accept="image/*"
                             className="form-input"
                             style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            onChange={(e) => handleCourseBannerUpload(e.target.files[0])}
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file && checkInappropriateContent(file)) {
+                                e.target.value = '';
+                                return;
+                              }
+                              handleCourseBannerUpload(file);
+                            }}
                           />
                           {bannerUploading && <span style={{ fontSize: '11px', color: '#e50914', display: 'block', marginTop: '4px' }}>Uploading banner...</span>}
                           {courseBannerUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
@@ -1993,6 +2053,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                               style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
                                               onChange={(e) => {
                                                 const file = e.target.files[0];
+                                                if (file && checkInappropriateContent(file)) {
+                                                  e.target.value = '';
+                                                  return;
+                                                }
                                                 handleChapterVideoUpload(ch.id, vid.id, file);
                                               }}
                                             />
@@ -2015,6 +2079,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                               style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
                                               onChange={(e) => {
                                                 const file = e.target.files[0];
+                                                if (file && checkInappropriateContent(file)) {
+                                                  e.target.value = '';
+                                                  return;
+                                                }
                                                 handleChapterThumbnailUpload(ch.id, vid.id, file);
                                               }}
                                             />
@@ -2980,6 +3048,89 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <button type="submit" className="btn btn-primary" style={{ border: 'none' }}>Save User</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CUSTOM ALERT MODAL --- */}
+      {customAlert.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: '3px solid #f5222d',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: '#f5222d',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+            <p style={{
+              fontSize: '14px',
+              color: '#666666',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+            <button
+              onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+              style={{
+                background: '#de2424',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '15px',
+                fontWeight: 600,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            >
+              {customAlert.buttonText}
+            </button>
           </div>
         </div>
       )}
