@@ -481,7 +481,6 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({
           formStep: "getSubCategory",
-          formstep: "getSubCategory",
           category_id: categoryId
         })
       });
