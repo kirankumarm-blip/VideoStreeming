@@ -114,7 +114,7 @@ const AppLayout = ({ theme, setTheme }) => {
           {/* Super Admin Specific Paths */}
           <Route path="/super-admin" element={
             <RoleRoute allowedRoles={['super_admin']}>
-              <SuperAdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+              <SuperAdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
             </RoleRoute>
           } />
 

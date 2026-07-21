@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
+import AdminDashboard from './AdminDashboard';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -12,7 +13,7 @@ const getFormattedSeconds = (sec) => {
   return `${Math.round(s)} sec`;
 };
 
-const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
+const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, admins_all, categories, etc.
   const [stats, setStats] = useState(null);
@@ -542,8 +543,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
       title: 'Content Management',
       icon: '🎬',
       items: [
-        { id: 'content_videos', label: 'All Videos' },
-        { id: 'categories', label: 'Categories' }
+        { id: 'video_upload', label: 'Upload Video' },
+        { id: 'course_upload', label: 'Upload Course' },
+        { id: 'course_all', label: 'All Courses' }
       ]
     },
     {
@@ -851,6 +853,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar }) => {
           <div style={{ textAlign: 'center', padding: '80px', color: 'var(--text-secondary)' }}>Loading telemetry core...</div>
         ) : (
           <>
+            {/* Embed Video Upload / Course Upload / All Courses from AdminDashboard */}
+            {['video_upload', 'course_upload', 'course_all'].includes(activeTab) && (
+              <AdminDashboard justContent={true} activeTabOverride={activeTab} theme={theme} />
+            )}
+
             {/* OVERVIEW TAB WORKSPACE (Unified 5-second dashboard) */}
             {activeTab === 'overview' && (
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>

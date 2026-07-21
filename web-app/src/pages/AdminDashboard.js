@@ -12,9 +12,15 @@ const getFormattedSeconds = (sec) => {
   return `${Math.round(s)} sec`;
 };
 
-const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
+const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, users_all, video_upload, etc.
+
+  useEffect(() => {
+    if (activeTabOverride) {
+      setActiveTab(activeTabOverride);
+    }
+  }, [activeTabOverride]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1186,9 +1192,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
+    <div style={justContent ? { display: 'block', width: '100%', background: 'var(--bg-primary)' } : { display: 'flex', height: 'calc(100vh - 60px)', background: 'var(--bg-primary)', marginLeft: 0, width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       {/* Mobile Backdrop Overlay */}
-      {isSidebarOpen && (
+      {!justContent && isSidebarOpen && (
         <div 
           onClick={toggleSidebar}
           style={{
@@ -1206,7 +1212,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       )}
 
       {/* 1. ADMIN SIDEBAR (YouTube-style accordion sidebar) */}
-      <div style={{
+      {!justContent && (
+        <div style={{
         width: '260px',
         flexShrink: 0,
         background: 'var(--bg-secondary)',
@@ -1347,30 +1354,33 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           </div>
         )})}
       </div>
+      )}
 
       {/* 2. MAIN ADMIN CONTENT CONTAINER */}
-      <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="admin-content-container">
+      <div style={justContent ? { flex: 1, minWidth: 0 } : { flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="admin-content-container">
         
         {/* Top Header Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
-              {getActiveTabLabel()}
-            </h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Welcome to the Admin Command Control center.</p>
+        {!justContent && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
+                {getActiveTabLabel()}
+              </h1>
+              <p style={{ color: 'var(--text-secondary)' }}>Welcome to the Admin Command Control center.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                Export CSV
+              </button>
+              <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                Export Excel
+              </button>
+              <button onClick={() => alert("PDF report is preparing... (Simulated)")} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                Export PDF
+              </button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-              Export CSV
-            </button>
-            <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-              Export Excel
-            </button>
-            <button onClick={() => alert("PDF report is preparing... (Simulated)")} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-              Export PDF
-            </button>
-          </div>
-        </div>
+        )}
 
         {error && (
           <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px' }}>
