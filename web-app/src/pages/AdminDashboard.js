@@ -938,7 +938,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       // 3. Register metadata and notify database via n8n webhook
       setUploadProgress('Registering video metadata with database...');
       
-      const isPrivate = uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private';
+      const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+      const isPrivate = (selectedVisObj && (
+        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+      )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+
       const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
@@ -1874,7 +1880,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       </select>
                     </div>
 
-                    {uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private' && (
+                    {(() => {
+                      const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+                      const isPrivate = (selectedVisObj && (
+                        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                      )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+                      return isPrivate;
+                    })() && (
                       <div className="form-group">
                         <label className="form-label">Plan</label>
                         <select 
