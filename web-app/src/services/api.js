@@ -501,6 +501,17 @@ export const api = {
         })
       });
     },
+    getAdmins: () => {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const endpoint = isSuperAdmin ? '/SuperAdminVideos' : '/adminVideos';
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formStep: "getAdmins"
+        })
+      });
+    },
     registerVideo: async (payload) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';

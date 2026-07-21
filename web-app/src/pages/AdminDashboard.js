@@ -16,6 +16,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, users_all, video_upload, etc.
 
+  const currentUser = getCurrentUser();
+  const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
+
   useEffect(() => {
     if (activeTabOverride) {
       setActiveTab(activeTabOverride);
@@ -231,7 +234,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     tags: '',
     visibility: '',
     planId: '',
-    languageId: ''
+    languageId: '',
+    adminId: ''
   });
   const [subCategories, setSubCategories] = useState([]);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
@@ -239,6 +243,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [languages, setLanguages] = useState([]);
   const [loadingLanguages, setLoadingLanguages] = useState(false);
+  const [adminsList, setAdminsList] = useState([]);
+  const [loadingAdminsList, setLoadingAdminsList] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -256,7 +262,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     instructor: '',
     level: 'Beginner',
     tags: '',
-    totalChapters: ''
+    totalChapters: '',
+    visibility: '',
+    adminId: ''
   });
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
@@ -296,6 +304,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchLevels();
       fetchPlans();
       fetchLanguages();
+      fetchAdminsList();
     }
     if (activeTab === 'video_all') {
       fetchVideos();
@@ -505,6 +514,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setLanguages([]);
     } finally {
       setLoadingLanguages(false);
+    }
+  };
+
+  const fetchAdminsList = async () => {
+    setLoadingAdminsList(true);
+    try {
+      const res = await api.videos.getAdmins();
+      const admList = Array.isArray(res) ? res : (res && Array.isArray(res.admins) ? res.admins : res?.data || []);
+      setAdminsList(admList);
+      if (admList.length > 0) {
+        const firstAdmId = admList[0].id || admList[0].admin_id || '';
+        setUploadForm(prev => ({ ...prev, adminId: firstAdmId }));
+        setCourseForm(prev => ({ ...prev, adminId: firstAdmId }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch admins list:', e);
+      setAdminsList([]);
+    } finally {
+      setLoadingAdminsList(false);
     }
   };
 
@@ -752,6 +780,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }, 0);
       }, 0);
 
+      const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+      const isPrivate = (selectedVisObj && (
+        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+      )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
@@ -784,6 +819,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }))
       };
 
+      if (isSuperAdmin) {
+        payload.visibility = courseForm.visibility;
+        if (isPrivate) {
+          payload.admin_id = courseForm.adminId;
+        }
+      }
+
       await api.videos.uploadCourse(payload);
       setUploadSuccess('Course created successfully!');
       setUploadProgress('');
@@ -800,7 +842,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         instructor: '',
         level: levels[0]?.id || levels[0]?.level || 'Beginner',
         tags: '',
-        totalChapters: ''
+        totalChapters: '',
+        visibility: '',
+        adminId: ''
       });
       setChapters([]);
       setCourseThumbnailUrl('');
@@ -1001,7 +1045,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         thumbnailUrl
       };
       if (isPrivate) {
-        registerPayload.plan_id = uploadForm.planId;
+        if (isSuperAdmin) {
+          registerPayload.admin_id = uploadForm.adminId;
+        } else {
+          registerPayload.plan_id = uploadForm.planId;
+        }
       }
 
       await api.videos.registerVideo(registerPayload);
@@ -1019,7 +1067,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         tags: '',
         visibility: visibilities[0]?.id || '',
         planId: '',
-        languageId: defaultLangId
+        languageId: defaultLangId,
+        adminId: ''
       });
       if (defaultCatId) {
         fetchSubCategories(defaultCatId);
@@ -1077,8 +1126,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const currentUserInfo = getCurrentUser();
-  const isSuperAdmin = currentUserInfo && currentUserInfo.role === 'super_admin';
 
   const menuStructure = [
     {
@@ -1964,23 +2011,43 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
                       return isPrivate;
                     })() && (
-                      <div className="form-group">
-                        <label className="form-label">Plan</label>
-                        <select 
-                          className="form-input"
-                          value={uploadForm.planId}
-                          onChange={(e) => setUploadForm({ ...uploadForm, planId: e.target.value })}
-                          required
-                          disabled={loadingPlans}
-                        >
-                          <option value="">{loadingPlans ? 'Loading...' : 'Select Plan'}</option>
-                          {plans.map(p => (
-                            <option key={p.id || p.plan_id} value={p.id || p.plan_id}>
-                              {p.name || p.title || p.plan_name || p.id}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      isSuperAdmin ? (
+                        <div className="form-group">
+                          <label className="form-label">Admin *</label>
+                          <select 
+                            className="form-input"
+                            value={uploadForm.adminId}
+                            onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
+                            required
+                            disabled={loadingAdminsList}
+                          >
+                            <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
+                            {adminsList.map(admin => (
+                              <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
+                                {admin.name || admin.username || admin.email || admin.id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="form-group">
+                          <label className="form-label">Plan</label>
+                          <select 
+                            className="form-input"
+                            value={uploadForm.planId}
+                            onChange={(e) => setUploadForm({ ...uploadForm, planId: e.target.value })}
+                            required
+                            disabled={loadingPlans}
+                          >
+                            <option value="">{loadingPlans ? 'Loading...' : 'Select Plan'}</option>
+                            {plans.map(p => (
+                              <option key={p.id || p.plan_id} value={p.id || p.plan_id}>
+                                {p.name || p.title || p.plan_name || p.id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )
                     )}
                   </div>
 
@@ -2083,6 +2150,55 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#e50914', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>1</div>
                         <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: textColor }}>Course Information</h2>
                       </div>
+
+                      {isSuperAdmin && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Visibility *</label>
+                            <select
+                              className="form-input"
+                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              value={courseForm.visibility}
+                              onChange={(e) => setCourseForm({ ...courseForm, visibility: e.target.value })}
+                              required
+                            >
+                              <option value="">Select Visibility</option>
+                              {visibilities.map((vis) => (
+                                <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {(() => {
+                            const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                            const isPrivate = (selectedVisObj && (
+                              (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                              (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                              (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                            )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                            return isPrivate;
+                          })() && (
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
+                              <select
+                                className="form-input"
+                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                value={courseForm.adminId}
+                                onChange={(e) => setCourseForm({ ...courseForm, adminId: e.target.value })}
+                                required
+                                disabled={loadingAdminsList}
+                              >
+                                <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
+                                {adminsList.map((admin) => (
+                                  <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
+                                    {admin.name || admin.username || admin.email || admin.id}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
