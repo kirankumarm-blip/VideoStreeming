@@ -485,6 +485,14 @@ export const api = {
         })
       });
     },
+    getPlans: () => {
+      return request('/adminVideos', {
+        method: 'POST',
+        body: JSON.stringify({
+          formStep: "getPlans"
+        })
+      });
+    },
     registerVideo: async (payload) => {
       const url = `${getBaseUrl()}/vdadminVideos`;
       const token = getAccessToken();

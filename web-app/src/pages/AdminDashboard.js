@@ -223,10 +223,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     category: '',
     subCategory: '',
     tags: '',
-    visibility: ''
+    visibility: '',
+    planId: ''
   });
   const [subCategories, setSubCategories] = useState([]);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -283,6 +286,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchCategories();
       fetchVisibilities();
       fetchLevels();
+      fetchPlans();
     }
     if (activeTab === 'video_all') {
       fetchVideos();
@@ -456,6 +460,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchPlans = async () => {
+    setLoadingPlans(true);
+    try {
+      const res = await api.videos.getPlans();
+      const plansList = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      setPlans(plansList);
+      if (plansList.length > 0) {
+        setUploadForm(prev => ({ ...prev, planId: plansList[0].id || plansList[0].plan_id || '' }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch plans:', e);
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
     }
   };
 
@@ -916,7 +937,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
       // 3. Register metadata and notify database via n8n webhook
       setUploadProgress('Registering video metadata with database...');
-      await api.videos.registerVideo({
+      
+      const isPrivate = uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private';
+      const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
         category: uploadForm.category,
@@ -926,7 +949,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         visibility: uploadForm.visibility,
         videoUrl,
         thumbnailUrl
-      });
+      };
+      if (isPrivate) {
+        registerPayload.plan_id = uploadForm.planId;
+      }
+
+      await api.videos.registerVideo(registerPayload);
 
       setUploadSuccess('Video uploaded and registered successfully!');
       
@@ -938,7 +966,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         category: defaultCatId,
         subCategory: '',
         tags: '',
-        visibility: visibilities[0]?.id || ''
+        visibility: visibilities[0]?.id || '',
+        planId: ''
       });
       if (defaultCatId) {
         fetchSubCategories(defaultCatId);
@@ -1844,6 +1873,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         ))}
                       </select>
                     </div>
+
+                    {uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private' && (
+                      <div className="form-group">
+                        <label className="form-label">Plan</label>
+                        <select 
+                          className="form-input"
+                          value={uploadForm.planId}
+                          onChange={(e) => setUploadForm({ ...uploadForm, planId: e.target.value })}
+                          required
+                          disabled={loadingPlans}
+                        >
+                          <option value="">{loadingPlans ? 'Loading...' : 'Select Plan'}</option>
+                          {plans.map(p => (
+                            <option key={p.id || p.plan_id} value={p.id || p.plan_id}>
+                              {p.name || p.title || p.plan_name || p.id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="form-group">
