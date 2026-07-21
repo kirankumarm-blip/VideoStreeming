@@ -809,39 +809,43 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
-              <select 
-                value={selectedAdminId} 
-                onChange={handleAdminChange} 
-                className="btn btn-secondary" 
-                style={{ 
-                  fontSize: '13px', 
-                  padding: '8px 16px', 
-                  background: 'rgba(255, 255, 255, 0.08)', 
-                  border: '1px solid var(--border-color)', 
-                  color: 'var(--text-primary)', 
-                  borderRadius: '8px', 
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                {dropdownAdmins.map(admin => (
-                  <option key={admin.id} value={admin.id}>
-                    {admin.name || admin.username || admin.email || `Admin ${admin.id}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-              Export CSV
-            </button>
-            <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-              Export Excel
-            </button>
-            <button onClick={() => alert("PDF report is preparing...")} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-              Export PDF
-            </button>
+            {!['video_upload', 'course_upload'].includes(activeTab) && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
+                  <select 
+                    value={selectedAdminId} 
+                    onChange={handleAdminChange} 
+                    className="btn btn-secondary" 
+                    style={{ 
+                      fontSize: '13px', 
+                      padding: '8px 16px', 
+                      background: 'rgba(255, 255, 255, 0.08)', 
+                      border: '1px solid var(--border-color)', 
+                      color: 'var(--text-primary)', 
+                      borderRadius: '8px', 
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {dropdownAdmins.map(admin => (
+                      <option key={admin.id} value={admin.id}>
+                        {admin.name || admin.username || admin.email || `Admin ${admin.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                  Export CSV
+                </button>
+                <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                  Export Excel
+                </button>
+                <button onClick={() => alert("PDF report is preparing...")} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                  Export PDF
+                </button>
+              </>
+            )}
           </div>
         </div>
 
