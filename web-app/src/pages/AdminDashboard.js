@@ -820,7 +820,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: chapters.map(ch => ({
           title: ch.title,
           description: ch.description,
-          visibility: isSuperAdmin ? (courseForm.visibility || visibilities[0]?.id || '') : (ch.visibility || visibilities[0]?.id || ''),
+          visibility: ch.visibility || visibilities[0]?.id || '',
           order: ch.order,
           videos: ch.videos.map(v => ({
             title: v.title,
@@ -2478,22 +2478,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   onChange={(e) => updateChapterProp(ch.id, 'order', parseInt(e.target.value) || 1)}
                                 />
                               </div>
-                              {!isSuperAdmin && (
-                                <div className="form-group" style={{ margin: 0 }}>
-                                  <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Visibility *</label>
-                                  <select 
-                                    className="form-input"
-                                    style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px', padding: '8px 12px', height: '38px', fontSize: '13px' }}
-                                    value={ch.visibility || ''}
-                                    onChange={(e) => updateChapterProp(ch.id, 'visibility', e.target.value)}
-                                    required
-                                  >
-                                    {visibilities.map(vis => (
-                                      <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              )}
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Visibility *</label>
+                                <select 
+                                  className="form-input"
+                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px', padding: '8px 12px', height: '38px', fontSize: '13px' }}
+                                  value={ch.visibility || ''}
+                                  onChange={(e) => updateChapterProp(ch.id, 'visibility', e.target.value)}
+                                  required
+                                >
+                                  {visibilities.map(vis => (
+                                    <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
