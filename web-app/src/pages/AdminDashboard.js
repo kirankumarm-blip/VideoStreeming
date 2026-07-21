@@ -521,8 +521,22 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setLoadingAdminsList(true);
     try {
       const res = await api.videos.getAdmins();
-      const rawList = Array.isArray(res) ? res : (res && Array.isArray(res.admins) ? res.admins : res?.data || []);
+      console.log("getAdmins API raw response:", res);
+      let rawList = [];
+      if (Array.isArray(res)) {
+        rawList = res;
+      } else if (res && typeof res === 'object') {
+        if (Array.isArray(res.admins)) {
+          rawList = res.admins;
+        } else if (Array.isArray(res.data)) {
+          rawList = res.data;
+        } else if (res.id || res.alpha_id || res.name || res.username) {
+          rawList = [res];
+        }
+      }
+      console.log("rawList computed:", rawList);
       const admList = rawList.map(item => item.json || item);
+      console.log("admList computed:", admList);
       setAdminsList(admList);
       if (admList.length > 0) {
         const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
@@ -1994,7 +2008,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <select 
                         className="form-input"
                         value={uploadForm.visibility}
-                        onChange={(e) => setUploadForm({ ...uploadForm, visibility: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setUploadForm(prev => ({ ...prev, visibility: val }));
+                          const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
+                          const isPrivate = (selectedVisObj && (
+                            (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                            (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                            (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                          )) || (val && val.toString().toLowerCase() === 'private');
+                          if (isPrivate && isSuperAdmin) {
+                            fetchAdminsList();
+                          }
+                        }}
                         required
                       >
                         {visibilities.map(vis => (
@@ -2160,7 +2186,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               className="form-input"
                               style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                               value={courseForm.visibility}
-                              onChange={(e) => setCourseForm({ ...courseForm, visibility: e.target.value })}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setCourseForm(prev => ({ ...prev, visibility: val }));
+                                const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
+                                const isPrivate = (selectedVisObj && (
+                                  (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                  (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                  (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                                )) || (val && val.toString().toLowerCase() === 'private');
+                                if (isPrivate && isSuperAdmin) {
+                                  fetchAdminsList();
+                                }
+                              }}
                               required
                             >
                               <option value="">Select Visibility</option>
