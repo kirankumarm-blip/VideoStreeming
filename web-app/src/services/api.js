@@ -493,6 +493,14 @@ export const api = {
         })
       });
     },
+    getLanguages: () => {
+      return request('/adminVideos', {
+        method: 'POST',
+        body: JSON.stringify({
+          formStep: "getLanguage"
+        })
+      });
+    },
     registerVideo: async (payload) => {
       const url = `${getBaseUrl()}/vdadminVideos`;
       const token = getAccessToken();

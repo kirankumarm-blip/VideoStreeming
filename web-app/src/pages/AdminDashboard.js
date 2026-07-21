@@ -224,12 +224,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     subCategory: '',
     tags: '',
     visibility: '',
-    planId: ''
+    planId: '',
+    languageId: ''
   });
   const [subCategories, setSubCategories] = useState([]);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
+  const [languages, setLanguages] = useState([]);
+  const [loadingLanguages, setLoadingLanguages] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -242,13 +245,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     title: '',
     description: '',
     category: '',
-    visibility: '',
+    subCategory: '',
+    languageId: '',
     instructor: '',
     level: 'Beginner',
     tags: '',
-    totalChapters: '',
-    totalLessons: '',
-    totalDuration: ''
+    totalChapters: ''
   });
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
@@ -287,6 +289,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchVisibilities();
       fetchLevels();
       fetchPlans();
+      fetchLanguages();
     }
     if (activeTab === 'video_all') {
       fetchVideos();
@@ -480,6 +483,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const fetchLanguages = async () => {
+    setLoadingLanguages(true);
+    try {
+      const res = await api.videos.getLanguages();
+      const langList = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      setLanguages(langList);
+      if (langList.length > 0) {
+        const firstLangId = langList[0].id || langList[0].language_id || '';
+        setUploadForm(prev => ({ ...prev, languageId: firstLangId }));
+        setCourseForm(prev => ({ ...prev, languageId: firstLangId }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch languages:', e);
+      setLanguages([]);
+    } finally {
+      setLoadingLanguages(false);
+    }
+  };
+
   const fetchLevels = async () => {
     try {
       const data = await api.videos.getLevels();
@@ -515,12 +537,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const addChapter = () => {
     const newId = chapters.length > 0 ? Math.max(...chapters.map(c => c.id)) + 1 : 1;
+    const defaultVisibility = visibilities[0]?.id || '';
     setChapters([
       ...chapters,
       {
         id: newId,
         title: `Chapter ${newId}`,
         description: '',
+        visibility: defaultVisibility,
         order: newId,
         videos: []
       }
@@ -713,22 +737,34 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     if (e && e.preventDefault) e.preventDefault();
     setUploadProgress('Submitting course...');
     try {
+      const calculatedLessons = chapters.reduce((sum, ch) => sum + (ch.videos ? ch.videos.length : 0), 0);
+      const calculatedDuration = chapters.reduce((sum, ch) => {
+        if (!ch.videos) return sum;
+        return sum + ch.videos.reduce((chSum, v) => {
+          const d = parseFloat(v.duration);
+          return chSum + (isNaN(d) ? 0 : d);
+        }, 0);
+      }, 0);
+
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
         category: courseForm.category,
-        visibility: courseForm.visibility,
+        subCategory: courseForm.subCategory,
+        subcategory_id: courseForm.subCategory,
+        language_id: courseForm.languageId,
         instructor: courseForm.instructor,
         level: courseForm.level,
         tags: courseForm.tags,
         totalChapters: courseForm.totalChapters || chapters.length.toString(),
-        totalLessons: courseForm.totalLessons || chapters.reduce((acc, c) => acc + c.videos.length, 0).toString(),
-        totalDuration: courseForm.totalDuration || '10.5',
+        totalLessons: calculatedLessons.toString(),
+        totalDuration: calculatedDuration.toString(),
         thumbnail: courseThumbnailUrl,
         banner: courseBannerUrl,
         chapters: chapters.map(ch => ({
           title: ch.title,
           description: ch.description,
+          visibility: ch.visibility || visibilities[0]?.id || '',
           order: ch.order,
           videos: ch.videos.map(v => ({
             title: v.title,
@@ -747,17 +783,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setUploadProgress('');
       
       // Reset
+      const defaultCatId = categories[0]?.id || '';
+      const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
       setCourseForm({
         title: '',
         description: '',
-        category: '',
-        visibility: '',
+        category: defaultCatId,
+        subCategory: '',
+        languageId: defaultLangId,
         instructor: '',
         level: levels[0]?.id || levels[0]?.level || 'Beginner',
         tags: '',
-        totalChapters: '',
-        totalLessons: '',
-        totalDuration: ''
+        totalChapters: ''
       });
       setChapters([]);
       setCourseThumbnailUrl('');
@@ -951,6 +988,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         category: uploadForm.category,
         subCategory: uploadForm.subCategory,
         subcategory_id: uploadForm.subCategory,
+        language_id: uploadForm.languageId,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
         videoUrl,
@@ -966,6 +1004,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       
       // Reset form
       const defaultCatId = categories[0]?.id || '';
+      const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
       setUploadForm({
         title: '',
         description: '',
@@ -973,7 +1012,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         subCategory: '',
         tags: '',
         visibility: visibilities[0]?.id || '',
-        planId: ''
+        planId: '',
+        languageId: defaultLangId
       });
       if (defaultCatId) {
         fetchSubCategories(defaultCatId);
@@ -1867,6 +1907,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     </div>
 
                     <div className="form-group">
+                      <label className="form-label">Language</label>
+                      <select 
+                        className="form-input"
+                        value={uploadForm.languageId}
+                        onChange={(e) => setUploadForm({ ...uploadForm, languageId: e.target.value })}
+                        required
+                        disabled={loadingLanguages}
+                      >
+                        <option value="">{loadingLanguages ? 'Loading...' : 'Select Language'}</option>
+                        {languages.map(lang => (
+                          <option key={lang.id || lang.language_id || lang.name} value={lang.id || lang.language_id || lang.name}>
+                            {lang.name || lang.title || lang.language_name || lang.id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
                       <label className="form-label">Visibility</label>
                       <select 
                         className="form-input"
@@ -2040,7 +2098,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             className="form-input"
                             style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                             value={courseForm.category}
-                            onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCourseForm(prev => ({ ...prev, category: val }));
+                              fetchSubCategories(val);
+                            }}
                             required
                           >
                             <option value="">Select Category</option>
@@ -2050,17 +2112,36 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           </select>
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Visibility *</label>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Sub Category *</label>
                           <select
                             className="form-input"
                             style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            value={courseForm.visibility}
-                            onChange={(e) => setCourseForm({ ...courseForm, visibility: e.target.value })}
+                            value={courseForm.subCategory}
+                            onChange={(e) => setCourseForm({ ...courseForm, subCategory: e.target.value })}
                             required
+                            disabled={loadingSubCategories}
                           >
-                            <option value="">Select Visibility</option>
-                            {visibilities.map((vis) => (
-                              <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                            <option value="">{loadingSubCategories ? 'Loading...' : 'Select Sub Category'}</option>
+                            {subCategories.map((subCat) => (
+                              <option key={subCat.id || subCat.name} value={subCat.id || subCat.name}>{subCat.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Language *</label>
+                          <select
+                            className="form-input"
+                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                            value={courseForm.languageId}
+                            onChange={(e) => setCourseForm({ ...courseForm, languageId: e.target.value })}
+                            required
+                            disabled={loadingLanguages}
+                          >
+                            <option value="">{loadingLanguages ? 'Loading...' : 'Select Language'}</option>
+                            {languages.map((lang) => (
+                              <option key={lang.id || lang.language_id || lang.name} value={lang.id || lang.language_id || lang.name}>
+                                {lang.name || lang.title || lang.language_name || lang.id}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -2158,28 +2239,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             onChange={(e) => setCourseForm({ ...courseForm, totalChapters: e.target.value })}
                           />
                         </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Lessons / Videos</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            placeholder="e.g. 45"
-                            value={courseForm.totalLessons}
-                            onChange={(e) => setCourseForm({ ...courseForm, totalLessons: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Duration (Hours)</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            placeholder="e.g. 12.5"
-                            value={courseForm.totalDuration}
-                            onChange={(e) => setCourseForm({ ...courseForm, totalDuration: e.target.value })}
-                          />
-                        </div>
                       </div>
                     </div>
 
@@ -2243,6 +2302,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                   value={ch.order}
                                   onChange={(e) => updateChapterProp(ch.id, 'order', parseInt(e.target.value) || 1)}
                                 />
+                              </div>
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Visibility *</label>
+                                <select 
+                                  className="form-input"
+                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px', padding: '8px 12px', height: '38px', fontSize: '13px' }}
+                                  value={ch.visibility || ''}
+                                  onChange={(e) => updateChapterProp(ch.id, 'visibility', e.target.value)}
+                                  required
+                                >
+                                  {visibilities.map(vis => (
+                                    <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                                  ))}
+                                </select>
                               </div>
                             </div>
 
