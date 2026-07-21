@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, getCurrentUser } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -1071,6 +1071,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const currentUserInfo = getCurrentUser();
+  const isSuperAdmin = currentUserInfo && currentUserInfo.role === 'super_admin';
+
   const menuStructure = [
     {
       title: 'Dashboard',
@@ -1087,9 +1090,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       ]
     },
     {
-      title: 'Video Management',
+      title: isSuperAdmin ? 'Content Management' : 'Video Management',
       icon: '🎬',
-      items: [
+      items: isSuperAdmin ? [
+        { id: 'video_upload', label: 'Upload video' },
+        { id: 'course_upload', label: 'Upload Course' },
+        { id: 'course_all', label: 'All Courses' }
+      ] : [
         { id: 'video_upload', label: 'Upload Video' },
         { id: 'course_upload', label: 'Upload Course' },
         { id: 'video_all', label: 'All Videos' },
