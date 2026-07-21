@@ -157,6 +157,7 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'getVisibilities' ||
       bodyObj.formStep === 'analytics' ||
       bodyObj.formStep === 'getAdmin' ||
+      bodyObj.formStep === 'getAdmins' ||
       bodyObj.formstep === 'GetAdmins' ||
       bodyObj.formStep === 'GetAdmins' ||
       bodyObj.formstep === 'users_all' ||
@@ -509,7 +510,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({
           formStep: "getAdmins"
-        })
+        }),
+        expectArray: true
       });
     },
     registerVideo: async (payload) => {
