@@ -502,7 +502,9 @@ export const api = {
       });
     },
     registerVideo: async (payload) => {
-      const url = `${getBaseUrl()}/vdadminVideos`;
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
       const token = getAccessToken();
       const bodyObj = {
         ...payload,
@@ -526,11 +528,14 @@ export const api = {
     },
 
     uploadCourse: (payload) => {
-      return request('/adminVideos', {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const endpoint = isSuperAdmin ? '/SuperAdminVideos' : '/adminVideos';
+      return request(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           ...payload,
-          formStep: "UploadCouse"
+          formStep: isSuperAdmin ? "uploadCourse" : "UploadCouse"
         })
       });
     },
