@@ -921,6 +921,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         description: uploadForm.description,
         category: uploadForm.category,
         subCategory: uploadForm.subCategory,
+        subcategory_id: uploadForm.subCategory,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
         videoUrl,
@@ -1794,7 +1795,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                  <div className="responsive-3col-grid">
                     <div className="form-group">
                       <label className="form-label">{t('admin.tableCategory')}</label>
                       <select 
