@@ -476,6 +476,16 @@ export const api = {
         body: JSON.stringify({ uploadId, fileName, totalChunks })
       });
     },
+    getSubCategories: (categoryId) => {
+      return request('/adminVideos', {
+        method: 'POST',
+        body: JSON.stringify({
+          formStep: "getSubCategory",
+          formstep: "getSubCategory",
+          category_id: categoryId
+        })
+      });
+    },
     registerVideo: async (payload) => {
       const url = `${getBaseUrl()}/vdadminVideos`;
       const token = getAccessToken();

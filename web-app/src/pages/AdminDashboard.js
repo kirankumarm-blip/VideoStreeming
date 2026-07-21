@@ -221,9 +221,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     title: '',
     description: '',
     category: '',
+    subCategory: '',
     tags: '',
     visibility: ''
   });
+  const [subCategories, setSubCategories] = useState([]);
+  const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -405,12 +408,38 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const fetchSubCategories = async (categoryId) => {
+    if (!categoryId) {
+      setSubCategories([]);
+      return;
+    }
+    setLoadingSubCategories(true);
+    try {
+      const res = await api.videos.getSubCategories(categoryId);
+      const subCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      setSubCategories(subCats);
+      if (subCats.length > 0) {
+        setUploadForm(prev => ({ ...prev, subCategory: subCats[0].id || subCats[0].name }));
+      } else {
+        setUploadForm(prev => ({ ...prev, subCategory: '' }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch sub categories:', e);
+      setSubCategories([]);
+      setUploadForm(prev => ({ ...prev, subCategory: '' }));
+    } finally {
+      setLoadingSubCategories(false);
+    }
+  };
+
   const fetchCategories = async () => {
     try {
       const data = await api.categories.list();
       setCategories(Array.isArray(data) ? data : []);
       if (data.length > 0) {
-        setUploadForm(prev => ({ ...prev, category: data[0].id }));
+        const firstCatId = data[0].id;
+        setUploadForm(prev => ({ ...prev, category: firstCatId }));
+        fetchSubCategories(firstCatId);
       }
     } catch (e) {
       console.error(e);
@@ -891,6 +920,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         title: uploadForm.title,
         description: uploadForm.description,
         category: uploadForm.category,
+        subCategory: uploadForm.subCategory,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
         videoUrl,
@@ -900,13 +930,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setUploadSuccess('Video uploaded and registered successfully!');
       
       // Reset form
+      const defaultCatId = categories[0]?.id || '';
       setUploadForm({
         title: '',
         description: '',
-        category: categories[0]?.id || '',
+        category: defaultCatId,
+        subCategory: '',
         tags: '',
         visibility: visibilities[0]?.id || ''
       });
+      if (defaultCatId) {
+        fetchSubCategories(defaultCatId);
+      }
       setVideoFile(null);
       setThumbnailFile(null);
       
@@ -1759,17 +1794,38 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                     <div className="form-group">
                       <label className="form-label">{t('admin.tableCategory')}</label>
                       <select 
                         className="form-input"
                         value={uploadForm.category}
-                        onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setUploadForm(prev => ({ ...prev, category: val }));
+                          fetchSubCategories(val);
+                        }}
                         required
                       >
+                        <option value="">Select Category</option>
                         {categories.map(cat => (
                           <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Sub Category</label>
+                      <select 
+                        className="form-input"
+                        value={uploadForm.subCategory}
+                        onChange={(e) => setUploadForm({ ...uploadForm, subCategory: e.target.value })}
+                        required
+                        disabled={loadingSubCategories}
+                      >
+                        <option value="">{loadingSubCategories ? 'Loading...' : 'Select Sub Category'}</option>
+                        {subCategories.map(subCat => (
+                          <option key={subCat.id || subCat.name} value={subCat.id || subCat.name}>{subCat.name}</option>
                         ))}
                       </select>
                     </div>
