@@ -545,7 +545,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       items: [
         { id: 'video_upload', label: 'Upload Video' },
         { id: 'course_upload', label: 'Upload Course' },
-        { id: 'course_all', label: 'All Courses' }
+        { id: 'content_videos', label: 'All Videos' },
+        { id: 'course_all', label: 'All Courses' },
+        { id: 'categories', label: 'Categories' }
       ]
     },
     {
