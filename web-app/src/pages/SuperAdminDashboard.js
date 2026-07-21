@@ -2388,6 +2388,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
              activeTab !== 'admins_perf' &&
              activeTab !== 'admins_logs' &&
              activeTab !== 'admins_perms' &&
+             activeTab !== 'video_upload' &&
+             activeTab !== 'course_upload' &&
+             activeTab !== 'course_all' &&
              !activeTab.startsWith('users_') &&
              activeTab !== 'content_approval' &&
              activeTab !== 'content_reported' &&
