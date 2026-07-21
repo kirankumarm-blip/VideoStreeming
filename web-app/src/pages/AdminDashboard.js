@@ -521,10 +521,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setLoadingAdminsList(true);
     try {
       const res = await api.videos.getAdmins();
-      const admList = Array.isArray(res) ? res : (res && Array.isArray(res.admins) ? res.admins : res?.data || []);
+      const rawList = Array.isArray(res) ? res : (res && Array.isArray(res.admins) ? res.admins : res?.data || []);
+      const admList = rawList.map(item => item.json || item);
       setAdminsList(admList);
       if (admList.length > 0) {
-        const firstAdmId = admList[0].id || admList[0].admin_id || '';
+        const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
         setUploadForm(prev => ({ ...prev, adminId: firstAdmId }));
         setCourseForm(prev => ({ ...prev, adminId: firstAdmId }));
       }
