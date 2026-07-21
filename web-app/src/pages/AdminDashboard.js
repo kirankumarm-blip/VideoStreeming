@@ -2163,11 +2163,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         Add course details, chapters and multiple videos.
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export CSV</button>
-                      <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export Excel</button>
-                      <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px' }}>Export PDF</button>
-                    </div>
+                    {!justContent && (
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export CSV</button>
+                        <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export Excel</button>
+                        <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px' }}>Export PDF</button>
+                      </div>
+                    )}
                   </div>
 
                   <form onSubmit={handleCourseSubmit}>
@@ -2177,67 +2179,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#e50914', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>1</div>
                         <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: textColor }}>Course Information</h2>
                       </div>
-
-                      {isSuperAdmin && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-                          <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Visibility *</label>
-                            <select
-                              className="form-input"
-                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                              value={courseForm.visibility}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setCourseForm(prev => ({ ...prev, visibility: val }));
-                                const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
-                                const isPrivate = (selectedVisObj && (
-                                  (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                  (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                  (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                                )) || (val && val.toString().toLowerCase() === 'private');
-                                if (isPrivate && isSuperAdmin) {
-                                  fetchAdminsList();
-                                }
-                              }}
-                              required
-                            >
-                              <option value="">Select Visibility</option>
-                              {visibilities.map((vis) => (
-                                <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {(() => {
-                            const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
-                            const isPrivate = (selectedVisObj && (
-                              (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                              (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                              (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                            )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
-                            return isPrivate;
-                          })() && (
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
-                              <select
-                                className="form-input"
-                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                                value={courseForm.adminId}
-                                onChange={(e) => setCourseForm({ ...courseForm, adminId: e.target.value })}
-                                required
-                                disabled={loadingAdminsList}
-                              >
-                                <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
-                                {adminsList.map((admin) => (
-                                  <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
-                                    {admin.name || admin.username || admin.email || admin.id}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
@@ -2283,6 +2224,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             ))}
                           </select>
                         </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Sub Category *</label>
                           <select
@@ -2317,6 +2261,65 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             ))}
                           </select>
                         </div>
+                        {isSuperAdmin && (
+                          <>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Visibility *</label>
+                              <select
+                                className="form-input"
+                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                value={courseForm.visibility}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCourseForm(prev => ({ ...prev, visibility: val }));
+                                  const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
+                                  const isPrivate = (selectedVisObj && (
+                                    (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                    (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                    (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                                  )) || (val && val.toString().toLowerCase() === 'private');
+                                  if (isPrivate && isSuperAdmin) {
+                                    fetchAdminsList();
+                                  }
+                                }}
+                                required
+                              >
+                                <option value="">Select Visibility</option>
+                                {visibilities.map((vis) => (
+                                  <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                                ))}
+                              </select>
+                            </div>
+                            {(() => {
+                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                              const isPrivate = (selectedVisObj && (
+                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                              )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                              return isPrivate;
+                            })() && (
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
+                                <select
+                                  className="form-input"
+                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                  value={courseForm.adminId}
+                                  onChange={(e) => setCourseForm({ ...courseForm, adminId: e.target.value })}
+                                  required
+                                  disabled={loadingAdminsList}
+                                >
+                                  <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
+                                  {adminsList.map((admin) => (
+                                    <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
+                                      {admin.name || admin.username || admin.email || admin.id}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
