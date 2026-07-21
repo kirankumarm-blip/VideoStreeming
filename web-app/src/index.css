@@ -1036,15 +1036,15 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* --- Responsive 3-Column Grid for Upload Form --- */
-.responsive-3col-grid {
+/* --- Responsive Grid for Upload Form --- */
+.responsive-2col-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
 @media (max-width: 768px) {
-  .responsive-3col-grid {
+  .responsive-2col-grid {
     grid-template-columns: 1fr !important;
   }
 }

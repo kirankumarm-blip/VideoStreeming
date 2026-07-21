@@ -1870,7 +1870,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     />
                   </div>
 
-                  <div className="responsive-3col-grid">
+                  <div className="responsive-2col-grid">
                     <div className="form-group">
                       <label className="form-label">{t('admin.tableCategory')}</label>
                       <select 
