@@ -559,13 +559,17 @@ export const api = {
       });
     },
 
-    listCourses: () => {
+    listCourses: (adminId = null) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       if (isSuperAdmin) {
+        const payload = { formstep: "getAllCourses" };
+        if (adminId) {
+          payload.admin_id = adminId;
+        }
         return request('/dashboard/super-admin', {
           method: 'POST',
-          body: JSON.stringify({ formstep: "getAllCourses" }),
+          body: JSON.stringify(payload),
           expectArray: true
         });
       }

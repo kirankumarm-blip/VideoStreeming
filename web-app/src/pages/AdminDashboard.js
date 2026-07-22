@@ -12,7 +12,7 @@ const getFormattedSeconds = (sec) => {
   return `${Math.round(s)} sec`;
 };
 
-const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent }) => {
+const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, users_all, video_upload, etc.
 
@@ -285,10 +285,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchUsers();
-    fetchCategories();
-    fetchVideos();
-    fetchMonitoringData();
+    if (!justContent) {
+      fetchUsers();
+      fetchCategories();
+      fetchVideos();
+    }
   }, []);
 
   useEffect(() => {
@@ -310,7 +311,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchVideos();
     }
     if (activeTab === 'course_all') {
-      fetchCourses();
+      fetchCourses(selectedAdminId);
     }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
       fetchDashboardData('analytics');
@@ -325,7 +326,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'rep_export') {
       fetchTransactions();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedAdminId]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -367,8 +368,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchMonitoringData = async () => {
     try {
-      const l = await api.monitoring.getLive();
-      setLiveStreams(l);
       const s = await api.monitoring.getServer();
       setServerMonitoring(s);
       const sec = await api.monitoring.getSecurity();
@@ -574,9 +573,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchCourses = async () => {
+  const fetchCourses = async (adminId = selectedAdminId) => {
     try {
-      const data = await api.videos.listCourses();
+      const data = await api.videos.listCourses(adminId);
       setCourses(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);

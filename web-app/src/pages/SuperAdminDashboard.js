@@ -181,8 +181,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchMonitoringData = async () => {
     try {
-      const l = await api.monitoring.getLive();
-      setLiveStreams(l);
       const s = await api.monitoring.getServer();
       setServerMonitoring(s);
       const sec = await api.monitoring.getSecurity();
@@ -873,7 +871,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <>
             {/* Embed Video Upload / Course Upload / All Courses from AdminDashboard */}
             {['video_upload', 'course_upload', 'course_all'].includes(activeTab) && (
-              <AdminDashboard justContent={true} activeTabOverride={activeTab} theme={theme} />
+              <AdminDashboard justContent={true} activeTabOverride={activeTab} selectedAdminId={selectedAdminId} theme={theme} />
             )}
 
             {/* OVERVIEW TAB WORKSPACE (Unified 5-second dashboard) */}
