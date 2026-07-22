@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 // Category map with emojis
@@ -531,7 +531,19 @@ const UserDashboard = () => {
     return [];
   };
 
+  const isVideoLocked = (item) => {
+    if (!item) return false;
+    const currentUser = getCurrentUser();
+    const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
+    const itemVisibility = String(item.visibility ?? item.visibility_id ?? '1');
+    return userPlan === '1' && itemVisibility === '2';
+  };
+
   const handleVideoCardClick = (video, courseContext = null) => {
+    if (isVideoLocked(video) || (courseContext && isVideoLocked(courseContext))) {
+      alert('Need to upgrade your plan');
+      return;
+    }
     const id = typeof video === 'object' && video ? (video.id || video.videoUrl || video.video_url) : video;
     const videoObj = typeof video === 'object' && video ? video : getAllVideosList().find(v => v.id === id);
     navigate(`/watch/${id}`, { state: { video: videoObj, course: courseContext } });
@@ -659,6 +671,35 @@ const UserDashboard = () => {
       >
         <div className="thumbnail-container" style={{ position: 'relative', width: '100%', paddingTop: '56.25%' }}>
           <HoverThumbnail video={video} />
+          
+          {isVideoLocked(video) && (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                alert('Need to upgrade your plan');
+              }}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                left: '8px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 800,
+                zIndex: 15,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                cursor: 'pointer'
+              }}
+              title="Need to upgrade your plan"
+            >
+              👑 <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PRO</span>
+            </div>
+          )}
           
           {video.difficulty && (
             <span 
@@ -823,6 +864,34 @@ const UserDashboard = () => {
             alt={course.title || course.course_name} 
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
           />
+          {isVideoLocked(course) && (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                alert('Need to upgrade your plan');
+              }}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                left: '8px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: 800,
+                zIndex: 15,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                cursor: 'pointer'
+              }}
+              title="Need to upgrade your plan"
+            >
+              👑 <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PRO</span>
+            </div>
+          )}
           {/* Chapter badge with play icon */}
           <div 
             style={{
