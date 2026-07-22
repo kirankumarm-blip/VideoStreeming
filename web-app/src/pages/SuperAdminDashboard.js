@@ -312,7 +312,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const handleAdminChange = (e) => {
     const value = e.target.value;
     setSelectedAdminId(value);
-    fetchDashboardData(activeTab, value);
+    if (!['video_upload', 'course_upload', 'course_all'].includes(activeTab)) {
+      fetchDashboardData(activeTab, value);
+    }
   };
 
   const fetchAdmins = async () => {
