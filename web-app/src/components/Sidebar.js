@@ -109,10 +109,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                 gap: '16px',
                 width: '100%',
                 padding: '12px 16px',
-                background: isSelected ? 'rgba(229, 9, 20, 0.12)' : 'none',
+                background: isSelected ? 'var(--menu-active-bg)' : 'none',
                 border: 'none',
                 borderRadius: '10px',
-                color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)',
+                color: isSelected ? 'var(--menu-active-color)' : 'var(--text-primary)',
                 fontSize: '14px',
                 fontWeight: isSelected ? 700 : 500,
                 cursor: 'pointer',
@@ -121,7 +121,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 outline: 'none',
                 marginTop: idx === 0 ? '0px' : undefined
               }}
-              onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+              onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)')}
               onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
             >
               <span style={{ fontSize: '18px' }}>{item.icon}</span>

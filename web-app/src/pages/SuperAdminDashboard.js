@@ -734,9 +734,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   alignItems: 'center',
                   width: '100%',
                   padding: '10px 14px',
-                  background: isSelected ? 'rgba(229, 9, 20, 0.12)' : 'none',
+                  background: isSelected ? 'var(--menu-active-bg)' : 'none',
                   border: 'none',
-                  color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  color: isSelected ? 'var(--menu-active-color)' : 'var(--text-secondary)',
                   fontSize: '13px',
                   fontWeight: 700,
                   textTransform: 'uppercase',
@@ -746,7 +746,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   textAlign: 'left',
                   transition: 'background 0.2s'
                 }}
-                onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                onMouseEnter={e => !isSelected && (e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)')}
                 onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
                 type="button"
               >
@@ -775,10 +775,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       }}
                       style={{
                         padding: '8px 12px',
-                        background: isSelected ? 'rgba(229, 9, 20, 0.12)' : 'none',
+                        background: isSelected ? 'var(--menu-active-bg)' : 'none',
                         border: 'none',
                         borderRadius: '6px',
-                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)',
+                        color: isSelected ? 'var(--menu-active-color)' : 'var(--text-primary)',
                         fontSize: '13px',
                         fontWeight: isSelected ? 700 : 500,
                         cursor: 'pointer',

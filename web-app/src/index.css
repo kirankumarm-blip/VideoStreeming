@@ -23,6 +23,9 @@
   
   --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
   --sidebar-width: 260px;
+
+  --menu-active-bg: rgba(139, 92, 246, 0.22);
+  --menu-active-color: #a78bfa;
 }
 
 .light-theme {
@@ -47,6 +50,9 @@
   --shadow-lg: 0 16px 32px rgba(0,0,0,0.12);
   
   --card-gradient: linear-gradient(135deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0.03) 100%);
+
+  --menu-active-bg: #f3e8ff;
+  --menu-active-color: #7c3aed;
 }
 
 * {
