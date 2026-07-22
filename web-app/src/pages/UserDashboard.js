@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -613,8 +614,11 @@ const UserDashboard = () => {
     if (!item) return false;
     const currentUser = getCurrentUser();
     const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
-    const itemVisibility = String(item.visibility ?? item.visibility_id ?? '1');
-    return userPlan === '1' && itemVisibility === '2';
+    if (userPlan !== '1') return false;
+
+    const vis = item.visibility ?? item.visibility_id ?? item.is_private ?? item.isPrivate;
+    const visStr = String(vis || '').toLowerCase();
+    return visStr === '2' || visStr === 'private' || vis === true || vis === 2;
   };
 
   const handleVideoCardClick = (video, courseContext = null) => {
@@ -871,10 +875,16 @@ const UserDashboard = () => {
       <div 
         className="course-card-custom" 
         onClick={() => {
+          if (isVideoLocked(course)) {
+            showUpgradeAlert('Need to upgrade your plan');
+            return;
+          }
           const lessonsList = getCourseLessonsList(course);
           if (lessonsList && lessonsList.length > 0) {
             const firstVideo = lessonsList[0];
             const videoPayload = {
+              ...firstVideo,
+              visibility: firstVideo.visibility ?? firstVideo.visibility_id ?? course.visibility ?? course.visibility_id,
               id: firstVideo.id || firstVideo.videoUrl || firstVideo.video_url || `${course.id}-v0`,
               title: firstVideo.title || firstVideo.name || 'Lesson 1',
               videoUrl: firstVideo.videoUrl || firstVideo.video_url || '',
@@ -885,6 +895,7 @@ const UserDashboard = () => {
             handleVideoCardClick(videoPayload, course);
           } else if (course.videoUrl || course.video_url) {
             handleVideoCardClick({
+              ...course,
               id: course.id,
               title: course.title || course.course_name,
               videoUrl: course.videoUrl || course.video_url,
@@ -893,7 +904,7 @@ const UserDashboard = () => {
               description: course.description
             }, course);
           } else {
-            alert(`Opening course: "${course.title || course.course_name}"!`);
+            showUpgradeAlert(`Opening course: "${course.title || course.course_name}"!`);
           }
         }}
         style={{
@@ -1754,35 +1765,38 @@ const UserDashboard = () => {
               </div>
             )}
 
-            {/* --- CUSTOM UPGRADE ALERT MODAL (Matching Login.js popup style) --- */}
-            {customAlert.show && (
+            {/* --- CUSTOM UPGRADE ALERT MODAL (Portal to document.body for viewport centering) --- */}
+            {customAlert.show && ReactDOM.createPortal(
               <div style={{
                 position: 'fixed',
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(5px)',
+                width: '100vw',
+                height: '100vh',
+                background: 'rgba(0, 0, 0, 0.75)',
+                backdropFilter: 'blur(6px)',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                zIndex: 10000,
+                zIndex: 999999,
                 animation: 'fadeIn 0.25s ease'
               }}>
                 <div style={{
                   background: '#ffffff',
-                  borderRadius: '16px',
-                  boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
+                  borderRadius: '20px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
                   width: '90%',
-                  maxWidth: '360px',
+                  maxWidth: '380px',
                   padding: '36px 24px',
                   textAlign: 'center',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   color: '#333333',
-                  animation: 'scaleIn 0.25s ease'
+                  animation: 'scaleIn 0.25s ease',
+                  position: 'relative'
                 }}>
                   {/* Crown Circle Icon */}
                   <div style={{
@@ -1790,13 +1804,13 @@ const UserDashboard = () => {
                     height: '64px',
                     borderRadius: '50%',
                     border: '3px solid #f59e0b',
-                    background: 'rgba(245, 158, 11, 0.1)',
+                    background: 'rgba(245, 158, 11, 0.12)',
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
                     marginBottom: '20px'
                   }}>
-                    <span style={{ fontSize: '28px' }}>👑</span>
+                    <span style={{ fontSize: '32px' }}>👑</span>
                   </div>
 
                   {/* Title */}
@@ -1825,7 +1839,7 @@ const UserDashboard = () => {
                     style={{
                       width: '100%',
                       padding: '12px 24px',
-                      borderRadius: '10px',
+                      borderRadius: '12px',
                       background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                       color: '#ffffff',
                       border: 'none',
@@ -1839,7 +1853,8 @@ const UserDashboard = () => {
                     {customAlert.buttonText}
                   </button>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </>
         )}
