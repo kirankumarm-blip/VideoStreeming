@@ -353,8 +353,6 @@ const UserDashboard = () => {
       const payload = { category_id: categoryId };
       if (subCategory) {
         payload.sub_category = subCategory;
-        payload.subcategory_id = subCategory;
-        payload.sub_category_id = subCategory;
       }
       const data = await api.dashboard.getUser('getCategoryVideo', payload);
       console.log(`Category videos for category_id: ${categoryId}, sub_category: ${subCategory}:`, data);
