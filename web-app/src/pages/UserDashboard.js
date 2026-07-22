@@ -290,8 +290,7 @@ const UserDashboard = () => {
   }, [urlSearchQuery]);
 
   useEffect(() => {
-    fetchHistory();
-    fetchFavorites();
+    // Removed automatic history and favorites fetch
   }, []);
 
   useEffect(() => {
@@ -1091,85 +1090,26 @@ const UserDashboard = () => {
                       </div>
                     )}
 
-                    {/* Your Courses Section */}
-                    {dashboardData?.yourCourses && dashboardData.yourCourses.length > 0 && (
-                      <div style={{ marginBottom: '40px' }}>
-                        <h3 className="video-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '18px' }}>📖</span> Your Courses
-                        </h3>
-                        <div className="horizontal-scroll-row">
-                          {dashboardData.yourCourses.map(course => (
-                            <div key={course.id} style={{ flex: '0 0 280px' }}>
-                              <CourseCard course={course} />
-                            </div>
-                          ))}
+                    {/* All Videos / Courses returned from API (Heading removed as requested) */}
+                    {(() => {
+                      const apiItems = dashboardData?.yourCourses || dashboardData?.allVideos || dashboardData?.videos || dashboardData?.courses || [];
+                      if (!apiItems || apiItems.length === 0) return null;
+                      return (
+                        <div style={{ marginBottom: '40px' }}>
+                          <div className="horizontal-scroll-row">
+                            {apiItems.map((item, idx) => (
+                              <div key={item.id || idx} style={{ flex: '0 0 280px' }}>
+                                {item.total_lessons || item.total_chapters || item.chapters ? (
+                                  <CourseCard course={item} />
+                                ) : (
+                                  <VideoCard video={item} />
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Recommended Section */}
-                    <div style={{ marginBottom: '40px' }}>
-                      <h3 className="video-section-title">{t('user.recommended')}</h3>
-                      <div className="horizontal-scroll-row">
-                        {(dashboardData?.recommended || []).map(video => (
-                          <div key={video.id} style={{ flex: '0 0 280px' }}>
-                            <VideoCard video={video} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Trending Now Section */}
-                    <div style={{ marginBottom: '40px' }}>
-                      <h3 className="video-section-title">🔥 {language === 'hi' ? 'ट्रेंडिंग वीडियो' : language === 'kn' ? 'ಟ್ರೆಂಡಿಂಗ್ ವೀಡಿಯೊಗಳು' : 'Trending Now'}</h3>
-                      <div className="horizontal-scroll-row">
-                        {(dashboardData?.trending || []).map(video => (
-                          <div key={video.id} style={{ flex: '0 0 280px' }}>
-                            <VideoCard video={video} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Because You Watched Contextual Recommendation */}
-                    {dashboardData?.becauseYouWatched && dashboardData.becauseYouWatched.videos?.length > 0 && (
-                      <div style={{ marginBottom: '40px' }}>
-                        <h3 className="video-section-title">
-                          ✨ {language === 'hi' ? `चूंकि आपने ${dashboardData.becauseYouWatched.category} देखा` : language === 'kn' ? `ನೀವು ${dashboardData.becauseYouWatched.category} ವೀಕ್ಷಿಸಿದ್ದರಿಂದ` : `Because You Watched ${dashboardData.becauseYouWatched.category}`}
-                        </h3>
-                        <div className="horizontal-scroll-row">
-                          {dashboardData.becauseYouWatched.videos.map(video => (
-                            <div key={video.id} style={{ flex: '0 0 280px' }}>
-                              <VideoCard video={video} />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Top Rated Section */}
-                    <div style={{ marginBottom: '40px' }}>
-                      <h3 className="video-section-title">⭐ {language === 'hi' ? 'शीर्ष रेटेड पाठ' : language === 'kn' ? 'ಉನ್ನತ ದರ್ಜೆಯ ಪಾಠಗಳು' : 'Top Rated Lessons'}</h3>
-                      <div className="horizontal-scroll-row">
-                        {(dashboardData?.topRated || []).map(video => (
-                          <div key={video.id} style={{ flex: '0 0 280px' }}>
-                            <VideoCard video={video} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Newly Added Section */}
-                    <div style={{ marginBottom: '40px' }}>
-                      <h3 className="video-section-title">🆕 {t('user.newlyAdded')}</h3>
-                      <div className="horizontal-scroll-row">
-                        {(dashboardData?.newVideos || []).map(video => (
-                          <div key={video.id} style={{ flex: '0 0 280px' }}>
-                            <VideoCard video={video} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </>
                 )}
               </>

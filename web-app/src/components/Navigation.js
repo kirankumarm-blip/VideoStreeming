@@ -23,11 +23,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
 
   useEffect(() => {
     if (user && user.role === 'user') {
-      fetchNotifications();
       fetchRecentlyViewedByFilter(activeFilter);
-      // Poll notifications every 30s
-      const interval = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(interval);
     }
   }, []);
 
@@ -183,37 +179,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         </div>
       </div>
 
-      {/* Centered Search Bar */}
-      {user.role === 'user' && (
-        <div style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: '400px',
-          margin: '0 20px',
-          display: 'flex',
-          alignItems: 'center'
-        }} className="nav-search-container">
-          <span style={{ position: 'absolute', left: '14px', color: 'var(--text-secondary)' }}>🔍</span>
-          <input 
-            type="text"
-            placeholder={t('user.searchPlaceholder')}
-            value={headerSearch}
-            onChange={handleSearchChange}
-            style={{
-              width: '100%',
-              padding: '10px 16px 10px 38px',
-              borderRadius: '24px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              outline: 'none',
-              fontSize: '14px',
-              transition: 'all 0.3s ease'
-            }}
-            className="nav-search-input"
-          />
-        </div>
-      )}
+
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
 
