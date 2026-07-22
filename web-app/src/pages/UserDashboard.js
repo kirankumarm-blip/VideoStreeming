@@ -272,6 +272,8 @@ const UserDashboard = () => {
   const [downloadsList, setDownloadsList] = useState([]);
   const [exploreVideosList, setExploreVideosList] = useState([]);
   const [categoryVideosList, setCategoryVideosList] = useState([]);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+  const [categoryLoading, setCategoryLoading] = useState(false);
 
   // Detailed Watch History state
   const [historyList, setHistoryList] = useState([]);
@@ -323,16 +325,13 @@ const UserDashboard = () => {
 
   useEffect(() => {
     if (selectedCategory) {
-      const matchedCat = (dashboardData?.categories || []).find(c => c.name === selectedCategory);
-      if (matchedCat && matchedCat.id) {
-        fetchCategoryVideos(matchedCat.id);
-      } else {
-        fetchCategoryVideos(selectedCategory);
-      }
+      const catId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.name) : selectedCategory;
+      const subId = selectedSubCategory ? (typeof selectedSubCategory === 'object' ? (selectedSubCategory.id || selectedSubCategory.name) : selectedSubCategory) : null;
+      fetchCategoryVideos(catId, subId);
     } else {
       setCategoryVideosList([]);
     }
-  }, [selectedCategory, dashboardData]);
+  }, [selectedCategory, selectedSubCategory]);
 
   const fetchExploreVideos = async () => {
     setLoading(true);
@@ -348,17 +347,23 @@ const UserDashboard = () => {
     }
   };
 
-  const fetchCategoryVideos = async (categoryId) => {
-    setLoading(true);
+  const fetchCategoryVideos = async (categoryId, subCategory = null) => {
+    setCategoryLoading(true);
     try {
-      const data = await api.dashboard.getUser('getCategoryVideo', { category_id: categoryId });
-      console.log(`Category videos for ${categoryId} from API:`, data);
+      const payload = { category_id: categoryId };
+      if (subCategory) {
+        payload.sub_category = subCategory;
+        payload.subcategory_id = subCategory;
+        payload.sub_category_id = subCategory;
+      }
+      const data = await api.dashboard.getUser('getCategoryVideo', payload);
+      console.log(`Category videos for category_id: ${categoryId}, sub_category: ${subCategory}:`, data);
       const list = Array.isArray(data) ? data : (data.json || data.videos || []);
       setCategoryVideosList(list);
     } catch (e) {
       console.error("Failed to load category videos", e);
     } finally {
-      setLoading(false);
+      setCategoryLoading(false);
     }
   };
 
@@ -992,17 +997,18 @@ const UserDashboard = () => {
                 )}
 
                 {/* Category Chips with Icons */}
-                <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '16px', marginBottom: '32px', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '16px' }}>
                   <button
                     onClick={() => {
-                      setSelectedCategory('');
+                      setSelectedCategory(null);
+                      setSelectedSubCategory(null);
                     }}
                     style={{
                       padding: '8px 20px',
                       border: '1px solid var(--border-color)',
                       borderRadius: '24px',
-                      background: selectedCategory === '' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-                      color: selectedCategory === '' ? '#fff' : 'var(--text-primary)',
+                      background: !selectedCategory ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                      color: !selectedCategory ? '#fff' : 'var(--text-primary)',
                       fontSize: '13px',
                       fontWeight: 700,
                       cursor: 'pointer',
@@ -1012,20 +1018,28 @@ const UserDashboard = () => {
                       alignItems: 'center',
                       gap: '6px'
                     }}
-                    onMouseEnter={e => selectedCategory !== '' && (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
-                    onMouseLeave={e => selectedCategory !== '' && (e.currentTarget.style.borderColor = 'var(--border-color)')}
                   >
                     🧭 {t('user.allTopics')}
                   </button>
-                  {categoriesWithIcons.map(cat => {
-                    const dbCat = (dashboardData?.categories || []).find(c => c.name === cat.name);
-                    if (!dbCat) return null;
-                    const isSelected = selectedCategory === cat.name;
+
+                  {(dashboardData?.categories && dashboardData.categories.length > 0 ? dashboardData.categories : categoriesWithIcons).map((cat, idx) => {
+                    const catName = typeof cat === 'object' ? cat.name : cat;
+                    const catId = typeof cat === 'object' ? cat.id : cat;
+                    const iconObj = categoriesWithIcons.find(c => c.name.toLowerCase() === catName.toLowerCase());
+                    const icon = iconObj ? iconObj.icon : '📚';
+                    const videoCount = cat.videoCount || cat.video_count || 0;
+
+                    const isSelected = selectedCategory && (
+                      (typeof selectedCategory === 'object' && (selectedCategory.id === catId || selectedCategory.name === catName)) ||
+                      selectedCategory === catName || selectedCategory === catId
+                    );
+
                     return (
                       <button
-                        key={cat.name}
+                        key={catId || idx}
                         onClick={() => {
-                          setSelectedCategory(cat.name);
+                          setSelectedCategory(cat);
+                          setSelectedSubCategory(null);
                         }}
                         style={{
                           padding: '8px 20px',
@@ -1042,24 +1056,92 @@ const UserDashboard = () => {
                           alignItems: 'center',
                           gap: '6px'
                         }}
-                        onMouseEnter={e => !isSelected && (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
-                        onMouseLeave={e => !isSelected && (e.currentTarget.style.borderColor = 'var(--border-color)')}
                       >
-                        <span>{cat.icon}</span> {cat.name} ({dbCat.videoCount || dbCat.video_count || 0})
+                        <span>{icon}</span> {catName} {videoCount > 0 ? `(${videoCount})` : ''}
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Category Filtering Grid for Homepage */}
-                {selectedCategory !== '' ? (
+                {/* Subcategories Row */}
+                {selectedCategory && (() => {
+                  const currentCatObj = typeof selectedCategory === 'object' 
+                    ? selectedCategory 
+                    : (dashboardData?.categories || []).find(c => c.name === selectedCategory || c.id === selectedCategory);
+                  
+                  const subCats = currentCatObj?.sub_categories || currentCatObj?.subCategories || [];
+                  if (!subCats || subCats.length === 0) return null;
+
+                  return (
+                    <div className="animate-fade-in" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, marginRight: '4px' }}>Subcategories:</span>
+                      
+                      <button
+                        onClick={() => setSelectedSubCategory(null)}
+                        style={{
+                          padding: '6px 16px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '20px',
+                          background: !selectedSubCategory ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-tertiary)',
+                          borderColor: !selectedSubCategory ? 'var(--accent-primary)' : 'var(--border-color)',
+                          color: !selectedSubCategory ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        All Subcategories
+                      </button>
+
+                      {subCats.map((sub, sIdx) => {
+                        const subName = typeof sub === 'object' ? sub.name : sub;
+                        const subId = typeof sub === 'object' ? sub.id : sub;
+                        
+                        const isSubSelected = selectedSubCategory && (
+                          (typeof selectedSubCategory === 'object' && (selectedSubCategory.id === subId || selectedSubCategory.name === subName)) ||
+                          selectedSubCategory === subName || selectedSubCategory === subId
+                        );
+
+                        return (
+                          <button
+                            key={subId || sIdx}
+                            onClick={() => setSelectedSubCategory(sub)}
+                            style={{
+                              padding: '6px 16px',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '20px',
+                              background: isSubSelected ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-tertiary)',
+                              borderColor: isSubSelected ? 'var(--accent-primary)' : 'var(--border-color)',
+                              color: isSubSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {subName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Category & Subcategory Filtered Video List */}
+                {selectedCategory ? (
                   <div className="animate-fade-in" style={{ marginTop: '10px' }}>
                     <h3 className="video-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>
-                        {selectedCategory} {language === 'hi' ? 'पाठ' : language === 'kn' ? 'ಪಾಠಗಳು' : 'Lessons'}
+                        {typeof selectedCategory === 'object' ? selectedCategory.name : selectedCategory}
+                        {selectedSubCategory ? ` > ${typeof selectedSubCategory === 'object' ? selectedSubCategory.name : selectedSubCategory}` : ''}
                       </span>
                       <button 
-                        onClick={() => setSelectedCategory('')} 
+                        onClick={() => {
+                          setSelectedCategory(null);
+                          setSelectedSubCategory(null);
+                        }} 
                         style={{
                           background: 'none',
                           border: 'none',
@@ -1072,8 +1154,17 @@ const UserDashboard = () => {
                         Clear Filter
                       </button>
                     </h3>
-                    {(() => {
-                      const filtered = categoryVideosList.length > 0 ? categoryVideosList : getAllVideosList().filter(v => v.category === selectedCategory);
+
+                    {categoryLoading ? (
+                      <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center' }}>
+                        Loading videos...
+                      </div>
+                    ) : (() => {
+                      const catName = typeof selectedCategory === 'object' ? selectedCategory.name : selectedCategory;
+                      const filtered = categoryVideosList.length > 0 
+                        ? categoryVideosList 
+                        : getAllVideosList().filter(v => v.category === catName);
+
                       if (filtered.length === 0) {
                         return (
                           <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center' }}>
