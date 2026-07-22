@@ -247,6 +247,67 @@ const SkeletonCard = () => (
   </div>
 );
 
+// Premium Gold PRO Badge component matching user design spec
+const ProBadge = ({ onClick }) => (
+  <div 
+    onClick={(e) => {
+      e.stopPropagation();
+      if (onClick) onClick(e);
+    }}
+    style={{
+      position: 'absolute',
+      top: '10px',
+      left: '10px',
+      background: 'radial-gradient(100% 100% at 50% 0%, #2a2217 0%, #0c0a08 100%)',
+      border: '1.5px solid #d4af37',
+      borderRadius: '24px',
+      padding: '4px 14px 4px 10px',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      boxShadow: '0 0 12px rgba(212, 175, 55, 0.45), inset 0 1px 2px rgba(255, 235, 170, 0.4)',
+      cursor: 'pointer',
+      zIndex: 15,
+      backdropFilter: 'blur(4px)',
+      transition: 'transform 0.2s, box-shadow 0.2s'
+    }}
+    title="Need to upgrade your plan"
+  >
+    {/* SVG Golden Crown Icon */}
+    <svg width="18" height="15" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="goldCrownGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffe699" />
+          <stop offset="50%" stopColor="#d4af37" />
+          <stop offset="100%" stopColor="#aa7c11" />
+        </linearGradient>
+      </defs>
+      <path 
+        d="M2 17H22V19H2V17ZM2 15L4.5 7L9 11L12 3L15 11L19.5 7L22 15H2Z" 
+        fill="url(#goldCrownGrad)" 
+      />
+      <circle cx="4.5" cy="5.5" r="1.5" fill="#ffe699" />
+      <circle cx="12" cy="1.5" r="1.5" fill="#ffe699" />
+      <circle cx="19.5" cy="5.5" r="1.5" fill="#ffe699" />
+    </svg>
+
+    <span 
+      style={{
+        fontFamily: "'Playfair Display', 'Cinzel', 'Georgia', serif",
+        fontSize: '13px',
+        fontWeight: 800,
+        letterSpacing: '1.2px',
+        background: 'linear-gradient(180deg, #fff0c2 0%, #d4af37 70%, #aa7c11 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        textTransform: 'uppercase'
+      }}
+    >
+      PRO
+    </span>
+  </div>
+);
+
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -673,32 +734,7 @@ const UserDashboard = () => {
           <HoverThumbnail video={video} />
           
           {isVideoLocked(video) && (
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                alert('Need to upgrade your plan');
-              }}
-              style={{
-                position: 'absolute',
-                top: '8px',
-                left: '8px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#fff',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: 800,
-                zIndex: 15,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                cursor: 'pointer'
-              }}
-              title="Need to upgrade your plan"
-            >
-              👑 <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PRO</span>
-            </div>
+            <ProBadge onClick={() => alert('Need to upgrade your plan')} />
           )}
           
           {video.difficulty && (
@@ -865,32 +901,7 @@ const UserDashboard = () => {
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
           />
           {isVideoLocked(course) && (
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                alert('Need to upgrade your plan');
-              }}
-              style={{
-                position: 'absolute',
-                top: '8px',
-                left: '8px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#fff',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                fontSize: '13px',
-                fontWeight: 800,
-                zIndex: 15,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                cursor: 'pointer'
-              }}
-              title="Need to upgrade your plan"
-            >
-              👑 <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PRO</span>
-            </div>
+            <ProBadge onClick={() => alert('Need to upgrade your plan')} />
           )}
           {/* Chapter badge with play icon */}
           <div 
