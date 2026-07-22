@@ -122,6 +122,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   }, []);
 
   useEffect(() => {
+    fetchDropdownAdmins(activeTab);
     if (activeTab === 'overview') {
       fetchDashboardData('overview', selectedAdminId);
     }
@@ -280,10 +281,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  const fetchDropdownAdmins = async () => {
+  const fetchDropdownAdmins = async (currentTab = activeTab) => {
     try {
-      const res = await api.dashboard.getSuperAdmin('GetAdmins');
-      console.log('Fetched dropdown admins:', res);
+      const formstep = (currentTab === 'content_videos' || currentTab === 'course_all') ? 'getAdminSA' : 'GetAdmins';
+      const res = await api.dashboard.getSuperAdmin(formstep);
+      console.log(`Fetched dropdown admins (${formstep}):`, res);
       let list = [];
       if (Array.isArray(res)) {
         list = res.map(item => item.json || item);
@@ -299,8 +301,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       
       // Auto-select the first admin if none selected
       if (list.length > 0 && !selectedAdminId) {
-        setSelectedAdminId(list[0].id);
-        fetchDashboardData(activeTab, list[0].id);
+        const firstId = list[0].id || list[0].alpha_id || list[0].admin_id;
+        if (firstId) {
+          setSelectedAdminId(firstId);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch dropdown admins', err);
@@ -804,7 +808,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, textTransform: 'capitalize' }}>
-              {activeTab === 'admins_all' ? 'All Admins' : (activeTab === 'users_all' ? 'All Users' : activeTab.replace(/_/g, ' '))}
+              {(() => {
+                if (activeTab === 'video_upload') return 'Upload Video';
+                if (activeTab === 'course_upload') return 'Upload Course';
+                if (activeTab === 'content_videos') return 'All Videos';
+                if (activeTab === 'course_all') return 'All Courses';
+                if (activeTab === 'admins_all') return 'All Admins';
+                if (activeTab === 'users_all') return 'All Users';
+                return activeTab.replace(/_/g, ' ');
+              })()}
             </h1>
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>

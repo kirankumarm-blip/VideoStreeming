@@ -160,6 +160,10 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'getAdmins' ||
       bodyObj.formstep === 'GetAdmins' ||
       bodyObj.formStep === 'GetAdmins' ||
+      bodyObj.formstep === 'getAdminSA' ||
+      bodyObj.formStep === 'getAdminSA' ||
+      bodyObj.formstep === 'GetAdminSA' ||
+      bodyObj.formStep === 'GetAdminSA' ||
       bodyObj.formstep === 'users_all' ||
       bodyObj.formstep === 'users_logs' ||
       bodyObj.formstep === 'users_blocked' ||
@@ -282,7 +286,7 @@ export const api = {
   },
   dashboard: {
     getSuperAdmin: (formstep = 'overview', payload = {}) => {
-      const expectArray = formstep === 'GetAdmins' || formstep === 'users_all' || formstep === 'users_logs' || formstep === 'users_blocked' || formstep === 'getAllVidoes' || formstep === 'getCategories' || formstep === 'analytics' || formstep === 'levels';
+      const expectArray = formstep === 'GetAdmins' || formstep === 'getAdminSA' || formstep === 'GetAdminSA' || formstep === 'users_all' || formstep === 'users_logs' || formstep === 'users_blocked' || formstep === 'getAllVidoes' || formstep === 'getCategories' || formstep === 'analytics' || formstep === 'levels';
       return request('/dashboard/super-admin', {
         method: 'POST',
         body: JSON.stringify({ formstep, ...payload }),
