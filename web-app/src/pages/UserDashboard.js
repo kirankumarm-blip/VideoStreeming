@@ -1158,22 +1158,19 @@ const UserDashboard = () => {
                         Loading videos...
                       </div>
                     ) : (() => {
-                      const catName = typeof selectedCategory === 'object' ? selectedCategory.name : selectedCategory;
-                      const filtered = categoryVideosList.length > 0 
-                        ? categoryVideosList 
-                        : getAllVideosList().filter(v => v.category === catName);
+                      const filtered = categoryVideosList;
 
                       if (filtered.length === 0) {
                         return (
-                          <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center' }}>
-                            {language === 'hi' ? 'कोई वीडियो नहीं मिला।' : language === 'kn' ? 'ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No videos found matching this topic.'}
+                          <div style={{ color: 'var(--text-secondary)', padding: '40px 0', textAlign: 'center', fontSize: '15px', fontWeight: 600 }}>
+                            {language === 'hi' ? 'कोई वीडियो उपलब्ध नहीं है।' : language === 'kn' ? 'ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಲಭ್ಯವಿಲ್ಲ.' : 'No videos available'}
                           </div>
                         );
                       }
                       return (
                         <div className="youtube-video-grid" style={{ marginTop: '20px' }}>
                           {filtered.map(video => (
-                            <VideoCard key={video.id} video={video} />
+                            <VideoCard key={video.id || video.videoUrl || video.title} video={video} />
                           ))}
                         </div>
                       );
