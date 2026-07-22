@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -283,6 +283,22 @@ const UserDashboard = () => {
     { id: 3, user: 'Sunita Gowda', text: 'Anyone stuck on the final Entanglement module?', date: '2026-06-21T08:12:00Z', votes: 3 }
   ]);
   const [newComment, setNewComment] = useState('');
+
+  // Combine your_courses and trending videos, then shuffle them together
+  const allTopicsCombined = useMemo(() => {
+    if (!dashboardData) return [];
+    const courses = dashboardData.your_courses || dashboardData.yourCourses || [];
+    const trending = dashboardData.trending || [];
+    const combined = [...courses, ...trending];
+    
+    // Fisher-Yates Shuffle
+    const arr = [...combined];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, [dashboardData]);
 
   // Sync Header search changes with local searchQuery
   useEffect(() => {
@@ -1090,26 +1106,22 @@ const UserDashboard = () => {
                       </div>
                     )}
 
-                    {/* All Videos / Courses returned from API (Heading removed as requested) */}
-                    {(() => {
-                      const apiItems = dashboardData?.yourCourses || dashboardData?.allVideos || dashboardData?.videos || dashboardData?.courses || [];
-                      if (!apiItems || apiItems.length === 0) return null;
-                      return (
-                        <div style={{ marginBottom: '40px' }}>
-                          <div className="horizontal-scroll-row">
-                            {apiItems.map((item, idx) => (
-                              <div key={item.id || idx} style={{ flex: '0 0 280px' }}>
-                                {item.total_lessons || item.total_chapters || item.chapters ? (
-                                  <CourseCard course={item} />
-                                ) : (
-                                  <VideoCard video={item} />
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                    {/* All Topics: Shuffled Courses (your_courses) + Trending Videos Grid (No horizontal scroll) */}
+                    {allTopicsCombined.length > 0 && (
+                      <div style={{ marginBottom: '40px' }}>
+                        <div className="youtube-video-grid">
+                          {allTopicsCombined.map((item, idx) => (
+                            <div key={item.id || idx}>
+                              {item.total_lessons || item.total_chapters || item.chapters ? (
+                                <CourseCard course={item} />
+                              ) : (
+                                <VideoCard video={item} />
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
                   </>
                 )}
               </>
