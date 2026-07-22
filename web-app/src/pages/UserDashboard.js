@@ -626,9 +626,11 @@ const UserDashboard = () => {
       showUpgradeAlert('Need to upgrade your plan');
       return;
     }
+    const currentUser = getCurrentUser();
+    const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
     const id = typeof video === 'object' && video ? (video.id || video.videoUrl || video.video_url) : video;
     const videoObj = typeof video === 'object' && video ? video : getAllVideosList().find(v => v.id === id);
-    navigate(`/watch/${id}`, { state: { video: videoObj, course: courseContext } });
+    navigate(`/watch/${id}`, { state: { video: videoObj, course: courseContext, userPlan } });
   };
 
   const handleAddComment = () => {

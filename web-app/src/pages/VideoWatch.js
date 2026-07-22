@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 const VideoWatch = () => {
@@ -13,6 +14,35 @@ const VideoWatch = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Custom Alert Modal State (Same as UserDashboard / Login page)
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    title: 'Upgrade Required',
+    message: '',
+    buttonText: 'OK'
+  });
+
+  const showUpgradeAlert = (message = 'Need to upgrade your plan') => {
+    setCustomAlert({
+      show: true,
+      title: 'Upgrade Required',
+      message,
+      buttonText: 'OK'
+    });
+  };
+
+  const currentUser = getCurrentUser();
+  const userPlan = String(location.state?.userPlan ?? location.state?.user_plan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
+
+  const isChapterLocked = (lesson, courseObj = null) => {
+    if (!lesson) return false;
+    if (userPlan !== '1') return false;
+
+    const vis = lesson.visibility ?? lesson.visibility_id ?? lesson.is_private ?? lesson.isPrivate ?? courseObj?.visibility ?? courseObj?.visibility_id;
+    const visStr = String(vis || '').toLowerCase();
+    return visStr === '2' || visStr === 'private' || vis === true || vis === 2;
+  };
   
   const videoRef = useRef(null);
   const trackingIntervalRef = useRef(null);
@@ -1063,13 +1093,20 @@ const VideoWatch = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
                   {courseLessons.map((lesson, idx) => {
                     const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
+                    const isLocked = isChapterLocked(lesson, location.state?.course);
                     const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
                     const lessonDuration = lesson.duration || (idx === 0 ? '5:21' : idx === 1 ? '8:45' : idx === 2 ? '6:30' : '7:15');
 
                     return (
                       <div 
                         key={idx}
-                        onClick={() => navigate(`/watch/${lesson.id || idx}`, { state: { video: lesson, course: location.state.course } })}
+                        onClick={() => {
+                          if (isLocked) {
+                            showUpgradeAlert('Need to upgrade your plan');
+                            return;
+                          }
+                          navigate(`/watch/${lesson.id || idx}`, { state: { video: lesson, course: location.state.course, userPlan } });
+                        }}
                         style={{
                           display: 'flex',
                           gap: '12px',
@@ -1079,7 +1116,8 @@ const VideoWatch = () => {
                           borderRadius: '12px',
                           border: isLessonActive ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
                           boxShadow: isLessonActive ? '0 4px 15px rgba(99, 102, 241, 0.08)' : 'none',
-                          transition: 'border 0.2s, background 0.2s'
+                          transition: 'border 0.2s, background 0.2s',
+                          opacity: isLocked ? 0.9 : 1
                         }}
                       >
                         {/* Thumbnail on left */}
@@ -1089,6 +1127,28 @@ const VideoWatch = () => {
                             alt={lesson.title || `Lesson ${idx + 1}`} 
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                           />
+                          {isLocked && (
+                            <div 
+                              style={{
+                                position: 'absolute',
+                                top: '4px',
+                                left: '4px',
+                                background: 'rgba(0,0,0,0.75)',
+                                color: '#f59e0b',
+                                padding: '2px 6px',
+                                borderRadius: '10px',
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                zIndex: 10,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                              }}
+                              title="Need to upgrade your plan"
+                            >
+                              🔒 <span style={{ fontSize: '9px', color: '#fff' }}>PRO</span>
+                            </div>
+                          )}
                           {isLessonActive && (
                             <div style={{
                               position: 'absolute',
@@ -1132,7 +1192,25 @@ const VideoWatch = () => {
                               <span style={{ color: 'var(--text-secondary)', marginRight: '6px', fontWeight: '500' }}>{idx + 1}</span>
                               {lesson.title || lesson.name || `Lesson ${idx + 1}`}
                             </div>
-                            {isLessonActive && (
+                            {isLocked ? (
+                              <span 
+                                style={{
+                                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#f59e0b',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}
+                                title="Need to upgrade your plan"
+                              >
+                                🔒 PRO
+                              </span>
+                            ) : isLessonActive ? (
                               <span style={{
                                 backgroundColor: 'rgba(99, 102, 241, 0.15)',
                                 color: '#6366f1',
@@ -1144,14 +1222,16 @@ const VideoWatch = () => {
                               }}>
                                 Now Playing
                               </span>
-                            )}
+                            ) : null}
                           </div>
                           
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <span>{lessonDuration}</span>
-                            {!isLessonActive && idx > completedCount && (
+                            {isLocked ? (
+                              <span style={{ fontSize: '12px', color: '#f59e0b' }}>🔒</span>
+                            ) : (!isLessonActive && idx > completedCount ? (
                               <span style={{ fontSize: '11px' }}>🔒</span>
-                            )}
+                            ) : null)}
                           </div>
                         </div>
                       </div>
@@ -1177,7 +1257,11 @@ const VideoWatch = () => {
                     }} onClick={() => {
                       const nextIdx = completedCount + 1;
                       const nextLesson = courseLessons[nextIdx];
-                      navigate(`/watch/${nextLesson.id || nextIdx}`, { state: { video: nextLesson, course: location.state.course } });
+                      if (isChapterLocked(nextLesson, location.state?.course)) {
+                        showUpgradeAlert('Need to upgrade your plan');
+                        return;
+                      }
+                      navigate(`/watch/${nextLesson.id || nextIdx}`, { state: { video: nextLesson, course: location.state.course, userPlan } });
                     }}>
                       <div style={{ width: '70px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
                         <img 
@@ -1235,7 +1319,13 @@ const VideoWatch = () => {
               recommendations.map(rec => (
                 <div 
                   key={rec.id} 
-                  onClick={() => navigate(`/watch/${rec.id}`, { state: { video: rec } })}
+                  onClick={() => {
+                    if (isChapterLocked(rec)) {
+                      showUpgradeAlert('Need to upgrade your plan');
+                      return;
+                    }
+                    navigate(`/watch/${rec.id}`, { state: { video: rec, userPlan } });
+                  }}
                   style={{
                     display: 'flex',
                     gap: '12px',
@@ -1274,6 +1364,97 @@ const VideoWatch = () => {
         )}
       </div>
 
+      {/* --- CUSTOM UPGRADE ALERT MODAL (Portal to document.body for viewport centering) --- */}
+      {customAlert.show && ReactDOM.createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 999999,
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            width: '90%',
+            maxWidth: '380px',
+            padding: '36px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333',
+            animation: 'scaleIn 0.25s ease',
+            position: 'relative'
+          }}>
+            {/* Crown Circle Icon */}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: '3px solid #f59e0b',
+              background: 'rgba(245, 158, 11, 0.12)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <span style={{ fontSize: '32px' }}>👑</span>
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              color: '#111827',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: '#4b5563',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+
+            {/* Button */}
+            <button
+              onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
+                transition: 'all 0.2s'
+              }}
+            >
+              {customAlert.buttonText}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
