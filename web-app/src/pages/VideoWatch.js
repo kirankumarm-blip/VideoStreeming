@@ -541,6 +541,15 @@ const VideoWatch = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
+  const isCurrentVideoLocked = () => {
+    if (!video) return false;
+    if (userPlan !== '1') return false;
+
+    const vis = video.visibility ?? video.visibility_id ?? video.is_private ?? video.isPrivate ?? location.state?.course?.visibility ?? location.state?.course?.visibility_id;
+    const visStr = String(vis || '').toLowerCase();
+    return visStr === '2' || visStr === 'private' || vis === true || vis === 2;
+  };
+
   const handleSaveToWatchLater = async () => {
     try {
       await api.dashboard.getUser('watchLater', { 
@@ -549,19 +558,19 @@ const VideoWatch = () => {
         thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
         video_url: video?.videoUrl || video?.video_url || ''
       });
-      alert("Added to Watch Later");
     } catch (e) {
       console.error(e);
-      alert("Failed to add to Watch Later");
     }
   };
 
   const handleDownloadVideo = async () => {
+    if (isCurrentVideoLocked()) {
+      showUpgradeAlert('Need to upgrade your plan');
+      return;
+    }
     try {
-      alert("Downloading video...");
       const videoUrl = video?.videoUrl || video?.video_url;
       if (!videoUrl) {
-        alert("Video URL not available");
         return;
       }
       
@@ -584,7 +593,6 @@ const VideoWatch = () => {
         thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
         video_url: videoUrl
       });
-      alert("Download completed!");
     } catch (e) {
       console.error("Download failed", e);
       try {
@@ -979,7 +987,7 @@ const VideoWatch = () => {
                 📥 Download
               </button>
 
-              {/* Save button */}
+              {/* Watch Later button */}
               <button style={{
                 background: 'var(--bg-tertiary)',
                 border: '1px solid var(--border-color)',
@@ -993,7 +1001,7 @@ const VideoWatch = () => {
                 gap: '6px',
                 cursor: 'pointer'
               }} onClick={handleSaveToWatchLater}>
-                ➕ Save
+                🔖 Watch Later
               </button>
             </div>
           </div>
