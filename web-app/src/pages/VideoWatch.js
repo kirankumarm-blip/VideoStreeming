@@ -564,7 +564,7 @@ const VideoWatch = () => {
   };
 
   const handleDownloadVideo = async () => {
-    if (isCurrentVideoLocked()) {
+    if (userPlan === '1' || userPlan !== '2') {
       showUpgradeAlert('Need to upgrade your plan');
       return;
     }
