@@ -319,6 +319,23 @@ const UserDashboard = () => {
 
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Custom Alert Modal State (Matches Login.js popup style)
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    title: 'Upgrade Required',
+    message: '',
+    buttonText: 'OK'
+  });
+
+  const showUpgradeAlert = (message = 'Need to upgrade your plan') => {
+    setCustomAlert({
+      show: true,
+      title: 'Upgrade Required',
+      message,
+      buttonText: 'OK'
+    });
+  };
   
   // Filter Explore Page and Categories state
   const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
@@ -602,7 +619,7 @@ const UserDashboard = () => {
 
   const handleVideoCardClick = (video, courseContext = null) => {
     if (isVideoLocked(video) || (courseContext && isVideoLocked(courseContext))) {
-      alert('Need to upgrade your plan');
+      showUpgradeAlert('Need to upgrade your plan');
       return;
     }
     const id = typeof video === 'object' && video ? (video.id || video.videoUrl || video.video_url) : video;
@@ -734,7 +751,7 @@ const UserDashboard = () => {
           <HoverThumbnail video={video} />
           
           {isVideoLocked(video) && (
-            <ProBadge onClick={() => alert('Need to upgrade your plan')} />
+            <ProBadge onClick={() => showUpgradeAlert('Need to upgrade your plan')} />
           )}
           
           {video.difficulty && (
@@ -901,7 +918,7 @@ const UserDashboard = () => {
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
           />
           {isVideoLocked(course) && (
-            <ProBadge onClick={() => alert('Need to upgrade your plan')} />
+            <ProBadge onClick={() => showUpgradeAlert('Need to upgrade your plan')} />
           )}
           {/* Chapter badge with play icon */}
           <div 
@@ -1733,6 +1750,94 @@ const UserDashboard = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- CUSTOM UPGRADE ALERT MODAL (Matching Login.js popup style) --- */}
+            {customAlert.show && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.7)',
+                backdropFilter: 'blur(5px)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 10000,
+                animation: 'fadeIn 0.25s ease'
+              }}>
+                <div style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
+                  width: '90%',
+                  maxWidth: '360px',
+                  padding: '36px 24px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  color: '#333333',
+                  animation: 'scaleIn 0.25s ease'
+                }}>
+                  {/* Crown Circle Icon */}
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    border: '3px solid #f59e0b',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                  }}>
+                    <span style={{ fontSize: '28px' }}>👑</span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#111827',
+                    margin: '0 0 12px 0'
+                  }}>
+                    {customAlert.title}
+                  </h3>
+
+                  {/* Message */}
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#4b5563',
+                    lineHeight: '1.5',
+                    margin: '0 0 28px 0'
+                  }}>
+                    {customAlert.message}
+                  </p>
+
+                  {/* Button */}
+                  <button
+                    onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+                    style={{
+                      width: '100%',
+                      padding: '12px 24px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {customAlert.buttonText}
+                  </button>
                 </div>
               </div>
             )}
