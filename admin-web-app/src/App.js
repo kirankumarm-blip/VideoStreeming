@@ -5,7 +5,6 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
 import { getCurrentUser } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -68,7 +67,6 @@ const AppLayout = ({ theme, setTheme }) => {
           <Routes>
           {/* Public Authentication routes */}
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-          <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
 
           {/* Protected routes */}
           <Route path="/profile" element={
