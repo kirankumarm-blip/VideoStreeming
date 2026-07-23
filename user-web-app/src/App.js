@@ -108,12 +108,42 @@ const AppLayout = ({ theme, setTheme }) => {
   );
 };
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', margin: '20px', overflow: 'auto', maxHeight: '90vh' }}>
+          <h2 style={{ marginBottom: '16px' }}>Something went wrong (Rendering Error)</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '14px', fontFamily: 'monospace' }}>
+            {this.state.error?.stack || String(this.state.error)}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Helper component to redirect authenticated user to their role-specific dashboard
 const DashboardRedirect = () => {
   const user = getCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'user') return <Navigate to="/login" replace />;
-  return <UserDashboard />;
+  return (
+    <ErrorBoundary>
+      <UserDashboard />
+    </ErrorBoundary>
+  );
 };
 
 function App() {
