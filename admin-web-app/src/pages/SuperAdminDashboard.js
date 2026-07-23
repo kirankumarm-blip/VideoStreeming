@@ -320,9 +320,21 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const fetchAdmins = async () => {
     try {
       const data = await api.admins.list();
-      setAdmins(data);
+      let list = [];
+      if (Array.isArray(data)) {
+        list = data.map(item => item.json || item);
+      } else if (data && Array.isArray(data.admins)) {
+        list = data.admins.map(item => item.json || item);
+      } else if (data && Array.isArray(data.data)) {
+        list = data.data.map(item => item.json || item);
+      } else if (data && typeof data === 'object') {
+        const arrayProp = Object.values(data).find(val => Array.isArray(val));
+        if (arrayProp) list = arrayProp.map(item => item.json || item);
+      }
+      setAdmins(list);
     } catch (e) {
       console.error(e);
+      setAdmins([]);
     }
   };
 
@@ -821,7 +833,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {!['video_upload', 'course_upload'].includes(activeTab) && (
+            {!['video_upload', 'course_upload', 'admins_all'].includes(activeTab) && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
