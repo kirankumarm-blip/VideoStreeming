@@ -1,0 +1,528 @@
+import React, { useState, useEffect } from 'react';
+import { api, setCurrentUser, getCurrentUser } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
+
+const Profile = () => {
+  const { t } = useLanguage();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Form states
+  const [name, setName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    title: '',
+    message: '',
+    type: 'error',
+    buttonText: 'OK'
+  });
+
+  const verifyFileContent = async (file) => {
+    if (!file) return false;
+    
+    // 1. Filename keyword check
+    const name = file.name.toLowerCase();
+    const keywords = ['explicit', 'minor', 'nudity', 'sex', 'pornography', 'porn', 'illegal', 'inappropriate', 'adult'];
+    const isNameInappropriate = keywords.some(keyword => name.includes(keyword));
+    if (isNameInappropriate) {
+      setCustomAlert({
+        show: true,
+        title: 'Moderation Alert',
+        message: 'Inappropriate content has been detected in the uploaded file.',
+        type: 'error',
+        buttonText: 'OK'
+      });
+      return true;
+    }
+
+    // Helper to run skin tone analysis on canvas pixels
+    const analyzePixels = (ctx, width, height) => {
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+      let skinPixels = 0;
+      const totalPixels = width * height;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+        
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const diff = max - min;
+        
+        const isSkin = (
+          r > 95 && g > 40 && b > 20 &&
+          diff > 15 &&
+          Math.abs(r - g) > 15 &&
+          r > g && r > b
+        );
+        
+        if (isSkin) {
+          skinPixels++;
+        }
+      }
+      
+      const percentage = (skinPixels / totalPixels) * 100;
+      return percentage > 18;
+    };
+    
+    // 2. Skin tone skin-pixel scan (only for images)
+    if (file.type.startsWith('image/')) {
+      const hasNudity = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = 80;
+              canvas.height = 80;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, 80, 80);
+              const flagged = analyzePixels(ctx, 80, 80);
+              resolve(flagged);
+            } catch (err) {
+              resolve(false);
+            }
+          };
+          img.onerror = () => resolve(false);
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(false);
+        reader.readAsDataURL(file);
+      });
+      
+      if (hasNudity) {
+        setCustomAlert({
+          show: true,
+          title: 'Moderation Alert',
+          message: 'Inappropriate content has been detected in the uploaded file.',
+          type: 'error',
+          buttonText: 'OK'
+        });
+        return true;
+      }
+    }
+
+    // 3. Skin tone skin-pixel scan (only for videos)
+    if (file.type.startsWith('video/')) {
+      const hasNudity = await new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        
+        const objectUrl = URL.createObjectURL(file);
+        video.src = objectUrl;
+        
+        video.onloadeddata = () => {
+          const seekTime = Math.min(1.0, video.duration / 2);
+          video.currentTime = seekTime;
+        };
+        
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 80;
+            canvas.height = 80;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, 80, 80);
+            const flagged = analyzePixels(ctx, 80, 80);
+            resolve(flagged);
+          } catch (err) {
+            resolve(false);
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+          }
+        };
+        
+        video.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve(false);
+        };
+      });
+
+      if (hasNudity) {
+        setCustomAlert({
+          show: true,
+          title: 'Moderation Alert',
+          message: 'Inappropriate content has been detected in the uploaded file.',
+          type: 'error',
+          buttonText: 'OK'
+        });
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Password change states
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    try {
+      const data = await api.auth.getProfile();
+      setProfile(data);
+      setName(data.name);
+      setMobile(data.mobile);
+    } catch (e) {
+      setError('Failed to load profile details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (avatarFile && await verifyFileContent(avatarFile)) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('mobile', mobile);
+    if (avatarFile) {
+      formData.append('avatar', avatarFile);
+    }
+
+    try {
+      const res = await api.auth.updateProfile(formData);
+      setSuccess(t('profile.updateSuccess'));
+      
+      // Update local storage so Header avatar updates
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        setCurrentUser({
+          ...currentUser,
+          name: res.user.name,
+          mobile: res.user.mobile,
+          avatar: res.user.avatar
+        });
+      }
+
+      fetchProfile();
+    } catch (err) {
+      setError(err.message || 'Failed to update profile');
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      await api.auth.changePassword(oldPassword, newPassword);
+      setSuccess('Password updated successfully!');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setError(err.message || 'Failed to update password. Check old password.');
+    }
+  };
+
+  if (loading) return <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '100px' }}>{t('admin.loading')}</div>;
+  if (!profile) return <div style={{ color: '#ef4444', textAlign: 'center', padding: '100px' }}>Failed to load profile. Please try again.</div>;
+
+  return (
+    <div className="main-content" style={{ marginLeft: 0, maxWidth: '800px', margin: '0 auto' }}>
+      <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>{t('profile.title')}</h1>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>{t('admin.subtitle')}</p>
+
+      {error && (
+        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '24px' }}>
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', padding: '12px', borderRadius: '8px', marginBottom: '24px' }}>
+          {success}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', flexWrap: 'wrap' }} className="responsive-profile-grid">
+        
+        {/* EDIT PROFILE CARD */}
+        <div className="glass-card animate-fade-in">
+          <h2 style={{ fontSize: '18px', marginBottom: '20px' }}>{t('profile.title')}</h2>
+          
+          <form onSubmit={handleUpdateProfile}>
+            
+            {/* Avatar Preview & Input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--accent-secondary)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '24px',
+                overflow: 'hidden'
+              }}>
+                {profile.avatar ? (
+                  <img src={profile.avatar.startsWith('http') ? profile.avatar : `http://localhost:5000${profile.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  (profile.name || profile.email || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '6px' }}>Upload Photo</div>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file && await verifyFileContent(file)) {
+                      e.target.value = '';
+                      return;
+                    }
+                    setAvatarFile(file);
+                  }}
+                  style={{ fontSize: '13px' }}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('auth.fullName')}</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('auth.emailAddress')}</label>
+              <input 
+                type="email" 
+                className="form-input" 
+                value={profile.email}
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('auth.mobileNumber')}</label>
+              <input 
+                type="tel" 
+                className="form-input" 
+                value={mobile}
+                onChange={e => setMobile(e.target.value)}
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              {t('profile.saveChanges')}
+            </button>
+          </form>
+        </div>
+
+        {/* SECURITY SETTINGS (CHANGE PASSWORD) */}
+        <div className="glass-card animate-fade-in">
+          <h2 style={{ fontSize: '18px', marginBottom: '20px' }}>{t('profile.changePassword')}</h2>
+
+          <form onSubmit={handleChangePassword}>
+            <div className="form-group">
+              <label className="form-label">{t('profile.oldPassword')}</label>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder="Enter current password"
+                value={oldPassword}
+                onChange={e => setOldPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('profile.newPassword')}</label>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder={t('auth.passwordMin')}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">{t('auth.confirmPassword')}</label>
+              <input 
+                type="password" 
+                className="form-input" 
+                placeholder="Confirm password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              {t('profile.changePassword')}
+            </button>
+          </form>
+        </div>
+
+        {/* DEVICE LOGIN TRACKING (FULL WIDTH GRID ROW) */}
+        <div className="glass-card animate-fade-in" style={{ gridColumn: 'span 2' }}>
+          <h2 style={{ fontSize: '18px', marginBottom: '8px' }}>{t('profile.activeDevices')}</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>View logged-in devices currently accessing this account</p>
+          
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{t('profile.deviceAgent')}</th>
+                  <th>{t('profile.deviceLastLogin')}</th>
+                  <th>Location (Simulated)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profile.devices && profile.devices.length > 0 ? (
+                  profile.devices.map((dev, i) => (
+                    <tr key={i}>
+                      <td style={{ fontSize: '13px', fontFamily: 'monospace' }}>{dev.agent}</td>
+                      <td>{new Date(dev.lastLogin).toLocaleString()}</td>
+                      <td>Dynamic IP (Active)</td>
+                      <td>
+                        <span className="badge badge-active" style={{ fontSize: '11px' }}>CONNECTED</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No device logs captured</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      {/* --- CUSTOM ALERT MODAL --- */}
+      {customAlert.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: '3px solid #f5222d',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </div>
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: '#f5222d',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+            <p style={{
+              fontSize: '14px',
+              color: '#666666',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+            <button
+              onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+              style={{
+                background: '#de2424',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '15px',
+                fontWeight: 600,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            >
+              {customAlert.buttonText}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Profile;

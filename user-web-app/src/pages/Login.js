@@ -167,13 +167,14 @@ const Login = () => {
       setTimerActive(false);
 
       // Redirect based on role
-      if (role === 'super_admin') {
-        navigate('/super-admin');
-      } else if (role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/');
+      if (role !== 'user') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        showError('Access denied. This portal is for users only.');
+        return;
       }
+      navigate('/');
     } catch (err) {
       if (err.status === 402) {
         showError('Invalid OTP');

@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import Sidebar from './components/Sidebar';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import UserDashboard from './pages/UserDashboard';
-import VideoWatch from './pages/VideoWatch';
 import Profile from './pages/Profile';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 import { getCurrentUser } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -28,10 +25,7 @@ const RoleRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
   if (!allowedRoles.includes(user.role)) {
-    // Redirect unauthorized roles back to their appropriate page
-    if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
-    if (user.role === 'admin') return <Navigate to="/admin" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
   return children;
 };
@@ -53,8 +47,6 @@ const AppLayout = ({ theme, setTheme }) => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
-  const showSidebar = !isAuthPage && user && user.role === 'user';
-
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       {!isAuthPage && user && (
@@ -65,15 +57,9 @@ const AppLayout = ({ theme, setTheme }) => {
         />
       )}
       <div style={{ flex: 1, display: 'flex', position: 'relative', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
-        {showSidebar && (
-          <Sidebar 
-            isOpen={isSidebarOpen} 
-            onClose={() => setIsSidebarOpen(false)} 
-          />
-        )}
         <div style={{ 
           flex: 1, 
-          padding: !isAuthPage ? (user && (user.role === 'user' || user.role === 'admin' || user.role === 'super_admin') ? '0' : '40px') : '0',
+          padding: !isAuthPage ? (user && (user.role === 'admin' || user.role === 'super_admin') ? '0' : '40px') : '0',
           position: 'relative',
           minWidth: 0,
           height: '100%',
@@ -89,13 +75,6 @@ const AppLayout = ({ theme, setTheme }) => {
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
-          } />
-
-          {/* User Specific Paths */}
-          <Route path="/watch/:id" element={
-            <RoleRoute allowedRoles={['user']}>
-              <VideoWatch />
-            </RoleRoute>
           } />
 
           <Route path="/" element={
@@ -133,7 +112,7 @@ const DashboardRedirect = () => {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
-  return <UserDashboard />;
+  return <Navigate to="/login" replace />;
 };
 
 function App() {
