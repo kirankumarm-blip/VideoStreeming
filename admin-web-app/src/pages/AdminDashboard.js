@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, getCurrentUser } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
+import { encryptUrl } from '../utils/crypto';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -801,6 +802,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
       )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
 
+      const encryptedThumbnail = await encryptUrl(courseThumbnailUrl);
+      const encryptedBanner = await encryptUrl(courseBannerUrl);
+
+      const encryptedChapters = await Promise.all(chapters.map(async (ch) => {
+        const encryptedVideos = await Promise.all((ch.videos || []).map(async (v) => {
+          return {
+            title: v.title,
+            fileName: v.fileName || 'video.mp4',
+            videoUrl: await encryptUrl(v.videoUrl || ''),
+            thumbName: v.thumbName || 'thumbnail.png',
+            thumbnailUrl: await encryptUrl(v.thumbnailUrl || ''),
+            duration: v.duration,
+            isPreview: v.isPreview
+          };
+        }));
+        return {
+          title: ch.title,
+          description: ch.description,
+          visibility: ch.visibility || visibilities[0]?.id || '',
+          order: ch.order,
+          videos: encryptedVideos
+        };
+      }));
+
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
@@ -814,23 +839,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         totalChapters: courseForm.totalChapters || chapters.length.toString(),
         totalLessons: calculatedLessons.toString(),
         totalDuration: calculatedDuration.toString(),
-        thumbnail: courseThumbnailUrl,
-        banner: courseBannerUrl,
-        chapters: chapters.map(ch => ({
-          title: ch.title,
-          description: ch.description,
-          visibility: ch.visibility || visibilities[0]?.id || '',
-          order: ch.order,
-          videos: ch.videos.map(v => ({
-            title: v.title,
-            fileName: v.fileName || 'video.mp4',
-            videoUrl: v.videoUrl || '',
-            thumbName: v.thumbName || 'thumbnail.png',
-            thumbnailUrl: v.thumbnailUrl || '',
-            duration: v.duration,
-            isPreview: v.isPreview
-          }))
-        }))
+        thumbnail: encryptedThumbnail,
+        banner: encryptedBanner,
+        chapters: encryptedChapters
       };
 
       if (isSuperAdmin) {
@@ -1046,6 +1057,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
       )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
 
+      const encryptedVideoUrl = await encryptUrl(videoUrl);
+      const encryptedThumbnailUrl = await encryptUrl(thumbnailUrl);
+
       const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
@@ -1055,8 +1069,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         language_id: uploadForm.languageId,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
-        videoUrl,
-        thumbnailUrl
+        videoUrl: encryptedVideoUrl,
+        thumbnailUrl: encryptedThumbnailUrl
       };
       if (isPrivate) {
         if (isSuperAdmin) {
