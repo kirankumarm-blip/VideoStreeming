@@ -21,6 +21,7 @@ function rc4(key, str) {
 export function encryptUrl(url) {
   if (!url) return "";
   const key = "LurnAxSecretEncryptionKey2026";
-  const encrypted = rc4(key, url);
-  return btoa(unescape(encodeURIComponent(encrypted)));
+  const utf8Plaintext = unescape(encodeURIComponent(url));
+  const encrypted = rc4(key, utf8Plaintext);
+  return btoa(encrypted);
 }
