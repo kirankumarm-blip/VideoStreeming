@@ -27,6 +27,72 @@ export const setCurrentUser = (user) => {
   localStorage.setItem('user', JSON.stringify(user));
 };
 
+function rc4(key, str) {
+  var s = [], j = 0, x, res = '';
+  var i;
+  for (i = 0; i < 256; i++) { s[i] = i; }
+  for (i = 0; i < 256; i++) {
+    j = (j + s[i] + key.charCodeAt(i % key.length)) % 256;
+    x = s[i]; s[i] = s[j]; s[j] = x;
+  }
+  i = 0; j = 0;
+  for (var y = 0; y < str.length; y++) {
+    i = (i + 1) % 256;
+    j = (j + s[i]) % 256;
+    x = s[i]; s[i] = s[j]; s[j] = x;
+    res += String.fromCharCode(str.charCodeAt(y) ^ s[(s[i] + s[j]) % 256]);
+  }
+  return res;
+}
+
+function decryptUrl(ciphertextBase64) {
+  if (!ciphertextBase64) return "";
+  try {
+    const key = "LurnAxSecretEncryptionKey2026";
+    const decodedBytes = atob(ciphertextBase64);
+    const decryptedBytes = rc4(key, decodedBytes);
+    return decodeURIComponent(escape(decryptedBytes));
+  } catch (e) {
+    return ciphertextBase64;
+  }
+}
+
+function decryptIfNeeded(val) {
+  if (typeof val !== 'string' || !val) return val;
+  if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/') || val.startsWith('data:')) {
+    return val;
+  }
+  try {
+    const decrypted = decryptUrl(val);
+    if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:'))) {
+      return decrypted;
+    }
+  } catch (e) {}
+  return val;
+}
+
+function decryptResponseData(data) {
+  if (!data) return data;
+  if (Array.isArray(data)) {
+    return data.map(item => decryptResponseData(item));
+  }
+  if (typeof data === 'object') {
+    const keysToDecrypt = ['videoUrl', 'video_url', 'thumbnailUrl', 'thumbnail_url', 'thumbnail', 'banner'];
+    const result = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        if (keysToDecrypt.includes(key)) {
+          result[key] = decryptIfNeeded(data[key]);
+        } else {
+          result[key] = decryptResponseData(data[key]);
+        }
+      }
+    }
+    return result;
+  }
+  return data;
+}
+
 // Custom Fetch Wrapper with Auto Token Refresh
 async function request(endpoint, options = {}) {
   let cleanEndpoint = endpoint;
@@ -177,32 +243,35 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'getGender' ||
       bodyObj.formStep === 'list';
 
-    // Check if it's n8n style wrapping: [{ json: ... }]
     const isN8n = responseData.length > 0 && responseData[0] && typeof responseData[0] === 'object' && 'json' in responseData[0];
-    
+    let result;
     if (isN8n) {
       // Check if it's a single item containing an array: [{ json: [...] }]
       if (responseData.length === 1 && Array.isArray(responseData[0].json)) {
-        return responseData[0].json;
+        result = responseData[0].json;
+      } else {
+        const mapped = responseData.map(item => item.json);
+        if (isList || (options && options.expectArray)) {
+          result = mapped;
+        } else {
+          result = mapped[0] || {};
+        }
       }
-      
-      const mapped = responseData.map(item => item.json);
-      if (isList || (options && options.expectArray)) {
-        return mapped;
-      }
-      return mapped[0] || {};
     } else {
       // Standard array or object (like from mock server or flat UAT webhook responses)
       if (Array.isArray(responseData)) {
         if (isList || (options && options.expectArray)) {
-          return responseData;
+          result = responseData;
+        } else {
+          result = responseData[0] || {};
         }
-        return responseData[0] || {};
+      } else {
+        result = responseData;
       }
-      return responseData;
     }
+    return decryptResponseData(result);
   }
-  return responseData;
+  return decryptResponseData(responseData);
 }
 
 const UPLOAD_SERVICE_URL = 'http://localhost:5050';
