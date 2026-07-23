@@ -352,6 +352,13 @@ export const api = {
       });
     },
     logout: () => {
+      const activeToken = getAccessToken();
+      if (activeToken) {
+        request('/logout', {
+          method: 'POST',
+          body: JSON.stringify({ formStep: 'logout', token: activeToken })
+        }).catch(err => console.error("Backend logout error", err));
+      }
       clearTokens();
       return Promise.resolve();
     }
