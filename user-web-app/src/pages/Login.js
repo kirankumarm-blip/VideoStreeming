@@ -146,7 +146,7 @@ const Login = () => {
       // Map flat or nested keys from the UAT response payload
       const userObj = otpRes.user || (tempLoginData ? tempLoginData.user : null);
       
-      const token = otpRes.token || otpRes.accessToken || (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '');
+      const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '') || otpRes.token || otpRes.accessToken;
       const role = otpRes.role || (userObj ? userObj.role : '') || (tempLoginData ? tempLoginData.role : '');
       const name = otpRes.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '');
       const userEmail = otpRes.email || (userObj ? userObj.email : '') || email;
