@@ -121,9 +121,10 @@ const Signup = () => {
         dob: new Date(dob).toISOString(),
         email,
         mobile,
-        password
+        password,
+        type: 'selfSignUp'
       });
-      showSuccess('Account created successfully! Redirecting to login page...', () => {
+      showSuccess('user creates successfully', () => {
         navigate('/login');
       });
     } catch (err) {
@@ -455,8 +456,21 @@ const Signup = () => {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
-            {loading ? t('auth.creatingAccount') : t('auth.signUp')}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} disabled={loading}>
+            {loading ? (
+              <>
+                <style>{`
+                  @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                  }
+                `}</style>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}>
+                  <path d="M21 12a9 9 0 11-6.219-8.56" />
+                </svg>
+                <span>{t('auth.creatingAccount')}</span>
+              </>
+            ) : t('auth.signUp')}
           </button>
 
           <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>

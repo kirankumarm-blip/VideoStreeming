@@ -1,0 +1,63 @@
+# Tasks
+
+- [x] Create reusable `<PaginatedTable>` component in `user-web-app`
+- [x] Create reusable `<PaginatedTable>` component in `admin-web-app`
+- [x] Integrate `<PaginatedTable>` for Active Devices table in `user-web-app` Profile page
+- [x] Integrate `<PaginatedTable>` for Active Devices table in `admin-web-app` Profile page
+- [x] Integrate `<PaginatedTable>` in `admin-web-app` `SuperAdminDashboard.js` for:
+  - [x] Trending Content
+  - [x] All Administrators
+  - [x] Categories
+  - [x] Uploaded Videos
+  - [x] User Watch Activity logs (Stats Tab)
+  - [x] User Watch Activity logs (Users logs Tab)
+  - [x] All/Blocked/Active/Inactive Users list
+  - [x] Video Approval Queue
+  - [x] Reported Content & Infractions
+  - [x] User Playback Behavior Metrics (Analytics)
+  - [x] Active / Expired Subscriptions
+  - [x] Transaction History & Refund Management
+  - [x] Streaming Health Indicators
+- [x] Integrate `<PaginatedTable>` in `admin-web-app` `AdminDashboard.js` for:
+  - [x] Top Content (Overview)
+  - [x] Video Categories (Overview)
+  - [x] Users list
+  - [x] Uploaded Videos list
+  - [x] All Courses list
+  - [x] Status Users list (Active/Inactive/Blocked)
+  - [x] User Watch Activity logs
+  - [x] User Playback Behavior Metrics (Analytics)
+  - [x] Transaction History & Refund Management
+  - [x] Streaming Health Indicators
+- [x] Replace browser alert in Add Admin modal validation with custom overlay modal alert matching the login page
+- [x] Fetch genders dynamically from `vddashboard/super-admin` with formstep `getGender` and map to Add Admin gender dropdown
+- [x] Set gender value to `gender_id` in submit payload
+- [x] Convert Date of Birth date input value to a timestamp with timezone in submit payload
+- [x] Fetch genders dynamically from `vdadminUsers` with formStep `getGender` and map to Admin Add User gender dropdown
+- [x] Set user gender value to `gender_id` in submit payload
+- [x] Convert user Date of Birth input value to a timestamp with timezone in submit payload
+- [x] Replace browser alert in Admin Add User modal validation with custom overlay modal alert
+- [x] Handle 422 and 433 status codes in user creation to show custom popup alerts for phone number/email duplicate conflicts
+- [x] Handle 422 and 433 status codes in admin creation to show custom popup alerts for phone number/email duplicate conflicts
+- [x] Handle User Explore page empty API response to display "No videos are available" and remove static fallback
+- [x] Pass `type: 'selfSignUp'` in User Signup payload
+- [x] Show custom rotating loading spinners inside Add Admin, Add User, and User Signup buttons while API response is pending
+- [x] Display custom success overlay modal popups stating "User added successfully", "Admin added successfully", and "user creates successfully" on 200 OK
+- [x] Include `selectedAdminId` in Super Admin Overview landing page useEffect dependency array to pass `admin_id` in payload
+- [x] Remove static data fallbacks from Super Admin Overview landing page stat cards, charts, and metrics
+- [x] Remove Daily, Weekly, and Monthly Reports sub-items from Super Admin menu and make Reports button navigate directly to Reports page
+- [x] Add Report select dropdown to Super Admin Reports page with User Activity, Video Performance, Revenue, and Subscription options
+- [x] Call `vdsuperadmin/report` API with formstep `user_activity`, `video_performance`, `revenue`, and `subsription`
+- [x] Render exact requested table headers and formatted data columns for all 4 report types
+- [x] Fix column alignment in User Activity report table so all numerical metrics and percentages align directly under their respective headers
+- [x] Remove Support Overview and System Alerts sections from Super Admin Dashboard Overview landing page
+- [x] Encrypt login email and password in request body payload for both user and admin web apps
+- [x] Provide N8N JavaScript Code node snippet to decrypt payload in N8N workflow
+- [x] Support `category_name`, `completion_percentage`, and `watch_duration_sec` fields in Super Admin Video Performance and User Activity report tables
+- [x] Support `video_watched`, `course_started`, `course_completed`, and `status` fields in Super Admin User Activity report table
+- [x] Connect Export CSV, Export Excel, and Export PDF buttons on Super Admin Reports page to call `vdsuperadmin/report` API and trigger file download
+- [x] Remove `type` parameter from dropdown report fetch payload; pass `type: 'Report'` ONLY on Export button click API calls
+- [x] Remove static fallback arrays from report tables and display "No details available" when API returns empty array
+- [x] Replace export browser alert popups with login-style custom modal popup overlay displaying "No details available"
+- [x] Validate compilation and execution of both frontend servers
+- [x] Document the changes in Walkthrough

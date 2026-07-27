@@ -45,6 +45,18 @@ function rc4(key, str) {
   return res;
 }
 
+export function encryptPayload(plaintext) {
+  if (!plaintext) return "";
+  try {
+    const key = "LurnAxSecretEncryptionKey2026";
+    const utf8Bytes = unescape(encodeURIComponent(plaintext));
+    const encryptedBytes = rc4(key, utf8Bytes);
+    return btoa(encryptedBytes);
+  } catch (e) {
+    return plaintext;
+  }
+}
+
 function decryptUrl(ciphertextBase64) {
   if (!ciphertextBase64) return "";
   try {
@@ -306,7 +318,10 @@ export const api = {
     login: (email, password) => {
       return request('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: encryptPayload(email), 
+          password: encryptPayload(password) 
+        }),
       });
     },
     otp: (email, formStep, otpCode = null) => {
@@ -326,7 +341,8 @@ export const api = {
           date_of_birth: data.dob,
           email: data.email,
           mobile: data.mobile || '0000000000',
-          password: data.password
+          password: data.password,
+          type: data.type
         }),
       });
     },

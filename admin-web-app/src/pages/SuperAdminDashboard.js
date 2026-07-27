@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 import AdminDashboard from './AdminDashboard';
+import PaginatedTable from '../components/PaginatedTable';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -52,6 +53,38 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminFormLoading, setAdminFormLoading] = useState(false);
+
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    type: 'success', // success or error
+    title: '',
+    message: '',
+    buttonText: 'OK',
+    onConfirm: null
+  });
+
+  const showSuccess = (message, onConfirm = null) => {
+    setCustomAlert({
+      show: true,
+      type: 'success',
+      title: 'Success!',
+      message,
+      buttonText: 'Continue',
+      onConfirm
+    });
+  };
+
+  const showError = (message, onConfirm = null) => {
+    setCustomAlert({
+      show: true,
+      type: 'error',
+      title: 'Oooops!',
+      message,
+      buttonText: 'Try Again',
+      onConfirm
+    });
+  };
 
   // Categories CRUD states
   const [categories, setCategories] = useState([]);
@@ -105,6 +138,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [settings, setSettings] = useState({});
   const [dropdownAdmins, setDropdownAdmins] = useState([]);
   const [selectedAdminId, setSelectedAdminId] = useState('');
+  const [genders, setGenders] = useState([]);
+  const [selectedReportType, setSelectedReportType] = useState('user_activity');
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     // Initial fetch based on current activeTab (defaults to overview)
@@ -119,6 +156,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     fetchCategories();
     fetchVideos();
     fetchUsers();
+    fetchGenders();
   }, []);
 
   useEffect(() => {
@@ -150,6 +188,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
     if (activeTab === 'rep_export') {
       fetchTransactions();
+      fetchReportData(selectedReportType, selectedAdminId);
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
       fetchUsers();
@@ -160,7 +199,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     if (activeTab === 'categories') {
       fetchCategories();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedAdminId, selectedReportType]);
+
+  useEffect(() => {
+    if (showAdminModal) {
+      fetchGenders();
+    }
+  }, [showAdminModal]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -236,6 +281,37 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setTransactions(txs);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchReportData = async (reportType = selectedReportType, adminId = selectedAdminId) => {
+    setReportLoading(true);
+    try {
+      const payload = {};
+      if (adminId) {
+        payload.admin_id = adminId;
+      }
+      const res = await api.reports.getSuperAdminReport(reportType, payload);
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res;
+      } else if (res && Array.isArray(res.data)) {
+        list = res.data;
+      } else if (res && Array.isArray(res.report)) {
+        list = res.report;
+      } else if (res && Array.isArray(res.result)) {
+        list = res.result;
+      } else if (res && typeof res === 'object') {
+        const arrayProp = Object.values(res).find(val => Array.isArray(val));
+        if (arrayProp) list = arrayProp;
+      }
+      const unpackedList = (list || []).map(item => (item && item.json ? item.json : item));
+      setReportData(unpackedList);
+    } catch (e) {
+      console.error('Failed to fetch report data:', e);
+      setReportData([]);
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -360,6 +436,26 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const fetchGenders = async () => {
+    try {
+      const res = await api.dashboard.getSuperAdmin('getGender');
+      console.log('Fetched genders:', res);
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res.map(item => item.json || item);
+      } else if (res && Array.isArray(res.data)) {
+        list = res.data.map(item => item.json || item);
+      } else if (res && typeof res === 'object') {
+        const arrayProp = Object.values(res).find(val => Array.isArray(val));
+        if (arrayProp) list = arrayProp.map(item => item.json || item);
+      }
+      setGenders(list);
+    } catch (e) {
+      console.error('Failed to fetch genders', e);
+      setGenders([]);
+    }
+  };
+
   // --- Admin CRUD Handlers ---
   const handleAdminSubmit = async (e) => {
     e.preventDefault();
@@ -367,30 +463,31 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     // Email regex validation (e.g. marco@gmail.com)
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(adminForm.email)) {
-      alert('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
+      showError('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
       return;
     }
 
     // Phone number length validation
     if (adminForm.mobile.length !== 10) {
-      alert('Phone number must be exactly 10 digits');
+      showError('Phone number must be exactly 10 digits');
       return;
     }
 
     // Zipcode length validation
     if (adminForm.zipcode.length !== 6) {
-      alert('Zipcode must be exactly 6 digits');
+      showError('Zipcode must be exactly 6 digits');
       return;
     }
 
+    setAdminFormLoading(true);
     try {
       const dataToSave = {
         first_name: adminForm.firstName,
         last_name: adminForm.lastName,
         email: adminForm.email,
         phonenumber: adminForm.mobile,
-        gender: adminForm.gender,
-        date_of_birth: adminForm.dob,
+        gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
+        date_of_birth: adminForm.dob ? new Date(adminForm.dob).toISOString() : null,
         address: adminForm.address,
         city: adminForm.city,
         state: adminForm.state,
@@ -399,8 +496,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
       if (editingAdmin) {
         await api.admins.update(editingAdmin.id, dataToSave);
+        showSuccess('Admin updated successfully');
       } else {
         await api.admins.create(dataToSave);
+        showSuccess('Admin added successfully');
       }
       setShowAdminModal(false);
       setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
@@ -409,7 +508,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchDashboardData();
       setActiveTab('admins_all'); // Redirect upon creation
     } catch (err) {
-      setError(err.message || 'Failed to save admin');
+      if (err.status === 422) {
+        showError('Phone Number Already exist');
+      } else if (err.status === 433) {
+        showError('Email Already exist');
+      } else {
+        showError(err.message || 'Failed to save admin');
+      }
+    } finally {
+      setAdminFormLoading(false);
     }
   };
 
@@ -425,13 +532,32 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       console.warn("Failed to fetch admin details, using local data", e);
     }
     
+    const matchedGender = genders.find(g => 
+      String(g.name).toLowerCase() === String(adminData.gender).toLowerCase() || 
+      String(g.id) === String(adminData.gender_id || adminData.gender)
+    );
+    const genderVal = matchedGender ? matchedGender.id : (adminData.gender_id || adminData.gender || '');
+
+    let formattedDob = '';
+    const dobRaw = adminData.date_of_birth || adminData.dob;
+    if (dobRaw) {
+      try {
+        const d = new Date(dobRaw);
+        if (!isNaN(d.getTime())) {
+          formattedDob = d.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        formattedDob = dobRaw;
+      }
+    }
+
     setAdminForm({
       firstName: adminData.first_name || adminData.firstName || '',
       lastName: adminData.last_name || adminData.lastName || '',
       email: adminData.email || '',
       mobile: adminData.phonenumber || adminData.mobile || '',
-      gender: adminData.gender || '',
-      dob: adminData.date_of_birth || adminData.dob || '',
+      gender: genderVal,
+      dob: formattedDob,
       city: adminData.city || '',
       state: adminData.state || '',
       zipcode: adminData.zipcode || '',
@@ -495,8 +621,134 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  // --- Report Export Simulators ---
+  // --- Report Export Handlers ---
   const handleExport = async (format) => {
+    if (activeTab === 'rep_export') {
+      try {
+        setLoading(true);
+        // Call the exact same API (vdsuperadmin/report) passing formstep and admin_id
+        const res = await api.reports.getSuperAdminReport(selectedReportType, {
+          admin_id: selectedAdminId,
+          type: 'Report',
+          export_type: format,
+          format: format
+        });
+
+        const filename = `${selectedReportType}_report_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'csv' : format}`;
+
+        // 1. If API returned a direct download URL string or object with file URL
+        if (typeof res === 'string' && (res.startsWith('http://') || res.startsWith('https://') || res.startsWith('data:'))) {
+          const link = document.createElement('a');
+          link.href = res;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+
+        if (res && typeof res === 'object' && !Array.isArray(res) && (res.file_url || res.url || res.download_url || res.file || res.data_url)) {
+          const fileUrl = res.file_url || res.url || res.download_url || res.file || res.data_url;
+          const link = document.createElement('a');
+          link.href = fileUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+
+        // 2. If API returned raw text / CSV data string
+        if (typeof res === 'string' && res.trim().length > 0) {
+          let mimeType = 'text/csv;charset=utf-8;';
+          if (format === 'excel') mimeType = 'application/vnd.ms-excel;charset=utf-8;';
+          if (format === 'pdf') mimeType = 'application/pdf;';
+
+          const blob = new Blob([res], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+
+        // 3. Construct file download from dataset array (API response or active reportData)
+        const dataToExport = Array.isArray(res) && res.length > 0 
+          ? res 
+          : (reportData && reportData.length > 0 ? reportData : []);
+
+        if (dataToExport.length === 0) {
+          showError("No details available");
+          return;
+        }
+
+        if (format === 'csv' || format === 'excel') {
+          const headers = Object.keys(dataToExport[0]).filter(k => k !== 'pairedItem');
+          const csvRows = [headers.join(',')];
+
+          for (const row of dataToExport) {
+            const values = headers.map(h => {
+              const val = row[h];
+              const escaped = ('' + (val ?? '')).replace(/"/g, '""');
+              return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+          }
+
+          const csvString = csvRows.join('\n');
+          const mime = format === 'excel' ? 'application/vnd.ms-excel;charset=utf-8;' : 'text/csv;charset=utf-8;';
+          const ext = format === 'excel' ? 'csv' : 'csv';
+
+          const blob = new Blob([csvString], { type: mime });
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = `${selectedReportType}_report_${new Date().toISOString().slice(0, 10)}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        } else if (format === 'pdf') {
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            const headers = Object.keys(dataToExport[0]).filter(k => k !== 'pairedItem');
+            let tableHtml = `<table border="1" style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:12px;"><thead><tr style="background:#f2f2f2;">`;
+            headers.forEach(h => { tableHtml += `<th style="padding:8px;">${h}</th>`; });
+            tableHtml += `</tr></thead><tbody>`;
+            dataToExport.forEach(row => {
+              tableHtml += `<tr>`;
+              headers.forEach(h => { tableHtml += `<td style="padding:8px;">${row[h] ?? ''}</td>`; });
+              tableHtml += `</tr>`;
+            });
+            tableHtml += `</tbody></table>`;
+
+            printWindow.document.write(`
+              <html>
+                <head><title>${selectedReportType.toUpperCase()} REPORT PDF</title></head>
+                <body style="padding:20px;">
+                  <h2>${selectedReportType.replace('_', ' ').toUpperCase()} REPORT</h2>
+                  <p style="color:#666;font-size:12px;">Generated on: ${new Date().toLocaleString()}</p>
+                  ${tableHtml}
+                  <script>window.onload = function() { window.print(); window.close(); }</script>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+          }
+        }
+      } catch (err) {
+        console.error("Report export error:", err);
+        showError(err.message || "No details available");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const data = await api.reports.getSuperAdmin();
       const csvContent = data.exportData.csv;
@@ -511,10 +763,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         link.click();
         document.body.removeChild(link);
       } else {
-        alert(`Exporting platform statistics report in ${format.toUpperCase()} format...\n(Completed successfully!)`);
+        showError(`Exporting platform statistics report in ${format.toUpperCase()} format...`);
       }
     } catch (e) {
-      alert("Failed to export report");
+      showError("Failed to export report");
     }
   };
 
@@ -577,11 +829,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     {
       title: 'Reports',
       icon: '📊',
-      items: [
-        { id: 'rep_daily', label: 'Daily Reports' },
-        { id: 'rep_weekly', label: 'Weekly Reports' },
-        { id: 'rep_monthly', label: 'Monthly Reports' }
-      ]
+      items: []
     },
     {
       title: 'Platform Settings',
@@ -723,7 +971,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
         {menuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
-          const isSelected = isDashboard && activeTab === 'overview';
+          const isReports = section.title === 'Reports';
+          const isSelected = (isDashboard && activeTab === 'overview') || (isReports && (activeTab === 'rep_export' || activeTab.startsWith('rep_')));
           return (
             <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
               <button 
@@ -731,6 +980,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   if (isDashboard) {
                     setActiveTab('overview');
                     fetchDropdownAdmins();
+                    setError('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else if (isReports) {
+                    if (activeTab !== 'rep_export') {
+                      setActiveTab('rep_export');
+                    }
                     setError('');
                     if (isSidebarOpen && toggleSidebar) {
                       toggleSidebar();
@@ -766,7 +1023,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <span style={{ fontSize: '16px' }}>{section.icon}</span>
                   <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
                 </span>
-                {!isDashboard && (
+                {!isDashboard && !isReports && (
                   <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
                 )}
               </button>
@@ -865,7 +1122,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
                   Export Excel
                 </button>
-                <button onClick={() => alert("PDF report is preparing...")} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
                   Export PDF
                 </button>
               </>
@@ -898,30 +1155,30 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <div className="dashboard-stats-grid">
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statActiveLearners', 'Active Learners')}</span>
-                      <span className="stat-value">{stats?.active_lerners ?? 92}</span>
+                      <span className="stat-value">{stats?.active_lerners ?? stats?.active_learners ?? 0}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.active_leraners_percenatge !== undefined ? `+${stats.active_leraners_percenatge}% today` : '+15 today'}
+                        {stats?.active_leraners_percenatge !== undefined ? `+${stats.active_leraners_percenatge}% today` : ''}
                       </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statTotalUsers', 'Total Users')}</span>
                       <span className="stat-value">{stats?.total_users ?? stats?.cards?.totalUsers ?? users.length ?? 0}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.users_growth_percent ? `↑ ${stats.users_growth_percent}% this month` : '↑ 12% this month'}
+                        {stats?.users_growth_percent ? `↑ ${stats.users_growth_percent}% this month` : ''}
                       </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.dashboard.totalVideosUploaded', 'Total Videos Uploaded')}</span>
                       <span className="stat-value">{stats?.total_videos ?? stats?.cards?.totalVideos ?? videos.length ?? 0}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.upload_change !== undefined ? `+${stats.upload_change} today` : '↑ 12% this month'}
+                        {stats?.upload_change !== undefined ? `+${stats.upload_change} today` : ''}
                       </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statTotalViews', 'Total Views')}</span>
-                      <span className="stat-value">{stats?.total_video_views ?? '12,850'}</span>
+                      <span className="stat-value">{stats?.total_video_views ?? 0}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.video_views_growth_percent ? `↑ ${stats.video_views_growth_percent}% weekly` : '↑ 24% weekly'}
+                        {stats?.video_views_growth_percent ? `↑ ${stats.video_views_growth_percent}% weekly` : ''}
                       </span>
                     </div>
                   </div>
@@ -931,31 +1188,31 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.dashboard.dailyWatchTime', 'Daily Watch Time')}</span>
                       <span className="stat-value">
-                        {stats?.today_watch_sec !== undefined ? getFormattedSeconds(stats.today_watch_sec) : '150 min'}
+                        {stats?.today_watch_sec !== undefined ? getFormattedSeconds(stats.today_watch_sec) : '0 min'}
                       </span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.daily_watch_growth_percent ? `↑ ${stats.daily_watch_growth_percent}% vs yesterday` : '↑ 8% vs yesterday'}
+                        {stats?.daily_watch_growth_percent ? `↑ ${stats.daily_watch_growth_percent}% vs yesterday` : ''}
                       </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.dashboard.monthlyWatchTime', 'Monthly Watch Time')}</span>
                       <span className="stat-value">
-                        {stats?.month_watch_sec !== undefined ? getFormattedSeconds(stats.month_watch_sec) : '4500 min'}
+                        {stats?.month_watch_sec !== undefined ? getFormattedSeconds(stats.month_watch_sec) : '0 min'}
                       </span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.monthly_target_percent ? `${stats.monthly_target_percent}% of monthly target` : '92% of monthly target'}
+                        {stats?.monthly_target_percent ? `${stats.monthly_target_percent}% of monthly target` : ''}
                       </span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statActiveUsers', 'Active Users')}</span>
-                      <span className="stat-value">{stats?.dau ?? stats?.cards?.activeUsers ?? 87}</span>
+                      <span className="stat-value">{stats?.dau ?? stats?.cards?.activeUsers ?? 0}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔴 Live Watching now</span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statVideosUploadedToday', 'Videos Uploaded Today')}</span>
-                      <span className="stat-value">{stats?.today_uploads ?? 12}</span>
+                      <span className="stat-value">{stats?.today_uploads ?? 0}</span>
                       <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                        {stats?.upload_change !== undefined ? `${stats.upload_change >= 0 ? '+' : ''}${stats.upload_change} vs yesterday` : '+4 vs yesterday'}
+                        {stats?.upload_change !== undefined ? `${stats.upload_change >= 0 ? '+' : ''}${stats.upload_change} vs yesterday` : ''}
                       </span>
                     </div>
                   </div>
@@ -974,11 +1231,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Growth Trend</h3>
                         <LineChart data={stats?.user_growth || superAdminUserGrowth} />
                         <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                          <span>Daily: {stats?.daily_signups !== undefined ? stats.daily_signups : '+14'}</span>
+                          <span>Daily: {stats?.daily_signups !== undefined ? stats.daily_signups : 0}</span>
                           <span>•</span>
-                          <span>Weekly: +112</span>
+                          <span>Weekly: {stats?.weekly_signups !== undefined ? stats.weekly_signups : 0}</span>
                           <span>•</span>
-                          <span>Monthly: {stats?.monthly_signups !== undefined ? stats.monthly_signups : '+480'}</span>
+                          <span>Monthly: {stats?.monthly_signups !== undefined ? stats.monthly_signups : 0}</span>
                         </div>
                       </div>
 
@@ -987,15 +1244,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>DAU (Daily Active Users)</span>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-secondary)' }}>{stats?.dau ?? 87}</span>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-secondary)' }}>{stats?.dau ?? 0}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>WAU (Weekly Active Users)</span>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#3b82f6' }}>{stats?.wau ?? 420}</span>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#3b82f6' }}>{stats?.wau ?? 0}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>MAU (Monthly Active Users)</span>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#10b981' }}>{stats?.mau ?? 1250}</span>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: '#10b981' }}>{stats?.mau ?? 0}</span>
                           </div>
                         </div>
                       </div>
@@ -1011,57 +1268,42 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     <div className="glass-card">
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Trending Content</h3>
                       <div className="table-container">
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th>Video</th>
-                              <th>Views</th>
-                              <th>Watch Time</th>
-                              <th>Growth</th>
+                        <PaginatedTable
+                          headers={['Video', 'Views', 'Watch Time', 'Growth']}
+                          data={stats?.top_content || []}
+                          emptyMessage="No trending content found"
+                          renderRow={(content, idx) => (
+                            <tr key={content.id || idx}>
+                              <td style={{ fontWeight: 600 }}>{content.videoLesson || content.title}</td>
+                              <td>{content.views}</td>
+                              <td>{content.watchTime}</td>
+                              <td style={{ color: '#10b981', fontWeight: 700 }}>{content.completionPercentage}%</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {stats?.top_content && stats.top_content.length > 0 ? (
-                              stats.top_content.map((content, idx) => (
-                                <tr key={content.id || idx}>
-                                  <td style={{ fontWeight: 600 }}>{content.videoLesson || content.title}</td>
-                                  <td>{content.views}</td>
-                                  <td>{content.watchTime}</td>
-                                  <td style={{ color: '#10b981', fontWeight: 700 }}>{content.completionPercentage}%</td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                                  No data available
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                          )}
+                        />
                       </div>
                     </div>
 
                     {/* Donut Chart: User Engagement */}
                     <div className="glass-card">
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Engagement</h3>
-                      <DonutChart data={stats?.engagement_donut_graph?.engagementShare || engagementShare} />
+                      <DonutChart data={stats?.engagement_donut_graph?.engagementShare || []} />
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '20px' }} className="engage-cards">
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Session</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgSession || '18.5 min'}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgSession || '0 min'}</span>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Watch Time</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgWatchTime || '32.4 min'}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgWatchTime || '0 min'}</span>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Retention Rate</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{stats?.engagement_donut_graph?.engagementMetrics?.retentionRate || '68%'}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{stats?.engagement_donut_graph?.engagementMetrics?.retentionRate || '0%'}</span>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Bounce Rate</span>
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)' }}>{stats?.engagement_donut_graph?.engagementMetrics?.bounceRate || '22%'}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)' }}>{stats?.engagement_donut_graph?.engagementMetrics?.bounceRate || '0%'}</span>
                         </div>
                       </div>
                     </div>
@@ -1072,39 +1314,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', minWidth: 0 }}>
                     
 
-                    {/* Alerts & Notifications */}
-                    <div className="glass-card" style={{ background: 'rgba(239, 68, 68, 0.05)', border: '1px solid #ef4444' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px', color: '#ef4444' }}>⚠️ System Alerts</h3>
-                      <ul style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', paddingLeft: '16px', margin: 0, lineHeight: '1.4' }}>
-                        <li><strong style={{ color: '#ef4444' }}>5 Videos</strong> awaiting approval from admins.</li>
-                        <li><strong style={{ color: '#f59e0b' }}>2 Copyright</strong> scanning complaints received.</li>
-                        <li>Storage primary bucket exceeds <strong style={{ color: '#ef4444' }}>85% capacity</strong>.</li>
-                        <li><strong style={{ color: '#ef4444' }}>3 Failed Payments</strong> on subscription renewals.</li>
-                      </ul>
-                    </div>
 
-                    {/* Support Tickets Overview */}
-                    <div className="glass-card">
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>Support Overview</h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span>Open Tickets</span>
-                          <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>12</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span>Pending Tickets</span>
-                          <span style={{ fontWeight: 700, color: '#f59e0b' }}>3</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                          <span>Closed Tickets</span>
-                          <span style={{ fontWeight: 700, color: '#10b981' }}>85</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Avg Resolution Time</span>
-                          <span style={{ fontWeight: 700 }}>4.2 hrs</span>
-                        </div>
-                      </div>
-                    </div>
 
                     {/* AI Insights Section */}
                     <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(229, 9, 20, 0.05) 100%)', border: '1px solid var(--accent-secondary)' }}>
@@ -1203,58 +1413,50 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Mobile</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {admins.map(admin => {
-                        const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
-                        return (
-                          <tr key={admin.id}>
-                            <td style={{ fontWeight: 600 }}>{admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin'}</td>
-                            <td>{admin.email}</td>
-                            <td>{admin.phonenumber || admin.mobile}</td>
-                            <td>
-                              <span className={`badge ${isAdminActive ? 'badge-active' : 'badge-disabled'}`}>
-                                {isAdminActive ? 'Active' : 'InActive'}
-                              </span>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <button 
-                                  onClick={() => handleEditClick(admin)}
-                                  className="btn btn-secondary"
-                                  style={{ padding: '6px 12px', fontSize: '12px' }}
-                                >
-                                  Edit
-                                </button>
-                                <button 
-                                  onClick={() => handleToggleAdminStatus(admin)}
-                                  className="btn"
-                                  style={{
-                                    padding: '6px 12px',
-                                    fontSize: '12px',
-                                    backgroundColor: isAdminActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                    color: isAdminActive ? '#ef4444' : '#10b981',
-                                    border: 'none'
-                                  }}
-                                >
-                                  {isAdminActive ? 'Disable' : 'Enable'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <PaginatedTable
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Actions']}
+                    data={admins}
+                    emptyMessage="No administrators registered yet"
+                    renderRow={(admin, index) => {
+                      const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
+                      return (
+                        <tr key={admin.id || index}>
+                          <td style={{ fontWeight: 600 }}>{admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin'}</td>
+                          <td>{admin.email}</td>
+                          <td>{admin.phonenumber || admin.mobile}</td>
+                          <td>
+                            <span className={`badge ${isAdminActive ? 'badge-active' : 'badge-disabled'}`}>
+                              {isAdminActive ? 'Active' : 'InActive'}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={() => handleEditClick(admin)}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleToggleAdminStatus(admin)}
+                                className="btn"
+                                style={{
+                                  padding: '6px 12px',
+                                  fontSize: '12px',
+                                  backgroundColor: isAdminActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                  color: isAdminActive ? '#ef4444' : '#10b981',
+                                  border: 'none'
+                                }}
+                              >
+                                {isAdminActive ? 'Disable' : 'Enable'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -1334,47 +1536,40 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Category Name</th>
-                        <th>Description</th>
-                        <th>Slug ID</th>
-                        <th>Actions</th>
+                  <PaginatedTable
+                    headers={['Category Name', 'Description', 'Slug ID', 'Actions']}
+                    data={categories}
+                    emptyMessage="No categories found"
+                    renderRow={(cat, index) => (
+                      <tr key={cat.id || index}>
+                        <td style={{ fontWeight: 600 }}>{cat.name}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{cat.description}</td>
+                        <td><code>{cat.id}</code></td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => {
+                                setEditingCategory(cat);
+                                setCategoryForm({ name: cat.name, description: cat.description });
+                                setShowCategoryModal(true);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteCategory(cat.id)}
+                              className="btn"
+                              style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {categories.map(cat => (
-                        <tr key={cat.id}>
-                          <td style={{ fontWeight: 600 }}>{cat.name}</td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{cat.description}</td>
-                          <td><code>{cat.id}</code></td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => {
-                                  setEditingCategory(cat);
-                                  setCategoryForm({ name: cat.name, description: cat.description });
-                                  setShowCategoryModal(true);
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteCategory(cat.id)}
-                                className="btn"
-                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    )}
+                  />
                 </div>
               </div>
             )}
@@ -1388,67 +1583,58 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Thumbnail</th>
-                        <th>Title</th>
-                        <th>Category</th>
-                        <th>Uploaded By</th>
-                        <th>Assigned Admins</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {videos.map(video => {
-                        const videoAdminNames = video.assignedAdmins 
-                          ? video.assignedAdmins.map(aid => {
-                              const found = admins.find(a => a.id === aid);
-                              return found ? found.name : 'Unknown';
-                            }).join(', ')
-                          : 'None';
+                  <PaginatedTable
+                    headers={['Thumbnail', 'Title', 'Category', 'Uploaded By', 'Assigned Admins', 'Actions']}
+                    data={videos}
+                    emptyMessage="No uploaded videos found"
+                    renderRow={(video, index) => {
+                      const videoAdminNames = video.assignedAdmins 
+                        ? video.assignedAdmins.map(aid => {
+                            const found = admins.find(a => a.id === aid);
+                            return found ? found.name : 'Unknown';
+                          }).join(', ')
+                        : 'None';
 
-                        return (
-                          <tr key={video.id} style={{ cursor: 'pointer' }} onClick={() => setReviewVideo(video)}>
-                            <td>
-                              <img 
-                                src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5000${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
-                                alt="Thumb" 
-                                style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
-                              />
-                            </td>
-                            <td style={{ fontWeight: 600 }}>{video.title}</td>
-                            <td>{video.category}</td>
-                            <td>{video.uploadedBy === 'u-superadmin' ? 'Super Admin' : (admins.find(a => a.id === video.uploadedBy)?.name || 'Admin')}</td>
-                            <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                              {videoAdminNames || 'None'}
-                            </td>
-                            <td onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <button 
-                                  onClick={() => setReviewVideo(video)}
-                                  className="btn btn-secondary"
-                                  style={{ padding: '6px 12px', fontSize: '12px' }}
-                                >
-                                  Play
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    setAssignForm({ videoId: video.id, assignedAdmins: video.assignedAdmins || [] });
-                                    setShowAssignModal(true);
-                                  }}
-                                  className="btn btn-primary"
-                                  style={{ padding: '6px 12px', fontSize: '12px' }}
-                                >
-                                  Assign
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                      return (
+                        <tr key={video.id || index} style={{ cursor: 'pointer' }} onClick={() => setReviewVideo(video)}>
+                          <td>
+                            <img 
+                              src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5000${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
+                              alt="Thumb" 
+                              style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                            />
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{video.title}</td>
+                          <td>{video.category}</td>
+                          <td>{video.uploadedBy === 'u-superadmin' ? 'Super Admin' : (admins.find(a => a.id === video.uploadedBy)?.name || 'Admin')}</td>
+                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                            {videoAdminNames || 'None'}
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={() => setReviewVideo(video)}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                Play
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setAssignForm({ videoId: video.id, assignedAdmins: video.assignedAdmins || [] });
+                                  setShowAssignModal(true);
+                                }}
+                                className="btn btn-primary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                Assign
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -1469,33 +1655,26 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Video</th>
-                        <th>Action</th>
-                        <th>Timestamp</th>
+                  <PaginatedTable
+                    headers={['User', 'Video', 'Action', 'Timestamp']}
+                    data={filteredActivities}
+                    emptyMessage="No activity logs found"
+                    renderRow={(act, index) => (
+                      <tr key={act.id || index}>
+                        <td style={{ fontWeight: 600 }}>{act.user}</td>
+                        <td>{act.video}</td>
+                        <td>
+                          <span style={{
+                            color: act.action.includes('finished') ? '#10b981' : 'var(--accent-secondary)',
+                            fontWeight: 500
+                          }}>
+                            {act.action.toUpperCase()}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{new Date(act.time).toLocaleString()}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredActivities.map((act, index) => (
-                        <tr key={act.id || index}>
-                          <td style={{ fontWeight: 600 }}>{act.user}</td>
-                          <td>{act.video}</td>
-                          <td>
-                            <span style={{
-                              color: act.action.includes('finished') ? '#10b981' : 'var(--accent-secondary)',
-                              fontWeight: 500
-                            }}>
-                              {act.action.toUpperCase()}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{new Date(act.time).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    )}
+                  />
                 </div>
               </div>
             )}
@@ -1588,33 +1767,22 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Admin Name</th>
-                        <th>Action</th>
-                        <th>IP Address</th>
-                        <th>Timestamp</th>
+                  <PaginatedTable
+                    headers={['Admin Name', 'Action', 'IP Address', 'Timestamp']}
+                    data={adminLogs}
+                    emptyMessage="No activity logs found matching the filters"
+                    renderRow={(log, index) => (
+                      <tr key={log.id || index}>
+                        <td style={{ fontWeight: 600 }}>{log.adminName}</td>
+                        <td>
+                          <span style={{ fontWeight: 500, color: 'var(--accent-secondary)' }}>{log.action.toUpperCase()}</span>
+                          {log.details && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '8px' }}>({log.details})</span>}
+                        </td>
+                        <td><code>{log.ip}</code></td>
+                        <td>{new Date(log.timestamp).toLocaleString()}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {adminLogs.length === 0 ? (
-                        <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No logs matching filters</td></tr>
-                      ) : (
-                        adminLogs.map(log => (
-                          <tr key={log.id}>
-                            <td style={{ fontWeight: 600 }}>{log.adminName}</td>
-                            <td>
-                              <span style={{ fontWeight: 500, color: 'var(--accent-secondary)' }}>{log.action.toUpperCase()}</span>
-                              {log.details && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '8px' }}>({log.details})</span>}
-                            </td>
-                            <td><code>{log.ip}</code></td>
-                            <td>{new Date(log.timestamp).toLocaleString()}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                    )}
+                  />
                 </div>
               </div>
             )}
@@ -1685,50 +1853,42 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Mobile</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(Array.isArray(users) ? users : [])
-                        .filter(u => {
-                          if (!u) return false;
-                          if (activeTab === 'users_all' || activeTab === 'users_blocked') return true;
-                          const uStatus = String(u.status || '').toLowerCase();
-                          if (activeTab === 'users_active') return uStatus === 'active';
-                          if (activeTab === 'users_inactive') return uStatus === 'disabled';
-                          return true;
-                        })
-                        .map((u, idx) => {
-                          const nameVal = u.user_name || u.name || `User ${u.id || u.user_id || ''}`;
-                          const emailVal = u.user_email || u.email || '';
-                          const mobileVal = u.phonenumber || u.mobile || '';
-                          const roleVal = u.role || 'user';
-                          const statusVal = String(u.status || '').toLowerCase();
-                          const isActive = statusVal === 'active' || statusVal === 'blocked'; // Blocked users are displayed with blocked badge/status
-                          const idVal = u.id || u.user_id || idx;
-                          return (
-                            <tr key={idVal}>
-                              <td style={{ fontWeight: 600 }}>{nameVal}</td>
-                              <td>{emailVal}</td>
-                              <td>{mobileVal}</td>
-                              <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{roleVal}</span></td>
-                              <td>
-                                <span className={`badge ${statusVal === 'blocked' ? 'badge-disabled' : (isActive ? 'badge-active' : 'badge-disabled')}`}>
-                                  {statusVal ? statusVal.toUpperCase() : 'ACTIVE'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
+                  <PaginatedTable
+                    headers={['Name', 'Email', 'Mobile', 'Role', 'Status']}
+                    data={(Array.isArray(users) ? users : [])
+                      .filter(u => {
+                        if (!u) return false;
+                        if (activeTab === 'users_all' || activeTab === 'users_blocked') return true;
+                        const uStatus = String(u.status || '').toLowerCase();
+                        if (activeTab === 'users_active') return uStatus === 'active';
+                        if (activeTab === 'users_inactive') return uStatus === 'disabled';
+                        return true;
+                      })
+                    }
+                    emptyMessage="No users found"
+                    renderRow={(u, idx) => {
+                      const nameVal = u.user_name || u.name || `User ${u.id || u.user_id || ''}`;
+                      const emailVal = u.user_email || u.email || '';
+                      const mobileVal = u.phonenumber || u.mobile || '';
+                      const roleVal = u.role || 'user';
+                      const statusVal = String(u.status || '').toLowerCase();
+                      const isActive = statusVal === 'active' || statusVal === 'blocked';
+                      const idVal = u.id || u.user_id || idx;
+                      return (
+                        <tr key={idVal}>
+                          <td style={{ fontWeight: 600 }}>{nameVal}</td>
+                          <td>{emailVal}</td>
+                          <td>{mobileVal}</td>
+                          <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{roleVal}</span></td>
+                          <td>
+                            <span className={`badge ${statusVal === 'blocked' ? 'badge-disabled' : (isActive ? 'badge-active' : 'badge-disabled')}`}>
+                              {statusVal ? statusVal.toUpperCase() : 'ACTIVE'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -1749,39 +1909,32 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
 
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Video</th>
-                        <th>Action</th>
-                        <th>Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredActivities.map((act, index) => {
-                        const userVal = act.user_name || act.user || 'N/A';
-                        const videoVal = act.video_name || act.video || act.videoLesson || 'N/A';
-                        const actionVal = act.watch_activity || act.action || 'N/A';
-                        const timeVal = act.created_at || act.time || act.timestamp || '';
-                        return (
-                          <tr key={act.id || index}>
-                            <td style={{ fontWeight: 600 }}>{userVal}</td>
-                            <td>{videoVal}</td>
-                            <td>
-                              <span style={{
-                                color: String(actionVal).toLowerCase().includes('finished') || String(actionVal).toLowerCase().includes('completed') ? '#10b981' : 'var(--accent-secondary)',
-                                fontWeight: 500
-                              }}>
-                                {String(actionVal).toUpperCase()}
-                              </span>
-                            </td>
-                            <td style={{ color: 'var(--text-secondary)' }}>{timeVal ? new Date(timeVal).toLocaleString() : 'N/A'}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <PaginatedTable
+                    headers={['User', 'Video', 'Action', 'Timestamp']}
+                    data={filteredActivities}
+                    emptyMessage="No activity logs found"
+                    renderRow={(act, index) => {
+                      const userVal = act.user_name || act.user || 'N/A';
+                      const videoVal = act.video_name || act.video || act.videoLesson || 'N/A';
+                      const actionVal = act.watch_activity || act.action || 'N/A';
+                      const timeVal = act.created_at || act.time || act.timestamp || '';
+                      return (
+                        <tr key={act.id || index}>
+                          <td style={{ fontWeight: 600 }}>{userVal}</td>
+                          <td>{videoVal}</td>
+                          <td>
+                            <span style={{
+                              color: String(actionVal).toLowerCase().includes('finished') || String(actionVal).toLowerCase().includes('completed') ? '#10b981' : 'var(--accent-secondary)',
+                              fontWeight: 500
+                            }}>
+                              {String(actionVal).toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{timeVal ? new Date(timeVal).toLocaleString() : 'N/A'}</td>
+                        </tr>
+                      );
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -1791,65 +1944,57 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <div className="animate-fade-in glass-card">
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Video Approval Queue</h2>
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Thumbnail</th>
-                        <th>Title</th>
-                        <th>Category</th>
-                        <th>Uploaded By</th>
-                        <th>Actions</th>
+                  <PaginatedTable
+                    headers={['Thumbnail', 'Title', 'Category', 'Uploaded By', 'Actions']}
+                    data={videos.filter(v => v.status === 'pending' || !v.status)}
+                    emptyMessage="No pending videos in the approval queue"
+                    renderRow={(v, index) => (
+                      <tr key={v.id || index}>
+                        <td>
+                          <img 
+                            src={v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : (v.thumbnail ? `http://localhost:5000${v.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
+                            alt="Thumb" 
+                            style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                          />
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{v.title}</td>
+                        <td>{v.category}</td>
+                        <td>{v.uploadedBy}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await api.videos.update(v.id, { status: 'active' });
+                                  fetchVideos();
+                                } catch (err) {
+                                  alert(err.message);
+                                }
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', color: '#10b981' }}
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  await api.videos.update(v.id, { status: 'rejected' });
+                                  fetchVideos();
+                                } catch (err) {
+                                  alert(err.message);
+                                }
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', color: '#ef4444' }}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {videos.filter(v => v.status === 'pending' || !v.status).map(v => (
-                        <tr key={v.id}>
-                          <td>
-                            <img 
-                              src={v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : (v.thumbnail ? `http://localhost:5000${v.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
-                              alt="Thumb" 
-                              style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
-                            />
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{v.title}</td>
-                          <td>{v.category}</td>
-                          <td>{v.uploadedBy}</td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={async () => {
-                                  try {
-                                    await api.videos.update(v.id, { status: 'active' });
-                                    fetchVideos();
-                                  } catch (err) {
-                                    alert(err.message);
-                                  }
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px', color: '#10b981' }}
-                              >
-                                Approve
-                              </button>
-                              <button 
-                                onClick={async () => {
-                                  try {
-                                    await api.videos.update(v.id, { status: 'rejected' });
-                                    fetchVideos();
-                                  } catch (err) {
-                                    alert(err.message);
-                                  }
-                                }}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px', color: '#ef4444' }}
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    )}
+                  />
                 </div>
               </div>
             )}
@@ -1859,60 +2004,48 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <div className="animate-fade-in glass-card">
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Reported Content & Infractions</h2>
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Video Title</th>
-                        <th>Reason</th>
-                        <th>Reported By</th>
-                        <th>Severity</th>
-                        <th>Actions</th>
+                  <PaginatedTable
+                    headers={['Video Title', 'Reason', 'Reported By', 'Severity', 'Actions']}
+                    data={moderationReports?.reportedVideos || []}
+                    emptyMessage="No active moderation reports"
+                    renderRow={(rep, index) => (
+                      <tr key={rep.id || index}>
+                        <td style={{ fontWeight: 600 }}>{rep.videoTitle}</td>
+                        <td>{rep.reason}</td>
+                        <td>{rep.reportedBy}</td>
+                        <td>
+                          <span className={`badge ${rep.severity === 'high' ? 'badge-disabled' : 'badge-active'}`} style={{ background: rep.severity === 'high' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: rep.severity === 'high' ? '#ef4444' : '#f59e0b' }}>
+                            {rep.severity.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={async () => {
+                                await api.moderation.resolve(rep.id, 'dismiss');
+                                fetchModerationData();
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              Dismiss
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                await api.moderation.resolve(rep.id, 'delete');
+                                fetchModerationData();
+                                fetchVideos();
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', color: '#ef4444' }}
+                            >
+                              Delete Video
+                            </button>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {moderationReports.reportedVideos.length === 0 ? (
-                        <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No active moderation reports</td></tr>
-                      ) : (
-                        moderationReports.reportedVideos.map(rep => (
-                          <tr key={rep.id}>
-                            <td style={{ fontWeight: 600 }}>{rep.videoTitle}</td>
-                            <td>{rep.reason}</td>
-                            <td>{rep.reportedBy}</td>
-                            <td>
-                              <span className={`badge ${rep.severity === 'high' ? 'badge-disabled' : 'badge-active'}`} style={{ background: rep.severity === 'high' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: rep.severity === 'high' ? '#ef4444' : '#f59e0b' }}>
-                                {rep.severity.toUpperCase()}
-                              </span>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <button 
-                                  onClick={async () => {
-                                    await api.moderation.resolve(rep.id, 'dismiss');
-                                    fetchModerationData();
-                                  }}
-                                  className="btn btn-secondary"
-                                  style={{ padding: '6px 12px', fontSize: '12px' }}
-                                >
-                                  Dismiss
-                                </button>
-                                <button 
-                                  onClick={async () => {
-                                    await api.moderation.resolve(rep.id, 'delete');
-                                    fetchModerationData();
-                                    fetchVideos();
-                                  }}
-                                  className="btn btn-secondary"
-                                  style={{ padding: '6px 12px', fontSize: '12px', color: '#ef4444' }}
-                                >
-                                  Delete Video
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                    )}
+                  />
                 </div>
               </div>
             )}
@@ -1927,117 +2060,104 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     👤 User Video Playback Behavior Metrics
                   </h3>
                   <div className="table-container" style={{ overflowX: 'auto' }}>
-                    <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th>User</th>
-                          <th>Category</th>
-                          <th>Video</th>
-                          <th style={{ textAlign: 'center' }}>Views</th>
-                          <th style={{ textAlign: 'center' }}>Completed</th>
-                          <th>Completion %</th>
-                          <th>Watch Time</th>
-                          <th style={{ textAlign: 'center' }}>Paused</th>
-                          <th style={{ textAlign: 'center' }}>Forwarded</th>
-                          <th style={{ textAlign: 'center' }}>Backward</th>
-                          <th style={{ textAlign: 'center' }}>Last Position</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stats?.watchHistoryDetails && stats.watchHistoryDetails.length > 0 ? (
-                          stats.watchHistoryDetails.map((item, idx) => {
-                            const formatWatchTime = (seconds) => {
-                              if (!seconds) return '0s';
-                              const secNum = parseInt(seconds, 10) || 0;
-                              const mins = Math.floor(secNum / 60);
-                              const secs = secNum % 60;
-                              if (mins > 0) {
-                                return `${mins}m ${secs > 0 ? secs + 's' : ''}`;
-                              }
-                              return `${secs}s`;
-                            };
+                    <PaginatedTable
+                      headers={[
+                        'User', 'Category', 'Video', 
+                        { label: 'Views', style: { textAlign: 'center' } }, 
+                        { label: 'Completed', style: { textAlign: 'center' } }, 
+                        'Completion %', 'Watch Time', 
+                        { label: 'Paused', style: { textAlign: 'center' } }, 
+                        { label: 'Forwarded', style: { textAlign: 'center' } }, 
+                        { label: 'Backward', style: { textAlign: 'center' } }, 
+                        { label: 'Last Position', style: { textAlign: 'center' } }
+                      ]}
+                      data={stats?.watchHistoryDetails || []}
+                      emptyMessage="No playback logs registered yet"
+                      renderRow={(item, idx) => {
+                        const formatWatchTime = (seconds) => {
+                          if (!seconds) return '0s';
+                          const secNum = parseInt(seconds, 10) || 0;
+                          const mins = Math.floor(secNum / 60);
+                          const secs = secNum % 60;
+                          if (mins > 0) {
+                            return `${mins}m ${secs > 0 ? secs + 's' : ''}`;
+                          }
+                          return `${secs}s`;
+                        };
 
-                            const formatPosition = (seconds) => {
-                              if (!seconds) return '00:00';
-                              if (typeof seconds === 'string' && seconds.includes(':')) return seconds;
-                              const secNum = parseInt(seconds, 10) || 0;
-                              const mins = Math.floor(secNum / 60);
-                              const secs = secNum % 60;
-                              return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                            };
+                        const formatPosition = (seconds) => {
+                          if (!seconds) return '00:00';
+                          if (typeof seconds === 'string' && seconds.includes(':')) return seconds;
+                          const secNum = parseInt(seconds, 10) || 0;
+                          const mins = Math.floor(secNum / 60);
+                          const secs = secNum % 60;
+                          return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                        };
 
-                            const userNameVal = item.userName || item.user_name || 'N/A';
-                            const userEmailVal = item.userEmail || item.user_email || 'N/A';
-                            const categoryVal = item.videoCategory || item.category_name || 'N/A';
-                            const titleVal = item.videoTitle || item.title || 'N/A';
-                            const viewsVal = item.views || 0;
-                            const isCompleted = item.completed === 'Yes' || item.status === true || String(item.status).toLowerCase() === 'true' || parseFloat(item.completion_percentage || 0) >= 95;
-                            const completionPct = item.completionPercentage || (item.completion_percentage ? parseFloat(item.completion_percentage).toFixed(0) : '0');
-                            const watchTimeSec = item.watchTime || item.watch_duration_sec || 0;
-                            const pauseCount = item.pausedCount || item.total_pause_count || 0;
-                            const forwardCount = item.forwardedCount || item.total_seek_forward || 0;
-                            const backwardCount = item.backwardCount || item.total_seek_backward || 0;
-                            const lastPositionSec = item.lastPosition || item.last_position_sec || 0;
+                        const userNameVal = item.userName || item.user_name || 'N/A';
+                        const userEmailVal = item.userEmail || item.user_email || 'N/A';
+                        const categoryVal = item.videoCategory || item.category_name || 'N/A';
+                        const titleVal = item.videoTitle || item.title || 'N/A';
+                        const viewsVal = item.views || 0;
+                        const isCompleted = item.completed === 'Yes' || item.status === true || String(item.status).toLowerCase() === 'true' || parseFloat(item.completion_percentage || 0) >= 95;
+                        const completionPct = item.completionPercentage || (item.completion_percentage ? parseFloat(item.completion_percentage).toFixed(0) : '0');
+                        const watchTimeSec = item.watchTime || item.watch_duration_sec || 0;
+                        const pauseCount = item.pausedCount || item.total_pause_count || 0;
+                        const forwardCount = item.forwardedCount || item.total_seek_forward || 0;
+                        const backwardCount = item.backwardCount || item.total_seek_backward || 0;
+                        const lastPositionSec = item.lastPosition || item.last_position_sec || 0;
 
-                            return (
-                              <tr key={item.id || idx}>
-                                <td style={{ fontWeight: 600 }}>
-                                  <div>{userNameVal}</div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{userEmailVal}</div>
-                                </td>
-                                <td>
-                                  <span className="category-tag" style={{ fontSize: '12px' }}>
-                                    {categoryVal}
-                                  </span>
-                                </td>
-                                <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {titleVal}
-                                </td>
-                                <td style={{ textAlign: 'center', fontWeight: 600 }}>{viewsVal}</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <span style={{ 
-                                    padding: '4px 8px', 
-                                    borderRadius: '12px', 
-                                    fontSize: '11px', 
-                                    fontWeight: 600,
-                                    background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                    color: isCompleted ? '#10b981' : '#ef4444'
-                                  }}>
-                                    {isCompleted ? 'Yes' : 'No'}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ flex: 1, height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', minWidth: '60px' }}>
-                                      <div style={{ 
-                                        width: `${completionPct}%`, 
-                                        height: '100%', 
-                                        background: parseFloat(completionPct) >= 95 ? '#10b981' : 'var(--accent-primary)',
-                                        borderRadius: '3px'
-                                      }} />
-                                    </div>
-                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{completionPct}%</span>
-                                  </div>
-                                </td>
-                                <td style={{ fontWeight: 500 }}>{formatWatchTime(watchTimeSec)}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{pauseCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{forwardCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{backwardCount}</td>
-                                <td style={{ textAlign: 'center', fontWeight: 600, fontFamily: 'monospace' }}>
-                                  {isCompleted ? '100%' : formatPosition(lastPositionSec)}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        ) : (
-                          <tr>
-                            <td colSpan="11" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px' }}>
-                              No playback logs registered yet.
+                        return (
+                          <tr key={item.id || idx}>
+                            <td style={{ fontWeight: 600 }}>
+                              <div>{userNameVal}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>{userEmailVal}</div>
+                            </td>
+                            <td>
+                              <span className="category-tag" style={{ fontSize: '12px' }}>
+                                {categoryVal}
+                              </span>
+                            </td>
+                            <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {titleVal}
+                            </td>
+                            <td style={{ textAlign: 'center', fontWeight: 600 }}>{viewsVal}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span style={{ 
+                                padding: '4px 8px', 
+                                borderRadius: '12px', 
+                                fontSize: '11px', 
+                                fontWeight: 600,
+                                background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                color: isCompleted ? '#10b981' : '#ef4444'
+                              }}>
+                                {isCompleted ? 'Yes' : 'No'}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ flex: 1, height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden', minWidth: '60px' }}>
+                                  <div style={{ 
+                                    width: `${completionPct}%`, 
+                                    height: '100%', 
+                                    background: parseFloat(completionPct) >= 95 ? '#10b981' : 'var(--accent-primary)',
+                                    borderRadius: '3px'
+                                  }} />
+                                </div>
+                                <span style={{ fontSize: '12px', fontWeight: 600 }}>{completionPct}%</span>
+                              </div>
+                            </td>
+                            <td style={{ fontWeight: 500 }}>{formatWatchTime(watchTimeSec)}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{pauseCount}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{forwardCount}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>{backwardCount}</td>
+                            <td style={{ textAlign: 'center', fontWeight: 600, fontFamily: 'monospace' }}>
+                              {isCompleted ? '100%' : formatPosition(lastPositionSec)}
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        );
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -2110,82 +2230,211 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   {activeTab.replace(/_/g, ' ')}
                 </h2>
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>User Name</th>
-                        <th>Plan Name</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Status</th>
+                  <PaginatedTable
+                    headers={['User Name', 'Plan Name', 'Start Date', 'End Date', 'Status']}
+                    data={(activeTab === 'subs_active' ? subscriptions.active : subscriptions.expired) || []}
+                    emptyMessage="No subscription records found"
+                    renderRow={(sub, i) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 600 }}>{sub.userName}</td>
+                        <td>{sub.planName}</td>
+                        <td>{sub.startDate}</td>
+                        <td>{sub.endDate}</td>
+                        <td>
+                          <span className={`badge ${sub.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
+                            {String(sub.status || '').toUpperCase()}
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {((activeTab === 'subs_active' ? subscriptions.active : subscriptions.expired) || []).map((sub, i) => (
-                        <tr key={i}>
-                          <td style={{ fontWeight: 600 }}>{sub.userName}</td>
-                          <td>{sub.planName}</td>
-                          <td>{sub.startDate}</td>
-                          <td>{sub.endDate}</td>
-                          <td>
-                            <span className={`badge ${sub.status === 'active' ? 'badge-active' : 'badge-disabled'}`}>
-                              {String(sub.status || '').toUpperCase()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    )}
+                  />
                 </div>
               </div>
             )}
 
-            {/* --- EXPORT CENTRE & PAYMENTS REFUNDS --- */}
+            {/* --- SUPER ADMIN REPORTS PAGE --- */}
             {activeTab === 'rep_export' && (
               <div className="animate-fade-in glass-card">
-                <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Transaction History & Refund Management</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                  <h2 style={{ fontSize: '20px', margin: 0 }}>
+                    {selectedReportType === 'user_activity' && 'User Activity Report'}
+                    {selectedReportType === 'video_performance' && 'Video Performance Report'}
+                    {selectedReportType === 'revenue' && 'Revenue Report'}
+                    {selectedReportType === 'subsription' && 'Subscription Report'}
+                  </h2>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label htmlFor="superAdminReportSelect" style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-secondary)' }}>
+                      Report:
+                    </label>
+                    <select
+                      id="superAdminReportSelect"
+                      name="report"
+                      value={selectedReportType}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedReportType(val);
+                        fetchReportData(val, selectedAdminId);
+                      }}
+                      className="form-input"
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        minWidth: '220px',
+                        background: 'var(--bg-tertiary, #f5f5f5)',
+                        color: 'var(--text-primary, #333333)',
+                        border: '1px solid var(--border-color, #dddddd)',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="user_activity">User Activity</option>
+                      <option value="video_performance">Video Performance</option>
+                      <option value="revenue">Revenue</option>
+                      <option value="subsription">Subscription</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Transaction ID</th>
-                        <th>User</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map(tx => (
-                        <tr key={tx.id}>
-                          <td><code>{tx.id}</code></td>
-                          <td style={{ fontWeight: 600 }}>{tx.userName}</td>
-                          <td>₹{tx.amount}</td>
-                          <td>
-                            <span className={`badge ${tx.status === 'success' ? 'badge-active' : (tx.status === 'refunded' ? 'badge-disabled' : 'badge-disabled')}`}>
-                              {String(tx.status || '').toUpperCase()}
-                            </span>
-                          </td>
-                          <td>
-                            {tx.status === 'success' && (
-                              <button 
-                                onClick={async () => {
-                                  if (window.confirm(`Issue refund for transaction ${tx.id}?`)) {
-                                    await api.payments.refund(tx.id);
-                                    fetchTransactions();
-                                  }
-                                }}
-                                className="btn"
-                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
-                              >
-                                Refund
-                              </button>
-                            )}
-                          </td>
+                  {/* --- 1. USER ACTIVITY REPORT TABLE --- */}
+                  {selectedReportType === 'user_activity' && (
+                    <PaginatedTable
+                      headers={['User', 'Plan', 'Courses Started', 'Courses Completed', 'Videos Watched', 'Watch Time', 'Completion %', 'Last Login']}
+                      data={reportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, idx) => {
+                        const compVal = item.completion_percentage ?? item.completionPercentage ?? item.comp_percentage ?? item.completion;
+                        const formattedComp = compVal !== undefined && compVal !== null && compVal !== '' ? `${Math.round(parseFloat(compVal))}%` : '0%';
+                        
+                        let formattedWatchTime = item.watchTime || item.watch_time;
+                        if (!formattedWatchTime || !isNaN(Number(formattedWatchTime))) {
+                          const sec = item.watch_duration_sec ?? item.watch_duration ?? item.watch_sec ?? item.watch_time;
+                          if (sec !== undefined && sec !== null && !isNaN(Number(sec))) {
+                            const totalSec = Number(sec);
+                            if (totalSec === 0) formattedWatchTime = '0m';
+                            else if (totalSec < 60) formattedWatchTime = `${totalSec}s`;
+                            else {
+                              const hrs = Math.floor(totalSec / 3600);
+                              const mins = Math.floor((totalSec % 3600) / 60);
+                              const remSec = totalSec % 60;
+                              formattedWatchTime = hrs > 0 ? `${hrs}h ${mins}m` : (remSec > 0 ? `${mins}m ${remSec}s` : `${mins}m`);
+                            }
+                          } else {
+                            formattedWatchTime = '0h 0m';
+                          }
+                        }
+
+                        return (
+                          <tr key={item.id || idx}>
+                            <td style={{ fontWeight: 600 }}>{item.user_name || item.user || item.name || item.userName || '—'}</td>
+                            <td><span className="badge badge-active" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>{item.plan || item.status || item.subscription_plan || 'Basic'}</span></td>
+                            <td>{item.course_started ?? item.courses_started ?? item.coursesStarted ?? 0}</td>
+                            <td>{item.course_completed ?? item.courses_completed ?? item.coursesCompleted ?? 0}</td>
+                            <td>{item.video_watched ?? item.videos_watched ?? item.videosWatched ?? item.videos_count ?? 0}</td>
+                            <td>{formattedWatchTime}</td>
+                            <td style={{ fontWeight: 700, color: '#10b981' }}>{formattedComp}</td>
+                            <td>{item.last_login || item.lastLogin || '—'}</td>
+                          </tr>
+                        );
+                      }}
+                    />
+                  )}
+
+                  {/* --- 2. VIDEO PERFORMANCE REPORT TABLE --- */}
+                  {selectedReportType === 'video_performance' && (
+                    <PaginatedTable
+                      headers={['User', 'Category', 'Video', 'Views', 'Status', 'Compte %', 'Watch Time']}
+                      data={reportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, idx) => {
+                        const compVal = item.completion_percentage ?? item.completionPercentage ?? item.comp_percentage ?? item.completion;
+                        const formattedComp = compVal !== undefined && compVal !== null && compVal !== '' ? `${Math.round(parseFloat(compVal))}%` : '0%';
+                        
+                        let formattedWatchTime = item.watchTime;
+                        if (!formattedWatchTime || (!isNaN(Number(formattedWatchTime)) && item.watch_duration_sec !== undefined)) {
+                          const sec = item.watch_duration_sec ?? item.watch_duration ?? item.watch_sec ?? item.watch_time;
+                          if (sec !== undefined && sec !== null && !isNaN(Number(sec))) {
+                            const totalSec = Number(sec);
+                            if (totalSec === 0) formattedWatchTime = '0m';
+                            else if (totalSec < 60) formattedWatchTime = `${totalSec}s`;
+                            else {
+                              const hrs = Math.floor(totalSec / 3600);
+                              const mins = Math.floor((totalSec % 3600) / 60);
+                              const remSec = totalSec % 60;
+                              formattedWatchTime = hrs > 0 ? `${hrs}h ${mins}m` : (remSec > 0 ? `${mins}m ${remSec}s` : `${mins}m`);
+                            }
+                          } else {
+                            formattedWatchTime = item.watch_time || '0m';
+                          }
+                        }
+
+                        return (
+                          <tr key={item.id || idx}>
+                            <td style={{ fontWeight: 600 }}>{item.user_name || item.user || item.name || item.userName || '—'}</td>
+                            <td>{item.category_name || item.category || '—'}</td>
+                            <td style={{ fontWeight: 600 }}>{item.video || item.video_name || item.title || item.video_title || '—'}</td>
+                            <td>{item.views ?? item.views_count ?? 0}</td>
+                            <td><span className={`badge ${String(item.status || '').toLowerCase() === 'completed' ? 'badge-active' : 'badge-disabled'}`}>{item.status || 'Active'}</span></td>
+                            <td style={{ color: '#10b981', fontWeight: 700 }}>{formattedComp}</td>
+                            <td>{formattedWatchTime}</td>
+                          </tr>
+                        );
+                      }}
+                    />
+                  )}
+
+                  {/* --- 3. REVENUE REPORT TABLE --- */}
+                  {selectedReportType === 'revenue' && (
+                    <PaginatedTable
+                      headers={['Payment Date', 'Invoice No', 'Transaction ID', 'User', 'Plan', 'Amount', 'Discount', 'Tax', 'Net Amount', 'Payment Method', 'Gateway', 'Status']}
+                      data={reportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, idx) => (
+                        <tr key={item.id || item.transactionId || idx}>
+                          <td>{item.paymentDate || item.payment_date || item.date || '—'}</td>
+                          <td><code>{item.invoiceNo || item.invoice_no || '—'}</code></td>
+                          <td><code>{item.transactionId || item.transaction_id || item.id || '—'}</code></td>
+                          <td style={{ fontWeight: 600 }}>{item.user || item.userName || item.name || '—'}</td>
+                          <td>{item.plan || item.plan_name || '—'}</td>
+                          <td>{item.amount || '₹0'}</td>
+                          <td>{item.discount || '₹0'}</td>
+                          <td>{item.tax || '₹0'}</td>
+                          <td style={{ fontWeight: 700, color: '#10b981' }}>{item.netAmount || item.net_amount || '₹0'}</td>
+                          <td>{item.paymentMethod || item.payment_method || '—'}</td>
+                          <td>{item.gateway || '—'}</td>
+                          <td><span className={`badge ${String(item.status || '').toLowerCase() === 'success' ? 'badge-active' : 'badge-disabled'}`}>{item.status || 'Success'}</span></td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      )}
+                    />
+                  )}
+
+                  {/* --- 4. SUBSCRIPTION REPORT TABLE --- */}
+                  {selectedReportType === 'subsription' && (
+                    <PaginatedTable
+                      headers={['User Name', 'Email', 'Plan', 'Billing Cycle', 'Amount', 'Currency', 'Start Date', 'Expiry Date', 'Status', 'Payment Status', 'Payment Method', 'Auto Renewal', 'Days Remaining', 'Created By']}
+                      data={reportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, idx) => (
+                        <tr key={item.id || idx}>
+                          <td style={{ fontWeight: 600 }}>{item.userName || item.user_name || item.name || item.user || '—'}</td>
+                          <td><a href={`mailto:${item.email}`} style={{ color: '#3b82f6' }}>{item.email || '—'}</a></td>
+                          <td><span className="badge badge-active" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>{item.plan || '—'}</span></td>
+                          <td>{item.billingCycle || item.billing_cycle || '—'}</td>
+                          <td>{item.amount || '₹0'}</td>
+                          <td>{item.currency || 'INR'}</td>
+                          <td>{item.startDate || item.start_date || '—'}</td>
+                          <td>{item.expiryDate || item.expiry_date || item.end_date || '—'}</td>
+                          <td><span className={`badge ${String(item.status || '').toLowerCase() === 'active' ? 'badge-active' : 'badge-disabled'}`}>{item.status || 'Active'}</span></td>
+                          <td><span className="badge badge-active">{item.paymentStatus || item.payment_status || 'Paid'}</span></td>
+                          <td>{item.paymentMethod || item.payment_method || '—'}</td>
+                          <td>{item.autoRenewal || item.auto_renewal || 'No'}</td>
+                          <td style={{ fontWeight: 700, color: (item.daysRemaining ?? item.days_remaining) > 0 ? '#10b981' : '#f5222d' }}>{item.daysRemaining ?? item.days_remaining ?? 0}</td>
+                          <td>{item.createdBy || item.created_by || 'Admin'}</td>
+                        </tr>
+                      )}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -2259,32 +2508,20 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <div className="glass-card">
                   <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Streaming Health Indicators</h3>
                   <div className="table-container">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Stream Title</th>
-                          <th>Viewers</th>
-                          <th>Bitrate</th>
-                          <th>FPS</th>
-                          <th>Status</th>
+                    <PaginatedTable
+                      headers={['Stream Title', 'Viewers', 'Bitrate', 'FPS', 'Status']}
+                      data={liveStreams}
+                      emptyMessage="No active live streams"
+                      renderRow={(stream, index) => (
+                        <tr key={stream.id || index}>
+                          <td style={{ fontWeight: 600 }}>{stream.title}</td>
+                          <td>{stream.viewers} Concurrent</td>
+                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>{stream.bitrateKbps} Kbps</td>
+                          <td>{stream.fps} FPS</td>
+                          <td><span className="badge badge-active" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>LIVE</span></td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {liveStreams.length === 0 ? (
-                          <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No active live streams</td></tr>
-                        ) : (
-                          liveStreams.map(stream => (
-                            <tr key={stream.id}>
-                              <td style={{ fontWeight: 600 }}>{stream.title}</td>
-                              <td>{stream.viewers} Concurrent</td>
-                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>{stream.bitrateKbps} Kbps</td>
-                              <td>{stream.fps} FPS</td>
-                              <td><span className="badge badge-active" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>LIVE</span></td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                      )}
+                    />
                   </div>
                 </div>
 
@@ -2603,9 +2840,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                   >
                     <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    {genders.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -2673,7 +2910,22 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => setShowAdminModal(false)} className="btn btn-secondary" style={{ background: '#e0e0e0', color: '#333333', border: 'none' }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ border: 'none' }}>Save Admin</button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} disabled={adminFormLoading}>
+                  {adminFormLoading ? (
+                    <>
+                      <style>{`
+                        @keyframes spin {
+                          from { transform: rotate(0deg); }
+                          to { transform: rotate(360deg); }
+                        }
+                      `}</style>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }}>
+                        <path d="M21 12a9 9 0 11-6.219-8.56" />
+                      </svg>
+                      <span>Saving...</span>
+                    </>
+                  ) : 'Save Admin'}
+                </button>
               </div>
             </form>
           </div>
@@ -2819,6 +3071,107 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <button type="submit" className="btn btn-primary">Submit</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CUSTOM ALERT MODAL --- */}
+      {customAlert.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: '#333333',
+            animation: 'scaleIn 0.25s ease'
+          }}>
+            {/* Circle Icon */}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              border: `3px solid ${customAlert.type === 'success' ? '#1890ff' : '#f5222d'}`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              {customAlert.type === 'success' ? (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1890ff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              )}
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: customAlert.type === 'success' ? '#1890ff' : '#f5222d',
+              margin: '0 0 12px 0'
+            }}>
+              {customAlert.title}
+            </h3>
+
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: '#666666',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {customAlert.message}
+            </p>
+
+            {/* Button */}
+            <button
+              onClick={() => {
+                setCustomAlert(prev => ({ ...prev, show: false }));
+                if (customAlert.onConfirm) customAlert.onConfirm();
+              }}
+              style={{
+                background: customAlert.type === 'success' ? '#3a78f2' : '#de2424',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '15px',
+                fontWeight: 600,
+                width: '100%',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                outline: 'none'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            >
+              {customAlert.buttonText}
+            </button>
           </div>
         </div>
       )}

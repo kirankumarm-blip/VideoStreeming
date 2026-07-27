@@ -45,6 +45,18 @@ function rc4(key, str) {
   return res;
 }
 
+export function encryptPayload(plaintext) {
+  if (!plaintext) return "";
+  try {
+    const key = "LurnAxSecretEncryptionKey2026";
+    const utf8Bytes = unescape(encodeURIComponent(plaintext));
+    const encryptedBytes = rc4(key, utf8Bytes);
+    return btoa(encryptedBytes);
+  } catch (e) {
+    return plaintext;
+  }
+}
+
 function decryptUrl(ciphertextBase64) {
   if (!ciphertextBase64) return "";
   try {
@@ -307,7 +319,10 @@ export const api = {
     login: (email, password) => {
       return request('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: encryptPayload(email), 
+          password: encryptPayload(password) 
+        }),
       });
     },
     otp: (email, formStep, otpCode = null) => {
@@ -327,7 +342,8 @@ export const api = {
           date_of_birth: data.dob,
           email: data.email,
           mobile: data.mobile || '0000000000',
-          password: data.password
+          password: data.password,
+          type: data.type
         }),
       });
     },
@@ -365,7 +381,7 @@ export const api = {
   },
   dashboard: {
     getSuperAdmin: (formstep = 'overview', payload = {}) => {
-      const expectArray = formstep === 'GetAdmins' || formstep === 'getAdminSA' || formstep === 'GetAdminSA' || formstep === 'getAllCourses' || formstep === 'users_all' || formstep === 'users_logs' || formstep === 'users_blocked' || formstep === 'getAllVidoes' || formstep === 'getCategories' || formstep === 'analytics' || formstep === 'levels';
+      const expectArray = formstep === 'GetAdmins' || formstep === 'getAdminSA' || formstep === 'GetAdminSA' || formstep === 'getAllCourses' || formstep === 'users_all' || formstep === 'users_logs' || formstep === 'users_blocked' || formstep === 'getAllVidoes' || formstep === 'getCategories' || formstep === 'analytics' || formstep === 'levels' || formstep === 'getGender';
       return request('/dashboard/super-admin', {
         method: 'POST',
         body: JSON.stringify({ formstep, ...payload }),
@@ -482,6 +498,13 @@ export const api = {
       return request('/adminUsers', {
         method: 'POST',
         body: JSON.stringify({ formStep: "getUserLogs" }),
+      });
+    },
+    getGender: () => {
+      return request('/adminUsers', {
+        method: 'POST',
+        body: JSON.stringify({ formStep: "getGender" }),
+        expectArray: true
       });
     }
   },
@@ -708,6 +731,13 @@ export const api = {
     }
   },
   reports: {
+    getSuperAdminReport: (formstep = 'user_activity', payload = {}) => {
+      return request('/superadmin/report', {
+        method: 'POST',
+        body: JSON.stringify({ formstep, ...payload }),
+        expectArray: true
+      });
+    },
     getSuperAdmin: () => request('/reports/super-admin'),
     getAdmin: () => request('/reports/admin'),
   },

@@ -350,6 +350,7 @@ const UserDashboard = () => {
   const [favoritesList, setFavoritesList] = useState([]);
   const [downloadsList, setDownloadsList] = useState([]);
   const [exploreVideosList, setExploreVideosList] = useState([]);
+  const [hasFetchedExplore, setHasFetchedExplore] = useState(false);
   const [categoryVideosList, setCategoryVideosList] = useState([]);
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
@@ -419,8 +420,10 @@ const UserDashboard = () => {
       console.log("Explore videos from API:", data);
       const list = Array.isArray(data) ? data : (data.json || data.videos || []);
       setExploreVideosList(list);
+      setHasFetchedExplore(true);
     } catch (e) {
       console.error("Failed to load explore videos", e);
+      setHasFetchedExplore(true);
     } finally {
       setLoading(false);
     }
@@ -680,7 +683,7 @@ const UserDashboard = () => {
 
   // Helper to filter videos dynamically for Explore
   const getFilteredExploreVideos = () => {
-    let allList = exploreVideosList.length > 0 ? exploreVideosList : getAllVideosList();
+    let allList = hasFetchedExplore ? exploreVideosList : getAllVideosList();
 
     if (searchQuery) {
       allList = allList.filter(v => 
@@ -1367,11 +1370,29 @@ const UserDashboard = () => {
                   </div>
                 </div>
 
-                <div className="youtube-video-grid">
-                  {getFilteredExploreVideos().map(video => (
-                    <VideoCard key={video.id} video={video} />
-                  ))}
-                </div>
+                {getFilteredExploreVideos().length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '80px 20px',
+                    color: 'var(--text-muted, #888888)',
+                    fontSize: '18px',
+                    fontWeight: 500,
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    No videos are available
+                  </div>
+                ) : (
+                  <div className="youtube-video-grid">
+                    {getFilteredExploreVideos().map(video => (
+                      <VideoCard key={video.id} video={video} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api, setCurrentUser, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import PaginatedTable from '../components/PaginatedTable';
 
 const Profile = () => {
   const { t } = useLanguage();
@@ -406,34 +407,26 @@ const Profile = () => {
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>View logged-in devices currently accessing this account</p>
           
           <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{t('profile.deviceAgent')}</th>
-                  <th>{t('profile.deviceLastLogin')}</th>
-                  <th>Location (Simulated)</th>
-                  <th>Status</th>
+            <PaginatedTable
+              headers={[
+                t('profile.deviceAgent'),
+                t('profile.deviceLastLogin'),
+                'Location (Simulated)',
+                'Status'
+              ]}
+              data={profile.devices || []}
+              emptyMessage="No device logs captured"
+              renderRow={(dev, i) => (
+                <tr key={i}>
+                  <td style={{ fontSize: '13px', fontFamily: 'monospace' }}>{dev.agent}</td>
+                  <td>{new Date(dev.lastLogin).toLocaleString()}</td>
+                  <td>Dynamic IP (Active)</td>
+                  <td>
+                    <span className="badge badge-active" style={{ fontSize: '11px' }}>CONNECTED</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {profile.devices && profile.devices.length > 0 ? (
-                  profile.devices.map((dev, i) => (
-                    <tr key={i}>
-                      <td style={{ fontSize: '13px', fontFamily: 'monospace' }}>{dev.agent}</td>
-                      <td>{new Date(dev.lastLogin).toLocaleString()}</td>
-                      <td>Dynamic IP (Active)</td>
-                      <td>
-                        <span className="badge badge-active" style={{ fontSize: '11px' }}>CONNECTED</span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No device logs captured</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              )}
+            />
           </div>
         </div>
 
