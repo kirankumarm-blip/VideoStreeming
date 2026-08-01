@@ -157,11 +157,18 @@ const VideoWatch = () => {
       saveProgress();
       
       if (currentTimeRef.current >= 1) {
+        const activeVid = videoRefData.current || location.state?.video;
+        const activeCourse = location.state?.course;
+        const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
+        const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
+
         api.dashboard.getUser('watchHistory', { 
           id: idRef.current,
-          title: videoRefData.current?.title || '',
-          thumbnail: videoRefData.current?.thumbnail || videoRefData.current?.thumbnailUrl || videoRefData.current?.thumbnail_url || '',
-          video_url: videoRefData.current?.videoUrl || videoRefData.current?.video_url || ''
+          title: activeVid?.title || '',
+          thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
+          video_url: activeVid?.videoUrl || activeVid?.video_url || '',
+          course_id: cId,
+          chapter_id: chapId
         }).catch(err => {
           console.error("Failed to register watchHistory", err);
         });
@@ -270,51 +277,83 @@ const VideoWatch = () => {
     if (!courseObj) return [];
     if (Array.isArray(courseObj.chapters)) {
       const list = [];
+      const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
       courseObj.chapters.forEach(chap => {
-        if (Array.isArray(chap.videos)) {
-          list.push(...chap.videos);
-        } else if (Array.isArray(chap.lessons)) {
-          list.push(...chap.lessons);
-        }
+        const chapId = chap.id || chap.chapter_id || chap.chapterId || 0;
+        const chapItems = Array.isArray(chap.videos) ? chap.videos : (Array.isArray(chap.lessons) ? chap.lessons : []);
+        chapItems.forEach((v, idx) => {
+          if (typeof v === 'string') {
+            list.push({
+              id: `${cId}-v-${idx}`,
+              title: `Lesson ${idx + 1}`,
+              videoUrl: v,
+              thumbnailUrl: courseObj.thumbnail || '',
+              thumbnail: courseObj.thumbnail || '',
+              course_id: cId,
+              chapter_id: chapId
+            });
+          } else {
+            const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
+            list.push({
+              ...v,
+              thumbnail: tUrl,
+              thumbnailUrl: tUrl,
+              course_id: v.course_id || v.courseId || cId,
+              chapter_id: v.chapter_id || v.chapterId || chapId
+            });
+          }
+        });
       });
       if (list.length > 0) {
-        return list.map((v, i) => {
-          if (typeof v === 'string') {
-            return { id: `${courseObj.id}-v-${i}`, title: `Lesson ${i + 1}`, videoUrl: v, thumbnailUrl: courseObj.thumbnail || '', thumbnail: courseObj.thumbnail || '' };
-          }
-          const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
-          return { ...v, thumbnail: tUrl, thumbnailUrl: tUrl };
-        });
+        return list;
       }
     }
     if (Array.isArray(courseObj.videos)) {
+      const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
       return courseObj.videos.map((v, index) => {
         if (typeof v === 'string') {
           return {
-            id: `${courseObj.id}-v-${index}`,
+            id: `${cId}-v-${index}`,
             title: `Lesson ${index + 1}`,
             videoUrl: v,
             thumbnailUrl: courseObj.thumbnail || '',
-            thumbnail: courseObj.thumbnail || ''
+            thumbnail: courseObj.thumbnail || '',
+            course_id: cId,
+            chapter_id: 0
           };
         }
         const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
-        return { ...v, thumbnail: tUrl, thumbnailUrl: tUrl };
+        return {
+          ...v,
+          thumbnail: tUrl,
+          thumbnailUrl: tUrl,
+          course_id: v.course_id || v.courseId || cId,
+          chapter_id: v.chapter_id || v.chapterId || 0
+        };
       });
     }
     if (Array.isArray(courseObj.lessons)) {
+      const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
       return courseObj.lessons.map((l, index) => {
         if (typeof l === 'string') {
           return {
-            id: `${courseObj.id}-l-${index}`,
+            id: `${cId}-l-${index}`,
             title: `Lesson ${index + 1}`,
             videoUrl: l,
             thumbnailUrl: courseObj.thumbnail || '',
-            thumbnail: courseObj.thumbnail || ''
+            thumbnail: courseObj.thumbnail || '',
+            course_id: cId,
+            chapter_id: 0
           };
         }
         const tUrl = l.video_thumbnail || l.videoThumbnail || l.thumbnail || l.thumbnailUrl || l.thumbnail_url || courseObj.thumbnail || '';
-        return { ...l, thumbnail: tUrl, thumbnailUrl: tUrl };
+        return {
+          ...l,
+          thumbnail: tUrl,
+          thumbnailUrl: tUrl,
+          course_id: l.course_id || l.courseId || cId,
+          chapter_id: l.chapter_id || l.chapterId || 0
+        };
       });
     }
     return [];
@@ -349,10 +388,16 @@ const VideoWatch = () => {
     // Only call API if they actually watched some duration since last save
     if (pos > 0 && deltaWatchTime > 0) {
       try {
+        const activeCourse = location.state?.course;
+        const cId = video?.course_id ?? video?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
+        const chapId = video?.chapter_id ?? video?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
+
         await api.dashboard.getUser('watchsession', {
           id,
           videoid: id,
           videoId: id,
+          course_id: cId,
+          chapter_id: chapId,
           lastPosition: pos,
           lastPositionTime: formatTime(pos),
           duration: formatTime(dur),

@@ -402,6 +402,20 @@ export const api = {
           body.formStep = formStep;
         }
       }
+
+      // Ensure course_id and chapter_id parameters exist for vdUser API tracking
+      if (body.course_id === undefined && body.courseId === undefined) {
+        body.course_id = 0;
+      } else if (body.course_id === undefined && body.courseId !== undefined) {
+        body.course_id = body.courseId;
+      }
+
+      if (body.chapter_id === undefined && body.chapterId === undefined) {
+        body.chapter_id = 0;
+      } else if (body.chapter_id === undefined && body.chapterId !== undefined) {
+        body.chapter_id = body.chapterId;
+      }
+
       return request('/User', {
         method: 'POST',
         body: JSON.stringify(body),

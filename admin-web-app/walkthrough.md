@@ -1,6 +1,21 @@
-# Walkthrough - Table Pagination, Custom Modal Alerts & Frontend Feature Enhancements
+# Walkthrough - Course/Chapter Session Tracking, Table Pagination & Frontend Enhancements
 
-We have successfully implemented a complete, unified pagination and empty-state solution across all tables in the `user-web-app` and `admin-web-app`, integrated premium custom modal alert overlays for Add Admin and Add User modal validations in `SuperAdminDashboard.js` and `AdminDashboard.js`, and refactored the Add/Edit Admin and Add/Edit User forms' gender selection and Date of Birth serialization.
+We have updated the `user-web-app` `vdUser` API payloads to track `course_id` and `chapter_id` across all watch sessions and watch history events (on completion, or when switching videos halfway). We also maintained our unified pagination system, custom modal alerts, login encryption, and report exports.
+
+---
+
+## 0. Course & Chapter Watch Session Tracking (`course_id` & `chapter_id`)
+
+- **Dashboard Course Payload Parsing**:
+  - Updated `getCourseLessonsList` in [UserDashboard.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/UserDashboard.js) to preserve `chapter_id` and `course_id` from the API response payload objects (`your_courses` video items, e.g., `{ id: 2, chapter_id: 1, title: "JDK" }`).
+  - Added support for courses where `chapters` is a count integer and `videos` is a direct array on the course object (as returned in the `/vdUser` response).
+- **Automatic `course_id` & `chapter_id` Parameter Injection**:
+  - Updated `api.dashboard.getUser` in [user-web-app/src/services/api.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/services/api.js) to guarantee `course_id` and `chapter_id` are included in every request payload sent to the `vdUser` API (`/User` / `/vdUser`).
+  - If a video is part of a course/chapter, its actual `course_id` and `chapter_id` are passed.
+  - If it is a standalone normal video (not part of a course/chapter), `course_id: 0` and `chapter_id: 0` are passed in the payload.
+- **Video Completion & Mid-Watch Video Switching**:
+  - Updated [VideoWatch.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/VideoWatch.js) in `saveProgress` (`watchsession` formstep) and unmount cleanup (`watchHistory` formstep) to extract `course_id` and `chapter_id` from the active video/chapter or course state.
+  - On every video completion, or when a user stops/watches halfway and switches to another chapter/video, both `watchsession` and `watchHistory` payloads track the exact `course_id` and `chapter_id` (or `0` for normal videos).
 
 ---
 
