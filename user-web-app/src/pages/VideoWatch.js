@@ -131,6 +131,9 @@ const VideoWatch = () => {
     if (isPlaying) {
       interval = setInterval(() => {
         trackingDataRef.current.watchTime += 1;
+        if (trackingDataRef.current.watchTime > 0 && trackingDataRef.current.watchTime % 10 === 0) {
+          saveProgress();
+        }
       }, 1000);
     }
     return () => {
@@ -156,19 +159,21 @@ const VideoWatch = () => {
       clearInterval(trackingIntervalRef.current);
       saveProgress();
       
-      if (currentTimeRef.current >= 1) {
-        const activeVid = videoRefData.current || location.state?.video;
-        const activeCourse = location.state?.course;
-        const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
-        const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
+      const activeVid = videoRefData.current || location.state?.video;
+      const activeCourse = location.state?.course;
+      const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
+      const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
+      const vidId = idRef.current || id || activeVid?.id;
 
+      if (currentTimeRef.current >= 1 && vidId) {
         api.dashboard.getUser('watchHistory', { 
-          id: idRef.current,
+          id: vidId,
           title: activeVid?.title || '',
           thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
           video_url: activeVid?.videoUrl || activeVid?.video_url || '',
           course_id: cId,
-          chapter_id: chapId
+          chapter_id: chapId,
+          completion_percentage: Math.min(100, Math.round(((currentTimeRef.current || 1) / (duration || 300)) * 100))
         }).catch(err => {
           console.error("Failed to register watchHistory", err);
         });
@@ -380,53 +385,134 @@ const VideoWatch = () => {
     }
   };
 
-  async function saveProgress() {
+  async function saveProgress(force = false) {
+    const activeVid = videoRefData.current || video || location.state?.video;
     const pos = Math.round(videoRef.current ? videoRef.current.currentTime : (currentTimeRef.current || 0));
-    const dur = Math.round(videoRef.current ? (videoRef.current.duration || video?.duration || 300) : (video?.duration || 300));
+    const dur = Math.round(videoRef.current ? (videoRef.current.duration || activeVid?.duration || 300) : (activeVid?.duration || 300));
     const deltaWatchTime = trackingDataRef.current.watchTime;
+    const vidId = idRef.current || id || activeVid?.id;
     
-    // Only call API if they actually watched some duration since last save
-    if (pos > 0 && deltaWatchTime > 0) {
+    if ((pos > 0 && (deltaWatchTime > 0 || force)) || force) {
       try {
         const activeCourse = location.state?.course;
-        const cId = video?.course_id ?? video?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
-        const chapId = video?.chapter_id ?? video?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
+        const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
+        const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
+        const compPercent = force ? 100 : Math.min(100, Math.round((pos / (dur || 1)) * 100));
+        const isComplete = compPercent >= 90 || force;
 
         await api.dashboard.getUser('watchsession', {
-          id,
-          videoid: id,
-          videoId: id,
+          id: vidId,
+          videoid: vidId,
+          videoId: vidId,
           course_id: cId,
           chapter_id: chapId,
           lastPosition: pos,
           lastPositionTime: formatTime(pos),
           duration: formatTime(dur),
           isNewSession: trackingDataRef.current.isNewSession,
-          watchTime: formatTime(deltaWatchTime),
+          watchTime: formatTime(deltaWatchTime > 0 ? deltaWatchTime : pos),
           pausedCount: trackingDataRef.current.pausedCount,
           forwardedCount: trackingDataRef.current.forwardedCount,
           backwardCount: trackingDataRef.current.backwardCount,
-          title: video?.title || '',
-          thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
-          video_url: video?.videoUrl || video?.video_url || '',
+          title: activeVid?.title || '',
+          thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
+          video_url: activeVid?.videoUrl || activeVid?.video_url || '',
           device_type: getDeviceType(),
           platform: getPlatform(),
           started_at: sessionStartedAtRef.current,
           ended_at: new Date().toISOString(),
-          watch_duration_sec: deltaWatchTime,
+          watch_duration_sec: deltaWatchTime > 0 ? deltaWatchTime : pos,
           video_duration_sec: dur,
-          status: Math.min(100, Math.round((pos / dur) * 100)) >= 90,
-          staus: Math.min(100, Math.round((pos / dur) * 100)) >= 90,
-          completion_percentage: Math.min(100, Math.round((pos / dur) * 100)),
+          status: isComplete,
+          staus: isComplete,
+          completion_percentage: compPercent,
           playback_speed: playbackSpeed,
           quality: quality,
           ip_address: ipAddress
         });
-        // Reset watchTime to prevent duplicate calls on unmount
+        
         trackingDataRef.current.watchTime = 0;
         trackingDataRef.current.isNewSession = false;
       } catch (e) {
         console.error("Failed to track video progress", e);
+      }
+    }
+  };
+
+  const handleNavigateToVideo = async (targetVideo, courseObj = location.state?.course) => {
+    if (isChapterLocked(targetVideo, courseObj)) {
+      showUpgradeAlert('Need to upgrade your plan');
+      return;
+    }
+
+    await saveProgress(true);
+
+    const activeVid = videoRefData.current || video || location.state?.video;
+    const activeCourse = location.state?.course;
+    const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? 0;
+    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? 0;
+    const vidId = idRef.current || id || activeVid?.id;
+
+    if ((currentTimeRef.current >= 1 || trackingDataRef.current.watchTime >= 1) && vidId) {
+      try {
+        await api.dashboard.getUser('watchHistory', { 
+          id: vidId,
+          title: activeVid?.title || '',
+          thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
+          video_url: activeVid?.videoUrl || activeVid?.video_url || '',
+          course_id: cId,
+          chapter_id: chapId,
+          completion_percentage: Math.min(100, Math.round(((currentTimeRef.current || 1) / (duration || 300)) * 100))
+        });
+      } catch (err) {
+        console.error("Failed to register watchHistory on video switch", err);
+      }
+    }
+
+    trackingDataRef.current = { watchTime: 0, pausedCount: 0, forwardedCount: 0, backwardCount: 0, isNewSession: true };
+    currentTimeRef.current = 0;
+
+    const targetId = targetVideo.id || targetVideo.videoUrl || targetVideo.video_url;
+    navigate(`/watch/${targetId}`, { state: { video: targetVideo, course: courseObj, userPlan } });
+  };
+
+  const handleVideoEnded = async () => {
+    await saveProgress(true);
+
+    const activeVid = videoRefData.current || video || location.state?.video;
+    const activeCourse = location.state?.course;
+    const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? 0;
+    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? 0;
+    const vidId = idRef.current || id || activeVid?.id;
+
+    if (vidId) {
+      try {
+        await api.dashboard.getUser('watchHistory', { 
+          id: vidId,
+          title: activeVid?.title || '',
+          thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
+          video_url: activeVid?.videoUrl || activeVid?.video_url || '',
+          course_id: cId,
+          chapter_id: chapId,
+          completion_percentage: 100,
+          status: true,
+          staus: true
+        });
+      } catch (err) {
+        console.error("Failed to register video completion watchHistory", err);
+      }
+    }
+
+    const lessons = getCourseLessonsList(activeCourse);
+    if (lessons && lessons.length > 0) {
+      const currentIdx = lessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl));
+      if (currentIdx !== -1 && currentIdx + 1 < lessons.length) {
+        const nextLesson = lessons[currentIdx + 1];
+        if (!isChapterLocked(nextLesson, activeCourse)) {
+          setTimeout(() => {
+            handleNavigateToVideo(nextLesson, activeCourse);
+          }, 500);
+        }
       }
     }
   };
@@ -574,10 +660,6 @@ const VideoWatch = () => {
       }
       prevTimeRef.current = current;
     }
-  };
-
-  const handleVideoEnded = () => {
-    saveProgress();
   };
 
   function formatTime(timeInSeconds) {
@@ -1153,13 +1235,7 @@ const VideoWatch = () => {
                     return (
                       <div 
                         key={idx}
-                        onClick={() => {
-                          if (isLocked) {
-                            showUpgradeAlert('Need to upgrade your plan');
-                            return;
-                          }
-                          navigate(`/watch/${lesson.id || idx}`, { state: { video: lesson, course: location.state.course, userPlan } });
-                        }}
+                        onClick={() => handleNavigateToVideo(lesson, location.state?.course)}
                         style={{
                           display: 'flex',
                           gap: '12px',
@@ -1310,11 +1386,7 @@ const VideoWatch = () => {
                     }} onClick={() => {
                       const nextIdx = completedCount + 1;
                       const nextLesson = courseLessons[nextIdx];
-                      if (isChapterLocked(nextLesson, location.state?.course)) {
-                        showUpgradeAlert('Need to upgrade your plan');
-                        return;
-                      }
-                      navigate(`/watch/${nextLesson.id || nextIdx}`, { state: { video: nextLesson, course: location.state.course, userPlan } });
+                      handleNavigateToVideo(nextLesson, location.state?.course);
                     }}>
                       <div style={{ width: '70px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
                         <img 
@@ -1372,13 +1444,7 @@ const VideoWatch = () => {
               recommendations.map(rec => (
                 <div 
                   key={rec.id} 
-                  onClick={() => {
-                    if (isChapterLocked(rec)) {
-                      showUpgradeAlert('Need to upgrade your plan');
-                      return;
-                    }
-                    navigate(`/watch/${rec.id}`, { state: { video: rec, userPlan } });
-                  }}
+                  onClick={() => handleNavigateToVideo(rec, null)}
                   style={{
                     display: 'flex',
                     gap: '12px',

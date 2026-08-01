@@ -60,5 +60,6 @@
 - [x] Remove static fallback arrays from report tables and display "No details available" when API returns empty array
 - [x] Replace export browser alert popups with login-style custom modal popup overlay displaying "No details available"
 - [x] Pass `course_id` and `chapter_id` from user dashboard/courses in `vdUser` API payloads (`watchHistory` & `watchsession`) when watching course chapters or switching videos halfway
+- [x] Fix course playlist lesson navigation so API calls (`watchsession` & `watchHistory`) trigger reliably for all videos in a course
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
