@@ -357,7 +357,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         format: format
       });
 
-      const filename = `${adminReportType}_report_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'csv' : format}`;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `${adminReportType}_report_${dateStr}.${format === 'pdf' ? 'pdf' : (format === 'excel' ? 'csv' : 'csv')}`;
 
       if (typeof res === 'string' && (res.startsWith('http://') || res.startsWith('https://') || res.startsWith('data:'))) {
         const link = document.createElement('a');
@@ -399,13 +400,56 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       const exportList = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : adminReportData);
       if (exportList && exportList.length > 0) {
+        if (format === 'pdf') {
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            const reportTitle = adminReportType.replace(/_/g, ' ').toUpperCase();
+            const tableHeadersHTML = Object.keys(exportList[0] || {}).map(h => `<th style="border:1px solid #ddd;padding:8px;background:#f2f2f2;text-align:left;">${h.replace(/_/g, ' ').toUpperCase()}</th>`).join('');
+            const tableRowsHTML = exportList.map(row => 
+              `<tr>${Object.values(row).map(val => `<td style="border:1px solid #ddd;padding:8px;">${String(val ?? '')}</td>`).join('')}</tr>`
+            ).join('');
+
+            printWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>${reportTitle} - Report</title>
+                  <style>
+                    body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
+                    h1 { color: #6366f1; margin-bottom: 5px; }
+                    p { color: #666; font-size: 13px; margin-bottom: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+                    @media print { body { margin: 0; } }
+                  </style>
+                </head>
+                <body>
+                  <h1>${reportTitle} REPORT</h1>
+                  <p>Generated on ${new Date().toLocaleString()}</p>
+                  <table>
+                    <thead><tr>${tableHeadersHTML}</tr></thead>
+                    <tbody>${tableRowsHTML}</tbody>
+                  </table>
+                  <script>
+                    window.onload = function() { window.print(); };
+                  </script>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+            return;
+          }
+        }
+
         const headers = Object.keys(exportList[0] || {}).join(',');
         const rows = exportList.map(row => 
           Object.values(row).map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(',')
         ).join('\n');
-        const csvContent = `${headers}\n${rows}`;
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const isExcel = format === 'excel';
+        const csvContent = isExcel ? `\uFEFF${headers}\n${rows}` : `${headers}\n${rows}`;
+        const mimeType = isExcel ? 'application/vnd.ms-excel;charset=utf-8;' : 'text/csv;charset=utf-8;';
+
+        const blob = new Blob([csvContent], { type: mimeType });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url;
@@ -1625,7 +1669,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
                 Export Excel
               </button>
-              <button onClick={() => alert("PDF report is preparing... (Simulated)")} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+              <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
                 Export PDF
               </button>
             </div>

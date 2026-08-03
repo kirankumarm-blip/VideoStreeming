@@ -64,5 +64,7 @@
 - [x] Remove Daily, Weekly, and Monthly Reports sub-items from Admin Dashboard menu and make Reports button navigate directly to Reports page
 - [x] Change Admin Reports top heading label from "rep export" to "Reports"
 - [x] Add Export CSV, Export Excel, and Export PDF buttons to Admin Reports page calling `/vdadmin/report` with `type: 'Report'`
+- [x] Remove simulated browser popup alert from top header Export PDF button in Admin Dashboard
+- [x] Enable real Excel (`application/vnd.ms-excel`) download and PDF (`window.print()` / PDF printable view) generation for Admin Reports
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
