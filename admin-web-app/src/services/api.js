@@ -731,6 +731,13 @@ export const api = {
     }
   },
   reports: {
+    getAdminReport: (formstep = 'course_analytics', payload = {}) => {
+      return request('/admin/report', {
+        method: 'POST',
+        body: JSON.stringify({ formstep, ...payload }),
+        expectArray: true
+      });
+    },
     getSuperAdminReport: (formstep = 'user_activity', payload = {}) => {
       return request('/superadmin/report', {
         method: 'POST',

@@ -317,6 +317,37 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   }, []);
 
+  // Admin Reports state
+  const [adminReportType, setAdminReportType] = useState('course_analytics');
+  const [adminReportData, setAdminReportData] = useState([]);
+  const [adminReportLoading, setAdminReportLoading] = useState(false);
+
+  const fetchAdminReport = async (reportType = adminReportType) => {
+    setAdminReportLoading(true);
+    try {
+      const res = await api.reports.getAdminReport(reportType);
+      if (Array.isArray(res)) {
+        setAdminReportData(res);
+      } else if (res && Array.isArray(res.data)) {
+        setAdminReportData(res.data);
+      } else if (res && typeof res === 'object') {
+        const arrKey = Object.keys(res).find(k => Array.isArray(res[k]));
+        if (arrKey) {
+          setAdminReportData(res[arrKey]);
+        } else {
+          setAdminReportData([]);
+        }
+      } else {
+        setAdminReportData([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin report", err);
+      setAdminReportData([]);
+    } finally {
+      setAdminReportLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchDashboardData('overview');
@@ -350,8 +381,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'rep_export') {
       fetchTransactions();
+      fetchAdminReport(adminReportType);
     }
-  }, [activeTab, selectedAdminId]);
+  }, [activeTab, selectedAdminId, adminReportType]);
 
   useEffect(() => {
     if (showUserModal) {
@@ -1284,11 +1316,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     {
       title: 'Reports',
       icon: '📂',
-      items: [
-        { id: 'rep_daily', label: 'Daily Reports' },
-        { id: 'rep_weekly', label: 'Weekly Reports' },
-        { id: 'rep_monthly', label: 'Monthly Reports' }
-      ]
+      items: []
     },
     {
       title: 'Settings',
@@ -1419,13 +1447,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
         {menuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
-          const isSelected = isDashboard && activeTab === 'overview';
+          const isReports = section.title === 'Reports';
+          const isSelected = (isDashboard && activeTab === 'overview') || (isReports && activeTab === 'rep_export');
           return (
             <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
               <button 
                 onClick={() => {
                   if (isDashboard) {
                     setActiveTab('overview');
+                    setError('');
+                    setUploadSuccess('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else if (isReports) {
+                    setActiveTab('rep_export');
                     setError('');
                     setUploadSuccess('');
                     if (isSidebarOpen && toggleSidebar) {
@@ -1462,7 +1498,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <span style={{ fontSize: '16px' }}>{section.icon}</span>
                   <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
                 </span>
-                {!isDashboard && (
+                {!isDashboard && !isReports && (
                   <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
                 )}
               </button>
@@ -3149,28 +3185,134 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               </div>
             )}
 
-            {/* --- EXPORT CENTRE & PAYMENTS --- */}
+            {/* --- EXPORT CENTRE & REPORTS --- */}
             {activeTab === 'rep_export' && (
               <div className="animate-fade-in glass-card">
-                <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Transaction History & Refund Management</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>Reports</h2>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                      Select a report type to view detailed analytics and performance metrics.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label htmlFor="report-select" style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Report:
+                    </label>
+                    <select
+                      id="report-select"
+                      name="report"
+                      value={adminReportType}
+                      onChange={(e) => setAdminReportType(e.target.value)}
+                      style={{
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        minWidth: '220px',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="course_analytics">Course Analytics</option>
+                      <option value="engagement_analytics">Content Engagement</option>
+                      <option value="user_analytics">User Activity Log</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="table-container">
-                  <PaginatedTable
-                    headers={['Transaction ID', 'User', 'Amount', 'Status']}
-                    data={transactions || []}
-                    emptyMessage="No transaction logs recorded"
-                    renderRow={(tx, i) => (
-                      <tr key={tx.id || i}>
-                        <td><code>{tx.id}</code></td>
-                        <td style={{ fontWeight: 600 }}>{tx.userName}</td>
-                        <td>₹{tx.amount}</td>
-                        <td>
-                          <span className={`badge ${tx.status === 'success' ? 'badge-active' : 'badge-disabled'}`}>
-                            {String(tx.status || '').toUpperCase()}
-                          </span>
-                        </td>
-                      </tr>
-                    )}
-                  />
+                  {adminReportType === 'course_analytics' && (
+                    <PaginatedTable
+                      headers={['Course', 'Enrolled', 'Completed', 'Completion %', 'Avg Time', 'Drop-off', 'Status']}
+                      data={adminReportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {item.course_name || item.course || item.courseName || item.title || 'N/A'}
+                          </td>
+                          <td>{item.enrolled ?? item.enrolled_count ?? item.enrolledCount ?? item.total_enrolled ?? 0}</td>
+                          <td>{item.completed_count ?? item.completed ?? item.completedCount ?? 0}</td>
+                          <td>
+                            {(() => {
+                              const val = item.complete_percentage ?? item.completion_percentage ?? item.completionPercentage ?? 0;
+                              const str = String(val).trim();
+                              if (str.endsWith('%')) return str;
+                              const num = parseFloat(str);
+                              return isNaN(num) ? str : `${Math.round(num)}%`;
+                            })()}
+                          </td>
+                          <td>{item.avg_watch_time || item.avg_time || item.avgWatchTime || '0m'}</td>
+                          <td>{item.drop_off || item.drop_off_rate || item.dropOff || '0%'}</td>
+                          <td>
+                            <span className={`badge ${String(item.status || '').toLowerCase() === 'inactive' ? 'badge-disabled' : 'badge-active'}`}>
+                              {String(item.status || 'Active').toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
+                    />
+                  )}
+
+                  {adminReportType === 'engagement_analytics' && (
+                    <PaginatedTable
+                      headers={['Course', 'Views', 'Watch Time', 'Avg Completion', 'Most Viewed Video', 'Least Viewed Video', 'Downloads']}
+                      data={adminReportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {item.course_name || item.course || item.courseName || item.title || 'N/A'}
+                          </td>
+                          <td>{item.views ?? item.total_views ?? item.views_count ?? 0}</td>
+                          <td>{item.watch_time || item.watchTime || item.total_watch_time || '0m'}</td>
+                          <td>
+                            {(() => {
+                              const val = item.complete_percentage ?? item.avg_completion ?? item.completion_percentage ?? 0;
+                              const str = String(val).trim();
+                              if (str.endsWith('%')) return str;
+                              const num = parseFloat(str);
+                              return isNaN(num) ? str : `${Math.round(num)}%`;
+                            })()}
+                          </td>
+                          <td>{item.most_viewed || item.most_viewed_video || item.mostViewedVideo || 'N/A'}</td>
+                          <td>{item.least_viewed || item.least_viewed_video || item.leastViewedVideo || 'N/A'}</td>
+                          <td>{item.downloads ?? item.download_count ?? item.total_downloads ?? 0}</td>
+                        </tr>
+                      )}
+                    />
+                  )}
+
+                  {adminReportType === 'user_analytics' && (
+                    <PaginatedTable
+                      headers={['User', 'Login Frequency', 'Last Login', 'Avg Session', 'Watch Time', 'Course Completed', 'Incomplete Course', 'Last Accessed Course', 'Status']}
+                      data={adminReportData || []}
+                      emptyMessage="No details available"
+                      renderRow={(item, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {item.user_name || item.user || item.userName || item.name || 'N/A'}
+                          </td>
+                          <td>{item.login_frequency || item.loginFrequency || item.frequency || '0'}</td>
+                          <td>{item.last_login || item.lastLogin || item.last_login_at || 'N/A'}</td>
+                          <td>{item.avg_session || item.avgSession || item.avg_session_duration || '0m'}</td>
+                          <td>{item.watch_time || item.watchTime || item.total_watch_time || '0m'}</td>
+                          <td>{item.course_completed ?? item.courses_completed ?? item.completed_courses ?? 0}</td>
+                          <td>{item.incomplete_course ?? item.incomplete_courses ?? item.courses_in_progress ?? 0}</td>
+                          <td>{item.last_accessed_course || item.lastAccessedCourse || item.recent_course || 'N/A'}</td>
+                          <td>
+                            <span className={`badge ${String(item.status || '').toLowerCase() === 'inactive' ? 'badge-disabled' : 'badge-active'}`}>
+                              {String(item.status || 'Active').toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
+                    />
+                  )}
                 </div>
               </div>
             )}

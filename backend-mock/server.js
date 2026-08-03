@@ -1158,6 +1158,140 @@ app.get('/api/reports/admin', authenticateToken, authorizeRoles('admin'), (req, 
   });
 });
 
+app.all(['/api/admin/report', '/vdadmin/report', '/api/vdadmin/report'], (req, res) => {
+  const body = req.body || {};
+  const formstep = body.formstep || req.query.formstep || 'course_analytics';
+
+  if (formstep === 'course_analytics') {
+    return res.json([
+      {
+        course_name: 'Java Fundamentals & OOP',
+        enrolled: 1420,
+        completed_count: 980,
+        complete_percentage: '69%',
+        avg_watch_time: '4h 15m',
+        drop_off: '12%',
+        status: 'Active'
+      },
+      {
+        course_name: 'React 18 Masterclass',
+        enrolled: 2100,
+        completed_count: 1750,
+        complete_percentage: '83%',
+        avg_watch_time: '6h 40m',
+        drop_off: '8%',
+        status: 'Active'
+      },
+      {
+        course_name: 'Spring Boot Microservices',
+        enrolled: 890,
+        completed_count: 540,
+        complete_percentage: '60%',
+        avg_watch_time: '5h 10m',
+        drop_off: '18%',
+        status: 'Active'
+      },
+      {
+        course_name: 'Python for Data Science',
+        enrolled: 1650,
+        completed_count: 1210,
+        complete_percentage: '73%',
+        avg_watch_time: '3h 50m',
+        drop_off: '15%',
+        status: 'Active'
+      }
+    ]);
+  } else if (formstep === 'engagement_analytics') {
+    return res.json([
+      {
+        course_name: 'Java Fundamentals & OOP',
+        views: 12450,
+        watch_time: '185h 30m',
+        complete_percentage: '74%',
+        most_viewed: 'OOP Concepts & Inheritance',
+        least_viewed: 'Generics & Wildcards',
+        downloads: 320
+      },
+      {
+        course_name: 'React 18 Masterclass',
+        views: 28900,
+        watch_time: '412h 15m',
+        complete_percentage: '86%',
+        most_viewed: 'UseState & UseEffect Hooks',
+        least_viewed: 'Custom Hooks Deep Dive',
+        downloads: 850
+      },
+      {
+        course_name: 'Spring Boot Microservices',
+        views: 9400,
+        watch_time: '130h 45m',
+        complete_percentage: '62%',
+        most_viewed: 'REST API Controller Setup',
+        least_viewed: 'Circuit Breaker Pattern',
+        downloads: 210
+      },
+      {
+        course_name: 'Python for Data Science',
+        views: 18200,
+        watch_time: '240h 10m',
+        complete_percentage: '78%',
+        most_viewed: 'Pandas DataFrames',
+        least_viewed: 'Scikit-learn Regressors',
+        downloads: 540
+      }
+    ]);
+  } else if (formstep === 'user_analytics') {
+    return res.json([
+      {
+        user_name: 'Rahul Sharma',
+        login_frequency: 'Daily (24 days/mo)',
+        last_login: '2026-08-03 10:15 AM',
+        avg_session: '42 min',
+        watch_time: '38h 20m',
+        course_completed: 4,
+        incomplete_course: 1,
+        last_accessed_course: 'React 18 Masterclass',
+        status: 'Active'
+      },
+      {
+        user_name: 'Priya Patel',
+        login_frequency: '3-4 times/week',
+        last_login: '2026-08-02 04:30 PM',
+        avg_session: '28 min',
+        watch_time: '22h 15m',
+        course_completed: 2,
+        incomplete_course: 2,
+        last_accessed_course: 'Java Fundamentals & OOP',
+        status: 'Active'
+      },
+      {
+        user_name: 'Amit Verma',
+        login_frequency: 'Weekly',
+        last_login: '2026-07-29 11:00 AM',
+        avg_session: '15 min',
+        watch_time: '9h 40m',
+        course_completed: 1,
+        incomplete_course: 3,
+        last_accessed_course: 'Python for Data Science',
+        status: 'Inactive'
+      },
+      {
+        user_name: 'Sneha Reddy',
+        login_frequency: 'Daily (28 days/mo)',
+        last_login: '2026-08-03 11:45 AM',
+        avg_session: '55 min',
+        watch_time: '64h 00m',
+        course_completed: 6,
+        incomplete_course: 0,
+        last_accessed_course: 'Spring Boot Microservices',
+        status: 'Active'
+      }
+    ]);
+  }
+
+  res.json([]);
+});
+
 // ================= NEW WORKSPACE & OVERHAUL ENDPOINTS =================
 
 // 1. Analytics Endpoints
