@@ -62,8 +62,7 @@
 - [x] Pass `course_id` and `chapter_id` from user dashboard/courses in `vdUser` API payloads (`watchHistory` & `watchsession`) when watching course chapters or switching videos halfway
 - [x] Fix course playlist lesson navigation so API calls (`watchsession` & `watchHistory`) trigger reliably for all videos in a course
 - [x] Remove Daily, Weekly, and Monthly Reports sub-items from Admin Dashboard menu and make Reports button navigate directly to Reports page
-- [x] Add select dropdown named `report` to Admin Reports page with Course Analytics, Content Engagement, and User Activity Log options
-- [x] Call `adminReport` API (`/vdadmin/report`) with formstep `course_analytics`, `engagement_analytics`, and `user_analytics`
-- [x] Map response keys to requested table headers for all 3 Admin report types
+- [x] Change Admin Reports top heading label from "rep export" to "Reports"
+- [x] Add Export CSV, Export Excel, and Export PDF buttons to Admin Reports page calling `/vdadmin/report` with `type: 'Report'`
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough

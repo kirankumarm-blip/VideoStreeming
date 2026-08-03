@@ -348,6 +348,84 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
+  const handleExport = async (format) => {
+    try {
+      setAdminReportLoading(true);
+      const res = await api.reports.getAdminReport(adminReportType, {
+        type: 'Report',
+        export_type: format,
+        format: format
+      });
+
+      const filename = `${adminReportType}_report_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'csv' : format}`;
+
+      if (typeof res === 'string' && (res.startsWith('http://') || res.startsWith('https://') || res.startsWith('data:'))) {
+        const link = document.createElement('a');
+        link.href = res;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
+      if (res && typeof res === 'object' && !Array.isArray(res) && (res.file_url || res.url || res.download_url || res.file || res.data_url)) {
+        const fileUrl = res.file_url || res.url || res.download_url || res.file || res.data_url;
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
+      if (typeof res === 'string' && res.trim().length > 0) {
+        let mimeType = 'text/csv;charset=utf-8;';
+        if (format === 'excel') mimeType = 'application/vnd.ms-excel;charset=utf-8;';
+        if (format === 'pdf') mimeType = 'application/pdf;';
+
+        const blob = new Blob([res], { type: mimeType });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const exportList = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : adminReportData);
+      if (exportList && exportList.length > 0) {
+        const headers = Object.keys(exportList[0] || {}).join(',');
+        const rows = exportList.map(row => 
+          Object.values(row).map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+        const csvContent = `${headers}\n${rows}`;
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      showError('No details available');
+    } catch (err) {
+      console.error("Failed to export report", err);
+      showError('No details available');
+    } finally {
+      setAdminReportLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchDashboardData('overview');
@@ -1244,27 +1322,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  // --- Export Reports ---
-  const handleExport = async (format) => {
-    try {
-      const data = await api.reports.getAdmin();
-      if (format === 'csv') {
-        const csvContent = data.exportData.csv;
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", "admin_report.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        alert(`Exporting admin popularity stats report in ${format.toUpperCase()} format...\n(Completed successfully!)`);
-      }
-    } catch (e) {
-      alert("Failed to export report");
-    }
-  };
+
 
 
   const menuStructure = [
@@ -1371,6 +1429,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (item) return item.label;
     }
     if (activeTab === 'users_all') return 'Users';
+    if (activeTab === 'rep_export') return 'Reports';
     return activeTab.replace(/_/g, ' ');
   };
 
@@ -3195,32 +3254,58 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       Select a report type to view detailed analytics and performance metrics.
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label htmlFor="report-select" style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      Report:
-                    </label>
-                    <select
-                      id="report-select"
-                      name="report"
-                      value={adminReportType}
-                      onChange={(e) => setAdminReportType(e.target.value)}
-                      style={{
-                        padding: '10px 16px',
-                        borderRadius: '8px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-primary)',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        minWidth: '220px',
-                        outline: 'none'
-                      }}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <label htmlFor="report-select" style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Report:
+                      </label>
+                      <select
+                        id="report-select"
+                        name="report"
+                        value={adminReportType}
+                        onChange={(e) => setAdminReportType(e.target.value)}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: '8px',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          minWidth: '200px',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="course_analytics">Course Analytics</option>
+                        <option value="engagement_analytics">Content Engagement</option>
+                        <option value="user_analytics">User Activity Log</option>
+                      </select>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => handleExport('csv')} 
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
                     >
-                      <option value="course_analytics">Course Analytics</option>
-                      <option value="engagement_analytics">Content Engagement</option>
-                      <option value="user_analytics">User Activity Log</option>
-                    </select>
+                      Export CSV
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleExport('excel')} 
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Export Excel
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleExport('pdf')} 
+                      className="btn btn-primary" 
+                      style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+                    >
+                      Export PDF
+                    </button>
                   </div>
                 </div>
 
