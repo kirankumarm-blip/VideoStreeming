@@ -70,6 +70,6 @@
 - [x] Change button text to Submit (with spinner loading indicator when pending)
 - [x] Call `resetPassword` API passing `email` and encrypted `password` in payload with `formstep: 'vdresetPassword'`
 - [x] Enable Google-style Remember Me credential storage (rememberedEmail & rememberedPassword) and HTML autocomplete attributes
-- [x] Implement 10-minute inactivity auto-logout listener across application with session expiration notification
+- [x] Reduce inactivity auto-logout timeout to 2 minutes for testing
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough

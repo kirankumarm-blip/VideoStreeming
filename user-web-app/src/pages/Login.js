@@ -58,7 +58,7 @@ const Login = ({ initialAuthMode }) => {
   useEffect(() => {
     if (sessionStorage.getItem('inactivityLoggedOut') === 'true') {
       sessionStorage.removeItem('inactivityLoggedOut');
-      showError('You have been automatically logged out due to 10 minutes of inactivity.');
+      showError('You have been automatically logged out due to 2 minutes of inactivity.');
     }
   }, []);
 
