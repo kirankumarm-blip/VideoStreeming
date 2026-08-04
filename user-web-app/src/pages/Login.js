@@ -219,29 +219,6 @@ const Login = ({ initialAuthMode }) => {
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-
-    try {
-      const res = await api.auth.forgotPassword(forgotEmail);
-      const msg = (res && res.message) ? res.message : 'Password reset instructions sent to your email.';
-      showSuccess(msg, () => {
-        setAuthMode('reset');
-        if (res && res.resetToken) {
-          setResetToken(res.resetToken);
-        } else {
-          setResetToken('RESET-MOCK-123');
-        }
-      });
-    } catch (err) {
-      showError(err.message || 'Failed to process forgot password request.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
 
     if (newPassword !== confirmPassword) {
       showError('Passwords do not match');
@@ -256,7 +233,7 @@ const Login = ({ initialAuthMode }) => {
     setLoading(true);
 
     try {
-      const res = await api.auth.resetPassword(forgotEmail, resetToken, newPassword);
+      const res = await api.auth.resetPassword(forgotEmail, newPassword);
       const msg = (res && res.message) ? res.message : 'Password reset successfully. Please login with your new password.';
       showSuccess(msg, () => {
         setAuthMode('login');
@@ -266,11 +243,13 @@ const Login = ({ initialAuthMode }) => {
         setConfirmPassword('');
       });
     } catch (err) {
-      showError(err.message || 'Failed to reset password. Please verify your token.');
+      showError(err.message || 'Failed to reset password. Please check your inputs.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResetSubmit = handleForgotSubmit;
 
   // Pre-fill email if remembered
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
@@ -511,49 +490,13 @@ const Login = ({ initialAuthMode }) => {
           </form>
         )}
 
-        {authMode === 'forgot' && (
+        {(authMode === 'forgot' || authMode === 'reset') && (
           <form onSubmit={handleForgotSubmit}>
-            <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>
-              {t('auth.forgotPassword')}
+            <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', textAlign: 'center', color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" }}>
+              {t('auth.forgotPassword') || 'Forgot Password'}
             </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '24px' }}>
-              {t('auth.forgotText')}
-            </p>
-
-            <div className="form-group">
-              <label className="form-label">{t('auth.emailAddress')}</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="name@example.com"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
-              {loading ? t('auth.sending') : t('auth.sendResetLink')}
-            </button>
-
-            <div style={{ textAlign: 'center', fontSize: '14px' }}>
-              <span 
-                onClick={() => { setAuthMode('login'); setError(''); setSuccessMessage(''); }}
-                style={{ color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
-              >
-                {t('auth.backToSignIn')}
-              </span>
-            </div>
-          </form>
-        )}
-
-        {authMode === 'reset' && (
-          <form onSubmit={handleResetSubmit}>
-            <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>
-              {t('auth.updatePassword')}
-            </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '24px' }}>
-              {t('auth.resetText')}
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '24px' }}>
+              Enter your email and new password to reset your account credentials.
             </p>
 
             <div className="form-group">
@@ -569,24 +512,12 @@ const Login = ({ initialAuthMode }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('auth.resetToken')}</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Enter token"
-                value={resetToken}
-                onChange={(e) => setResetToken(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{t('auth.newPassword')}</label>
+              <label className="form-label">{t('auth.newPassword') || 'New Password'}</label>
               <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
                 <input
                   type={showNewPassword ? "text" : "password"}
                   className="form-input"
-                  placeholder={t('auth.passwordMin')}
+                  placeholder={t('auth.passwordMin') || 'Minimum 6 characters'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   style={{ width: '100%', paddingRight: '50px' }}
@@ -609,6 +540,8 @@ const Login = ({ initialAuthMode }) => {
                     transition: 'color 0.2s',
                     outline: 'none'
                   }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-secondary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
                 >
                   {showNewPassword ? (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
@@ -625,12 +558,12 @@ const Login = ({ initialAuthMode }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('auth.confirmPassword')}</label>
+              <label className="form-label">{t('auth.confirmPassword') || 'Confirm New Password'}</label>
               <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   className="form-input"
-                  placeholder={t('auth.reenterPassword')}
+                  placeholder={t('auth.reenterPassword') || 'Re-enter new password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={{ width: '100%', paddingRight: '50px' }}
@@ -653,6 +586,8 @@ const Login = ({ initialAuthMode }) => {
                     transition: 'color 0.2s',
                     outline: 'none'
                   }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-secondary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
                 >
                   {showConfirmPassword ? (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
@@ -669,7 +604,15 @@ const Login = ({ initialAuthMode }) => {
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
-              {loading ? t('auth.resetting') : t('auth.updatePassword')}
+              {loading ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <svg style={{ animation: 'spin 1s linear infinite', width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none">
+                    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting...
+                </span>
+              ) : 'Submit'}
             </button>
 
             <div style={{ textAlign: 'center', fontSize: '14px' }}>

@@ -65,6 +65,9 @@
 - [x] Change Admin Reports top heading label from "rep export" to "Reports"
 - [x] Add Export CSV, Export Excel, and Export PDF buttons to Admin Reports page calling `/vdadmin/report` with `type: 'Report'`
 - [x] Enable Forgot Password link on User Login page
-- [x] Implement Reset Password page with API integration, show/hide password toggles, and dedicated route support (`/forgot-password`, `/reset-password`)
+- [x] Include Email, New Password (with show/hide icon), and Confirm New Password (with show/hide icon) fields in Forgot Password form
+- [x] Add password matching validation showing custom popup alert if passwords do not match
+- [x] Change button text to Submit (with spinner loading indicator when pending)
+- [x] Call `resetPassword` API passing `email` and encrypted `password` in payload
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough

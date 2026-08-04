@@ -1,27 +1,33 @@
-# Walkthrough - User Forgot Password & Reset Password Flow
+# Walkthrough - User Forgot Password Unified 3-Field Form & Reset API Integration
 
-We have enabled the **Forgot Password** link on the `user-web-app` login page and created a seamless **Reset Password** page flow with backend API integration (`/vdauth/forgot-password` and `/vdauth/reset-password`), password encryption, show/hide password toggles, and dedicated client-side routes.
+We have updated the **Forgot Password** screen in `user-web-app` to feature a unified 3-field form (**Email Address**, **New Password**, and **Confirm New Password**), show/hide password toggle icons inside textfields, password matching validation matching `Signup.js`, a **Submit** button, and direct `api.auth.resetPassword` API integration.
 
 ---
 
-## 0. User Forgot Password & Reset Password Features
+## 0. User Forgot Password Refactoring
 
-- **Login Page Link ([Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/Login.js))**:
-  - Added a clickable **"Forgot Password?"** link on the login screen alongside the "Remember me" checkbox.
-  - Clicking "Forgot Password?" transitions the view to the **Forgot Password** screen (`authMode = 'forgot'`).
-- **Forgot Password Form**:
-  - Accepts user email address and submits request to `api.auth.forgotPassword(email)` (`/vdauth/forgot-password` with `formstep: 'forgotPassword'`).
-  - Displays a custom success overlay modal popup stating *"Reset instructions sent successfully to your email. Please check your inbox."* and automatically navigates to the **Reset Password** screen (`authMode = 'reset'`).
-- **Reset Password Page**:
-  - Contains fields for **Email Address**, **Reset Token**, **New Password**, and **Confirm New Password**.
-  - Added show/hide password toggle buttons for both password fields.
-  - Submits payload to `api.auth.resetPassword(email, resetToken, newPassword)` (`/vdauth/reset-password` with `formstep: 'resetPassword'`).
-  - Validates password length (minimum 6 characters) and matching confirmation password; shows custom modal error popup if invalid.
-  - Displays custom success overlay modal popup stating *"Password reset successfully. Please login with your new password."* and transitions back to the Login screen.
-- **Dedicated Route Support ([App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/App.js))**:
-  - Registered `/forgot-password` and `/reset-password` routes so direct URL navigation (`/#/forgot-password` or `/#/reset-password`) automatically opens the appropriate auth screen.
-- **Backend Mock Handlers ([server.js](file:///c:/Users/axxonet/Desktop/videoStreeming/backend-mock/server.js))**:
-  - Added mock endpoints `/api/auth/forgot-password`, `/vdauth/forgot-password`, `/api/auth/reset-password`, and `/vdauth/reset-password`.
+- **3-Field Form Layout ([Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/Login.js))**:
+  - **Email Address** field
+  - **New Password** field with show/hide eye toggle button inside the textfield (same SVG icon style as Login page)
+  - **Confirm New Password** field with show/hide eye toggle button inside the textfield
+- **Validation**:
+  - Validates `newPassword === confirmPassword`. If passwords do not match, displays the custom modal popup alert: `showError('Passwords do not match')`.
+  - Validates minimum password length (6 characters); displays `showError('Password must be at least 6 characters long')` if invalid.
+- **Button & Loading State**:
+  - Button text set to **Submit**.
+  - Displays a custom rotating loading spinner and text `Submitting...` while the API request is pending.
+- **API Call & Payload ([api.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/services/api.js))**:
+  - Clicking **Submit** calls `api.auth.resetPassword(email, newPassword)` (`/vdauth/reset-password` endpoint).
+  - Sends payload containing:
+    ```json
+    {
+      "email": "user@example.com",
+      "password": "<encrypted_password>",
+      "newPassword": "<encrypted_password>",
+      "formstep": "resetPassword"
+    }
+    ```
+  - On 200 OK success, displays custom modal popup stating *"Password reset successfully. Please login with your new password."* and transitions back to the Login screen.
 
 ---
 
@@ -30,4 +36,4 @@ We have enabled the **Forgot Password** link on the `user-web-app` login page an
 - Both frontend dev servers compiled clean with **0 errors**:
   - `user-web-app` running on `http://localhost:3001`
   - `admin-web-app` running on `http://localhost:3002`
-- Verified clicking "Forgot Password?" opens the reset request view, sending reset requests transitions to the Reset Password page, and resetting password completes with success modal popups.
+- Verified entering mismatched passwords triggers the error modal, and valid submission calls `api.auth.resetPassword` with `email` & `password` payload.

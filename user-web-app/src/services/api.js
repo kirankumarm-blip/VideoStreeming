@@ -365,15 +365,13 @@ export const api = {
         body: JSON.stringify({ email, formstep: 'forgotPassword' }),
       });
     },
-    resetPassword: (email, resetToken, newPassword) => {
+    resetPassword: (email, newPassword) => {
       return request('/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({ 
           email, 
-          resetToken, 
-          token: resetToken, 
-          newPassword: encryptPayload(newPassword), 
           password: encryptPayload(newPassword),
+          newPassword: encryptPayload(newPassword),
           formstep: 'resetPassword' 
         }),
       });
