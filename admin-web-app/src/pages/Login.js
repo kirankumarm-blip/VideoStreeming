@@ -113,8 +113,10 @@ const Login = () => {
 
         if (rememberMe) {
           localStorage.setItem('rememberedEmail', email);
+          localStorage.setItem('rememberedPassword', btoa(password));
         } else {
           localStorage.removeItem('rememberedEmail');
+          localStorage.removeItem('rememberedPassword');
         }
 
         setTempLoginData(res);
@@ -246,14 +248,22 @@ const Login = () => {
     }, 1200);
   };
 
-  // Pre-fill email if remembered
+  // Pre-fill email and password if remembered
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   React.useEffect(() => {
     const savedEmail = localStorage.getItem('rememberedEmail');
+    const savedPassword = localStorage.getItem('rememberedPassword');
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberMe(true);
+    }
+    if (savedPassword) {
+      try {
+        setPassword(atob(savedPassword));
+      } catch (e) {
+        setPassword(savedPassword);
+      }
     }
   }, []);
 
@@ -316,7 +326,7 @@ const Login = () => {
       {/* Auth Form Overlay Container */}
       <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10 }}>
         {authMode === 'login' && (
-          <form onSubmit={handleLoginSubmit}>
+          <form onSubmit={handleLoginSubmit} autoComplete="on">
             <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px', textAlign: 'center', color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" }}>
               Welcome Back! 👋
             </h2>
@@ -328,6 +338,9 @@ const Login = () => {
               <label className="form-label">{t('auth.emailAddress')}</label>
               <input
                 type="email"
+                id="username"
+                name="username"
+                autoComplete="username"
                 className="form-input"
                 placeholder={t('auth.enterEmail')}
                 value={email}
@@ -341,6 +354,9 @@ const Login = () => {
               <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
                 <input
                   type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
                   className="form-input"
                   placeholder={t('auth.enterPassword')}
                   value={password}

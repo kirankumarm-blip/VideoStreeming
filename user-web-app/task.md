@@ -69,6 +69,6 @@
 - [x] Add password matching validation showing custom popup alert if passwords do not match
 - [x] Change button text to Submit (with spinner loading indicator when pending)
 - [x] Call `resetPassword` API passing `email` and encrypted `password` in payload with `formstep: 'vdresetPassword'`
-- [x] Remove duplicate `formStep` key from `resetPassword` API payload
+- [x] Enable Google-style Remember Me credential storage (rememberedEmail & rememberedPassword) and HTML autocomplete attributes
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
