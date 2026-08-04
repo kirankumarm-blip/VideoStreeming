@@ -245,6 +245,22 @@ app.post('/api/auth/change-password', authenticateToken, (req, res) => {
   res.json({ message: "Password updated successfully" });
 });
 
+app.all(['/api/auth/forgot-password', '/vdauth/forgot-password', '/vdforgot-password'], (req, res) => {
+  const { email } = req.body || {};
+  return res.json({
+    status: 200,
+    message: `Password reset instructions sent to ${email || 'email'}. Use reset token: RESET-MOCK-123`,
+    resetToken: "RESET-MOCK-123"
+  });
+});
+
+app.all(['/api/auth/reset-password', '/vdauth/reset-password', '/vdreset-password'], (req, res) => {
+  return res.json({
+    status: 200,
+    message: "Password reset successfully. Please login with your new password."
+  });
+});
+
 app.get('/api/auth/profile', authenticateToken, (req, res) => {
   res.json({
     id: req.user.id,

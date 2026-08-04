@@ -37,8 +37,8 @@ const AppLayout = ({ theme, setTheme }) => {
   const user = getCurrentUser();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Hide global navigation on Login / Signup screens
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
+  // Hide global navigation on Login / Signup / Reset Password screens
+  const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => !prev);
@@ -77,6 +77,8 @@ const AppLayout = ({ theme, setTheme }) => {
           <Routes>
           {/* Public Authentication routes */}
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <Login initialAuthMode="forgot" />} />
+          <Route path="/reset-password" element={user ? <Navigate to="/" replace /> : <Login initialAuthMode="reset" />} />
           <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
 
           {/* Protected routes */}

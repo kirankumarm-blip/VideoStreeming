@@ -359,6 +359,25 @@ export const api = {
         body: JSON.stringify({ oldPassword, newPassword }),
       });
     },
+    forgotPassword: (email) => {
+      return request('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email, formstep: 'forgotPassword' }),
+      });
+    },
+    resetPassword: (email, resetToken, newPassword) => {
+      return request('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          email, 
+          resetToken, 
+          token: resetToken, 
+          newPassword: encryptPayload(newPassword), 
+          password: encryptPayload(newPassword),
+          formstep: 'resetPassword' 
+        }),
+      });
+    },
     getProfile: () => request('/auth/profile'),
     updateProfile: (formData) => {
       return request('/auth/profile', {

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 
-const Login = () => {
+const Login = ({ initialAuthMode }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +22,8 @@ const Login = () => {
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [successMessage, setSuccessMessage] = useState('');
   
@@ -41,6 +44,16 @@ const Login = () => {
     buttonText: 'Continue',
     onConfirm: null
   });
+
+  useEffect(() => {
+    if (initialAuthMode) {
+      setAuthMode(initialAuthMode);
+    } else if (location.pathname === '/forgot-password') {
+      setAuthMode('forgot');
+    } else if (location.pathname === '/reset-password') {
+      setAuthMode('reset');
+    }
+  }, [initialAuthMode, location.pathname]);
 
   const showSuccess = (message, onConfirm = null) => {
     setCustomAlert({
@@ -203,18 +216,27 @@ const Login = () => {
     }
   };
 
-  const handleForgotSubmit = (e) => {
+  const handleForgotSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Simulate sending reset token (N8N API workflow simulation)
-    setTimeout(() => {
+    try {
+      const res = await api.auth.forgotPassword(forgotEmail);
+      const msg = (res && res.message) ? res.message : 'Password reset instructions sent to your email.';
+      showSuccess(msg, () => {
+        setAuthMode('reset');
+        if (res && res.resetToken) {
+          setResetToken(res.resetToken);
+        } else {
+          setResetToken('RESET-MOCK-123');
+        }
+      });
+    } catch (err) {
+      showError(err.message || 'Failed to process forgot password request.');
+    } finally {
       setLoading(false);
-      setSuccessMessage('A simulated password reset token was sent. Use token: "RESET-MOCK-123" to reset password.');
-      setAuthMode('reset');
-      setResetToken('RESET-MOCK-123'); // Autofill for user convenience
-    }, 1200);
+    }
   };
 
   const handleResetSubmit = async (e) => {
@@ -222,25 +244,32 @@ const Login = () => {
     setError('');
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      showError('Passwords do not match');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+      showError('Password must be at least 6 characters long');
       return;
     }
 
     setLoading(true);
 
-    // Simulate updating password via API
-    setTimeout(() => {
+    try {
+      const res = await api.auth.resetPassword(forgotEmail, resetToken, newPassword);
+      const msg = (res && res.message) ? res.message : 'Password reset successfully. Please login with your new password.';
+      showSuccess(msg, () => {
+        setAuthMode('login');
+        setEmail(forgotEmail);
+        setPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      });
+    } catch (err) {
+      showError(err.message || 'Failed to reset password. Please verify your token.');
+    } finally {
       setLoading(false);
-      setSuccessMessage('Password reset successfully. Please login with your new password.');
-      setAuthMode('login');
-      setEmail(forgotEmail);
-      setPassword('');
-    }, 1200);
+    }
   };
 
   // Pre-fill email if remembered
@@ -379,7 +408,35 @@ const Login = () => {
               </div>
             </div>
 
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                />
+                Remember me
+              </label>
 
+              <span
+                onClick={() => {
+                  setAuthMode('forgot');
+                  setForgotEmail(email);
+                  setError('');
+                  setSuccessMessage('');
+                }}
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--accent-primary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'none'
+                }}
+              >
+                {t('auth.forgotPassword') || 'Forgot Password?'}
+              </span>
+            </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}
@@ -500,6 +557,18 @@ const Login = () => {
             </p>
 
             <div className="form-group">
+              <label className="form-label">{t('auth.emailAddress')}</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="name@example.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
               <label className="form-label">{t('auth.resetToken')}</label>
               <input
                 type="text"
@@ -513,26 +582,90 @@ const Login = () => {
 
             <div className="form-group">
               <label className="form-label">{t('auth.newPassword')}</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder={t('auth.passwordMin')}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  className="form-input"
+                  placeholder={t('auth.passwordMin')}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  style={{ width: '100%', paddingRight: '50px' }}
+                  required
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
+                    transition: 'color 0.2s',
+                    outline: 'none'
+                  }}
+                >
+                  {showNewPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.815 7.815 3 3m-3-3-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="form-group">
               <label className="form-label">{t('auth.confirmPassword')}</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder={t('auth.reenterPassword')}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="form-input"
+                  placeholder={t('auth.reenterPassword')}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ width: '100%', paddingRight: '50px' }}
+                  required
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
+                    transition: 'color 0.2s',
+                    outline: 'none'
+                  }}
+                >
+                  {showConfirmPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.815 7.815 3 3m-3-3-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" style={{ width: '20px', height: '20px' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
