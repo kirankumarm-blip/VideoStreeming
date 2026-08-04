@@ -372,8 +372,7 @@ export const api = {
           email, 
           password: encryptPayload(newPassword),
           newPassword: encryptPayload(newPassword),
-          formstep: 'vdresetPassword',
-          formStep: 'vdresetPassword'
+          formstep: 'vdresetPassword'
         }),
       });
     },
