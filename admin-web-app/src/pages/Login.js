@@ -64,6 +64,13 @@ const Login = () => {
     });
   };
 
+  useEffect(() => {
+    if (sessionStorage.getItem('inactivityLoggedOut') === 'true') {
+      sessionStorage.removeItem('inactivityLoggedOut');
+      showError('You have been automatically logged out due to 10 minutes of inactivity.');
+    }
+  }, []);
+
   // Server configuration states
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState(localStorage.getItem('serverUrl') || 'http://localhost:5000/api');

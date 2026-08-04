@@ -7,7 +7,7 @@ import Signup from './pages/Signup';
 import UserDashboard from './pages/UserDashboard';
 import VideoWatch from './pages/VideoWatch';
 import Profile from './pages/Profile';
-import { getCurrentUser } from './services/api';
+import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
 // Route protection for authenticated users
@@ -39,6 +39,44 @@ const AppLayout = ({ theme, setTheme }) => {
   
   // Hide global navigation on Login / Signup / Reset Password screens
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
+
+  // 10 minutes inactivity auto-logout listener
+  useEffect(() => {
+    if (!user || isAuthPage) return;
+
+    const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
+    let timeoutId = null;
+
+    const performAutoLogout = () => {
+      sessionStorage.setItem('inactivityLoggedOut', 'true');
+      api.auth.logout();
+      window.location.hash = '/login';
+    };
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(performAutoLogout, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    
+    let lastActivityTime = Date.now();
+    const handleUserActivity = () => {
+      const now = Date.now();
+      if (now - lastActivityTime > 1000) {
+        lastActivityTime = now;
+        resetTimer();
+      }
+    };
+
+    activityEvents.forEach(event => window.addEventListener(event, handleUserActivity));
+    resetTimer();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      activityEvents.forEach(event => window.removeEventListener(event, handleUserActivity));
+    };
+  }, [user, isAuthPage]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => !prev);

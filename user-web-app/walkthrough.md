@@ -1,24 +1,31 @@
-# Walkthrough - Google-Style Remember Me Credential Storage & Autocomplete
+# Walkthrough - 10-Minute Inactivity Auto-Logout Implementation
 
-We have updated the **Remember Me** feature across the login pages (`user-web-app` & `admin-web-app`) to mirror Google's login experience with persistent credential storage and native browser Password Manager integration (`autoComplete="username"` & `autoComplete="current-password"`).
+We have added a global **10-minute inactivity auto-logout** listener across both `user-web-app` and `admin-web-app` to automatically log out users who have not interacted with the application for at least 10 minutes.
 
 ---
 
-## 0. Google-Style Remember Me Features
+## 0. Inactivity Auto-Logout Features
 
-- **Persistent Credential Storage ([user-web-app Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/Login.js) & [admin-web-app Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/admin-web-app/src/pages/Login.js))**:
-  - When **Remember me** is checked during login:
-    - Stores both `rememberedEmail` and `rememberedPassword` in `localStorage`.
-  - When opening/refreshing the login page:
-    - Automatically pre-fills both **Email Address** and **Password** fields.
-    - Sets the **Remember me** checkbox state to `checked` (`true`).
-  - If **Remember me** is unchecked during login:
-    - Clears stored credential keys (`rememberedEmail` & `rememberedPassword`) from `localStorage`.
-- **Native Browser Password Manager / Autocomplete Integration**:
-  - Added `autoComplete="on"` attribute to the `<form>` element.
-  - Added `id="username" name="username" autoComplete="username"` to the Email input field.
-  - Added `id="password" name="password" autoComplete="current-password"` to the Password input field.
-  - Enables Google Chrome, Edge, Safari, and Firefox Password Managers to prompt "Save password for this site?" and autofill credentials natively.
+- **Activity Event Listener ([user-web-app App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/App.js) & [admin-web-app App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/admin-web-app/src/App.js))**:
+  - Monitors real-time user interaction events across the window:
+    - `mousemove`
+    - `mousedown`
+    - `keydown`
+    - `scroll`
+    - `touchstart`
+    - `click`
+  - Throttles event handling (1-second minimum delta) to optimize performance.
+  - Automatically resets a **10-minute (600,000 ms)** inactivity timer whenever user interaction is detected.
+
+- **Auto-Logout Execution**:
+  - If no interaction occurs for at least 10 minutes:
+    - Executes `api.auth.logout()` to clear access tokens, refresh tokens, and session user objects.
+    - Sets a `sessionStorage` flag (`inactivityLoggedOut = 'true'`).
+    - Redirects the browser window to `/login`.
+
+- **Login Screen Notification ([Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/Login.js))**:
+  - When redirected to the login screen after inactivity, automatically displays a custom modal overlay alert:
+    > *"You have been automatically logged out due to 10 minutes of inactivity."*
 
 ---
 
@@ -27,4 +34,4 @@ We have updated the **Remember Me** feature across the login pages (`user-web-ap
 - Both frontend dev servers compiled clean with **0 errors**:
   - `user-web-app` running on `http://localhost:3001`
   - `admin-web-app` running on `http://localhost:3002`
-- Verified checking **Remember me** saves credentials and automatically restores both email and password on page reload.
+- Verified interaction resets the inactivity timer, and 10 minutes of complete inactivity triggers auto-logout and redirects to `/login` with custom popup notification.
