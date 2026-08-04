@@ -68,6 +68,6 @@
 - [x] Include Email, New Password (with show/hide icon), and Confirm New Password (with show/hide icon) fields in Forgot Password form
 - [x] Add password matching validation showing custom popup alert if passwords do not match
 - [x] Change button text to Submit (with spinner loading indicator when pending)
-- [x] Call `resetPassword` API passing `email` and encrypted `password` in payload
+- [x] Call `resetPassword` API passing `email` and encrypted `password` in payload with `formstep: 'vdresetPassword'`
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
