@@ -40,40 +40,66 @@ const AppLayout = ({ theme, setTheme }) => {
   // Hide global navigation on Login / Signup / Reset Password screens
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
 
-  // 2 minutes inactivity auto-logout listener (Testing)
+  // 2 minutes inactivity auto-logout listener with Cross-Tab Sync (Testing)
   useEffect(() => {
     if (!user || isAuthPage) return;
 
     const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes in milliseconds for testing
     let timeoutId = null;
 
-    const performAutoLogout = () => {
-      sessionStorage.setItem('inactivityLoggedOut', 'true');
-      api.auth.logout();
-      window.location.hash = '/login';
+    const checkAndPerformAutoLogout = () => {
+      const lastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
+      const timeSinceLastActivity = Date.now() - lastActivity;
+
+      if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
+        sessionStorage.setItem('inactivityLoggedOut', 'true');
+        api.auth.logout();
+        window.location.hash = '/login';
+      } else {
+        const remainingTime = INACTIVITY_TIMEOUT_MS - timeSinceLastActivity;
+        timeoutId = setTimeout(checkAndPerformAutoLogout, remainingTime);
+      }
     };
 
     const resetTimer = () => {
+      const now = Date.now();
+      localStorage.setItem('lastUserActivity', now.toString());
+
       if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(performAutoLogout, INACTIVITY_TIMEOUT_MS);
+      timeoutId = setTimeout(checkAndPerformAutoLogout, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'lastUserActivity') {
+        if (timeoutId) clearTimeout(timeoutId);
+        const lastActivity = parseInt(e.newValue || '0', 10);
+        const remainingTime = INACTIVITY_TIMEOUT_MS - (Date.now() - lastActivity);
+        if (remainingTime > 0) {
+          timeoutId = setTimeout(checkAndPerformAutoLogout, remainingTime);
+        } else {
+          checkAndPerformAutoLogout();
+        }
+      }
     };
 
     const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     
-    let lastActivityTime = Date.now();
+    let lastEventTime = Date.now();
     const handleUserActivity = () => {
       const now = Date.now();
-      if (now - lastActivityTime > 1000) {
-        lastActivityTime = now;
+      if (now - lastEventTime > 1000) {
+        lastEventTime = now;
         resetTimer();
       }
     };
 
+    window.addEventListener('storage', handleStorageChange);
     activityEvents.forEach(event => window.addEventListener(event, handleUserActivity));
     resetTimer();
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
+      window.removeEventListener('storage', handleStorageChange);
       activityEvents.forEach(event => window.removeEventListener(event, handleUserActivity));
     };
   }, [user, isAuthPage]);

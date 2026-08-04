@@ -71,5 +71,6 @@
 - [x] Call `resetPassword` API passing `email` and encrypted `password` in payload with `formstep: 'vdresetPassword'`
 - [x] Enable Google-style Remember Me credential storage (rememberedEmail & rememberedPassword) and HTML autocomplete attributes
 - [x] Reduce inactivity auto-logout timeout to 2 minutes for testing
+- [x] Enable Cross-Tab Activity Synchronization via localStorage so activity in any open tab keeps all app tabs active
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
