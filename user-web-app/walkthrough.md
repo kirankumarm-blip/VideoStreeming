@@ -1,22 +1,53 @@
-# Walkthrough - User Dashboard All Topics Layout Refactoring
+# Walkthrough - Admin & Super Admin Chapter Quiz Builder Implementation
 
-We have updated the **All Topics** landing section in `user-web-app` (`UserDashboard.js`) to display distinct, dedicated sections for **Your Courses**, **Recommended**, and **Trending**.
+We have added optional **Chapter Quiz creation** directly inside each course chapter for both Admin and Super Admin dashboards ([AdminDashboard.js](file:///c:/Users/axxonet/Desktop/videoStreeming/admin-web-app/src/pages/AdminDashboard.js)).
 
 ---
 
-## 0. All Topics Section Breakdown
+## 0. Quiz Builder & Payload Architecture
 
-- **Your Courses Section ([UserDashboard.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/UserDashboard.js))**:
-  - Section Header: **Your Courses** (*आपके पाठ्यक्रम* / *ನಿಮ್ಮ ಕೋರ್ಸ್‌ಗಳು*)
-  - Displays grid of enrolled/user courses (`CourseCard` items).
+- **Optional Chapter Quiz UI**:
+  - Each chapter block features an **`➕ Add Quiz to Chapter`** button.
+  - Clicking **`➕ Add Quiz to Chapter`** expands an inline Quiz Builder section where admins can configure:
+    - **Quiz Title**: e.g., *"Chapter 1 Assessment"*
+    - **Multiple Questions**: Click **`➕ Add Question`** to add unlimited questions per quiz.
+    - **Question Statement**: e.g., *"What is React?"*
+    - **4 Multiple Choice Options**: Option A, B, C, D input fields.
+    - **Correct Answer Radio Selector**: Allows marking which option is the correct answer (highlighted in green).
+  - Admins can remove individual questions (`🗑️ Remove Question`) or delete the quiz entirely (`🗑️ Remove Quiz`). If no quiz is added, nothing is sent.
 
-- **Recommended Section**:
-  - Section Header: **Recommended** (*अनुशंसित* / *ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ*)
-  - Displays grid of recommended learning content (`VideoCard` / `CourseCard` items).
-
-- **Trending Section**:
-  - Section Header: **Trending** (*ट्रेंडिंग* / *ಟ್ರೆಂಡಿಂಗ್*)
-  - Displays grid of top trending videos (`VideoCard` items).
+- **Payload Structure under Chapter**:
+  - When submitting the course creation payload to `/uploadCourse`, the `quiz` data is attached **directly inside each chapter object** in `chapters`:
+    ```json
+    {
+      "title": "Full Stack Web Development",
+      "chapters": [
+        {
+          "title": "Chapter 1: React Basics",
+          "description": "Introduction to JSX and Components",
+          "order": 1,
+          "videos": [...],
+          "quiz": {
+            "title": "Chapter 1 Assessment",
+            "questions": [
+              {
+                "id": 1,
+                "question": "What is React?",
+                "options": [
+                  "UI Library",
+                  "Database Engine",
+                  "CSS Framework",
+                  "Web Server"
+                ],
+                "correctAnswer": 0,
+                "answer": "UI Library"
+              }
+            ]
+          }
+        }
+      ]
+    }
+    ```
 
 ---
 
@@ -25,4 +56,4 @@ We have updated the **All Topics** landing section in `user-web-app` (`UserDashb
 - Both frontend dev servers compiled clean with **0 errors**:
   - `user-web-app` running on `http://localhost:3001`
   - `admin-web-app` running on `http://localhost:3002`
-- Verified selecting "All Topics" displays the 3 distinct sections with localized headers and course/video card grids.
+- Verified adding, editing, and deleting questions/quizzes under chapters and submitting course forms.

@@ -73,5 +73,7 @@
 - [x] Increase inactivity auto-logout timeout to 10 minutes
 - [x] Enable Cross-Tab Activity Synchronization via localStorage so activity in any open tab keeps all app tabs active
 - [x] Restore distinct "Your Courses", "Recommended", and "Trending" sections in User Dashboard under "All Topics"
+- [x] Enable Chapter Quiz builder in Admin & Super Admin course upload/edit forms with question, option, and correct answer selection
+- [x] Attach quiz data directly inside chapter objects (`chapters[i].quiz`) in course upload payload
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough

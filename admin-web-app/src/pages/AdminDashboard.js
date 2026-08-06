@@ -846,6 +846,123 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }));
   };
 
+  // Chapter Quiz Helpers
+  const toggleChapterQuiz = (chapterId) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      if (ch.quiz) {
+        return { ...ch, quiz: null };
+      } else {
+        return {
+          ...ch,
+          quiz: {
+            title: `${ch.title || 'Chapter'} Quiz`,
+            questions: [
+              {
+                id: 1,
+                question: '',
+                options: ['', '', '', ''],
+                correctAnswer: 0
+              }
+            ]
+          }
+        };
+      }
+    }));
+  };
+
+  const updateQuizTitle = (chapterId, title) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          title
+        }
+      };
+    }));
+  };
+
+  const addQuizQuestion = (chapterId) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      const currentQuestions = ch.quiz?.questions || [];
+      const newId = currentQuestions.length > 0 ? Math.max(...currentQuestions.map(q => q.id)) + 1 : 1;
+      const newQuestion = {
+        id: newId,
+        question: '',
+        options: ['', '', '', ''],
+        correctAnswer: 0
+      };
+      return {
+        ...ch,
+        quiz: {
+          title: ch.quiz?.title || `${ch.title || 'Chapter'} Quiz`,
+          questions: [...currentQuestions, newQuestion]
+        }
+      };
+    }));
+  };
+
+  const removeQuizQuestion = (chapterId, questionId) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      const updatedQuestions = ch.quiz.questions.filter(q => q.id !== questionId);
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: updatedQuestions
+        }
+      };
+    }));
+  };
+
+  const updateQuestionText = (chapterId, questionId, text) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: ch.quiz.questions.map(q => q.id === questionId ? { ...q, question: text } : q)
+        }
+      };
+    }));
+  };
+
+  const updateQuestionOption = (chapterId, questionId, optIdx, val) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: ch.quiz.questions.map(q => {
+            if (q.id !== questionId) return q;
+            const newOptions = [...q.options];
+            newOptions[optIdx] = val;
+            return { ...q, options: newOptions };
+          })
+        }
+      };
+    }));
+  };
+
+  const updateQuestionCorrectAnswer = (chapterId, questionId, correctIdx) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: ch.quiz.questions.map(q => q.id === questionId ? { ...q, correctAnswer: correctIdx } : q)
+        }
+      };
+    }));
+  };
+
   const [courseThumbnailUrl, setCourseThumbnailUrl] = useState('');
   const [courseBannerUrl, setCourseBannerUrl] = useState('');
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
@@ -1021,13 +1138,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             isPreview: v.isPreview
           };
         }));
-        return {
+        const chapterObj = {
           title: ch.title,
           description: ch.description,
           visibility: ch.visibility || visibilities[0]?.id || '',
           order: ch.order,
           videos: encryptedVideos
         };
+
+        if (ch.quiz && Array.isArray(ch.quiz.questions) && ch.quiz.questions.length > 0) {
+          chapterObj.quiz = {
+            title: ch.quiz.title || `${ch.title || 'Chapter'} Quiz`,
+            questions: ch.quiz.questions.map((q, idx) => ({
+              id: q.id || idx + 1,
+              question: q.question,
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+              answer: q.options[q.correctAnswer] || ''
+            }))
+          };
+        }
+
+        return chapterObj;
       }));
 
       const payload = {
@@ -2833,6 +2965,124 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 Drag & drop videos here or <span style={{ color: '#e50914', textDecoration: 'underline' }}>click to browse</span>
                               </span>
                               <span style={{ fontSize: '11px', color: subtitleColor }}>You can upload multiple videos at once</span>
+                            </div>
+
+                            {/* Chapter Quiz Section (Optional) */}
+                            <div style={{ marginTop: '20px', borderTop: `1px dashed ${borderColor}`, paddingTop: '16px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: textColor }}>📝 Chapter Quiz (Optional)</span>
+                                  {ch.quiz && (
+                                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 }}>
+                                      {(ch.quiz.questions || []).length} Question{(ch.quiz.questions || []).length === 1 ? '' : 's'} Added
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  style={{
+                                    padding: '6px 14px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    borderRadius: '6px',
+                                    backgroundColor: ch.quiz ? 'rgba(239, 68, 68, 0.1)' : 'rgba(229, 9, 20, 0.1)',
+                                    color: ch.quiz ? '#ef4444' : '#e50914',
+                                    border: `1px solid ${ch.quiz ? '#ef4444' : '#e50914'}`,
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => toggleChapterQuiz(ch.id)}
+                                >
+                                  {ch.quiz ? '🗑️ Remove Quiz' : '➕ Add Quiz to Chapter'}
+                                </button>
+                              </div>
+
+                              {ch.quiz && (
+                                <div style={{ backgroundColor: isLight ? '#f9fafb' : 'rgba(255, 255, 255, 0.02)', border: `1px solid ${borderColor}`, padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
+                                  {/* Quiz Title */}
+                                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                                    <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Quiz Title</label>
+                                    <input
+                                      type="text"
+                                      className="form-input"
+                                      style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px' }}
+                                      placeholder="e.g. Chapter 1 Knowledge Assessment"
+                                      value={ch.quiz.title || ''}
+                                      onChange={(e) => updateQuizTitle(ch.id, e.target.value)}
+                                    />
+                                  </div>
+
+                                  {/* Questions List */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {(ch.quiz.questions || []).map((q, qIdx) => (
+                                      <div key={q.id || qIdx} style={{ backgroundColor: containerBg, border: `1px solid ${borderColor}`, padding: '14px', borderRadius: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e50914' }}>Question {qIdx + 1}</span>
+                                          {(ch.quiz.questions || []).length > 1 && (
+                                            <button
+                                              type="button"
+                                              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}
+                                              onClick={() => removeQuizQuestion(ch.id, q.id)}
+                                            >
+                                              🗑️ Remove Question
+                                            </button>
+                                          )}
+                                        </div>
+
+                                        {/* Question Statement */}
+                                        <div className="form-group" style={{ marginBottom: '12px' }}>
+                                          <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Question Statement *</label>
+                                          <input
+                                            type="text"
+                                            className="form-input"
+                                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px' }}
+                                            placeholder="Enter question text..."
+                                            value={q.question || ''}
+                                            onChange={(e) => updateQuestionText(ch.id, q.id, e.target.value)}
+                                          />
+                                        </div>
+
+                                        {/* Options list with correct answer selection */}
+                                        <div style={{ marginBottom: '10px' }}>
+                                          <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor, marginBottom: '6px', display: 'block' }}>Options & Mark Correct Answer *</label>
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                                            {(q.options || ['', '', '', '']).map((opt, optIdx) => (
+                                              <div key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: q.correctAnswer === optIdx ? 'rgba(16, 185, 129, 0.1)' : 'transparent', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${q.correctAnswer === optIdx ? '#10b981' : inputBorder}` }}>
+                                                <input
+                                                  type="radio"
+                                                  name={`correct_ans_${ch.id}_${q.id}`}
+                                                  checked={q.correctAnswer === optIdx}
+                                                  onChange={() => updateQuestionCorrectAnswer(ch.id, q.id, optIdx)}
+                                                  style={{ accentColor: '#10b981', cursor: 'pointer' }}
+                                                  title="Mark as correct answer"
+                                                />
+                                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: q.correctAnswer === optIdx ? '#10b981' : textColor }}>{String.fromCharCode(65 + optIdx)}.</span>
+                                                <input
+                                                  type="text"
+                                                  className="form-input"
+                                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '4px', fontSize: '12px', flex: 1, padding: '4px 8px' }}
+                                                  placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                                                  value={opt}
+                                                  onChange={(e) => updateQuestionOption(ch.id, q.id, optIdx, e.target.value)}
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    <button
+                                      type="button"
+                                      className="btn"
+                                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '6px', alignSelf: 'flex-start', cursor: 'pointer' }}
+                                      onClick={() => addQuizQuestion(ch.id)}
+                                    >
+                                      ➕ Add Question
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))
