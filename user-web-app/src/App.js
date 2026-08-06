@@ -40,11 +40,11 @@ const AppLayout = ({ theme, setTheme }) => {
   // Hide global navigation on Login / Signup / Reset Password screens
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
 
-  // 2 minutes inactivity auto-logout listener with Cross-Tab Sync (Testing)
+  // 10 minutes inactivity auto-logout listener with Cross-Tab Sync
   useEffect(() => {
     if (!user || isAuthPage) return;
 
-    const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes in milliseconds for testing
+    const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
     let timeoutId = null;
 
     const checkAndPerformAutoLogout = () => {

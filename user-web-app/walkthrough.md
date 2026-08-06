@@ -1,21 +1,16 @@
-# Walkthrough - Inactivity Auto-Logout & Cross-Tab Activity Synchronization
+# Walkthrough - 10-Minute Inactivity Auto-Logout Implementation
 
-We have implemented **Cross-Tab Activity Synchronization** across both `user-web-app` and `admin-web-app` so user interactions across multiple tabs of the app keep all open sessions active, while remaining idle for 2 minutes logs out the user cleanly across all tabs.
+We have updated the inactivity timeout across both `user-web-app` and `admin-web-app` to **10 minutes (600,000 ms)**.
 
 ---
 
-## 0. Cross-Tab Activity Synchronization Architecture
+## 0. Inactivity Timeout Configuration
 
-- **`localStorage` Timestamp Tracking ([user-web-app App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/App.js) & [admin-web-app App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/admin-web-app/src/App.js))**:
-  - Whenever user interaction (`mousemove`, `mousedown`, `keydown`, `scroll`, `click`, `touchstart`) occurs in **any open tab** of our app:
-    - Updates `localStorage.setItem('lastUserActivity', Date.now())`.
-  - All open tabs listen for browser `storage` events.
-  - When `lastUserActivity` changes, every open tab calculates the remaining inactivity duration and reschedules its auto-logout timer accordingly.
-
-- **Different Tabs / External Web Browsing Behavior**:
-  - If you switch away to a different website (e.g. YouTube, Google, or another application) for 2 minutes:
-    - Browser security isolates event tracking to active tabs only.
-    - Because no activity is logged to `lastUserActivity` for 2 minutes, our background timer auto-logs out the user and redirects to `/login` with the session expiration popup alert.
+- **Inactivity Timeout Set to 10 Minutes ([user-web-app App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/App.js) & [admin-web-app App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/admin-web-app/src/App.js))**:
+  - `INACTIVITY_TIMEOUT_MS` updated to `10 * 60 * 1000` (600,000 ms = 10 minutes).
+- **Notification Message Updated ([user-web-app Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/Login.js) & [admin-web-app Login.js](file:///c:/Users/axxonet/Desktop/videoStreeming/admin-web-app/src/pages/Login.js))**:
+  - Expiration alert message updated to:
+    > *"You have been automatically logged out due to 10 minutes of inactivity."*
 
 ---
 
@@ -24,4 +19,4 @@ We have implemented **Cross-Tab Activity Synchronization** across both `user-web
 - Both frontend dev servers compiled clean with **0 errors**:
   - `user-web-app` running on `http://localhost:3001`
   - `admin-web-app` running on `http://localhost:3002`
-- Verified interacting with Tab A updates `lastUserActivity` and extends session life for Tab B automatically.
+- Leaving the app idle for 10 minutes cleanly triggers auto-logout and displays the session expired alert.
