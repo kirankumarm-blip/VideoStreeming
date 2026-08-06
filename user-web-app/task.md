@@ -75,5 +75,6 @@
 - [x] Restore distinct "Your Courses", "Recommended", and "Trending" sections in User Dashboard under "All Topics"
 - [x] Enable Chapter Quiz builder in Admin & Super Admin course upload/edit forms with question, option, and correct answer selection
 - [x] Attach quiz data directly inside chapter objects (`chapters[i].quiz`) in course upload payload
+- [x] Remove export buttons from Upload Course page header for Admin and Super Admin
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough

@@ -2498,20 +2498,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               return (
                 <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                    <div>
-                      <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>Upload Course</h1>
-                      <p style={{ color: subtitleColor, fontSize: '14px', marginTop: '4px' }}>
-                        Add course details, chapters and multiple videos.
-                      </p>
-                    </div>
-                    {!justContent && (
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export CSV</button>
-                        <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '13px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px' }}>Export Excel</button>
-                        <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px' }}>Export PDF</button>
-                      </div>
-                    )}
+                  <div style={{ marginBottom: '24px' }}>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>Upload Course</h1>
+                    <p style={{ color: subtitleColor, fontSize: '14px', marginTop: '4px' }}>
+                      Add course details, chapters and multiple videos.
+                    </p>
                   </div>
 
                   <form onSubmit={handleCourseSubmit}>
