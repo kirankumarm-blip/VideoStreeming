@@ -72,5 +72,6 @@
 - [x] Enable Google-style Remember Me credential storage (rememberedEmail & rememberedPassword) and HTML autocomplete attributes
 - [x] Increase inactivity auto-logout timeout to 10 minutes
 - [x] Enable Cross-Tab Activity Synchronization via localStorage so activity in any open tab keeps all app tabs active
+- [x] Restore distinct "Your Courses", "Recommended", and "Trending" sections in User Dashboard under "All Topics"
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough

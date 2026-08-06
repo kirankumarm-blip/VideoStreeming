@@ -1339,22 +1339,88 @@ const UserDashboard = () => {
                       </div>
                     )}
 
-                    {/* All Topics: Shuffled Courses (your_courses) + Trending Videos Grid (No horizontal scroll) */}
-                    {allTopicsCombined.length > 0 && (
-                      <div style={{ marginBottom: '40px' }}>
-                        <div className="youtube-video-grid">
-                          {allTopicsCombined.map((item, idx) => (
-                            <div key={item.id || idx}>
-                              {item.total_lessons || item.total_chapters || item.chapters ? (
-                                <CourseCard course={item} />
-                              ) : (
-                                <VideoCard video={item} />
-                              )}
+                    {/* All Topics Sections: Your Courses, Recommended, and Trending */}
+                    {(() => {
+                      const yourCourses = dashboardData?.yourCourses || dashboardData?.your_courses || [];
+                      const recommended = dashboardData?.recommended || [];
+                      const trending = dashboardData?.trending || [];
+                      const hasSpecificSections = yourCourses.length > 0 || recommended.length > 0 || trending.length > 0;
+
+                      if (hasSpecificSections) {
+                        return (
+                          <>
+                            {/* Your Courses Section */}
+                            {yourCourses.length > 0 && (
+                              <div style={{ marginBottom: '40px' }}>
+                                <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                  {language === 'hi' ? 'आपके पाठ्यक्रम' : language === 'kn' ? 'ನಿಮ್ಮ ಕೋರ್ಸ್‌ಗಳು' : 'Your Courses'}
+                                </h3>
+                                <div className="youtube-video-grid">
+                                  {yourCourses.map((course, idx) => (
+                                    <CourseCard key={course.id || idx} course={course} />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Recommended Section */}
+                            {recommended.length > 0 && (
+                              <div style={{ marginBottom: '40px' }}>
+                                <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                  {language === 'hi' ? 'अनुशंसित' : language === 'kn' ? 'ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ' : 'Recommended'}
+                                </h3>
+                                <div className="youtube-video-grid">
+                                  {recommended.map((item, idx) => (
+                                    <div key={item.id || idx}>
+                                      {item.total_lessons || item.total_chapters || item.chapters ? (
+                                        <CourseCard course={item} />
+                                      ) : (
+                                        <VideoCard video={item} />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Trending Section */}
+                            {trending.length > 0 && (
+                              <div style={{ marginBottom: '40px' }}>
+                                <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                  {language === 'hi' ? 'ट्रेंडिंग' : language === 'kn' ? 'ಟ್ರೆಂಡಿಂಗ್' : 'Trending'}
+                                </h3>
+                                <div className="youtube-video-grid">
+                                  {trending.map((video, idx) => (
+                                    <VideoCard key={video.id || idx} video={video} />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+
+                      // Fallback to allTopicsCombined if specific lists are empty
+                      if (allTopicsCombined.length > 0) {
+                        return (
+                          <div style={{ marginBottom: '40px' }}>
+                            <div className="youtube-video-grid">
+                              {allTopicsCombined.map((item, idx) => (
+                                <div key={item.id || idx}>
+                                  {item.total_lessons || item.total_chapters || item.chapters ? (
+                                    <CourseCard course={item} />
+                                  ) : (
+                                    <VideoCard video={item} />
+                                  )}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })()}
                   </>
                 )}
               </>
