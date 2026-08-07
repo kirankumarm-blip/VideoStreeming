@@ -487,7 +487,27 @@ const VideoWatch = () => {
     }
   };
 
+  const navigateToNextLessonOrChapter = () => {
+    const activeVid = videoRefData.current || video || location.state?.video;
+    const activeCourse = location.state?.course;
+    const vidId = idRef.current || id || activeVid?.id;
+
+    const lessons = getCourseLessonsList(activeCourse);
+    if (lessons && lessons.length > 0) {
+      const currentIdx = lessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl));
+      if (currentIdx !== -1 && currentIdx + 1 < lessons.length) {
+        const nextLesson = lessons[currentIdx + 1];
+        if (!isChapterLocked(nextLesson, activeCourse)) {
+          setTimeout(() => {
+            handleNavigateToVideo(nextLesson, activeCourse);
+          }, 300);
+        }
+      }
+    }
+  };
+
   const handleCloseQuizModal = () => {
+    const wasCompleted = quizModal.completed;
     setQuizModal({
       show: false,
       title: '',
@@ -501,6 +521,10 @@ const VideoWatch = () => {
       completed: false,
       results: null
     });
+
+    if (wasCompleted) {
+      navigateToNextLessonOrChapter();
+    }
   };
 
   const handleSubmitQuiz = async () => {
@@ -782,21 +806,14 @@ const VideoWatch = () => {
       }
     }
 
-    if (chapId && activeCourse) {
-      triggerQuizForChapter(chapId, cId, activeCourse);
-    }
+    const quizInfo = findQuizForChapter(chapId, activeCourse);
 
-    const lessons = getCourseLessonsList(activeCourse);
-    if (lessons && lessons.length > 0) {
-      const currentIdx = lessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl));
-      if (currentIdx !== -1 && currentIdx + 1 < lessons.length) {
-        const nextLesson = lessons[currentIdx + 1];
-        if (!isChapterLocked(nextLesson, activeCourse)) {
-          setTimeout(() => {
-            handleNavigateToVideo(nextLesson, activeCourse);
-          }, 500);
-        }
-      }
+    if (quizInfo) {
+      // Chapter has quiz -> open quiz modal and ONLY load next chapter after quiz completion
+      triggerQuizForChapter(chapId, cId, activeCourse);
+    } else {
+      // Chapter does not have a quiz -> proceed to next video/chapter automatically
+      navigateToNextLessonOrChapter();
     }
   };
 
