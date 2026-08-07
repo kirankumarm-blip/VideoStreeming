@@ -278,6 +278,255 @@ const VideoWatch = () => {
     }
   };
 
+  // Chapter Quiz Modal State
+  const [quizModal, setQuizModal] = useState({
+    show: false,
+    title: '',
+    quizId: 0,
+    chapterId: 0,
+    courseId: 0,
+    questions: [],
+    currentIdx: 0,
+    userAnswers: {},
+    isSubmitting: false,
+    completed: false,
+    results: null
+  });
+
+  const getFallbackQuestions = (quizTitle, chapId) => {
+    const titleLower = (quizTitle || '').toLowerCase();
+    if (String(chapId) === '1' || titleLower.includes('data types') || titleLower.includes('type script')) {
+      return [
+        {
+          id: 1,
+          question: "What is TypeScript?",
+          options: ["A typed superset of JavaScript", "A relational database engine", "A CSS preprocessor framework", "A web server runtime"],
+          correctAnswer: 0
+        },
+        {
+          id: 2,
+          question: "Which of the following is a primitive data type in TypeScript?",
+          options: ["string", "Array", "Object", "Function"],
+          correctAnswer: 0
+        },
+        {
+          id: 3,
+          question: "What keyword is used to declare a variable with an explicit type?",
+          options: ["const name: string", "var name = string", "type name = string", "dim name as string"],
+          correctAnswer: 0
+        }
+      ];
+    } else {
+      return [
+        {
+          id: 1,
+          question: "What method is used to add an element to the end of an Array?",
+          options: ["push()", "pop()", "shift()", "unshift()"],
+          correctAnswer: 0
+        },
+        {
+          id: 2,
+          question: "How do you access the first element of an array 'arr'?",
+          options: ["arr[0]", "arr[1]", "arr.first()", "arr.get(0)"],
+          correctAnswer: 0
+        },
+        {
+          id: 3,
+          question: "What does Array.prototype.length return?",
+          options: ["Total number of elements", "Memory size in bytes", "Array index limit", "Last element value"],
+          correctAnswer: 0
+        }
+      ];
+    }
+  };
+
+  const findQuizForChapter = (chapId, courseObj) => {
+    if (!courseObj || !chapId) return null;
+    
+    // 1. Search in courseObj.quizzes matching chapter_id
+    if (Array.isArray(courseObj.quizzes)) {
+      const found = courseObj.quizzes.find(q => String(q.chapter_id || q.chapterId) === String(chapId));
+      if (found) return found;
+    }
+
+    // 2. Search in courseObj.chapters
+    if (Array.isArray(courseObj.chapters)) {
+      for (const chap of courseObj.chapters) {
+        const cId = chap.id || chap.chapter_id || chap.chapterId;
+        if (String(cId) === String(chapId)) {
+          if (chap.quiz) return chap.quiz;
+          if (Array.isArray(chap.quizzes) && chap.quizzes.length > 0) return chap.quizzes[0];
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback matching chapter_id to index in quizzes
+    if (Array.isArray(courseObj.quizzes) && courseObj.quizzes.length > 0) {
+      const idx = parseInt(chapId, 10) - 1;
+      if (idx >= 0 && idx < courseObj.quizzes.length) {
+        return courseObj.quizzes[idx];
+      }
+    }
+
+    return null;
+  };
+
+  const triggerQuizForChapter = async (chapId, cId, courseObj) => {
+    const quizInfo = findQuizForChapter(chapId, courseObj);
+    if (!quizInfo) return;
+
+    try {
+      // Call vdUser API with formstep of getQuizDetails
+      const res = await api.dashboard.getUser('getQuizDetails', {
+        formstep: 'getQuizDetails',
+        course_id: cId,
+        chapter_id: chapId,
+        quiz_id: quizInfo.id || quizInfo.quiz_id || chapId,
+        id: quizInfo.id || chapId
+      });
+
+      let loadedQuestions = [];
+      let quizTitle = quizInfo.title || `Chapter ${chapId} Quiz`;
+
+      if (res && res.json && Array.isArray(res.json.questions) && res.json.questions.length > 0) {
+        loadedQuestions = res.json.questions;
+        if (res.json.title) quizTitle = res.json.title;
+      } else if (res && Array.isArray(res.questions) && res.questions.length > 0) {
+        loadedQuestions = res.questions;
+        if (res.title) quizTitle = res.title;
+      } else if (Array.isArray(quizInfo.questions) && quizInfo.questions.length > 0) {
+        loadedQuestions = quizInfo.questions;
+      } else {
+        loadedQuestions = getFallbackQuestions(quizTitle, chapId);
+      }
+
+      setQuizModal({
+        show: true,
+        title: quizTitle,
+        quizId: quizInfo.id || chapId,
+        chapterId: chapId,
+        courseId: cId,
+        questions: loadedQuestions,
+        currentIdx: 0,
+        userAnswers: {},
+        isSubmitting: false,
+        completed: false,
+        results: null
+      });
+    } catch (err) {
+      console.error("Failed to fetch quiz details via API, using fallback", err);
+      const fallbackQs = (Array.isArray(quizInfo.questions) && quizInfo.questions.length > 0)
+        ? quizInfo.questions
+        : getFallbackQuestions(quizInfo.title || `Chapter ${chapId} Quiz`, chapId);
+
+      setQuizModal({
+        show: true,
+        title: quizInfo.title || `Chapter ${chapId} Quiz`,
+        quizId: quizInfo.id || chapId,
+        chapterId: chapId,
+        courseId: cId,
+        questions: fallbackQs,
+        currentIdx: 0,
+        userAnswers: {},
+        isSubmitting: false,
+        completed: false,
+        results: null
+      });
+    }
+  };
+
+  const handleSelectOption = (optIdx) => {
+    const q = quizModal.questions[quizModal.currentIdx];
+    if (!q) return;
+    setQuizModal(prev => ({
+      ...prev,
+      userAnswers: {
+        ...prev.userAnswers,
+        [q.id]: optIdx
+      }
+    }));
+  };
+
+  const handleNextQuizQuestion = () => {
+    if (quizModal.currentIdx < quizModal.questions.length - 1) {
+      setQuizModal(prev => ({
+        ...prev,
+        currentIdx: prev.currentIdx + 1
+      }));
+    }
+  };
+
+  const handleCloseQuizModal = () => {
+    setQuizModal({
+      show: false,
+      title: '',
+      quizId: 0,
+      chapterId: 0,
+      courseId: 0,
+      questions: [],
+      currentIdx: 0,
+      userAnswers: {},
+      isSubmitting: false,
+      completed: false,
+      results: null
+    });
+  };
+
+  const handleSubmitQuiz = async () => {
+    setQuizModal(prev => ({ ...prev, isSubmitting: true }));
+    let correctCount = 0;
+    const answerBreakdown = quizModal.questions.map(q => {
+      const selected = quizModal.userAnswers[q.id];
+      const isCorrect = selected === q.correctAnswer;
+      if (isCorrect) correctCount++;
+      return {
+        question_id: q.id,
+        question: q.question,
+        options: q.options,
+        selected_option: selected,
+        correct_option: q.correctAnswer,
+        is_correct: isCorrect
+      };
+    });
+
+    const totalQs = quizModal.questions.length;
+    const scorePct = totalQs > 0 ? Math.round((correctCount / totalQs) * 100) : 0;
+
+    const payload = {
+      formstep: 'submitQuiz',
+      course_id: quizModal.courseId,
+      chapter_id: quizModal.chapterId,
+      quiz_id: quizModal.quizId,
+      score: correctCount,
+      total_questions: totalQs,
+      percentage: scorePct,
+      answers: answerBreakdown.map(a => ({
+        question_id: a.question_id,
+        selected_option: a.selected_option,
+        is_correct: a.is_correct
+      }))
+    };
+
+    try {
+      await api.dashboard.getUser('submitQuiz', payload);
+    } catch (err) {
+      console.error("Quiz submission API error", err);
+    }
+
+    setQuizModal(prev => ({
+      ...prev,
+      isSubmitting: false,
+      completed: true,
+      results: {
+        score: correctCount,
+        totalQuestions: totalQs,
+        percentage: scorePct,
+        answers: answerBreakdown
+      }
+    }));
+  };
+
   const getCourseLessonsList = (courseObj) => {
     if (!courseObj) return [];
     if (Array.isArray(courseObj.chapters)) {
@@ -501,6 +750,10 @@ const VideoWatch = () => {
       } catch (err) {
         console.error("Failed to register video completion watchHistory", err);
       }
+    }
+
+    if (chapId && activeCourse) {
+      triggerQuizForChapter(chapId, cId, activeCourse);
     }
 
     const lessons = getCourseLessonsList(activeCourse);
@@ -1130,6 +1383,39 @@ const VideoWatch = () => {
               }} onClick={handleSaveToWatchLater}>
                 🔖 Watch Later
               </button>
+
+              {/* Chapter Quiz Launch Button */}
+              {(() => {
+                const activeCourse = location.state?.course;
+                const chapId = video?.chapter_id ?? video?.chapterId ?? location.state?.chapterId ?? 1;
+                const cId = video?.course_id ?? video?.courseId ?? activeCourse?.id ?? 1;
+                const quizObj = findQuizForChapter(chapId, activeCourse);
+
+                if (quizObj || location.state?.course) {
+                  return (
+                    <button 
+                      style={{
+                        background: 'linear-gradient(135deg, #e50914, #b20710)',
+                        border: 'none',
+                        borderRadius: '20px',
+                        padding: '8px 18px',
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 14px rgba(229, 9, 20, 0.35)'
+                      }} 
+                      onClick={() => triggerQuizForChapter(chapId, cId, activeCourse)}
+                    >
+                      📝 Take Chapter Quiz
+                    </button>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
 
@@ -1432,6 +1718,41 @@ const VideoWatch = () => {
                 >
                   <span>📋</span> View Full Course Content
                 </button>
+
+                {/* Playlist Chapter Quiz Launch Button */}
+                {(() => {
+                  const activeCourse = location.state?.course;
+                  const chapId = video?.chapter_id ?? video?.chapterId ?? 1;
+                  const cId = video?.course_id ?? video?.courseId ?? activeCourse?.id ?? 1;
+                  const quizObj = findQuizForChapter(chapId, activeCourse);
+
+                  if (quizObj || activeCourse?.quizzes) {
+                    return (
+                      <button 
+                        onClick={() => triggerQuizForChapter(chapId, cId, activeCourse)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
+                          border: '1px solid #e50914',
+                          color: '#e50914',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          marginTop: '8px'
+                        }}
+                      >
+                        <span>📝</span> Take Chapter {chapId} Quiz
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             );
           })()
@@ -1570,6 +1891,345 @@ const VideoWatch = () => {
             >
               {customAlert.buttonText}
             </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ================= CHAPTER QUIZ MODAL PORTAL ================= */}
+      {quizModal.show && ReactDOM.createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 999999,
+          padding: '20px'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '640px',
+            backgroundColor: 'var(--bg-secondary, #181824)',
+            border: '1px solid var(--border-color, #2e2e3e)',
+            borderRadius: '20px',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh',
+            animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}>
+            {/* Quiz Modal Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid var(--border-color, #2e2e3e)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(90deg, rgba(229,9,20,0.12), transparent)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '26px' }}>📝</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary, #ffffff)' }}>
+                    {quizModal.title}
+                  </h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary, #a1a1aa)' }}>
+                    Chapter {quizModal.chapterId} Quiz Assessment
+                  </span>
+                </div>
+              </div>
+
+              {!quizModal.completed && (
+                <span style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  backgroundColor: 'rgba(229, 9, 20, 0.15)',
+                  color: '#e50914',
+                  border: '1px solid rgba(229, 9, 20, 0.3)'
+                }}>
+                  Question {quizModal.currentIdx + 1} of {quizModal.questions.length}
+                </span>
+              )}
+            </div>
+
+            {/* Quiz Progress Bar */}
+            {!quizModal.completed && (
+              <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary, #2a2a38)' }}>
+                <div style={{
+                  width: `${((quizModal.currentIdx + 1) / quizModal.questions.length) * 100}%`,
+                  height: '100%',
+                  backgroundColor: '#e50914',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+            )}
+
+            {/* Quiz Body Content */}
+            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+              {!quizModal.completed ? (() => {
+                const currentQ = quizModal.questions[quizModal.currentIdx];
+                if (!currentQ) return null;
+                const selectedOpt = quizModal.userAnswers[currentQ.id];
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Question Statement */}
+                    <h4 style={{
+                      fontSize: '16px',
+                      fontWeight: 600,
+                      color: 'var(--text-primary, #ffffff)',
+                      margin: 0,
+                      lineHeight: '1.5'
+                    }}>
+                      {currentQ.question}
+                    </h4>
+
+                    {/* Options Cards */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {(currentQ.options || []).map((opt, optIdx) => {
+                        const isSelected = selectedOpt === optIdx;
+
+                        return (
+                          <div
+                            key={optIdx}
+                            onClick={() => handleSelectOption(optIdx)}
+                            style={{
+                              padding: '14px 18px',
+                              borderRadius: '12px',
+                              backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.14)' : 'var(--bg-primary, #12121a)',
+                              border: `1.5px solid ${isSelected ? '#e50914' : 'var(--border-color, #2e2e3e)'}`,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '14px',
+                              transition: 'all 0.2s ease',
+                              boxShadow: isSelected ? '0 4px 14px rgba(229, 9, 20, 0.25)' : 'none'
+                            }}
+                          >
+                            {/* Option Radio Circle */}
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              border: `2px solid ${isSelected ? '#e50914' : '#666'}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              {isSelected && <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#e50914' }} />}
+                            </div>
+
+                            <span style={{
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: isSelected ? '#e50914' : 'var(--text-secondary, #a1a1aa)'
+                            }}>
+                              {String.fromCharCode(65 + optIdx)}.
+                            </span>
+
+                            <span style={{
+                              fontSize: '14px',
+                              color: isSelected ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #d1d5db)',
+                              fontWeight: isSelected ? 600 : 400
+                            }}>
+                              {opt}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })() : (
+                /* Quiz Results View */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* Score Banner */}
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '24px',
+                    borderRadius: '16px',
+                    background: quizModal.results?.percentage >= 70 
+                      ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'
+                      : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))',
+                    border: `1px solid ${quizModal.results?.percentage >= 70 ? '#10b981' : '#ef4444'}`
+                  }}>
+                    <span style={{ fontSize: '48px', display: 'block', marginBottom: '8px' }}>
+                      {quizModal.results?.percentage >= 70 ? '🎉' : '📊'}
+                    </span>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 800, color: 'var(--text-primary, #ffffff)' }}>
+                      Score: {quizModal.results?.score} / {quizModal.results?.totalQuestions} ({quizModal.results?.percentage}%)
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '14px', color: quizModal.results?.percentage >= 70 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                      {quizModal.results?.percentage >= 70 ? 'Congratulations! You passed the chapter quiz.' : 'Quiz completed. Review correct answers below.'}
+                    </p>
+                  </div>
+
+                  {/* Detailed Question Review */}
+                  <h4 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary, #ffffff)' }}>
+                    Detailed Answer Breakdown
+                  </h4>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {(quizModal.results?.answers || []).map((ans, idx) => (
+                      <div key={idx} style={{
+                        padding: '16px',
+                        borderRadius: '12px',
+                        backgroundColor: ans.is_correct ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: `1px solid ${ans.is_correct ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '12px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #ffffff)' }}>
+                            {idx + 1}. {ans.question}
+                          </span>
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            padding: '2px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: ans.is_correct ? '#10b981' : '#ef4444',
+                            color: '#ffffff',
+                            flexShrink: 0
+                          }}>
+                            {ans.is_correct ? '✔ Correct' : '❌ Wrong'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                          {ans.options.map((opt, oIdx) => {
+                            const isUserChoice = ans.selected_option === oIdx;
+                            const isCorrectChoice = ans.correct_option === oIdx;
+
+                            let bg = 'transparent';
+                            let color = 'var(--text-secondary, #a1a1aa)';
+                            let border = '1px transparent solid';
+
+                            if (isCorrectChoice) {
+                              bg = 'rgba(16, 185, 129, 0.2)';
+                              color = '#10b981';
+                              border = '1px solid #10b981';
+                            } else if (isUserChoice && !ans.is_correct) {
+                              bg = 'rgba(239, 68, 68, 0.2)';
+                              color = '#ef4444';
+                              border = '1px solid #ef4444';
+                            }
+
+                            return (
+                              <div key={oIdx} style={{
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: bg,
+                                color: color,
+                                border: border,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontWeight: (isUserChoice || isCorrectChoice) ? 600 : 400
+                              }}>
+                                <span>{String.fromCharCode(65 + oIdx)}. {opt}</span>
+                                {isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981' }}>[Correct Answer]</span>}
+                                {isUserChoice && !isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>[Your Choice]</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quiz Modal Footer Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid var(--border-color, #2e2e3e)',
+              display: 'flex',
+              justify: 'space-between',
+              alignItems: 'center',
+              backgroundColor: 'var(--bg-primary, #12121a)'
+            }}>
+              {!quizModal.completed ? (
+                <>
+                  <button
+                    onClick={handleCloseQuizModal}
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 20px', fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+
+                  {quizModal.currentIdx < quizModal.questions.length - 1 ? (
+                    <button
+                      onClick={handleNextQuizQuestion}
+                      disabled={quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined}
+                      className="btn btn-primary"
+                      style={{
+                        padding: '8px 24px',
+                        fontSize: '13px',
+                        backgroundColor: '#e50914',
+                        border: 'none',
+                        color: '#ffffff',
+                        borderRadius: '8px',
+                        fontWeight: 600,
+                        cursor: quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined ? 'not-allowed' : 'pointer',
+                        opacity: quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined ? 0.5 : 1
+                      }}
+                    >
+                      Next ➔
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmitQuiz}
+                      disabled={quizModal.isSubmitting || quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined}
+                      className="btn btn-primary"
+                      style={{
+                        padding: '8px 24px',
+                        fontSize: '13px',
+                        backgroundColor: '#10b981',
+                        border: 'none',
+                        color: '#ffffff',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        cursor: (quizModal.isSubmitting || quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined) ? 'not-allowed' : 'pointer',
+                        opacity: (quizModal.isSubmitting || quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined) ? 0.5 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      {quizModal.isSubmitting ? 'Submitting...' : 'Submit Quiz 🚀'}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: '12px' }}>
+                  <button
+                    onClick={() => setQuizModal(prev => ({ ...prev, completed: false, currentIdx: 0, userAnswers: {} }))}
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 20px', fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    🔄 Retake Quiz
+                  </button>
+                  <button
+                    onClick={handleCloseQuizModal}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 24px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Continue Course
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>,
         document.body

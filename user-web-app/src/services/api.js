@@ -413,8 +413,8 @@ export const api = {
     getUser: (formStep = null, payload = {}) => {
       const body = { ...payload };
       if (formStep) {
-        if (formStep === 'recently_palyed') {
-          body.formstep = 'recently_palyed';
+        if (formStep === 'recently_palyed' || formStep === 'getQuizDetails') {
+          body.formstep = formStep;
         } else {
           body.formStep = formStep;
         }

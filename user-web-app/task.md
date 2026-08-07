@@ -76,5 +76,10 @@
 - [x] Enable Chapter Quiz builder in Admin & Super Admin course upload/edit forms with question, option, and correct answer selection
 - [x] Attach quiz data directly inside chapter objects (`chapters[i].quiz`) in course upload payload
 - [x] Remove export buttons from Upload Course page header for Admin and Super Admin
+- [x] Pass `course` object (with `quizzes` and `chapters`) from `your_courses` to Video Watch page (`VideoWatch.js`)
+- [x] Trigger `vdUser` API with `formstep: 'getQuizDetails'` when chapter is completed or quiz is launched
+- [x] Design interactive Quiz Modal with title, questions, selectable options, Next/Cancel buttons, and automatic Submit button transformation on the last question
+- [x] Post quiz results to `vdUser` API with `formstep: 'submitQuiz'`, `course_id`, `chapter_id`, `quiz_id`, `score`, `total_questions`, and user answers
+- [x] Render Detailed Score & Answer Breakdown screen highlighting user's correct (green) and wrong (red) choices along with actual correct answers
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
