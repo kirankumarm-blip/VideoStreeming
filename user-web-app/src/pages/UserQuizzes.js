@@ -30,21 +30,51 @@ const UserQuizzes = () => {
       }
 
       const formatted = rawList.map((item, idx) => {
-        const d = item?.json?.quiz || item?.json || item?.quiz || item || {};
+        let d = item?.json || item;
+
+        let quizTitle = 'Data Types Quiz';
+        if (d?.quiz && typeof d.quiz === 'object') {
+          quizTitle = d.quiz.title || d.quiz.quiz || d.quiz.name || quizTitle;
+          d = { ...d.quiz, ...d };
+        } else if (d?.quiz && typeof d.quiz === 'string') {
+          quizTitle = d.quiz;
+        } else if (d?.quiz_title || d?.title || d?.quiz_name) {
+          quizTitle = d.quiz_title || d.title || d.quiz_name;
+        }
+
+        const courseName = d?.course || d?.course_title || d?.course_name || 'TypeScript Basics';
+        const chapterName = d?.chapter || d?.chapter_name || d?.chapter_title || (d?.chapter_id ? `Chapter ${d.chapter_id}` : 'Chapter 1');
+        
+        let scoreStr = '';
+        if (d?.score_display) {
+          scoreStr = d.score_display;
+        } else if (typeof d?.score === 'string' && d.score.includes('/')) {
+          scoreStr = d.score;
+        } else if (d?.score !== undefined) {
+          const totalQs = d.total_questions || d.total || (d.percentage ? 2 : 10);
+          const pctVal = d.percentage !== undefined ? parseFloat(d.percentage) : Math.round((d.score / totalQs) * 100);
+          scoreStr = `${d.score}/${totalQs} (${pctVal}%)`;
+        } else {
+          scoreStr = '8/10 (80%)';
+        }
+
+        const pct = d?.percentage !== undefined ? parseFloat(d.percentage) : 80;
+        const resStr = d?.result || d?.status || (pct >= 70 ? 'Passed' : 'Failed');
+        const attemptVal = d?.attempt || d?.attempt_number || d?.attempts || 1;
+        const dateVal = d?.date || d?.created_at || d?.submitted_at || '07 Aug 2026, 2:15 PM';
+
         return {
-          id: d.id || d.quiz_id || idx + 1,
-          quiz: d.quiz || d.quiz_title || d.title || d.quiz_name || 'Data Types Quiz',
-          course: d.course || d.course_title || d.course_name || 'TypeScript Basics',
-          chapter: d.chapter || d.chapter_name || d.chapter_title || (d.chapter_id ? `Chapter ${d.chapter_id}` : 'Chapter 1'),
-          score: d.score_display || (d.score !== undefined && d.total_questions !== undefined 
-            ? `${d.score}/${d.total_questions} (${d.percentage || Math.round((d.score / d.total_questions) * 100)}%)` 
-            : (d.score || '8/10 (80%)')),
-          percentage: d.percentage !== undefined ? d.percentage : (d.score_val || 80),
-          result: d.result || d.status || (parseFloat(d.percentage || 80) >= 70 ? 'Passed' : 'Failed'),
-          attempt: d.attempt || d.attempt_number || d.attempts || 1,
-          date: d.date || d.created_at || d.submitted_at || '07 Aug 2026, 2:15 PM',
-          courseId: d.course_id || 1,
-          chapterId: d.chapter_id || 1
+          id: d?.id || d?.quiz_id || idx + 1,
+          quiz: quizTitle,
+          course: courseName,
+          chapter: chapterName,
+          score: scoreStr,
+          percentage: pct,
+          result: resStr,
+          attempt: attemptVal,
+          date: dateVal,
+          courseId: d?.course_id || 1,
+          chapterId: d?.chapter_id || 1
         };
       });
 
