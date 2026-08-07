@@ -1,31 +1,34 @@
-# Walkthrough - Chapter Quiz Execution, Submission & Results Implementation
+# Walkthrough - User Quiz & Certificates Menu & Quiz History Page Implementation
 
-We have implemented Chapter Quiz execution, API integration (`getQuizDetails` & `submitQuiz`), and interactive quiz result breakdown screens in `user-web-app` ([VideoWatch.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/VideoWatch.js) & [api.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/services/api.js)).
+We have added **Quiz** (`/quizzes`) and **Certificates** (`/certificates`) to the user navigation menu in `user-web-app` ([Sidebar.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/components/Sidebar.js) & [App.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/App.js)).
+
+We also created the **User Quiz History Page** ([UserQuizzes.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/UserQuizzes.js)) calling `vdUser` API with `formstep: 'getQuizHistory'`.
 
 ---
 
-## 0. Quiz Workflow Breakdown
+## 0. Key Implementation Features
 
-1. **Course & Quiz Data Transfer**:
-   - When a user clicks a course from `your_courses` on the dashboard, the complete `course` object (containing `chapters` and `quizzes` array, matching `chapter_id: 1` -> *"Data Types Quiz"*, `chapter_id: 2` -> *"Array Quiz"*) is passed to `VideoWatch.js` via `location.state.course`.
+1. **Sidebar Navigation Update**:
+   - Added **Quiz** (icon: `📝`, path: `/quizzes`) and **Certificates** (icon: `📜`, path: `/certificates`) menu items in [Sidebar.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/components/Sidebar.js).
 
-2. **Triggering `getQuizDetails` API**:
-   - When a chapter's video is completed (or when clicking **`📝 Take Chapter Quiz`**), the app calls `api.dashboard.getUser('getQuizDetails', { formstep: 'getQuizDetails', course_id, chapter_id, quiz_id, id })`.
+2. **API Call (`vdUser` with `formstep: 'getQuizHistory'`)**:
+   - Updated `api.dashboard.getUser` in [api.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/services/api.js) so `getQuizHistory` passes `formstep: 'getQuizHistory'` in the JSON body payload.
 
-3. **Interactive Quiz Modal UI**:
-   - Displays Quiz Title (e.g., *"Data Types Quiz - Chapter 1"*).
-   - Shows question progress indicator (*Question X of Y*) and a smooth progress bar.
-   - Renders selectable multiple choice cards (A, B, C, D) with interactive radio buttons.
-   - Navigation Buttons: **Cancel** and **Next ➔**.
-   - On the final question, the **Next** button automatically transforms into **Submit Quiz 🚀**.
+3. **Paginated Quiz History Table ([UserQuizzes.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/UserQuizzes.js))**:
+   - Displays a clean `<PaginatedTable>` matching your exact column specifications:
+     `| Quiz | Course | Chapter | Score | Result | Attempt | Date | Action |`
+   - **Sample Row Items**:
+     - `Data Types Quiz | TypeScript Basics | Chapter 1 | 8/10 (80%) | 🟢 Passed | 1 | 07 Aug 2026, 2:15 PM | 👁 View`
+     - `Array Quiz | TypeScript Basics | Chapter 2 | 6/10 (60%) | 🔴 Failed | 1 | 08 Aug 2026, 10:30 AM | 🔄 Retake`
+     - `Functions Quiz | TypeScript Basics | Chapter 3 | 10/10 (100%) | 🟢 Passed | 2 | 09 Aug 2026, 4:45 PM | 👁 View`
+     - `Interfaces Quiz | Advanced TypeScript | Chapter 1 | 9/10 (90%) | 🟢 Passed | 1 | 10 Aug 2026, 9:20 AM | 👁 View`
 
-4. **Quiz Submission & Results Screen**:
-   - Clicking **Submit** posts user answers, score, and percentage to the backend via `api.dashboard.getUser('submitQuiz', payload)`.
-   - Displays a score summary banner: e.g., **Score: 3 / 3 (100%) - 🎉 Congratulations!**
-   - Displays a detailed question-by-question breakdown:
-     - **✔ Correct** (highlighted in translucent green) vs **❌ Wrong** (highlighted in translucent red).
-     - Clearly highlights the **Correct Answer** if missed.
-   - Offers **🔄 Retake Quiz** and **Continue Course** controls.
+4. **Action Handlers**:
+   - **`👁 View` Button**: Opens an overlay modal showing detailed score summary, attempt count, and performance rating.
+   - **`🔄 Retake` Button**: Navigates directly to the course watch page for retaking the chapter quiz.
+
+5. **Certificates Page ([Certificates.js](file:///c:/Users/axxonet/Desktop/videoStreeming/user-web-app/src/pages/Certificates.js))**:
+   - Renders earned course completion credentials, badges, scores, and PDF download triggers.
 
 ---
 
@@ -34,4 +37,4 @@ We have implemented Chapter Quiz execution, API integration (`getQuizDetails` & 
 - Both frontend dev servers compiled clean with **0 errors**:
   - `user-web-app` running on `http://localhost:3001`
   - `admin-web-app` running on `http://localhost:3002`
-- Verified clicking course lessons, completing videos, launching quizzes, taking quizzes, and reviewing scores.
+- Verified clicking **Quiz** from sidebar opens `/quizzes`, displaying the paginated table and modal views cleanly.

@@ -81,5 +81,9 @@
 - [x] Design interactive Quiz Modal with title, questions, selectable options, Next/Cancel buttons, and automatic Submit button transformation on the last question
 - [x] Post quiz results to `vdUser` API with `formstep: 'submitQuiz'`, `course_id`, `chapter_id`, `quiz_id`, `score`, `total_questions`, and user answers
 - [x] Render Detailed Score & Answer Breakdown screen highlighting user's correct (green) and wrong (red) choices along with actual correct answers
+- [x] Add "Quiz" and "Certificates" options to User Sidebar menu
+- [x] Call `vdUser` API with `formstep: 'getQuizHistory'` to populate user quiz attempts table
+- [x] Render paginated Quiz History table matching exact requested columns: Quiz | Course | Chapter | Score | Result | Attempt | Date | Action
+- [x] Add interactive "👁 View" detail modal and "🔄 Retake" action on Quiz History page
 - [x] Validate compilation and execution of both frontend servers
 - [x] Document the changes in Walkthrough
