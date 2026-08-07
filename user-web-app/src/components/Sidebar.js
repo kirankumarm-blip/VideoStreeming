@@ -7,6 +7,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { t } = useLanguage();
 
+  const searchParams = new URLSearchParams(location.search);
+
   const activeView = location.pathname === '/quizzes' 
     ? 'quiz' 
     : (location.pathname === '/certificates' ? 'certificates' : (location.pathname === '/' ? (searchParams.get('view') || 'home') : ''));
