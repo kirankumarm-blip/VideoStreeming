@@ -546,6 +546,7 @@ const VideoWatch = () => {
 
     const totalQs = quizModal.questions.length;
     const scorePct = totalQs > 0 ? Math.round((correctCount / totalQs) * 100) : 0;
+    const isPassedBool = scorePct >= 70;
 
     const payload = {
       formstep: 'submitQuiz',
@@ -555,6 +556,9 @@ const VideoWatch = () => {
       score: correctCount,
       total_questions: totalQs,
       percentage: scorePct,
+      result: isPassedBool,
+      result_str: isPassedBool ? 'Passed' : 'Failed',
+      status: isPassedBool ? 'Passed' : 'Failed',
       answers: answerBreakdown.map(a => ({
         question_id: a.question_id,
         selected_option: a.selected_option,
