@@ -372,6 +372,49 @@ const VideoWatch = () => {
     return null;
   };
 
+  const extractQuizFromResponse = (res, quizInfo, chapId) => {
+    let actualQuiz = null;
+
+    if (Array.isArray(res) && res.length > 0) {
+      const item = res[0];
+      if (item?.json?.quiz) actualQuiz = item.json.quiz;
+      else if (item?.json?.questions) actualQuiz = item.json;
+      else if (item?.quiz) actualQuiz = item.quiz;
+      else if (item?.questions) actualQuiz = item;
+    } else if (res && typeof res === 'object') {
+      if (res.json?.quiz) actualQuiz = res.json.quiz;
+      else if (res.json?.questions) actualQuiz = res.json;
+      else if (res.quiz) actualQuiz = res.quiz;
+      else if (res.questions) actualQuiz = res;
+    }
+
+    let questions = [];
+    let title = quizInfo?.title || `Chapter ${chapId} Quiz`;
+
+    if (actualQuiz) {
+      if (Array.isArray(actualQuiz.questions) && actualQuiz.questions.length > 0) {
+        questions = actualQuiz.questions;
+      }
+      if (actualQuiz.title) {
+        title = actualQuiz.title;
+      }
+    }
+
+    if (questions.length === 0 && Array.isArray(quizInfo?.questions) && quizInfo.questions.length > 0) {
+      questions = quizInfo.questions;
+    }
+
+    if (questions.length === 0) {
+      questions = getFallbackQuestions(title, chapId);
+    }
+
+    return {
+      questions,
+      title,
+      quizId: actualQuiz?.quiz_id || actualQuiz?.id || quizInfo?.id || chapId
+    };
+  };
+
   const triggerQuizForChapter = async (chapId, cId, courseObj) => {
     const quizInfo = findQuizForChapter(chapId, courseObj);
     if (!quizInfo) return;
@@ -386,28 +429,15 @@ const VideoWatch = () => {
         id: quizInfo.id || chapId
       });
 
-      let loadedQuestions = [];
-      let quizTitle = quizInfo.title || `Chapter ${chapId} Quiz`;
-
-      if (res && res.json && Array.isArray(res.json.questions) && res.json.questions.length > 0) {
-        loadedQuestions = res.json.questions;
-        if (res.json.title) quizTitle = res.json.title;
-      } else if (res && Array.isArray(res.questions) && res.questions.length > 0) {
-        loadedQuestions = res.questions;
-        if (res.title) quizTitle = res.title;
-      } else if (Array.isArray(quizInfo.questions) && quizInfo.questions.length > 0) {
-        loadedQuestions = quizInfo.questions;
-      } else {
-        loadedQuestions = getFallbackQuestions(quizTitle, chapId);
-      }
+      const { questions, title, quizId } = extractQuizFromResponse(res, quizInfo, chapId);
 
       setQuizModal({
         show: true,
-        title: quizTitle,
-        quizId: quizInfo.id || chapId,
+        title,
+        quizId,
         chapterId: chapId,
         courseId: cId,
-        questions: loadedQuestions,
+        questions,
         currentIdx: 0,
         userAnswers: {},
         isSubmitting: false,
