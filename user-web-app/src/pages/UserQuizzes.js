@@ -241,7 +241,7 @@ const UserQuizzes = () => {
             </button>
           ) : (
             <button
-              onClick={() => navigate(`/watch/${item.courseId}?chapter=${item.chapterId}`)}
+              onClick={() => navigate('/')}
               style={{
                 background: 'linear-gradient(135deg, #e50914, #b20710)',
                 border: 'none',
