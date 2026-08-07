@@ -7,6 +7,8 @@ import Signup from './pages/Signup';
 import UserDashboard from './pages/UserDashboard';
 import VideoWatch from './pages/VideoWatch';
 import Profile from './pages/Profile';
+import UserQuizzes from './pages/UserQuizzes';
+import Certificates from './pages/Certificates';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -153,6 +155,18 @@ const AppLayout = ({ theme, setTheme }) => {
           } />
 
           {/* User Specific Paths */}
+          <Route path="/quizzes" element={
+            <RoleRoute allowedRoles={['user']}>
+              <UserQuizzes />
+            </RoleRoute>
+          } />
+
+          <Route path="/certificates" element={
+            <RoleRoute allowedRoles={['user']}>
+              <Certificates />
+            </RoleRoute>
+          } />
+
           <Route path="/watch/:id" element={
             <RoleRoute allowedRoles={['user']}>
               <VideoWatch />

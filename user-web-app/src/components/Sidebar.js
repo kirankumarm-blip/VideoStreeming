@@ -7,14 +7,16 @@ const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { t } = useLanguage();
 
-  // Get active view from search parameters (query string)
-  const searchParams = new URLSearchParams(location.search);
-  const activeView = location.pathname === '/' ? (searchParams.get('view') || 'home') : '';
+  const activeView = location.pathname === '/quizzes' 
+    ? 'quiz' 
+    : (location.pathname === '/certificates' ? 'certificates' : (location.pathname === '/' ? (searchParams.get('view') || 'home') : ''));
 
   const menuItems = [
     { id: 'home', label: t('nav.home'), icon: '🏠', path: '/' },
     { id: 'explore', label: t('sidebar.explore', 'Explore'), icon: '🧭', path: '/?view=explore' },
     { id: 'categories', label: t('sidebar.categories', 'Categories'), icon: '🏷️', path: '/?view=categories' },
+    { id: 'quiz', label: t('sidebar.quiz', 'Quiz'), icon: '📝', path: '/quizzes' },
+    { id: 'certificates', label: t('sidebar.certificates', 'Certificates'), icon: '📜', path: '/certificates' },
     { id: 'watch_later', label: t('sidebar.watchLater', 'Watch Later'), icon: '⏳', path: '/?view=watch_later' },
     { id: 'downloads', label: t('sidebar.downloads', 'Downloads'), icon: '📥', path: '/?view=downloads' },
     { id: 'settings', label: t('sidebar.settings', 'Settings'), icon: '⚙️', path: '/?view=settings' }
