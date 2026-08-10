@@ -781,7 +781,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchCourses = async (adminId = selectedAdminId) => {
     try {
       const data = await api.videos.listCourses(adminId);
-      setCourses(Array.isArray(data) ? data : []);
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const validCourses = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+      setCourses(validCourses);
     } catch (e) {
       console.error(e);
       setCourses([]);
@@ -3373,8 +3375,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <div className="table-container">
                   <PaginatedTable
                     headers={['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions']}
-                    data={courses || []}
-                    emptyMessage="No courses found. Click 'Upload Course' to add one."
+                    data={(Array.isArray(courses) ? courses : []).filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name))}
+                    emptyMessage="No data available"
                     renderRow={(course, index) => {
                       const displayTitle = course.course_title || course.title || 'Untitled Course';
                       const courseBanner = course.banner || course.thumbnail || course.thumbnailUrl || '';
