@@ -2136,22 +2136,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>User Engagement Funnel</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {(() => {
-                          const registeredCount = parseInt(stats?.total_users || stats?.cards?.totalUsers || users.length || 1000, 10);
-                          const loggedInCount = parseInt(stats?.funnel?.loggedIn || 850, 10);
-                          const startedCount = parseInt(stats?.funnel?.startedVideo || 600, 10);
-                          const completedCount = parseInt(stats?.funnel?.completedVideo || 400, 10);
+                          const registeredCount = stats?.total_users !== undefined ? parseInt(stats.total_users, 10) : (users.length || 0);
+                          const loggedInCount = stats?.funnel?.loggedIn !== undefined ? parseInt(stats.funnel.loggedIn, 10) : 0;
+                          const startedCount = stats?.funnel?.startedVideo !== undefined ? parseInt(stats.funnel.startedVideo, 10) : 0;
+                          const completedCount = stats?.funnel?.completedVideo !== undefined ? parseInt(stats.funnel.completedVideo, 10) : 0;
 
-                          const loggedInPct = Math.round((loggedInCount / Math.max(1, registeredCount)) * 100);
-                          const startedPct = Math.round((startedCount / Math.max(1, registeredCount)) * 100);
-                          const completedPct = Math.round((completedCount / Math.max(1, registeredCount)) * 100);
+                          const loggedInPct = registeredCount > 0 ? Math.round((loggedInCount / registeredCount) * 100) : 0;
+                          const startedPct = registeredCount > 0 ? Math.round((startedCount / registeredCount) * 100) : 0;
+                          const completedPct = registeredCount > 0 ? Math.round((completedCount / registeredCount) * 100) : 0;
 
-                          const funnelData = stats?.engagementFunnel || [
+                          return [
                             { label: 'Registered Users', count: registeredCount, color: 'var(--accent-primary)', pct: 100 },
                             { label: 'Logged In', count: loggedInCount, color: 'var(--accent-secondary)', pct: Math.min(100, loggedInPct) },
                             { label: 'Started Video', count: startedCount, color: '#3b82f6', pct: Math.min(100, startedPct) },
                             { label: 'Completed Video', count: completedCount, color: '#10b981', pct: Math.min(100, completedPct) }
                           ];
-                          return funnelData;
                         })().map(level => (
                           <div key={level.label} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600, width: '130px' }}>{level.label}</span>
@@ -2178,19 +2177,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <div className="table-container">
                         <PaginatedTable
                           headers={['Video Lesson', 'Views', 'Watch Time', 'Completion %', 'Likes']}
-                          data={stats?.top_content || stats?.topContent || [
-                            { videoLesson: 'React JS for Beginners', views: 1200, watchTime: '650h', completionPercentage: 85, likes: 540 },
-                            { videoLesson: 'Understanding Compound Interest', views: 980, watchTime: '410h', completionPercentage: 70, likes: 320 },
-                            { videoLesson: 'Introduction to Quantum Mechanics', views: 450, watchTime: '180h', completionPercentage: 62, likes: 110 }
-                          ]}
-                          emptyMessage="No content metrics found"
+                          data={Array.isArray(stats?.top_content) ? stats.top_content : (Array.isArray(stats?.topContent) ? stats.topContent : [])}
+                          emptyMessage="No data available"
                           renderRow={(row, idx) => (
                             <tr key={idx}>
-                              <td style={{ fontWeight: 600 }}>{row.videoLesson || row.title}</td>
-                              <td>{row.views}</td>
-                              <td>{row.watchTime || row.time}</td>
-                              <td>{row.completionPercentage !== undefined ? `${row.completionPercentage}%` : row.comp}</td>
-                              <td>{row.likes}</td>
+                              <td style={{ fontWeight: 600 }}>{row.videoLesson || row.title || row.video || 'N/A'}</td>
+                              <td>{row.views !== undefined ? row.views : 0}</td>
+                              <td>{row.watchTime || row.time || row.watch_time || '0h'}</td>
+                              <td>{row.completionPercentage !== undefined ? `${row.completionPercentage}%` : (row.comp ? `${row.comp}%` : '0%')}</td>
+                              <td>{row.likes !== undefined ? row.likes : 0}</td>
                             </tr>
                           )}
                         />
