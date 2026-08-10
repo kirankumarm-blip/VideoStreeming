@@ -1206,6 +1206,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Language selection is required');
       return;
     }
+    if (isSuperAdmin && !courseForm.visibility) {
+      showError('Visibility selection is required');
+      return;
+    }
+    const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+    const isPrivateVis = (selectedVisObj && (
+      (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+      (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+      (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+    )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+
+    if (isSuperAdmin && isPrivateVis && !courseForm.adminId) {
+      showError('Admin assignment selection is required for Private courses');
+      return;
+    }
     if (!courseForm.instructor?.trim()) {
       showError('Instructor / Author is required');
       return;
