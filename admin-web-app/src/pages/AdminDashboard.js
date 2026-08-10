@@ -1023,11 +1023,44 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setBannerUploading(false);
     }
   };
+  const getVideoDuration = (file) => {
+    return new Promise((resolve) => {
+      try {
+        const videoElement = document.createElement('video');
+        videoElement.preload = 'metadata';
+
+        videoElement.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(videoElement.src);
+          const durationInSeconds = videoElement.duration;
+          if (durationInSeconds && !isNaN(durationInSeconds) && isFinite(durationInSeconds)) {
+            resolve(Math.round(durationInSeconds));
+          } else {
+            resolve(0);
+          }
+        };
+
+        videoElement.onerror = () => {
+          resolve(0);
+        };
+
+        videoElement.src = URL.createObjectURL(file);
+      } catch (err) {
+        console.warn("Could not read video duration from file", err);
+        resolve(0);
+      }
+    });
+  };
 
   const handleChapterVideoUpload = async (chapterId, videoId, file) => {
     if (!file) return;
     if (await verifyFileContent(file)) return;
     
+    // Automatically capture duration from video file and autofill duration field
+    const capturedDuration = await getVideoDuration(file);
+    if (capturedDuration > 0) {
+      updateVideoProp(chapterId, videoId, 'duration', capturedDuration.toString());
+    }
+
     updateVideoProp(chapterId, videoId, 'uploadStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'fileName', file.name);
     
@@ -2535,6 +2568,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             return;
                           }
                           setVideoFile(file);
+                          if (file) {
+                            const durationSec = await getVideoDuration(file);
+                            if (durationSec > 0) {
+                              setUploadForm(prev => ({ ...prev, duration: durationSec.toString() }));
+                            }
+                          }
                         }}
                         required
                         className="form-input"
