@@ -1105,6 +1105,116 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleCourseSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
+
+    // 1. Basic Course Info Validations
+    if (!courseForm.title?.trim()) {
+      showError('Course Title is required');
+      return;
+    }
+    if (!courseForm.description?.trim()) {
+      showError('Course Description is required');
+      return;
+    }
+    if (!courseForm.category) {
+      showError('Category selection is required');
+      return;
+    }
+    if (!courseForm.subCategory) {
+      showError('Sub Category selection is required');
+      return;
+    }
+    if (!courseForm.languageId) {
+      showError('Language selection is required');
+      return;
+    }
+    if (!courseForm.instructor?.trim()) {
+      showError('Instructor / Author is required');
+      return;
+    }
+    if (!courseForm.level?.toString().trim()) {
+      showError('Course Level selection is required');
+      return;
+    }
+    if (!courseThumbnailUrl?.trim()) {
+      showError('Course Thumbnail is required');
+      return;
+    }
+    if (!courseForm.totalChapters?.toString().trim()) {
+      showError('Total Chapters field is required');
+      return;
+    }
+
+    // 2. Chapters Required Validation (Exact popup text "Chapters required")
+    if (!chapters || chapters.length === 0) {
+      showError('Chapters required');
+      return;
+    }
+
+    // 3. Total Chapters Count Mismatch Validation
+    const expectedChaptersCount = parseInt(courseForm.totalChapters, 10);
+    if (!isNaN(expectedChaptersCount) && expectedChaptersCount > 0 && chapters.length < expectedChaptersCount) {
+      showError(`Please add all ${expectedChaptersCount} chapters specified in Total Chapters field (Current added: ${chapters.length})`);
+      return;
+    }
+
+    // 4. Chapter Mandatory Fields Validation
+    for (let i = 0; i < chapters.length; i++) {
+      const ch = chapters[i];
+      if (!ch.title?.trim()) {
+        showError(`Chapter ${i + 1}: Chapter title is required`);
+        return;
+      }
+      if (!ch.description?.trim()) {
+        showError(`Chapter ${i + 1}: Chapter description is required`);
+        return;
+      }
+      if (!ch.videos || ch.videos.length === 0) {
+        showError(`Chapter ${i + 1} (${ch.title || 'Untitled'}): At least one video/lesson is required`);
+        return;
+      }
+
+      for (let j = 0; j < ch.videos.length; j++) {
+        const v = ch.videos[j];
+        if (!v.title?.trim()) {
+          showError(`Chapter ${i + 1} Lesson ${j + 1}: Lesson title is required`);
+          return;
+        }
+        if (!v.videoUrl?.trim()) {
+          showError(`Chapter ${i + 1} Lesson ${j + 1} ("${v.title || 'Lesson'}"): Video file or Video URL is required`);
+          return;
+        }
+      }
+
+      // 5. Quiz Validation (if quiz is added/enabled)
+      if (ch.quiz || ch.hasQuiz) {
+        const qz = ch.quiz;
+        if (!qz || !qz.title?.trim()) {
+          showError(`Chapter ${i + 1} Quiz: Quiz title is required`);
+          return;
+        }
+        if (!qz.questions || qz.questions.length === 0) {
+          showError(`Chapter ${i + 1} Quiz: At least one question is required`);
+          return;
+        }
+
+        for (let qIdx = 0; qIdx < qz.questions.length; qIdx++) {
+          const q = qz.questions[qIdx];
+          if (!q.question?.trim()) {
+            showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Question statement is required`);
+            return;
+          }
+          if (!q.options || q.options.length < 2 || q.options.some(opt => !opt?.trim())) {
+            showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): All option choices must be filled`);
+            return;
+          }
+          if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
+            showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Correct answer selection is required`);
+            return;
+          }
+        }
+      }
+    }
+
     setUploadProgress('Submitting course...');
     try {
       const calculatedLessons = chapters.reduce((sum, ch) => sum + (ch.videos ? ch.videos.length : 0), 0);
@@ -2637,7 +2747,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author</label>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
                           <input
                             type="text"
                             className="form-input"
@@ -2645,10 +2755,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             placeholder="e.g. John Doe"
                             value={courseForm.instructor}
                             onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
+                            required
                           />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Level</label>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Level *</label>
                           <select
                             className="form-input"
                             style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
@@ -2717,7 +2828,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           {courseBannerUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Chapters</label>
+                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Chapters *</label>
                           <input
                             type="text"
                             className="form-input"
@@ -2725,6 +2836,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             placeholder="e.g. 10"
                             value={courseForm.totalChapters}
                             onChange={(e) => setCourseForm({ ...courseForm, totalChapters: e.target.value })}
+                            required
                           />
                         </div>
                       </div>
