@@ -222,8 +222,10 @@ const Login = () => {
         setTimerActive(true);
       });
     } catch (err) {
-      if (err.status === 401) {
+      if (err.status === 401 || err.statusCode === 401) {
         showError('Invalid Credentials');
+      } else if (err.status === 404 || err.statusCode === 404 || String(err.status) === '404' || (err.message && err.message.includes('404'))) {
+        showError('User does not exist');
       } else {
         showError(err.message || 'Login failed. Please check your credentials.');
       }
