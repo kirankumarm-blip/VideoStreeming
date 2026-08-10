@@ -2136,14 +2136,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>User Engagement Funnel</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {(() => {
-                          const registeredCount = stats?.total_users !== undefined ? parseInt(stats.total_users, 10) : (users.length || 0);
-                          const loggedInCount = stats?.funnel?.loggedIn !== undefined ? parseInt(stats.funnel.loggedIn, 10) : 0;
-                          const startedCount = stats?.funnel?.startedVideo !== undefined ? parseInt(stats.funnel.startedVideo, 10) : 0;
-                          const completedCount = stats?.funnel?.completedVideo !== undefined ? parseInt(stats.funnel.completedVideo, 10) : 0;
+                          const registeredCount = parseInt(stats?.total_users ?? stats?.totalUsers ?? stats?.cards?.totalUsers ?? (users.length || 0), 10);
+                          const rawLoggedIn = stats?.funnel?.loggedIn ?? stats?.funnel?.loggedin ?? stats?.funnel?.login;
+                          const loggedInCount = (rawLoggedIn !== undefined && rawLoggedIn !== null) ? parseInt(rawLoggedIn, 10) : 0;
+                          
+                          const rawStarted = stats?.funnel?.startedVideo ?? stats?.funnel?.startedvideo ?? stats?.funnel?.started;
+                          const startedCount = (rawStarted !== undefined && rawStarted !== null) ? parseInt(rawStarted, 10) : 0;
 
-                          const loggedInPct = registeredCount > 0 ? Math.round((loggedInCount / registeredCount) * 100) : 0;
-                          const startedPct = registeredCount > 0 ? Math.round((startedCount / registeredCount) * 100) : 0;
-                          const completedPct = registeredCount > 0 ? Math.round((completedCount / registeredCount) * 100) : 0;
+                          const rawCompleted = stats?.funnel?.completedVideo ?? stats?.funnel?.completedvideo ?? stats?.funnel?.completed;
+                          const completedCount = (rawCompleted !== undefined && rawCompleted !== null) ? parseInt(rawCompleted, 10) : 0;
+
+                          const maxBaseline = Math.max(1, registeredCount, loggedInCount, startedCount, completedCount);
+                          const loggedInPct = Math.round((loggedInCount / maxBaseline) * 100);
+                          const startedPct = Math.round((startedCount / maxBaseline) * 100);
+                          const completedPct = Math.round((completedCount / maxBaseline) * 100);
 
                           return [
                             { label: 'Registered Users', count: registeredCount, color: 'var(--accent-primary)', pct: 100 },
