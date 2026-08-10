@@ -3415,7 +3415,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               className="btn btn-secondary"
                               style={{ padding: '6px 12px', fontSize: '12px' }}
                               onClick={() => {
-                                alert(`Viewing course: ${displayTitle}`);
+                                showError('Coming soon');
                               }}
                             >
                               View Details
