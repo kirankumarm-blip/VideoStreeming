@@ -1998,17 +1998,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               </h1>
               <p style={{ color: 'var(--text-secondary)' }}>Welcome to the Admin Command Control center.</p>
             </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                Export CSV
-              </button>
-              <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                Export Excel
-              </button>
-              <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                Export PDF
-              </button>
-            </div>
+            {activeTab === 'rep_export' && (
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                  Export CSV
+                </button>
+                <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                  Export Excel
+                </button>
+                <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                  Export PDF
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -3766,30 +3768,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <option value="user_analytics">User Activity Log</option>
                       </select>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => handleExport('csv')} 
-                      className="btn btn-secondary" 
-                      style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
-                    >
-                      Export CSV
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => handleExport('excel')} 
-                      className="btn btn-secondary" 
-                      style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
-                    >
-                      Export Excel
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => handleExport('pdf')} 
-                      className="btn btn-primary" 
-                      style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
-                    >
-                      Export PDF
-                    </button>
                   </div>
                 </div>
 

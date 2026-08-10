@@ -1116,15 +1116,19 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     ))}
                   </select>
                 </div>
-                <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                  Export CSV
-                </button>
-                <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                  Export Excel
-                </button>
-                <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                  Export PDF
-                </button>
+                {activeTab === 'rep_export' && (
+                  <>
+                    <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                      Export CSV
+                    </button>
+                    <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                      Export Excel
+                    </button>
+                    <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
+                      Export PDF
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
