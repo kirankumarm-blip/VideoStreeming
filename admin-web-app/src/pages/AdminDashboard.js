@@ -2160,15 +2160,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         })().map(level => (
                           <div key={level.label} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600, width: '130px' }}>{level.label}</span>
-                            <div style={{ flex: 1, height: '24px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
+                            <div style={{ flex: 1, height: '24px', background: 'rgba(255,255,255,0.04)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
                               <div style={{ 
-                                width: `${level.pct}%`, 
+                                width: `${Math.max(level.pct, level.count > 0 ? 5 : 0)}%`, 
                                 height: '100%', 
                                 background: `linear-gradient(90deg, ${level.color} 0%, rgba(255,255,255,0.05) 100%)`,
                                 borderRadius: '12px',
                                 transition: 'width 0.8s ease'
                               }} />
-                              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', fontWeight: 700, color: '#fff' }}>
+                              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', fontWeight: 700, color: level.count > 0 ? '#fff' : 'var(--text-secondary)' }}>
                                 {level.count} ({level.pct}%)
                               </span>
                             </div>
