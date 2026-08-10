@@ -789,45 +789,47 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const addChapter = () => {
-    const newId = chapters.length > 0 ? Math.max(...chapters.map(c => c.id)) + 1 : 1;
-    const defaultVisibility = visibilities[0]?.id || '';
-    setChapters([
-      ...chapters,
-      {
-        id: newId,
-        title: `Chapter ${newId}`,
-        description: '',
-        visibility: defaultVisibility,
-        order: newId,
-        videos: []
-      }
-    ]);
+    setChapters(prev => {
+      const newId = prev.length > 0 ? Math.max(...prev.map(c => c.id)) + 1 : 1;
+      const defaultVisibility = visibilities[0]?.id || '';
+      return [
+        ...prev,
+        {
+          id: newId,
+          title: `Chapter ${newId}`,
+          description: '',
+          visibility: defaultVisibility,
+          order: newId,
+          videos: []
+        }
+      ];
+    });
   };
 
   const removeChapter = (id) => {
-    setChapters(chapters.filter(c => c.id !== id));
+    setChapters(prev => prev.filter(c => c.id !== id));
   };
 
   const updateChapterProp = (id, prop, val) => {
-    setChapters(chapters.map(c => c.id === id ? { ...c, [prop]: val } : c));
+    setChapters(prev => prev.map(c => c.id === id ? { ...c, [prop]: val } : c));
   };
 
   const addVideoToChapter = (chapterId) => {
-    setChapters(chapters.map(ch => {
+    setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
       const newId = ch.videos.length > 0 ? Math.max(...ch.videos.map(v => v.id)) + 1 : 1;
       return {
         ...ch,
         videos: [
           ...ch.videos,
-          { id: newId, title: 'New Lesson', file: null, fileName: '', thumbnail: null, thumbName: '', duration: '00:00', isPreview: false }
+          { id: newId, title: 'New Lesson', file: null, fileName: '', thumbnail: null, thumbName: '', duration: '', isPreview: false }
         ]
       };
     }));
   };
 
   const removeVideoFromChapter = (chapterId, videoId) => {
-    setChapters(chapters.map(ch => {
+    setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
       return {
         ...ch,
@@ -837,7 +839,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const updateVideoProp = (chapterId, videoId, prop, val) => {
-    setChapters(chapters.map(ch => {
+    setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
       return {
         ...ch,
