@@ -1571,12 +1571,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setUploadSuccess('');
 
     if (!videoFile) {
-      setError('Please select a video file to upload');
+      showError('Please select a video file to upload');
+      return;
+    }
+
+    if (!thumbnailFile) {
+      showError('Thumbnail Image is required');
       return;
     }
 
     if (await verifyFileContent(videoFile)) return;
-    if (thumbnailFile && await verifyFileContent(thumbnailFile)) return;
+    if (await verifyFileContent(thumbnailFile)) return;
 
     const uploadFileInChunks = async (file, fileRoleLabel) => {
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -2619,7 +2624,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginTop: '16px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Video File</label>
+                      <label className="form-label">Video File *</label>
                       <input 
                         type="file" 
                         id="videoInput"
@@ -2645,7 +2650,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Thumbnail Image</label>
+                      <label className="form-label">Thumbnail Image *</label>
                       <input 
                         type="file" 
                         id="thumbInput"
@@ -2658,6 +2663,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           }
                           setThumbnailFile(file);
                         }}
+                        required
                         className="form-input"
                         style={{ fontSize: '13px', padding: '10px' }}
                       />
