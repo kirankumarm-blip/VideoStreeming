@@ -29,10 +29,16 @@ const UserQuizzes = () => {
         rawList = response.json;
       }
 
-      const formatted = rawList.map((item, idx) => {
-        let d = item?.json || item;
+      // Filter out empty N8N response objects e.g. [{ json: {} }]
+      const validRawList = rawList.filter(item => {
+        const d = (item && item.json !== undefined) ? item.json : item;
+        return d && typeof d === 'object' && Object.keys(d).length > 0 && (d.id || d.quiz || d.quiz_id || d.quiz_title || d.title || d.score !== undefined);
+      });
 
-        let quizTitle = 'Data Types Quiz';
+      const formatted = validRawList.map((item, idx) => {
+        let d = (item && item.json !== undefined) ? item.json : item;
+
+        let quizTitle = 'Quiz';
         if (d?.quiz && typeof d.quiz === 'object') {
           quizTitle = d.quiz.title || d.quiz.quiz || d.quiz.name || quizTitle;
           d = { ...d.quiz, ...d };
@@ -42,26 +48,24 @@ const UserQuizzes = () => {
           quizTitle = d.quiz_title || d.title || d.quiz_name;
         }
 
-        const courseName = d?.course || d?.course_title || d?.course_name || 'TypeScript Basics';
-        const chapterName = d?.chapter || d?.chapter_name || d?.chapter_title || (d?.chapter_id ? `Chapter ${d.chapter_id}` : 'Chapter 1');
+        const courseName = d?.course || d?.course_title || d?.course_name || 'N/A';
+        const chapterName = d?.chapter || d?.chapter_name || d?.chapter_title || (d?.chapter_id ? `Chapter ${d.chapter_id}` : 'N/A');
         
-        let scoreStr = '';
+        let scoreStr = 'N/A';
         if (d?.score_display) {
           scoreStr = d.score_display;
         } else if (typeof d?.score === 'string' && d.score.includes('/')) {
           scoreStr = d.score;
         } else if (d?.score !== undefined) {
-          const totalQs = d.total_questions || d.total || (d.percentage ? 2 : 10);
+          const totalQs = d.total_questions || d.total || (d.percentage ? 10 : 10);
           const pctVal = d.percentage !== undefined ? parseFloat(d.percentage) : Math.round((d.score / totalQs) * 100);
           scoreStr = `${d.score}/${totalQs} (${pctVal}%)`;
-        } else {
-          scoreStr = '8/10 (80%)';
         }
 
-        const pct = d?.percentage !== undefined ? parseFloat(d.percentage) : 80;
+        const pct = d?.percentage !== undefined ? parseFloat(d.percentage) : 0;
         const resStr = d?.result || d?.status || (pct >= 70 ? 'Passed' : 'Failed');
         const attemptVal = d?.attempt || d?.attempt_number || d?.attempts || 1;
-        const dateVal = d?.date || d?.created_at || d?.submitted_at || '07 Aug 2026, 2:15 PM';
+        const dateVal = d?.date || d?.created_at || d?.submitted_at || 'N/A';
 
         return {
           id: d?.id || d?.quiz_id || idx + 1,
@@ -78,15 +82,10 @@ const UserQuizzes = () => {
         };
       });
 
-      if (formatted.length > 0) {
-        setQuizzes(formatted);
-      } else {
-        // Fallback data matching exact requested layout
-        setQuizzes(getFallbackQuizHistory());
-      }
+      setQuizzes(formatted);
     } catch (err) {
-      console.warn("Failed to fetch quiz history from API, using fallback data", err);
-      setQuizzes(getFallbackQuizHistory());
+      console.warn("Failed to fetch quiz history from API", err);
+      setQuizzes([]);
     } finally {
       setLoading(false);
     }
@@ -401,7 +400,7 @@ const UserQuizzes = () => {
             headers={tableHeaders}
             data={filteredQuizzes}
             renderRow={renderQuizRow}
-            emptyMessage="No quiz attempts found matching your criteria"
+            emptyMessage="No data available"
             defaultItemsPerPage={10}
           />
         </div>

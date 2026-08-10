@@ -413,12 +413,26 @@ const UserDashboard = () => {
     }
   }, [selectedCategory, selectedSubCategory]);
 
+  const filterValidVideoItems = (data) => {
+    let rawList = [];
+    if (Array.isArray(data)) {
+      rawList = data;
+    } else if (data && Array.isArray(data.data)) {
+      rawList = data.data;
+    } else if (data && Array.isArray(data.json)) {
+      rawList = data.json;
+    }
+    return rawList
+      .map(item => (item && item.json !== undefined ? item.json : item))
+      .filter(d => d && typeof d === 'object' && Object.keys(d).length > 0 && (d.id || d.title || d.video_title || d.course_title || d.name || d.url || d.videoUrl || d.video_url));
+  };
+
   const fetchExploreVideos = async () => {
     setLoading(true);
     try {
       const data = await api.dashboard.getUser('getExplore Video');
       console.log("Explore videos from API:", data);
-      const list = Array.isArray(data) ? data : (data.json || data.videos || []);
+      const list = filterValidVideoItems(data);
       setExploreVideosList(list);
       setHasFetchedExplore(true);
     } catch (e) {
@@ -438,7 +452,7 @@ const UserDashboard = () => {
       }
       const data = await api.dashboard.getUser('getCategoryVideo', payload);
       console.log(`Category videos for category_id: ${categoryId}, sub_category: ${subCategory}:`, data);
-      const list = Array.isArray(data) ? data : (data.json || data.videos || []);
+      const list = filterValidVideoItems(data);
       setCategoryVideosList(list);
     } catch (e) {
       console.error("Failed to load category videos", e);
@@ -454,10 +468,10 @@ const UserDashboard = () => {
       console.log(`User dashboard data (${formStep || 'home'}) from API:`, data);
       
       if (formStep === 'getwatchLaterVideos' || formStep === 'watchLater') {
-        const list = Array.isArray(data) ? data : (data.json || data.favorites || data.watchLater || data.watchLaterVideos || []);
+        const list = filterValidVideoItems(data);
         setFavoritesList(list);
       } else if (formStep === 'download_history' || formStep === 'downloads') {
-        const list = Array.isArray(data) ? data : (data.json || data.downloads || data.downloadHistory || data.download_history || []);
+        const list = filterValidVideoItems(data);
         setDownloadsList(list);
       } else {
         const actualData = Array.isArray(data) ? (data[0] || {}) : (data.json || data || {});
