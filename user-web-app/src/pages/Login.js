@@ -4,6 +4,96 @@ import { api } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 
+// 6-Digit Pin Input Component
+const SixDigitOtpInput = ({ value, onChange, disabled }) => {
+  const inputRefs = React.useRef([]);
+
+  const digits = Array(6).fill('').map((_, i) => (value && value[i]) || '');
+
+  const handleChange = (e, index) => {
+    const val = e.target.value.replace(/\D/g, '');
+    if (!val) {
+      const newDigits = [...digits];
+      newDigits[index] = '';
+      onChange(newDigits.join(''));
+      return;
+    }
+
+    const pastedDigits = val.split('');
+    const newDigits = [...digits];
+
+    for (let i = 0; i < pastedDigits.length && (index + i) < 6; i++) {
+      newDigits[index + i] = pastedDigits[i];
+    }
+    onChange(newDigits.join(''));
+
+    const nextIndex = Math.min(5, index + pastedDigits.length);
+    if (inputRefs.current[nextIndex] && nextIndex !== index) {
+      inputRefs.current[nextIndex].focus();
+    }
+  };
+
+  const handleKeyDown = (e, index) => {
+    if (e.key === 'Backspace') {
+      if (!digits[index] && index > 0) {
+        inputRefs.current[index - 1].focus();
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1].focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      inputRefs.current[index + 1].focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pastedData) {
+      onChange(pastedData);
+      const nextFocus = Math.min(5, pastedData.length);
+      if (inputRefs.current[nextFocus - 1]) {
+        inputRefs.current[nextFocus - 1].focus();
+      }
+    }
+  };
+
+  return (
+    <div 
+      style={{ display: 'flex', gap: '8px', justifyContent: 'center', margin: '20px 0 28px' }}
+      onPaste={handlePaste}
+    >
+      {Array(6).fill(0).map((_, i) => (
+        <input
+          key={i}
+          ref={(el) => (inputRefs.current[i] = el)}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength="1"
+          value={digits[i]}
+          onChange={(e) => handleChange(e, i)}
+          onKeyDown={(e) => handleKeyDown(e, i)}
+          disabled={disabled}
+          style={{
+            width: '44px',
+            height: '50px',
+            textAlign: 'center',
+            fontSize: '20px',
+            fontWeight: '700',
+            borderRadius: '10px',
+            border: digits[i] ? '2px solid var(--accent-primary, #e50914)' : '1px solid var(--border-color, #333)',
+            backgroundColor: 'var(--input-bg, rgba(255, 255, 255, 0.05))',
+            color: 'var(--text-primary, #ffffff)',
+            outline: 'none',
+            transition: 'all 0.2s ease',
+            boxShadow: digits[i] ? '0 0 10px rgba(229, 9, 20, 0.25)' : 'none'
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const Login = ({ initialAuthMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -463,16 +553,11 @@ const Login = ({ initialAuthMode }) => {
             </p>
 
             <div className="form-group">
-              <label className="form-label">Enter OTP</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="123456"
+              <label className="form-label" style={{ textAlign: 'center', display: 'block' }}>Enter OTP</label>
+              <SixDigitOtpInput 
                 value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                required
-                maxLength="6"
-                style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '20px', fontWeight: 'bold' }}
+                onChange={setOtpCode}
+                disabled={loading}
               />
             </div>
 
