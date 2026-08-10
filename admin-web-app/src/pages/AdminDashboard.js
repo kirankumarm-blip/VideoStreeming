@@ -1023,27 +1023,69 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setBannerUploading(false);
     }
   };
+  const formatSecondsToTime = (totalSeconds) => {
+    if (!totalSeconds || isNaN(totalSeconds) || totalSeconds <= 0) return '00:00';
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = Math.floor(totalSeconds % 60);
+
+    const pad = (num) => num.toString().padStart(2, '0');
+
+    if (hrs > 0) {
+      return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+    }
+    return `${pad(mins)}:${pad(secs)}`;
+  };
+
   const getVideoDuration = (file) => {
     return new Promise((resolve) => {
+      if (!file) {
+        resolve(0);
+        return;
+      }
       try {
         const videoElement = document.createElement('video');
         videoElement.preload = 'metadata';
+        videoElement.muted = true;
+        videoElement.playsInline = true;
 
-        videoElement.onloadedmetadata = () => {
-          window.URL.revokeObjectURL(videoElement.src);
-          const durationInSeconds = videoElement.duration;
-          if (durationInSeconds && !isNaN(durationInSeconds) && isFinite(durationInSeconds)) {
-            resolve(Math.round(durationInSeconds));
-          } else {
+        const objectUrl = URL.createObjectURL(file);
+
+        let resolved = false;
+        let timeoutId = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            resolve(0);
+          }
+        }, 6000);
+
+        const handleMetadata = () => {
+          if (resolved) return;
+          const dur = videoElement.duration;
+          if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
+            resolved = true;
+            clearTimeout(timeoutId);
+            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            resolve(Math.round(dur));
+          }
+        };
+
+        videoElement.onloadedmetadata = handleMetadata;
+        videoElement.onloadeddata = handleMetadata;
+        videoElement.ondurationchange = handleMetadata;
+
+        videoElement.onerror = () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeoutId);
+            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
             resolve(0);
           }
         };
 
-        videoElement.onerror = () => {
-          resolve(0);
-        };
-
-        videoElement.src = URL.createObjectURL(file);
+        videoElement.src = objectUrl;
+        videoElement.load();
       } catch (err) {
         console.warn("Could not read video duration from file", err);
         resolve(0);
@@ -1053,13 +1095,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleChapterVideoUpload = async (chapterId, videoId, file) => {
     if (!file) return;
-    if (await verifyFileContent(file)) return;
-    
-    // Automatically capture duration from video file and autofill duration field
+
+    // Automatically capture duration from video file immediately and autofill duration field
     const capturedDuration = await getVideoDuration(file);
     if (capturedDuration > 0) {
-      updateVideoProp(chapterId, videoId, 'duration', capturedDuration.toString());
+      const formattedDuration = formatSecondsToTime(capturedDuration);
+      updateVideoProp(chapterId, videoId, 'duration', formattedDuration);
     }
+    
+    if (await verifyFileContent(file)) return;
 
     updateVideoProp(chapterId, videoId, 'uploadStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'fileName', file.name);
@@ -3008,6 +3052,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                               style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
                                               onChange={async (e) => {
                                                 const file = e.target.files[0];
+                                                if (file) {
+                                                  const capturedDuration = await getVideoDuration(file);
+                                                  if (capturedDuration > 0) {
+                                                    const formattedDuration = formatSecondsToTime(capturedDuration);
+                                                    updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
+                                                  }
+                                                }
                                                 if (file && await verifyFileContent(file)) {
                                                   e.target.value = '';
                                                   return;
