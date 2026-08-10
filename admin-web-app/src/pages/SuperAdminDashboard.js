@@ -1208,9 +1208,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       </span>
                     </div>
                     <div className="glass-card stat-card">
-                      <span className="stat-label">{t('admin.statActiveUsers', 'Active Users')}</span>
-                      <span className="stat-value">{stats?.dau ?? stats?.cards?.activeUsers ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🔴 Live Watching now</span>
+                      <span className="stat-label">{t('admin.statTotalCourses', 'Total Courses')}</span>
+                      <span className="stat-value">{stats?.total_courses ?? stats?.totalCourses ?? stats?.cards?.totalCourses ?? 0}</span>
+                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🟢 Active catalog</span>
                     </div>
                     <div className="glass-card stat-card">
                       <span className="stat-label">{t('admin.statVideosUploadedToday', 'Videos Uploaded Today')}</span>
