@@ -125,6 +125,8 @@ async function request(endpoint, options = {}) {
   const token = getAccessToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    headers['X-Authorization'] = `Bearer ${token}`;
+    headers['Auth-Token'] = token;
   }
 
   // Set Content-Type only if it's not a FormData (multer handles boundary)
