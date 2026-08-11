@@ -4,6 +4,7 @@ import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 import AdminDashboard from './AdminDashboard';
 import PaginatedTable from '../components/PaginatedTable';
+import ThreeDLoader from '../components/ThreeDLoader';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -1141,7 +1142,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px', color: 'var(--text-secondary)' }}>Loading telemetry core...</div>
+          <ThreeDLoader text="Loading telemetry core..." />
         ) : (
           <>
             {/* Embed Video Upload / Course Upload / All Courses from AdminDashboard */}

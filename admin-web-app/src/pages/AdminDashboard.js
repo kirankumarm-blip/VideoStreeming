@@ -4,6 +4,7 @@ import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 import { encryptUrl } from '../utils/crypto';
 import PaginatedTable from '../components/PaginatedTable';
+import ThreeDLoader from '../components/ThreeDLoader';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -2034,7 +2035,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px', color: 'var(--text-secondary)' }}>Loading telemetry data...</div>
+          <ThreeDLoader text="Loading telemetry data..." />
         ) : (
           <>
             {/* OVERVIEW CONTENT VIEW */}

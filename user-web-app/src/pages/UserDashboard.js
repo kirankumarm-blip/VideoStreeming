@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import ThreeDLoader from '../components/ThreeDLoader';
 
 // Category map with emojis
 const categoriesWithIcons = [
@@ -1048,9 +1049,7 @@ const UserDashboard = () => {
   return (
     <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="user-dashboard-content animate-fade-in">
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
-            {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
-          </div>
+          <ThreeDLoader text="Loading dashboard telemetry data..." />
         ) : (
           <>
             {/* ================= HOME VIEW ================= */}

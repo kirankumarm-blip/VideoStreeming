@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import PaginatedTable from '../components/PaginatedTable';
+import ThreeDLoader from '../components/ThreeDLoader';
 
 const UserQuizzes = () => {
   const navigate = useNavigate();
@@ -375,19 +376,7 @@ const UserQuizzes = () => {
 
       {/* Main Quiz History Table */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
-          <div style={{
-            display: 'inline-block',
-            width: '28px',
-            height: '28px',
-            border: '3px solid var(--accent-primary)',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            marginBottom: '12px'
-          }} />
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading Quiz History...</div>
-        </div>
+        <ThreeDLoader text="Loading quiz telemetry data..." />
       ) : (
         <div style={{
           backgroundColor: 'var(--bg-secondary)',
