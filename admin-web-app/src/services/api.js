@@ -313,22 +313,97 @@ async function uploadRequest(endpoint, options = {}) {
   return response.json();
 }
 
+export const getDeviceDetails = () => {
+  if (typeof window === 'undefined' || !window.navigator) {
+    return {
+      device_type: 'web',
+      device_model: 'Unknown',
+      brand: null,
+      device_info: {}
+    };
+  }
+
+  const nav = window.navigator;
+  const ua = nav.userAgent || '';
+
+  let browserName = 'unknown';
+  if (/chrome|crios/i.test(ua) && !/edg/i.test(ua)) {
+    browserName = 'chrome';
+  } else if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) {
+    browserName = 'safari';
+  } else if (/firefox|fxios/i.test(ua)) {
+    browserName = 'firefox';
+  } else if (/edg/i.test(ua)) {
+    browserName = 'edge';
+  } else if (/msie|trident/i.test(ua)) {
+    browserName = 'ie';
+  }
+
+  let deviceModel = nav.platform || 'Unknown';
+  const match = ua.match(/\(([^)]+)\)/);
+  if (match && match[1]) {
+    deviceModel = match[1];
+  }
+
+  let deviceType = 'web';
+  if (/mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua)) {
+    deviceType = 'mobile';
+  } else if (/tablet|ipad/i.test(ua)) {
+    deviceType = 'tablet';
+  }
+
+  const deviceInfoObj = {
+    Vendor: nav.vendor || 'Google Inc.',
+    appName: nav.appName || 'Netscape',
+    product: nav.product || 'Gecko',
+    language: nav.language || 'en-US',
+    platform: nav.platform || 'Win32',
+    userAgent: ua,
+    appVersion: nav.appVersion || ua,
+    appCodeName: nav.appCodeName || 'Mozilla',
+    browserName: browserName,
+    deviceMemory: nav.deviceMemory || 8,
+    hardwareConcurrency: nav.hardwareConcurrency || 8
+  };
+
+  return {
+    device_type: deviceType,
+    device_model: deviceModel,
+    brand: null,
+    device_info: deviceInfoObj
+  };
+};
+
 // API Endpoints
 export const api = {
   auth: {
     login: (email, password) => {
+      const deviceDetails = getDeviceDetails();
       return request('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ 
           email: encryptPayload(email), 
-          password: encryptPayload(password) 
+          password: encryptPayload(password),
+          device_type: deviceDetails.device_type,
+          device_model: deviceDetails.device_model,
+          brand: deviceDetails.brand,
+          device_info: deviceDetails.device_info
         }),
       });
     },
     otp: (email, formStep, otpCode = null) => {
+      const deviceDetails = getDeviceDetails();
       return request('/otp', {
         method: 'POST',
-        body: JSON.stringify({ email, formStep, otp: otpCode }),
+        body: JSON.stringify({ 
+          email, 
+          formStep, 
+          otp: otpCode,
+          device_type: deviceDetails.device_type,
+          device_model: deviceDetails.device_model,
+          brand: deviceDetails.brand,
+          device_info: deviceDetails.device_info
+        }),
       });
     },
     signup: (data) => {
