@@ -139,9 +139,7 @@ async function request(endpoint, options = {}) {
     headers,
   };
 
-  // Inject the stored JWT token directly into the request payload body for ease of use in n8n (except for /vdUser API)
-  const isVdUserEndpoint = cleanEndpoint.toLowerCase().includes('/vduser') || cleanEndpoint.toLowerCase().endsWith('/user');
-
+  // Inject the stored JWT token directly into the request payload body for ease of use in n8n
   if (!(config.body instanceof FormData)) {
     let bodyObj = {};
     if (config.body && typeof config.body === 'string') {
@@ -150,15 +148,13 @@ async function request(endpoint, options = {}) {
       } catch (e) {}
     }
     const activeToken = getAccessToken();
-    if (activeToken && !isVdUserEndpoint) {
+    if (activeToken) {
       bodyObj.token = activeToken;
-    } else if (isVdUserEndpoint) {
-      delete bodyObj.token;
     }
     config.body = JSON.stringify(bodyObj);
   } else {
     const activeToken = getAccessToken();
-    if (activeToken && !isVdUserEndpoint) {
+    if (activeToken) {
       config.body.append('token', activeToken);
     }
   }
