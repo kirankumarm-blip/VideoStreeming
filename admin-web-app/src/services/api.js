@@ -442,12 +442,21 @@ export const api = {
         body: formData, // FormData contains name, mobile, and optional avatar file
       });
     },
-    logout: () => {
+    logout: (logoutType = 1) => {
       const activeToken = getAccessToken();
+      const deviceDetails = getDeviceDetails();
       if (activeToken) {
         request('/logout', {
           method: 'POST',
-          body: JSON.stringify({ formStep: 'logout', token: activeToken })
+          body: JSON.stringify({ 
+            formStep: 'logout', 
+            token: activeToken,
+            logout_type: logoutType,
+            device_type: deviceDetails.device_type,
+            device_model: deviceDetails.device_model,
+            brand: deviceDetails.brand,
+            device_info: deviceDetails.device_info
+          })
         }).catch(err => console.error("Backend logout error", err));
       }
       clearTokens();

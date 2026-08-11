@@ -51,7 +51,7 @@ const AppLayout = ({ theme, setTheme }) => {
 
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
         sessionStorage.setItem('inactivityLoggedOut', 'true');
-        api.auth.logout();
+        api.auth.logout(2);
         window.location.hash = '/login';
       } else {
         const remainingTime = INACTIVITY_TIMEOUT_MS - timeSinceLastActivity;

@@ -117,7 +117,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   };
 
   const handleLogout = () => {
-    api.auth.logout();
+    api.auth.logout(1);
     navigate('/login');
   };
 
