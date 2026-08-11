@@ -120,13 +120,6 @@ async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
-  // Attach Authorization Bearer token if exists in storage
-  const token = getAccessToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-    headers['authorization'] = `Bearer ${token}`;
-  }
-
   // Set Content-Type only if it's not a FormData (multer handles boundary)
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
@@ -137,26 +130,6 @@ async function request(endpoint, options = {}) {
     method: 'POST', // Force POST for all UAT n8n Webhook APIs
     headers,
   };
-
-  // Inject the stored JWT token directly into the request payload body for ease of use in n8n
-  if (!(config.body instanceof FormData)) {
-    let bodyObj = {};
-    if (config.body && typeof config.body === 'string') {
-      try {
-        bodyObj = JSON.parse(config.body);
-      } catch (e) {}
-    }
-    const activeToken = getAccessToken();
-    if (activeToken) {
-      bodyObj.token = activeToken;
-    }
-    config.body = JSON.stringify(bodyObj);
-  } else {
-    const activeToken = getAccessToken();
-    if (activeToken) {
-      config.body.append('token', activeToken);
-    }
-  }
 
   let response = await fetch(url, config);
 
