@@ -1389,7 +1389,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       if (isSuperAdmin) {
         payload.visibility = courseForm.visibility;
-        payload.admin_id = courseForm.adminId || selectedAdminId || '';
+        if (isPrivate) {
+          payload.admin_id = courseForm.adminId;
+        }
       }
 
       await api.videos.uploadCourse(payload);
@@ -2823,24 +2825,34 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 ))}
                               </select>
                             </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
-                              <select
-                                className="form-input"
-                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                                value={courseForm.adminId || selectedAdminId || ''}
-                                onChange={(e) => setCourseForm({ ...courseForm, adminId: e.target.value })}
-                                required
-                                disabled={loadingAdminsList}
-                              >
-                                <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
-                                {adminsList.map((admin) => (
-                                  <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
-                                    {admin.name || admin.username || admin.email || admin.id}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                            {(() => {
+                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                              const isPrivate = (selectedVisObj && (
+                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                              )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                              return isPrivate;
+                            })() && (
+                              <div className="form-group" style={{ margin: 0 }}>
+                                <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
+                                <select
+                                  className="form-input"
+                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                  value={courseForm.adminId}
+                                  onChange={(e) => setCourseForm({ ...courseForm, adminId: e.target.value })}
+                                  required
+                                  disabled={loadingAdminsList}
+                                >
+                                  <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
+                                  {adminsList.map((admin) => (
+                                    <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
+                                      {admin.name || admin.username || admin.email || admin.id}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
