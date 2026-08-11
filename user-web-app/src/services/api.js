@@ -146,6 +146,20 @@ async function request(endpoint, options = {}) {
     headers,
   };
 
+  // Ensure no token key is ever present in the JSON body payload
+  if (!(config.body instanceof FormData)) {
+    let bodyObj = {};
+    if (config.body && typeof config.body === 'string') {
+      try {
+        bodyObj = JSON.parse(config.body);
+        if (bodyObj.token !== undefined) {
+          delete bodyObj.token;
+          config.body = JSON.stringify(bodyObj);
+        }
+      } catch (e) {}
+    }
+  }
+
   let response = await fetch(url, config);
 
   // If unauthorized, try to refresh token
@@ -455,7 +469,6 @@ export const api = {
           method: 'POST',
           body: JSON.stringify({ 
             formStep: 'logout', 
-            token: activeToken,
             logout_type: logoutType,
             device_type: deviceDetails.device_type,
             device_model: deviceDetails.device_model,
