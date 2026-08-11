@@ -120,6 +120,13 @@ async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
+  // Attach Authorization Bearer token header if exists in storage
+  const token = getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['authorization'] = `Bearer ${token}`;
+  }
+
   // Set Content-Type only if it's not a FormData (multer handles boundary)
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
