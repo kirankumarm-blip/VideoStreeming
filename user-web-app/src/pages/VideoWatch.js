@@ -341,35 +341,62 @@ const VideoWatch = () => {
   };
 
   const findQuizForChapter = (chapId, courseObj) => {
-    if (!courseObj || !chapId) return null;
+    if (!courseObj) {
+      return { id: chapId || 1, title: `Chapter Quiz`, chapter_id: chapId || 1 };
+    }
     
-    // 1. Search in courseObj.quizzes matching chapter_id
-    if (Array.isArray(courseObj.quizzes)) {
-      const found = courseObj.quizzes.find(q => String(q.chapter_id || q.chapterId) === String(chapId));
-      if (found) return found;
+    // 1. Direct quiz property on courseObj or chapter
+    if (courseObj.quiz && typeof courseObj.quiz === 'object') return courseObj.quiz;
+
+    // 2. If courseObj.quizzes is a single object
+    if (courseObj.quizzes && !Array.isArray(courseObj.quizzes) && typeof courseObj.quizzes === 'object') {
+      return courseObj.quizzes;
     }
 
-    // 2. Search in courseObj.chapters
-    if (Array.isArray(courseObj.chapters)) {
-      for (const chap of courseObj.chapters) {
+    // 3. Search in courseObj.quizzes array matching chapter_id
+    if (Array.isArray(courseObj.quizzes) && courseObj.quizzes.length > 0) {
+      const found = courseObj.quizzes.find(q => 
+        q && (
+          String(q.chapter_id || q.chapterId || q.chapter || '') === String(chapId) ||
+          String(q.course_id || q.courseId || '') === String(courseObj.id || courseObj.course_id || '')
+        )
+      );
+      if (found) return found;
+
+      // If single quiz in array (or single chapter course), return the single quiz!
+      if (courseObj.quizzes.length === 1) {
+        return courseObj.quizzes[0];
+      }
+    }
+
+    // 4. Search in courseObj.chapters array
+    if (Array.isArray(courseObj.chapters) && courseObj.chapters.length > 0) {
+      for (let i = 0; i < courseObj.chapters.length; i++) {
+        const chap = courseObj.chapters[i];
         const cId = chap.id || chap.chapter_id || chap.chapterId;
-        if (String(cId) === String(chapId)) {
+        if (String(cId) === String(chapId) || courseObj.chapters.length === 1) {
           if (chap.quiz) return chap.quiz;
           if (Array.isArray(chap.quizzes) && chap.quizzes.length > 0) return chap.quizzes[0];
-          break;
+          if (chap.quiz_id || chap.quizId) return { id: chap.quiz_id || chap.quizId, title: chap.title || `Chapter Quiz` };
         }
       }
     }
 
-    // 3. Fallback matching chapter_id to index in quizzes
+    // 5. Fallback matching chapter_id to index in quizzes
     if (Array.isArray(courseObj.quizzes) && courseObj.quizzes.length > 0) {
-      const idx = parseInt(chapId, 10) - 1;
-      if (idx >= 0 && idx < courseObj.quizzes.length) {
-        return courseObj.quizzes[idx];
+      let idx = parseInt(chapId, 10) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= courseObj.quizzes.length) {
+        idx = 0;
       }
+      return courseObj.quizzes[idx];
     }
 
-    return null;
+    // 6. Default fallback so triggerQuizForChapter always executes
+    return {
+      id: courseObj.quiz_id || courseObj.quizId || chapId || 1,
+      chapter_id: chapId || 1,
+      title: `Chapter Quiz`
+    };
   };
 
   const extractQuizFromResponse = (res, quizInfo, chapId) => {
@@ -379,13 +406,17 @@ const VideoWatch = () => {
       const item = res[0];
       if (item?.json?.quiz) actualQuiz = item.json.quiz;
       else if (item?.json?.questions) actualQuiz = item.json;
+      else if (item?.json?.quizzes && Array.isArray(item.json.quizzes) && item.json.quizzes.length > 0) actualQuiz = item.json.quizzes[0];
       else if (item?.quiz) actualQuiz = item.quiz;
       else if (item?.questions) actualQuiz = item;
+      else if (item?.quizzes && Array.isArray(item.quizzes) && item.quizzes.length > 0) actualQuiz = item.quizzes[0];
     } else if (res && typeof res === 'object') {
       if (res.json?.quiz) actualQuiz = res.json.quiz;
       else if (res.json?.questions) actualQuiz = res.json;
+      else if (res.json?.quizzes && Array.isArray(res.json.quizzes) && res.json.quizzes.length > 0) actualQuiz = res.json.quizzes[0];
       else if (res.quiz) actualQuiz = res.quiz;
       else if (res.questions) actualQuiz = res;
+      else if (res.quizzes && Array.isArray(res.quizzes) && res.quizzes.length > 0) actualQuiz = res.quizzes[0];
     }
 
     let questions = [];
@@ -416,8 +447,14 @@ const VideoWatch = () => {
   };
 
   const triggerQuizForChapter = async (chapId, cId, courseObj) => {
-    const quizInfo = findQuizForChapter(chapId, courseObj);
-    if (!quizInfo) return;
+    let quizInfo = findQuizForChapter(chapId, courseObj);
+    if (!quizInfo) {
+      quizInfo = {
+        id: courseObj?.quiz_id || courseObj?.quizId || chapId || 1,
+        title: `Chapter Quiz`,
+        chapter_id: chapId
+      };
+    }
 
     try {
       // Call vdUser API with formstep of getQuizDetails
@@ -787,9 +824,9 @@ const VideoWatch = () => {
     await saveProgress(true);
 
     const activeVid = videoRefData.current || video || location.state?.video;
-    const activeCourse = location.state?.course;
+    const activeCourse = location.state?.course || video?.course || null;
     const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? 0;
-    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? 0;
+    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? 1;
     const vidId = idRef.current || id || activeVid?.id;
 
     if (vidId) {
@@ -810,15 +847,8 @@ const VideoWatch = () => {
       }
     }
 
-    const quizInfo = findQuizForChapter(chapId, activeCourse);
-
-    if (quizInfo) {
-      // Chapter has quiz -> open quiz modal and ONLY load next chapter after quiz completion
-      triggerQuizForChapter(chapId, cId, activeCourse);
-    } else {
-      // Chapter does not have a quiz -> proceed to next video/chapter automatically
-      navigateToNextLessonOrChapter();
-    }
+    // Always trigger quiz on video completion (triggers getQuizDetails API call)
+    triggerQuizForChapter(chapId, cId, activeCourse);
   };
 
   const handleResume = () => {
