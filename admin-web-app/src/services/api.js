@@ -3,7 +3,16 @@ const getBaseUrl = () => {
 };
 
 // Helper to get tokens
-export const getAccessToken = () => localStorage.getItem('accessToken');
+export const getAccessToken = () => {
+  let t = localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
+  if (!t) {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      t = u.token || u.accessToken || u.jwt;
+    } catch (e) {}
+  }
+  return t || null;
+};
 export const getRefreshToken = () => localStorage.getItem('refreshToken');
 export const setTokens = (accessToken, refreshToken) => {
   localStorage.setItem('accessToken', accessToken);
