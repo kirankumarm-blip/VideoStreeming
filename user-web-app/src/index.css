@@ -1098,3 +1098,16 @@ select option {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* --- Global Table Header Style matching Sidebar Active Highlight --- */
+.data-table thead tr,
+table thead tr,
+.paginated-table thead tr {
+  background: var(--menu-active-bg, #f3e8ff) !important;
+}
+
+.data-table th,
+table th,
+.paginated-table th {
+  color: var(--menu-active-color, #7c3aed) !important;
+}
