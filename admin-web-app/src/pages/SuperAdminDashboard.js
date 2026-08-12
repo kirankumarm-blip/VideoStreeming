@@ -6,6 +6,7 @@ import AdminDashboard from './AdminDashboard';
 import PaginatedTable from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
+import PremiumDatePicker from '../components/PremiumDatePicker';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -1738,15 +1739,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                   <div className="form-group" style={{ margin: 0, minWidth: '150px' }}>
                     <label className="form-label">Date</label>
-                    <input 
-                      type="date" 
-                      className="form-input"
+                    <PremiumDatePicker
                       value={adminLogFilters.date}
                       onChange={e => {
                         const newF = { ...adminLogFilters, date: e.target.value };
                         setAdminLogFilters(newF);
                         fetchAdminLogs(newF);
                       }}
+                      placeholder="Select Date"
                     />
                   </div>
                   <div className="form-group" style={{ margin: 0, minWidth: '200px' }}>
@@ -2860,13 +2860,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth</label>
-                  <input 
-                    type="date" 
-                    className="form-input" 
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={adminForm.dob} 
-                    onChange={e => setAdminForm({...adminForm, dob: e.target.value})} 
-                    required 
+                  <PremiumDatePicker
+                    value={adminForm.dob}
+                    onChange={e => setAdminForm({...adminForm, dob: e.target.value})}
+                    placeholder="YYYY-MM-DD"
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>

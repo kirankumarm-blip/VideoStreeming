@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
+import PremiumDatePicker from '../components/PremiumDatePicker';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -308,13 +309,10 @@ const Signup = () => {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Date of Birth</label>
-              <input
-                type="date"
-                className="form-input"
+              <PremiumDatePicker
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
-                required
-                style={{ width: '100%' }}
+                placeholder="YYYY-MM-DD"
               />
             </div>
           </div>

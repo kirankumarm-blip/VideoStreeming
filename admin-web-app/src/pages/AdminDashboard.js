@@ -6,6 +6,7 @@ import { encryptUrl } from '../utils/crypto';
 import PaginatedTable from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
+import PremiumDatePicker from '../components/PremiumDatePicker';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -4166,13 +4167,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth</label>
-                  <input 
-                    type="date" 
-                    className="form-input" 
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={userForm.dob} 
-                    onChange={e => setUserForm({...userForm, dob: e.target.value})} 
-                    required 
+                  <PremiumDatePicker
+                    value={userForm.dob}
+                    onChange={e => setUserForm({...userForm, dob: e.target.value})}
+                    placeholder="YYYY-MM-DD"
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
