@@ -841,11 +841,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const handleDeleteCategory = async (id) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
-        await api.categories.delete(id);
+        await api.vdcategories.deleteCategory(id);
         fetchCategories();
         fetchDashboardData();
       } catch (err) {
-        alert(err.message || 'Failed to delete category');
+        showError(err.message || 'Failed to delete category');
       }
     }
   };

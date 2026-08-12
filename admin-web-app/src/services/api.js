@@ -592,6 +592,15 @@ export const api = {
           id
         })
       });
+    },
+    deleteCategory: (id) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteCategory",
+          id
+        })
+      });
     }
   },
   users: {
