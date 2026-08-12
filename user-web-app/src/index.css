@@ -26,8 +26,11 @@
 
   --menu-active-bg: rgba(139, 92, 246, 0.22);
   --menu-active-color: #a78bfa;
-  --table-header-bg: #f3f0ff;
-  --table-header-color: #6d28d9;
+  --bg-card: #121217;
+  --input-bg: #1a1a22;
+  --table-header-bg: #f3e8ff;
+  --table-header-color: #7c3aed;
+  --table-row-hover: rgba(255, 255, 255, 0.04);
 }
 
 .light-theme {
@@ -55,6 +58,11 @@
 
   --menu-active-bg: #f3e8ff;
   --menu-active-color: #7c3aed;
+  --bg-card: #ffffff;
+  --input-bg: #ffffff;
+  --table-header-bg: #f3e8ff;
+  --table-header-color: #7c3aed;
+  --table-row-hover: #f8fafc;
 }
 
 * {
@@ -1111,4 +1119,31 @@ table th,
 .paginated-table th {
   background-color: #f3e8ff !important;
   color: #7c3aed !important;
+}
+
+/* --- Global Table Dark Mode Integration --- */
+.data-table,
+table,
+.paginated-table {
+  color: var(--text-primary, #ffffff);
+}
+
+.data-table td,
+table td,
+.paginated-table td {
+  color: var(--text-primary, #ffffff);
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.data-table tbody tr:hover,
+table tbody tr:hover,
+.paginated-table tbody tr:hover {
+  background-color: var(--table-row-hover, rgba(255, 255, 255, 0.04)) !important;
+}
+
+.light-theme .data-table td,
+.light-theme table td,
+.light-theme .paginated-table td {
+  color: var(--text-primary, #0f172a);
+  border-bottom: 1px solid #f1f5f9;
 }

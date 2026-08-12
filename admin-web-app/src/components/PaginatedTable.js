@@ -45,7 +45,7 @@ export const UserAvatar = ({ name = '', index = 0, style = {} }) => {
       }}>
         {getInitials(name)}
       </div>
-      <span style={{ fontWeight: 700, color: 'var(--text-primary, #1e293b)', fontSize: '14px' }}>
+      <span style={{ fontWeight: 700, color: 'var(--text-primary, #ffffff)', fontSize: '14px' }}>
         {name}
       </span>
     </div>
@@ -118,16 +118,16 @@ export const TableActionButton = ({ icon, onClick, title, type = 'secondary', st
         width: '36px',
         height: '36px',
         borderRadius: '8px',
-        border: isDelete ? '1px solid #fee2e2' : '1px solid var(--border-color, #e2e8f0)',
-        background: 'var(--bg-card, #ffffff)',
-        color: isDelete ? '#ef4444' : '#64748b',
+        border: isDelete ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color, rgba(255,255,255,0.08))',
+        background: 'var(--bg-card, #121217)',
+        color: isDelete ? '#ef4444' : 'var(--text-secondary, #94a3b8)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
         fontSize: '13px',
         transition: 'all 0.15s ease',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         ...style
       }}
       onMouseEnter={(e) => {
@@ -354,11 +354,11 @@ const PaginatedTable = ({
   return (
     <div style={{
       width: '100%',
-      background: 'var(--bg-card, #ffffff)',
+      background: 'var(--bg-card, #121217)',
       borderRadius: '20px',
-      border: '1px solid var(--border-color, #f0f0f5)',
+      border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
       padding: '24px',
-      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.04)',
+      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
       display: 'flex',
       flexDirection: 'column',
       gap: '20px'
@@ -403,12 +403,12 @@ const PaginatedTable = ({
                 height: '44px',
                 fontSize: '13px',
                 borderRadius: '10px',
-                background: 'var(--input-bg, #ffffff)',
-                border: '1px solid var(--border-color, #e2e8f0)',
-                color: 'var(--text-primary, #1e293b)',
+                background: 'var(--input-bg, #1a1a22)',
+                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                color: 'var(--text-primary, #ffffff)',
                 outline: 'none',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)'
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)'
               }}
             />
             {searchQuery && (
@@ -466,22 +466,22 @@ const PaginatedTable = ({
                 height: '44px',
                 padding: '0 20px',
                 borderRadius: '10px',
-                border: '1px solid var(--border-color, #e2e8f0)',
-                background: 'var(--bg-card, #ffffff)',
-                color: 'var(--text-primary, #1e293b)',
+                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                background: 'var(--bg-card, #121217)',
+                color: 'var(--text-primary, #ffffff)',
                 fontWeight: 600,
                 fontSize: '13px',
                 cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#cbd5e1';
-                e.currentTarget.style.background = 'var(--hover-bg, #f8fafc)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                e.currentTarget.style.background = 'var(--hover-bg, #1e1e26)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color, #e2e8f0)';
-                e.currentTarget.style.background = 'var(--bg-card, #ffffff)';
+                e.currentTarget.style.borderColor = 'var(--border-color, rgba(255,255,255,0.1))';
+                e.currentTarget.style.background = 'var(--bg-card, #121217)';
               }}
             >
               <i className="fa-solid fa-download" style={{ fontSize: '13px', color: '#64748b' }}></i>
@@ -496,7 +496,7 @@ const PaginatedTable = ({
         overflowX: 'auto',
         width: '100%',
         borderRadius: '14px',
-        border: '1px solid var(--border-color, #f0f0f5)'
+        border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))'
       }}>
         <table className={tableClassName} style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, ...tableStyle }}>
           <thead>
@@ -605,14 +605,14 @@ const PaginatedTable = ({
           gap: '16px'
         }}>
           {/* Entries Info */}
-          <div style={{ fontSize: '13px', color: '#64748b' }}>
-            Showing <strong style={{ color: 'var(--text-primary, #1e293b)' }}>{startIndex + 1}</strong> to <strong style={{ color: 'var(--text-primary, #1e293b)' }}>{Math.min(endIndex, totalItems)}</strong> of <strong style={{ color: 'var(--text-primary, #1e293b)' }}>{totalItems}</strong> entries
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary, #a0a0ab)' }}>
+            Showing <strong style={{ color: 'var(--text-primary, #ffffff)' }}>{startIndex + 1}</strong> to <strong style={{ color: 'var(--text-primary, #ffffff)' }}>{Math.min(endIndex, totalItems)}</strong> of <strong style={{ color: 'var(--text-primary, #ffffff)' }}>{totalItems}</strong> entries
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
             {/* Rows Per Page Dropdown */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#64748b' }}>Rows per page:</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary, #a0a0ab)' }}>Rows per page:</span>
               <PremiumSelect
                 options={[
                   { id: 5, name: '5' },
@@ -647,9 +647,9 @@ const PaginatedTable = ({
                   fontSize: '13px',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  border: '1px solid var(--border-color, #e2e8f0)',
-                  background: 'var(--bg-card, #ffffff)',
-                  color: activePage === 1 ? '#cbd5e1' : '#64748b',
+                  border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                  background: 'var(--bg-card, #121217)',
+                  color: activePage === 1 ? 'rgba(255,255,255,0.3)' : 'var(--text-primary, #ffffff)',
                   cursor: activePage === 1 ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -708,9 +708,9 @@ const PaginatedTable = ({
                   fontSize: '13px',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  border: '1px solid var(--border-color, #e2e8f0)',
-                  background: 'var(--bg-card, #ffffff)',
-                  color: activePage === totalPages ? '#cbd5e1' : 'var(--text-primary, #1e293b)',
+                  border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                  background: 'var(--bg-card, #121217)',
+                  color: activePage === totalPages ? 'rgba(255,255,255,0.3)' : 'var(--text-primary, #ffffff)',
                   cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
