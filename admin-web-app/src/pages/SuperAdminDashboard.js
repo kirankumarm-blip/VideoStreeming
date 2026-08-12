@@ -788,77 +788,86 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const menuStructure = [
     {
       title: 'Dashboard',
-      icon: '🏠',
+      iconClass: 'fa-solid fa-house',
+      iconColor: '#e50914',
       items: []
     },
     {
       title: 'Admin Management',
-      icon: '👨💼',
+      iconClass: 'fa-solid fa-user-shield',
+      iconColor: '#6366f1',
       items: [
-        { id: 'admins_all', label: 'All Admins' },
-        { id: 'admins_perms', label: 'Admin Permissions' }
+        { id: 'admins_all', label: 'All Admins', iconClass: 'fa-solid fa-users-gear' },
+        { id: 'admins_perms', label: 'Admin Permissions', iconClass: 'fa-solid fa-key' }
       ]
     },
     {
       title: 'User Management',
-      icon: '👥',
+      iconClass: 'fa-solid fa-users',
+      iconColor: '#38bdf8',
       items: [
-        { id: 'users_all', label: 'All Users' },
-        { id: 'users_logs', label: 'User Activity Logs' },
-        { id: 'users_blocked', label: 'Blocked Users' }
+        { id: 'users_all', label: 'All Users', iconClass: 'fa-solid fa-user-group' },
+        { id: 'users_logs', label: 'User Activity Logs', iconClass: 'fa-solid fa-clock-rotate-left' },
+        { id: 'users_blocked', label: 'Blocked Users', iconClass: 'fa-solid fa-user-slash' }
       ]
     },
     {
       title: 'Content Management',
-      icon: '🎬',
+      iconClass: 'fa-solid fa-film',
+      iconColor: '#ec4899',
       items: [
-        { id: 'video_upload', label: 'Upload Video' },
-        { id: 'course_upload', label: 'Upload Course' },
-        { id: 'content_videos', label: 'All Videos' },
-        { id: 'course_all', label: 'All Courses' },
-        { id: 'categories', label: 'Categories' }
+        { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
+        { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
+        { id: 'content_videos', label: 'All Videos', iconClass: 'fa-solid fa-video' },
+        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
+        { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' }
       ]
     },
     {
       title: 'Analytics',
-      icon: '📈',
+      iconClass: 'fa-solid fa-chart-line',
+      iconColor: '#10b981',
       items: [
-        { id: 'user_analytics', label: 'User Analytics' },
-        { id: 'video_analytics', label: 'Video Analytics' }
+        { id: 'user_analytics', label: 'User Analytics', iconClass: 'fa-solid fa-chart-pie' },
+        { id: 'video_analytics', label: 'Video Analytics', iconClass: 'fa-solid fa-chart-column' }
       ]
     },
     {
       title: 'Reports',
-      icon: '📊',
+      iconClass: 'fa-solid fa-file-invoice-dollar',
+      iconColor: '#f59e0b',
       items: []
     },
     {
       title: 'Platform Settings',
-      icon: '⚙️',
+      iconClass: 'fa-solid fa-sliders',
+      iconColor: '#8b5cf6',
       items: [
-        { id: 'set_general', label: 'General Settings' },
-        { id: 'set_languages', label: 'Languages' }
+        { id: 'set_general', label: 'General Settings', iconClass: 'fa-solid fa-gear' },
+        { id: 'set_languages', label: 'Languages', iconClass: 'fa-solid fa-language' }
       ]
     },
     {
       title: 'AI Insights',
-      icon: '🤖',
+      iconClass: 'fa-solid fa-brain',
+      iconColor: '#06b6d4',
       items: [
-        { id: 'ai_trending', label: 'Trending Videos' },
-        { id: 'ai_churn', label: 'Churn Prediction' },
-        { id: 'ai_forecast', label: 'Revenue Forecast' },
-        { id: 'ai_recs', label: 'User Recommendations' }
+        { id: 'ai_trending', label: 'Trending Videos', iconClass: 'fa-solid fa-fire' },
+        { id: 'ai_churn', label: 'Churn Prediction', iconClass: 'fa-solid fa-user-minus' },
+        { id: 'ai_forecast', label: 'Revenue Forecast', iconClass: 'fa-solid fa-arrow-trend-up' },
+        { id: 'ai_recs', label: 'User Recommendations', iconClass: 'fa-solid fa-wand-magic-sparkles' }
       ]
     },
     {
       title: 'Support Center',
-      icon: '📞',
+      iconClass: 'fa-solid fa-headset',
+      iconColor: '#f43f5e',
       items: [
-        { id: 'supp_tickets', label: 'Support Tickets' },
-        { id: 'supp_user', label: 'User Complaints' },
-        { id: 'supp_admin', label: 'Admin Complaints' },
-        { id: 'supp_bugs', label: 'Bug Reports' },
-        { id: 'supp_feedback', label: 'Feedback' }
+        { id: 'supp_tickets', label: 'Support Tickets', iconClass: 'fa-solid fa-ticket' },
+        { id: 'supp_user', label: 'User Complaints', iconClass: 'fa-solid fa-circle-exclamation' },
+        { id: 'supp_admin', label: 'Admin Complaints', iconClass: 'fa-solid fa-shield-cat' },
+        { id: 'supp_bugs', label: 'Bug Reports', iconClass: 'fa-solid fa-bug' },
+        { id: 'supp_feedback', label: 'Feedback', iconClass: 'fa-solid fa-comment-dots' }
       ]
     }
   ];
@@ -1020,12 +1029,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
                 type="button"
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>{section.icon}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <i className={section.iconClass || 'fa-solid fa-circle'} style={{ fontSize: '15px', color: section.iconColor || 'var(--accent-primary)', width: '18px', textAlign: 'center' }}></i>
                   <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
                 </span>
                 {!isDashboard && !isReports && (
-                  <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
+                  <i className={`fa-solid ${expandedSections[section.title] ? 'fa-chevron-down' : 'fa-chevron-right'}`} style={{ fontSize: '11px', opacity: 0.7 }}></i>
                 )}
               </button>
             
@@ -1061,7 +1070,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
                       type="button"
                     >
-                      {t('admin.menu.' + item.id, item.label)}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {item.iconClass && <i className={item.iconClass} style={{ fontSize: '13px', width: '16px', opacity: 0.85, textAlign: 'center' }}></i>}
+                        <span>{t('admin.menu.' + item.id, item.label)}</span>
+                      </span>
                     </button>
                   );
                 })}

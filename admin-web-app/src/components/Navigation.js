@@ -378,7 +378,11 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           }}
           title={t('nav.theme')}
         >
-          {theme === 'dark' ? '☀️' : '🌙'}
+          {theme === 'dark' ? (
+            <i className="fa-solid fa-sun" style={{ color: '#f59e0b', fontSize: '18px' }}></i>
+          ) : (
+            <i className="fa-solid fa-moon" style={{ color: '#6366f1', fontSize: '18px' }}></i>
+          )}
         </button>
 
         {/* Notifications (End Users only) */}

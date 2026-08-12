@@ -1716,80 +1716,89 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const menuStructure = [
     {
       title: 'Dashboard',
-      icon: '📊',
+      iconClass: 'fa-solid fa-house',
+      iconColor: '#e50914',
       items: []
     },
     {
       title: 'User Management',
-      icon: '👥',
+      iconClass: 'fa-solid fa-users',
+      iconColor: '#38bdf8',
       items: [
-        { id: 'users_all', label: 'Users' },
-        { id: 'users_logs', label: 'User Activity Logs' },
-        { id: 'users_blocked', label: 'Blocked Users' }
+        { id: 'users_all', label: 'Users', iconClass: 'fa-solid fa-user-group' },
+        { id: 'users_logs', label: 'User Activity Logs', iconClass: 'fa-solid fa-clock-rotate-left' },
+        { id: 'users_blocked', label: 'Blocked Users', iconClass: 'fa-solid fa-user-slash' }
       ]
     },
     {
       title: isSuperAdmin ? 'Content Management' : 'Video Management',
-      icon: '🎬',
+      iconClass: 'fa-solid fa-film',
+      iconColor: '#ec4899',
       items: isSuperAdmin ? [
-        { id: 'video_upload', label: 'Upload video' },
-        { id: 'course_upload', label: 'Upload Course' },
-        { id: 'course_all', label: 'All Courses' }
+        { id: 'video_upload', label: 'Upload video', iconClass: 'fa-solid fa-cloud-arrow-up' },
+        { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
+        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' }
       ] : [
-        { id: 'video_upload', label: 'Upload Video' },
-        { id: 'course_upload', label: 'Upload Course' },
-        { id: 'video_all', label: 'All Videos' },
-        { id: 'course_all', label: 'All Courses' }
+        { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
+        { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
+        { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
+        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' }
       ]
     },
     {
       title: 'Analytics',
-      icon: '📈',
+      iconClass: 'fa-solid fa-chart-line',
+      iconColor: '#10b981',
       items: [
-        { id: 'analytics_video', label: 'Video Analytics' },
-        { id: 'analytics_user', label: 'User Analytics' }
+        { id: 'analytics_video', label: 'Video Analytics', iconClass: 'fa-solid fa-chart-column' },
+        { id: 'analytics_user', label: 'User Analytics', iconClass: 'fa-solid fa-chart-pie' }
       ]
     },
     {
       title: 'Engagement',
-      icon: '⭐',
+      iconClass: 'fa-solid fa-star',
+      iconColor: '#f59e0b',
       items: [
-        { id: 'engage_likes', label: 'Likes & Reactions' },
-        { id: 'engage_comments', label: 'Comments' },
-        { id: 'engage_reviews', label: 'Reviews & Ratings' }
+        { id: 'engage_likes', label: 'Likes & Reactions', iconClass: 'fa-solid fa-thumbs-up' },
+        { id: 'engage_comments', label: 'Comments', iconClass: 'fa-solid fa-comments' },
+        { id: 'engage_reviews', label: 'Reviews & Ratings', iconClass: 'fa-solid fa-star-half-stroke' }
       ]
     },
     {
       title: 'Reports',
-      icon: '📂',
+      iconClass: 'fa-solid fa-file-invoice-dollar',
+      iconColor: '#6366f1',
       items: []
     },
     {
       title: 'Settings',
-      icon: '⚙',
+      iconClass: 'fa-solid fa-sliders',
+      iconColor: '#8b5cf6',
       items: [
-        { id: 'set_general', label: 'General Settings' },
-        { id: 'set_languages', label: 'Languages' }
+        { id: 'set_general', label: 'General Settings', iconClass: 'fa-solid fa-gear' },
+        { id: 'set_languages', label: 'Languages', iconClass: 'fa-solid fa-language' }
       ]
     },
     {
       title: 'Administration',
-      icon: '🏢',
+      iconClass: 'fa-solid fa-building-user',
+      iconColor: '#06b6d4',
       items: [
-        { id: 'admin_users', label: 'Admin Management' },
-        { id: 'admin_roles', label: 'Roles & Permissions' },
-        { id: 'admin_audit', label: 'Audit Logs' },
-        { id: 'admin_activity', label: 'Activity Logs' }
+        { id: 'admin_users', label: 'Admin Management', iconClass: 'fa-solid fa-user-gear' },
+        { id: 'admin_roles', label: 'Roles & Permissions', iconClass: 'fa-solid fa-key' },
+        { id: 'admin_audit', label: 'Audit Logs', iconClass: 'fa-solid fa-receipt' },
+        { id: 'admin_activity', label: 'Activity Logs', iconClass: 'fa-solid fa-list-check' }
       ]
     },
     {
       title: 'AI Insights',
-      icon: '🤖',
+      iconClass: 'fa-solid fa-brain',
+      iconColor: '#f43f5e',
       items: [
-        { id: 'ai_churn', label: 'Churn Prediction' },
-        { id: 'ai_trending', label: 'Trending Videos' },
-        { id: 'ai_recs', label: 'User Recommendations' },
-        { id: 'ai_time', label: 'Best Upload Time' }
+        { id: 'ai_churn', label: 'Churn Prediction', iconClass: 'fa-solid fa-user-minus' },
+        { id: 'ai_trending', label: 'Trending Videos', iconClass: 'fa-solid fa-fire' },
+        { id: 'ai_recs', label: 'User Recommendations', iconClass: 'fa-solid fa-wand-magic-sparkles' },
+        { id: 'ai_time', label: 'Best Upload Time', iconClass: 'fa-solid fa-business-time' }
       ]
     }
   ];
@@ -1941,12 +1950,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
                 type="button"
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>{section.icon}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <i className={section.iconClass || 'fa-solid fa-circle'} style={{ fontSize: '15px', color: section.iconColor || 'var(--accent-primary)', width: '18px', textAlign: 'center' }}></i>
                   <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
                 </span>
                 {!isDashboard && !isReports && (
-                  <span style={{ fontSize: '10px' }}>{expandedSections[section.title] ? '▼' : '▶'}</span>
+                  <i className={`fa-solid ${expandedSections[section.title] ? 'fa-chevron-down' : 'fa-chevron-right'}`} style={{ fontSize: '11px', opacity: 0.7 }}></i>
                 )}
               </button>
             
@@ -1983,7 +1992,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
                       type="button"
                     >
-                      {t('admin.menu.' + item.id, item.label)}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {item.iconClass && <i className={item.iconClass} style={{ fontSize: '13px', width: '16px', opacity: 0.85, textAlign: 'center' }}></i>}
+                        <span>{t('admin.menu.' + item.id, item.label)}</span>
+                      </span>
                     </button>
                   );
                 })}
