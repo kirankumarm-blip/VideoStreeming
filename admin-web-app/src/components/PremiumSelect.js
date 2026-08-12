@@ -79,7 +79,7 @@ const PremiumSelect = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 16px',
-          backgroundColor: 'var(--bg-secondary, rgba(255,255,255,0.05))',
+          backgroundColor: style.background || style.backgroundColor || 'var(--input-bg, rgba(255,255,255,0.05))',
           border: isOpen ? '1px solid var(--accent-primary, #e50914)' : '1px solid var(--border-color, rgba(255,255,255,0.12))',
           borderRadius: '10px',
           color: selectedOption ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #94a3b8)',

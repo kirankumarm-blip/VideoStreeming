@@ -3389,23 +3389,27 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
             <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
-              {editingSubCategory ? 'Edit Sub Category' : 'Add New Sub Category'}
+              {editingSubCategory ? 'Edit Sub Category' : 'Add Sub Category'}
             </h3>
             <form onSubmit={handleSubCategorySubmit}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Category</label>
-                <PremiumSelect
-                  options={categories.map(cat => ({
-                    id: String(cat.id || cat.category_id),
-                    name: cat.name || cat.category_name
-                  }))}
+                <select 
+                  className="form-input"
                   value={String(subCategoryForm.cat_id)}
                   onChange={(e) => setSubCategoryForm({ ...subCategoryForm, cat_id: e.target.value })}
-                  placeholder="Select Category"
-                  searchable={true}
-                  icon="fa-solid fa-list-check"
-                  style={{ height: '44px' }}
-                />
+                  onInvalid={(e) => e.target.setCustomValidity('Please select a category')}
+                  onInput={(e) => e.target.setCustomValidity('')}
+                  required
+                  style={{ width: '100%', height: '48px' }}
+                >
+                  <option value="" disabled>Select Category</option>
+                  {categories.map(cat => (
+                    <option key={cat.id || cat.category_id} value={String(cat.id || cat.category_id)}>
+                      {cat.name || cat.category_name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
