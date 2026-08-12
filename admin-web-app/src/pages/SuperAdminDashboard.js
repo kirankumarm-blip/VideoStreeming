@@ -3050,6 +3050,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             {activeTab !== 'overview' && 
              activeTab !== 'admins_all' && 
              activeTab !== 'categories' && 
+             activeTab !== 'sub_categories' && 
              activeTab !== 'content_videos' && 
              activeTab !== 'activity' && 
              activeTab !== 'users_logs' &&
