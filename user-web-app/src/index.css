@@ -26,6 +26,8 @@
 
   --menu-active-bg: rgba(139, 92, 246, 0.22);
   --menu-active-color: #a78bfa;
+  --table-header-bg: #f3f0ff;
+  --table-header-color: #6d28d9;
 }
 
 .light-theme {

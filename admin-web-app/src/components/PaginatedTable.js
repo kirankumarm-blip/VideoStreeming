@@ -500,7 +500,7 @@ const PaginatedTable = ({
       }}>
         <table className={tableClassName} style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, ...tableStyle }}>
           <thead>
-            <tr style={{ background: 'var(--table-header-bg, #f1edff)' }}>
+            <tr style={{ background: 'var(--table-header-bg, #f3f0ff)' }}>
               {headers.map((h, i) => {
                 const label = typeof h === 'object' ? h.label : h;
                 const isSortable = typeof h === 'object' ? h.sortable !== false : true;
@@ -518,7 +518,7 @@ const PaginatedTable = ({
                       fontWeight: 700,
                       letterSpacing: '0.6px',
                       textTransform: 'uppercase',
-                      color: 'var(--table-header-color, #6e56f8)',
+                      color: 'var(--table-header-color, #6d28d9)',
                       borderBottom: 'none',
                       borderTopLeftRadius: i === 0 ? '12px' : '0',
                       borderBottomLeftRadius: i === 0 ? '12px' : '0',
