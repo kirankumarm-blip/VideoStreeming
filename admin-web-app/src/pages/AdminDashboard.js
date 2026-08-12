@@ -275,6 +275,29 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingAdminsList, setLoadingAdminsList] = useState(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [thumbPreviewUrl, setThumbPreviewUrl] = useState(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (thumbnailFile) {
+      const url = URL.createObjectURL(thumbnailFile);
+      setThumbPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setThumbPreviewUrl(null);
+    }
+  }, [thumbnailFile]);
+
+  useEffect(() => {
+    if (videoFile) {
+      const url = URL.createObjectURL(videoFile);
+      setVideoPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setVideoPreviewUrl(null);
+    }
+  }, [videoFile]);
+
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
 
@@ -2542,232 +2565,499 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             
             {/* VIDEO_UPLOAD CONTENT VIEW */}
             {activeTab === 'video_upload' && (
-              <div className="animate-fade-in glass-card" style={{ maxWidth: '640px', margin: '0 auto' }}>
-                <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>{t('admin.tabUpload')}</h2>
-                <form onSubmit={handleVideoUpload}>
-                  <div className="form-group">
-                    <label className="form-label">{t('admin.uploadTitle')}</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      placeholder="e.g. Advanced Calculus Lesson 3"
-                      value={uploadForm.title}
-                      onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                      required 
-                    />
+              <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
+                
+                {/* LEFT COLUMN: Upload Video Form */}
+                <div className="glass-card" style={{ margin: 0 }}>
+                  <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>{t('admin.tabUpload')}</h2>
+                  <form onSubmit={handleVideoUpload}>
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.uploadTitle')}</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="e.g. Advanced Calculus Lesson 3"
+                        value={uploadForm.title}
+                        onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
+                        required 
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label className="form-label">{t('admin.uploadDesc')}</label>
+                      <textarea 
+                        className="form-input" 
+                        rows="4"
+                        placeholder="Provide a detailed description of this course lesson..."
+                        value={uploadForm.description}
+                        onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                        style={{ resize: 'vertical' }}
+                      />
+                    </div>
+
+                    <div className="responsive-2col-grid">
+                      <div className="form-group">
+                        <label className="form-label">{t('admin.tableCategory')}</label>
+                        <select 
+                          className="form-input"
+                          value={uploadForm.category}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setUploadForm(prev => ({ ...prev, category: val }));
+                            fetchSubCategories(val);
+                          }}
+                          required
+                        >
+                          <option value="">Select Category</option>
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Sub Category</label>
+                        <select 
+                          className="form-input"
+                          value={uploadForm.subCategory}
+                          onChange={(e) => setUploadForm({ ...uploadForm, subCategory: e.target.value })}
+                          required
+                          disabled={loadingSubCategories}
+                        >
+                          <option value="">{loadingSubCategories ? 'Loading...' : 'Select Sub Category'}</option>
+                          {subCategories.map(subCat => (
+                            <option key={subCat.id || subCat.name} value={subCat.id || subCat.name}>{subCat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Language</label>
+                        <select 
+                          className="form-input"
+                          value={uploadForm.languageId}
+                          onChange={(e) => setUploadForm({ ...uploadForm, languageId: e.target.value })}
+                          required
+                          disabled={loadingLanguages}
+                        >
+                          <option value="">{loadingLanguages ? 'Loading...' : 'Select Language'}</option>
+                          {languages.map(lang => (
+                            <option key={lang.id || lang.language_id || lang.name} value={lang.id || lang.language_id || lang.name}>
+                              {lang.name || lang.title || lang.language_name || lang.id}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Visibility</label>
+                        <select 
+                          className="form-input"
+                          value={uploadForm.visibility}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setUploadForm(prev => ({ ...prev, visibility: val }));
+                            const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
+                            const isPrivate = (selectedVisObj && (
+                              (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                              (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                              (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                            )) || (val && val.toString().toLowerCase() === 'private');
+                            if (isPrivate && isSuperAdmin) {
+                              fetchAdminsList();
+                            }
+                          }}
+                          required
+                        >
+                          {visibilities.map(vis => (
+                            <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {(() => {
+                        const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+                        const isPrivate = (selectedVisObj && (
+                          (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                          (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                          (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                        )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+                        return isPrivate;
+                      })() && (
+                        isSuperAdmin ? (
+                          <div className="form-group">
+                            <label className="form-label">Admin *</label>
+                            <select 
+                              className="form-input"
+                              value={uploadForm.adminId}
+                              onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
+                              required
+                              disabled={loadingAdminsList}
+                            >
+                              <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
+                              {adminsList.map(admin => (
+                                <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
+                                  {admin.name || admin.username || admin.email || admin.id}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="form-group">
+                            <label className="form-label">Plan</label>
+                            <select 
+                              className="form-input"
+                              value={uploadForm.planId}
+                              onChange={(e) => setUploadForm({ ...uploadForm, planId: e.target.value })}
+                              required
+                              disabled={loadingPlans}
+                            >
+                              <option value="">{loadingPlans ? 'Loading...' : 'Select Plan'}</option>
+                              {plans.map(p => (
+                                <option key={p.id || p.plan_id} value={p.id || p.plan_id}>
+                                  {p.name || p.title || p.plan_name || p.id}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Tags (Comma separated)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="e.g. math, algebra, tutorial"
+                        value={uploadForm.tags}
+                        onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginTop: '16px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Video File *</label>
+                        <input 
+                          type="file" 
+                          id="videoInput"
+                          accept="video/*" 
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (file && await verifyFileContent(file)) {
+                              e.target.value = '';
+                              return;
+                            }
+                            setVideoFile(file);
+                            if (file) {
+                              const durationSec = await getVideoDuration(file);
+                              if (durationSec > 0) {
+                                setUploadForm(prev => ({ ...prev, duration: durationSec.toString() }));
+                              }
+                            }
+                          }}
+                          required
+                          className="form-input"
+                          style={{ fontSize: '13px', padding: '10px' }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Thumbnail Image *</label>
+                        <input 
+                          type="file" 
+                          id="thumbInput"
+                          accept="image/*" 
+                          onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (file && await verifyFileContent(file)) {
+                              e.target.value = '';
+                              return;
+                            }
+                            setThumbnailFile(file);
+                          }}
+                          required
+                          className="form-input"
+                          style={{ fontSize: '13px', padding: '10px' }}
+                        />
+                      </div>
+                    </div>
+
+                    {uploadProgress && (
+                      <div style={{ margin: '20px 0', fontSize: '13px', color: 'var(--accent-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="spinner" style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid var(--accent-secondary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s infinite linear' }} />
+                        {uploadProgress}
+                      </div>
+                    )}
+
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} disabled={!!uploadProgress}>
+                      {t('admin.tabUpload')}
+                    </button>
+                  </form>
+                </div>
+
+                {/* RIGHT COLUMN: Live Video Preview Card */}
+                <div className="glass-card" style={{ margin: 0, padding: '28px', position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: 'rgba(124, 58, 237, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#7c3aed'
+                      }}>
+                        <i className="fa-solid fa-eye" style={{ fontSize: '16px' }}></i>
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Live Video Preview</h3>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Learner View Card</span>
+                      </div>
+                    </div>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981'
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span>
+                      Live Preview
+                    </span>
                   </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">{t('admin.uploadDesc')}</label>
-                    <textarea 
-                      className="form-input" 
-                      rows="4"
-                      placeholder="Provide a detailed description of this course lesson..."
-                      value={uploadForm.description}
-                      onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-                      style={{ resize: 'vertical' }}
-                    />
-                  </div>
 
-                  <div className="responsive-2col-grid">
-                    <div className="form-group">
-                      <label className="form-label">{t('admin.tableCategory')}</label>
-                      <select 
-                        className="form-input"
-                        value={uploadForm.category}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setUploadForm(prev => ({ ...prev, category: val }));
-                          fetchSubCategories(val);
-                        }}
-                        required
-                      >
-                        <option value="">Select Category</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Sub Category</label>
-                      <select 
-                        className="form-input"
-                        value={uploadForm.subCategory}
-                        onChange={(e) => setUploadForm({ ...uploadForm, subCategory: e.target.value })}
-                        required
-                        disabled={loadingSubCategories}
-                      >
-                        <option value="">{loadingSubCategories ? 'Loading...' : 'Select Sub Category'}</option>
-                        {subCategories.map(subCat => (
-                          <option key={subCat.id || subCat.name} value={subCat.id || subCat.name}>{subCat.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Language</label>
-                      <select 
-                        className="form-input"
-                        value={uploadForm.languageId}
-                        onChange={(e) => setUploadForm({ ...uploadForm, languageId: e.target.value })}
-                        required
-                        disabled={loadingLanguages}
-                      >
-                        <option value="">{loadingLanguages ? 'Loading...' : 'Select Language'}</option>
-                        {languages.map(lang => (
-                          <option key={lang.id || lang.language_id || lang.name} value={lang.id || lang.language_id || lang.name}>
-                            {lang.name || lang.title || lang.language_name || lang.id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Visibility</label>
-                      <select 
-                        className="form-input"
-                        value={uploadForm.visibility}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setUploadForm(prev => ({ ...prev, visibility: val }));
-                          const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
-                          const isPrivate = (selectedVisObj && (
-                            (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                            (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                            (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                          )) || (val && val.toString().toLowerCase() === 'private');
-                          if (isPrivate && isSuperAdmin) {
-                            fetchAdminsList();
-                          }
-                        }}
-                        required
-                      >
-                        {visibilities.map(vis => (
-                          <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {(() => {
-                      const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
-                      const isPrivate = (selectedVisObj && (
-                        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                      )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
-                      return isPrivate;
-                    })() && (
-                      isSuperAdmin ? (
-                        <div className="form-group">
-                          <label className="form-label">Admin *</label>
-                          <select 
-                            className="form-input"
-                            value={uploadForm.adminId}
-                            onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
-                            required
-                            disabled={loadingAdminsList}
-                          >
-                            <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
-                            {adminsList.map(admin => (
-                              <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
-                                {admin.name || admin.username || admin.email || admin.id}
-                              </option>
-                            ))}
-                          </select>
+                  {/* Media Screen Box */}
+                  <div style={{
+                    width: '100%',
+                    height: '210px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    background: 'var(--bg-tertiary, #09090b)',
+                    position: 'relative',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {videoPreviewUrl ? (
+                      <video src={videoPreviewUrl} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : thumbPreviewUrl ? (
+                      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                        <img src={thumbPreviewUrl} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: 'rgba(0,0,0,0.35)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <div style={{
+                            width: '52px',
+                            height: '52px',
+                            borderRadius: '50%',
+                            background: 'rgba(124, 58, 237, 0.9)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 4px 20px rgba(124, 58, 237, 0.5)'
+                          }}>
+                            <i className="fa-solid fa-play" style={{ color: '#ffffff', fontSize: '20px', marginLeft: '3px' }}></i>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="form-group">
-                          <label className="form-label">Plan</label>
-                          <select 
-                            className="form-input"
-                            value={uploadForm.planId}
-                            onChange={(e) => setUploadForm({ ...uploadForm, planId: e.target.value })}
-                            required
-                            disabled={loadingPlans}
-                          >
-                            <option value="">{loadingPlans ? 'Loading...' : 'Select Plan'}</option>
-                            {plans.map(p => (
-                              <option key={p.id || p.plan_id} value={p.id || p.plan_id}>
-                                {p.name || p.title || p.plan_name || p.id}
-                              </option>
-                            ))}
-                          </select>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '20px' }}>
+                        <div style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '50%',
+                          background: 'rgba(124, 58, 237, 0.12)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '0 auto 12px auto'
+                        }}>
+                          <i className="fa-solid fa-photo-film" style={{ fontSize: '24px', color: '#7c3aed' }}></i>
                         </div>
-                      )
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontWeight: 500 }}>
+                          Select Video & Thumbnail file to preview
+                        </p>
+                      </div>
                     )}
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Tags (Comma separated)</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      placeholder="e.g. math, algebra, tutorial"
-                      value={uploadForm.tags}
-                      onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-                    />
+                  {/* Metadata Info */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <h4 style={{
+                      fontSize: '17px',
+                      fontWeight: 700,
+                      margin: 0,
+                      color: 'var(--text-primary)',
+                      wordBreak: 'break-word'
+                    }}>
+                      {uploadForm.title.trim() || 'Untitled Video Lesson'}
+                    </h4>
+
+                    <p style={{
+                      fontSize: '13px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '1.5',
+                      margin: 0,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {uploadForm.description.trim() || 'Provide a detailed description of this course lesson to see it previewed here in real-time.'}
+                    </p>
+
+                    {/* Category & SubCategory & Language Badges */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {(() => {
+                        const selCat = categories.find(c => String(c.id) === String(uploadForm.category));
+                        const catName = selCat ? (selCat.name || selCat.category_name) : null;
+                        return catName ? (
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: 'rgba(124, 58, 237, 0.15)',
+                            color: '#7c3aed'
+                          }}>
+                            <i className="fa-solid fa-folder-open" style={{ marginRight: '6px', fontSize: '11px' }}></i>
+                            {catName}
+                          </span>
+                        ) : null;
+                      })()}
+
+                      {(() => {
+                        const selSubCat = subCategories.find(s => String(s.id || s.name) === String(uploadForm.subCategory));
+                        const subCatName = selSubCat ? (selSubCat.name || selSubCat.sub_category_name) : (uploadForm.subCategory || null);
+                        return subCatName ? (
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            color: '#3b82f6'
+                          }}>
+                            <i className="fa-solid fa-sitemap" style={{ marginRight: '6px', fontSize: '11px' }}></i>
+                            {subCatName}
+                          </span>
+                        ) : null;
+                      })()}
+
+                      {(() => {
+                        const selLang = languages.find(l => String(l.id || l.language_id || l.name) === String(uploadForm.languageId));
+                        const langName = selLang ? (selLang.name || selLang.title || selLang.language_name) : null;
+                        return langName ? (
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981'
+                          }}>
+                            <i className="fa-solid fa-language" style={{ marginRight: '6px', fontSize: '11px' }}></i>
+                            {langName}
+                          </span>
+                        ) : null;
+                      })()}
+
+                      {uploadForm.visibility && (
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          textTransform: 'capitalize',
+                          background: uploadForm.visibility === 'private' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                          color: uploadForm.visibility === 'private' ? '#ef4444' : '#f59e0b'
+                        }}>
+                          <i className={`fa-solid ${uploadForm.visibility === 'private' ? 'fa-lock' : 'fa-globe'}`} style={{ marginRight: '6px', fontSize: '11px' }}></i>
+                          {uploadForm.visibility}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Tag Chips */}
+                    {uploadForm.tags && uploadForm.tags.trim() && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                        {uploadForm.tags.split(',').map((t, idx) => {
+                          const tagClean = t.trim();
+                          if (!tagClean) return null;
+                          return (
+                            <span key={idx} style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              background: 'var(--bg-tertiary, rgba(255,255,255,0.06))',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--border-color)'
+                            }}>
+                              #{tagClean}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* File Attachment Status Bar */}
+                    {(videoFile || thumbnailFile) && (
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        background: 'var(--bg-tertiary, rgba(0,0,0,0.03))',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        fontSize: '12px'
+                      }}>
+                        {videoFile && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <i className="fa-solid fa-file-video" style={{ color: '#7c3aed' }}></i>
+                              Video:
+                            </span>
+                            <span style={{ fontWeight: 600, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                            </span>
+                          </div>
+                        )}
+                        {thumbnailFile && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <i className="fa-solid fa-file-image" style={{ color: '#3b82f6' }}></i>
+                              Thumbnail:
+                            </span>
+                            <span style={{ fontWeight: 600, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {thumbnailFile.name} ({(thumbnailFile.size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                   </div>
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginTop: '16px' }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Video File *</label>
-                      <input 
-                        type="file" 
-                        id="videoInput"
-                        accept="video/*" 
-                        onChange={async (e) => {
-                          const file = e.target.files[0];
-                          if (file && await verifyFileContent(file)) {
-                            e.target.value = '';
-                            return;
-                          }
-                          setVideoFile(file);
-                          if (file) {
-                            const durationSec = await getVideoDuration(file);
-                            if (durationSec > 0) {
-                              setUploadForm(prev => ({ ...prev, duration: durationSec.toString() }));
-                            }
-                          }
-                        }}
-                        required
-                        className="form-input"
-                        style={{ fontSize: '13px', padding: '10px' }}
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Thumbnail Image *</label>
-                      <input 
-                        type="file" 
-                        id="thumbInput"
-                        accept="image/*" 
-                        onChange={async (e) => {
-                          const file = e.target.files[0];
-                          if (file && await verifyFileContent(file)) {
-                            e.target.value = '';
-                            return;
-                          }
-                          setThumbnailFile(file);
-                        }}
-                        required
-                        className="form-input"
-                        style={{ fontSize: '13px', padding: '10px' }}
-                      />
-                    </div>
-                  </div>
-
-                  {uploadProgress && (
-                    <div style={{ margin: '20px 0', fontSize: '13px', color: 'var(--accent-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="spinner" style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid var(--accent-secondary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s infinite linear' }} />
-                      {uploadProgress}
-                    </div>
-                  )}
-
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} disabled={!!uploadProgress}>
-                    {t('admin.tabUpload')}
-                  </button>
-                </form>
               </div>
             )}
             {activeTab === 'course_upload' && (() => {
