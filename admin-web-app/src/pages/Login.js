@@ -448,6 +448,8 @@ const Login = () => {
                 placeholder={t('auth.enterEmail')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onInvalid={(e) => e.target.setCustomValidity('Please fill out email address')}
+                onInput={(e) => e.target.setCustomValidity('')}
                 required
               />
             </div>
@@ -464,6 +466,8 @@ const Login = () => {
                   placeholder={t('auth.enterPassword')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onInvalid={(e) => e.target.setCustomValidity('Please fill out password')}
+                  onInput={(e) => e.target.setCustomValidity('')}
                   style={{ width: '100%', paddingRight: '50px' }}
                   required
                 />

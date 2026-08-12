@@ -86,30 +86,53 @@ const Signup = () => {
     setSuccess('');
 
     // Field Validations
-    if (!firstName || !lastName || !genderId || !dob || !email || !mobile || !password || !confirmPassword) {
-      showError('All fields are required');
+    if (!firstName || !firstName.trim()) {
+      showError('Please fill out first name');
       return;
     }
-
+    if (!lastName || !lastName.trim()) {
+      showError('Please fill out last name');
+      return;
+    }
+    if (!genderId) {
+      showError('Please select gender');
+      return;
+    }
+    if (!dob) {
+      showError('Please select date of birth');
+      return;
+    }
+    if (!email || !email.trim()) {
+      showError('Please fill out email address');
+      return;
+    }
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      showError('Please enter a valid email address (e.g. name@domain.com)');
+      return;
+    }
+    if (!mobile || !mobile.trim()) {
+      showError('Please fill out phone number');
+      return;
+    }
     if (mobile.length !== 10) {
       showError('Phone number must be exactly 10 digits');
       return;
     }
-
-    if (password !== confirmPassword) {
-      showError('Passwords do not match');
+    if (!password) {
+      showError('Please fill out password');
       return;
     }
-
     if (password.length < 6) {
       showError('Password must be at least 6 characters long');
       return;
     }
-
-    // Email regex check with TLD verification
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email)) {
-      showError('Please enter a valid email address (e.g. name@domain.com)');
+    if (!confirmPassword) {
+      showError('Please fill out confirm password');
+      return;
+    }
+    if (password !== confirmPassword) {
+      showError('Passwords do not match');
       return;
     }
 
@@ -263,7 +286,6 @@ const Signup = () => {
             {success}
           </div>
         )}
-
         <form onSubmit={handleSignupSubmit}>
           <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', textAlign: 'center' }}>
             {t('auth.signUp')}
@@ -278,6 +300,8 @@ const Signup = () => {
                 placeholder="Enter first name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                onInvalid={(e) => e.target.setCustomValidity('Please fill out first name')}
+                onInput={(e) => e.target.setCustomValidity('')}
                 required
                 style={{ width: '100%' }}
               />
@@ -290,6 +314,8 @@ const Signup = () => {
                 placeholder="Enter last name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                onInvalid={(e) => e.target.setCustomValidity('Please fill out last name')}
+                onInput={(e) => e.target.setCustomValidity('')}
                 required
                 style={{ width: '100%' }}
               />
@@ -325,6 +351,8 @@ const Signup = () => {
               placeholder={t('auth.enterEmail')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onInvalid={(e) => e.target.setCustomValidity('Please fill out email address')}
+              onInput={(e) => e.target.setCustomValidity('')}
               required
               style={{ width: '100%' }}
             />
@@ -338,6 +366,8 @@ const Signup = () => {
               placeholder="Enter 10-digit phone number"
               value={mobile}
               onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onInvalid={(e) => e.target.setCustomValidity('Please fill out phone number')}
+              onInput={(e) => e.target.setCustomValidity('')}
               required
               style={{ width: '100%' }}
             />
@@ -352,6 +382,8 @@ const Signup = () => {
                 placeholder={t('auth.passwordMin')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onInvalid={(e) => e.target.setCustomValidity('Please fill out password')}
+                onInput={(e) => e.target.setCustomValidity('')}
                 style={{ width: '100%', paddingRight: '50px' }}
                 required
               />

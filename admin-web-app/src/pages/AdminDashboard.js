@@ -1432,20 +1432,55 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleUserSubmit = async (e) => {
     e.preventDefault();
 
-    // Email regex validation (e.g. marco@gmail.com)
+    if (!userForm.firstName || !userForm.firstName.trim()) {
+      showError('Please fill out first name');
+      return;
+    }
+    if (!userForm.lastName || !userForm.lastName.trim()) {
+      showError('Please fill out last name');
+      return;
+    }
+    if (!userForm.email || !userForm.email.trim()) {
+      showError('Please fill out email address');
+      return;
+    }
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(userForm.email)) {
       showError('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
       return;
     }
-
-    // Phone number length validation
+    if (!userForm.mobile || !userForm.mobile.trim()) {
+      showError('Please fill out phone number');
+      return;
+    }
     if (userForm.mobile.length !== 10) {
       showError('Phone number must be exactly 10 digits');
       return;
     }
-
-    // Zipcode length validation
+    if (!userForm.gender) {
+      showError('Please select gender');
+      return;
+    }
+    if (!userForm.dob) {
+      showError('Please select date of birth');
+      return;
+    }
+    if (!userForm.address || !userForm.address.trim()) {
+      showError('Please fill out address');
+      return;
+    }
+    if (!userForm.city || !userForm.city.trim()) {
+      showError('Please fill out city');
+      return;
+    }
+    if (!userForm.state || !userForm.state.trim()) {
+      showError('Please fill out state');
+      return;
+    }
+    if (!userForm.zipcode || !userForm.zipcode.trim()) {
+      showError('Please fill out zipcode');
+      return;
+    }
     if (userForm.zipcode.length !== 6) {
       showError('Zipcode must be exactly 6 digits');
       return;
@@ -4112,6 +4147,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.firstName} 
                     onChange={e => setUserForm({...userForm, firstName: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out first name')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -4124,6 +4161,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.lastName} 
                     onChange={e => setUserForm({...userForm, lastName: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out last name')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -4136,6 +4175,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.email} 
                     onChange={e => setUserForm({...userForm, email: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                     disabled={!!editingUser}
                   />
@@ -4152,6 +4193,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                       setUserForm({...userForm, mobile: value});
                     }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -4182,6 +4225,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.address} 
                     onChange={e => setUserForm({...userForm, address: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out address')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -4194,6 +4239,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.city} 
                     onChange={e => setUserForm({...userForm, city: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out city')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -4206,6 +4253,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.state} 
                     onChange={e => setUserForm({...userForm, state: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out state')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -4221,6 +4270,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setUserForm({...userForm, zipcode: value});
                     }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>

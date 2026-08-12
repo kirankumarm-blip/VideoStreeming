@@ -531,20 +531,55 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const handleAdminSubmit = async (e) => {
     e.preventDefault();
     
-    // Email regex validation (e.g. marco@gmail.com)
+    if (!adminForm.firstName || !adminForm.firstName.trim()) {
+      showError('Please fill out first name');
+      return;
+    }
+    if (!adminForm.lastName || !adminForm.lastName.trim()) {
+      showError('Please fill out last name');
+      return;
+    }
+    if (!adminForm.email || !adminForm.email.trim()) {
+      showError('Please fill out email address');
+      return;
+    }
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(adminForm.email)) {
       showError('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
       return;
     }
-
-    // Phone number length validation
+    if (!adminForm.mobile || !adminForm.mobile.trim()) {
+      showError('Please fill out phone number');
+      return;
+    }
     if (adminForm.mobile.length !== 10) {
       showError('Phone number must be exactly 10 digits');
       return;
     }
-
-    // Zipcode length validation
+    if (!adminForm.gender) {
+      showError('Please select gender');
+      return;
+    }
+    if (!adminForm.dob) {
+      showError('Please select date of birth');
+      return;
+    }
+    if (!adminForm.address || !adminForm.address.trim()) {
+      showError('Please fill out address');
+      return;
+    }
+    if (!adminForm.state_id && !adminForm.state) {
+      showError('Please select state');
+      return;
+    }
+    if (!adminForm.city_id && !adminForm.city) {
+      showError('Please select city');
+      return;
+    }
+    if (!adminForm.zipcode || !adminForm.zipcode.trim()) {
+      showError('Please fill out zipcode');
+      return;
+    }
     if (adminForm.zipcode.length !== 6) {
       showError('Zipcode must be exactly 6 digits');
       return;
@@ -2881,6 +2916,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.firstName} 
                     onChange={e => setAdminForm({...adminForm, firstName: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out first name')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -2893,6 +2930,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.lastName} 
                     onChange={e => setAdminForm({...adminForm, lastName: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out last name')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -2905,6 +2944,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.email} 
                     onChange={e => setAdminForm({...adminForm, email: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                     disabled={!!editingAdmin}
                   />
@@ -2921,6 +2962,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                       setAdminForm({...adminForm, mobile: value});
                     }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -2951,6 +2994,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.address} 
                     onChange={e => setAdminForm({...adminForm, address: e.target.value})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out address')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
@@ -2995,6 +3040,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setAdminForm({...adminForm, zipcode: value});
                     }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
+                    onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
                 </div>
