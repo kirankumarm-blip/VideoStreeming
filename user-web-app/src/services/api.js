@@ -119,10 +119,14 @@ async function request(endpoint, options = {}) {
   let cleanEndpoint = endpoint;
   if (cleanEndpoint.startsWith('/auth/login')) {
     cleanEndpoint = '/vdlogin';
+  } else if (cleanEndpoint.startsWith('/vd')) {
+    // Already has /vd prefix
+  } else if (cleanEndpoint.startsWith('vd')) {
+    cleanEndpoint = '/' + cleanEndpoint;
   } else if (cleanEndpoint.startsWith('/')) {
     cleanEndpoint = '/vd' + cleanEndpoint.substring(1);
   } else {
-    cleanEndpoint = 'vd' + cleanEndpoint;
+    cleanEndpoint = '/vd' + cleanEndpoint;
   }
   const url = `${getBaseUrl()}${cleanEndpoint}`;
   const headers = {
