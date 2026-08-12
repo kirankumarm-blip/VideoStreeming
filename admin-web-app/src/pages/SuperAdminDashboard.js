@@ -775,11 +775,19 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   // --- Category CRUD Handlers ---
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
+    const cleanName = String(categoryForm.name || '').trim();
+    if (!cleanName) {
+      showError("Please fill out category name");
+      return;
+    }
+
     try {
       if (editingCategory) {
-        await api.categories.update(editingCategory.id, categoryForm.name, categoryForm.description);
+        await api.categories.update(editingCategory.id, cleanName, categoryForm.description ? categoryForm.description.trim() : '');
+        showSuccess("Category updated successfully!");
       } else {
-        await api.categories.create(categoryForm.name, categoryForm.description);
+        await api.categories.create(cleanName, categoryForm.description ? categoryForm.description.trim() : '');
+        showSuccess("Category created successfully!");
       }
       setShowCategoryModal(false);
       setCategoryForm({ name: '', description: '' });
@@ -787,7 +795,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchCategories();
       fetchDashboardData();
     } catch (err) {
-      setError(err.message || 'Failed to save category');
+      console.error("Category error:", err);
+      const is410 = err?.status === 410 || 
+                    err?.response?.status === 410 || 
+                    String(err?.message || '').includes('410') || 
+                    String(err?.message || '').toLowerCase().includes('already exist');
+
+      if (is410) {
+        showError("Category already exist");
+      } else {
+        showError(err?.message || 'Failed to save category');
+      }
     }
   };
 
@@ -3157,8 +3175,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <input 
                   type="text" 
                   className="form-input" 
+                  placeholder="e.g., Technology, Entertainment, Science & Tech"
                   value={categoryForm.name} 
-                  onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} 
+                  onChange={e => setCategoryForm({...categoryForm, name: e.target.value.replace(/^\s+/, '')})} 
+                  onInvalid={(e) => e.target.setCustomValidity('Please fill out category name')}
+                  onInput={(e) => e.target.setCustomValidity('')}
                   required 
                 />
               </div>
@@ -3166,8 +3187,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <label className="form-label">Description</label>
                 <textarea 
                   className="form-input" 
+                  placeholder="Enter category description (optional)..."
                   value={categoryForm.description} 
-                  onChange={e => setCategoryForm({...categoryForm, description: e.target.value})}
+                  onChange={e => setCategoryForm({...categoryForm, description: e.target.value.replace(/^\s+/, '')})}
                   rows="3" 
                   style={{ resize: 'none' }}
                 />

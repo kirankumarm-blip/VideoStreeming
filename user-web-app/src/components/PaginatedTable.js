@@ -476,12 +476,14 @@ const PaginatedTable = ({
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                e.currentTarget.style.background = 'var(--hover-bg, #1e1e26)';
+                e.currentTarget.style.borderColor = 'var(--accent-secondary, #7c3aed)';
+                e.currentTarget.style.background = 'rgba(124, 58, 237, 0.12)';
+                e.currentTarget.style.color = 'var(--accent-secondary, #7c3aed)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = 'var(--border-color, rgba(255,255,255,0.1))';
                 e.currentTarget.style.background = 'var(--bg-card, #121217)';
+                e.currentTarget.style.color = 'var(--text-primary, #ffffff)';
               }}
             >
               <i className="fa-solid fa-download" style={{ fontSize: '13px', color: '#64748b' }}></i>
