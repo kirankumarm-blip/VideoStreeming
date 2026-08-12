@@ -170,10 +170,14 @@ const PremiumSelect = ({
                       marginBottom: '2px'
                     }}
                     onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                      e.currentTarget.style.backgroundColor = isSelected ? 'rgba(229, 9, 20, 0.25)' : 'rgba(229, 9, 20, 0.12)';
+                      e.currentTarget.style.color = 'var(--accent-primary, #e50914)';
+                      e.currentTarget.style.boxShadow = 'inset 3px 0 0 var(--accent-primary, #e50914)';
                     }}
                     onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.backgroundColor = isSelected ? 'rgba(229, 9, 20, 0.18)' : 'transparent';
+                      e.currentTarget.style.color = isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)';
+                      e.currentTarget.style.boxShadow = isSelected ? 'inset 3px 0 0 var(--accent-primary, #e50914)' : 'none';
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

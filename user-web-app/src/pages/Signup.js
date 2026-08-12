@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
+import PremiumSelect from '../components/PremiumSelect';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -297,20 +298,13 @@ const Signup = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Gender</label>
-              <select
-                className="form-input"
+              <PremiumSelect
+                options={genders}
                 value={genderId}
                 onChange={(e) => setGenderId(e.target.value)}
-                required
-                style={{ width: '100%' }}
-              >
-                <option value="">Select Gender</option>
-                {genders.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name || g.gender_name || g.title}
-                  </option>
-                ))}
-              </select>
+                placeholder="Select Gender"
+                icon="fa-solid fa-venus-mars"
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Date of Birth</label>

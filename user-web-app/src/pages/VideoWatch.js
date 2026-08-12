@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import PremiumSelect from '../components/PremiumSelect';
 
 const VideoWatch = () => {
   const { id } = useParams();
@@ -1250,51 +1251,39 @@ const VideoWatch = () => {
             </div>
 
             {/* Playback Speed */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '120px' }}>
               <span style={{ fontSize: '12px', color: '#aaa' }}>{t('watch.playbackSpeed')}:</span>
-              <select
-                value={playbackSpeed}
+              <PremiumSelect
+                options={[
+                  { id: '0.5', name: '0.5x' },
+                  { id: '1', name: '1.0x' },
+                  { id: '1.5', name: '1.5x' },
+                  { id: '2', name: '2.0x' }
+                ]}
+                value={String(playbackSpeed)}
                 onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
-                style={{
-                  background: '#222',
-                  border: '1px solid #444',
-                  color: '#fff',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  padding: '4px',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                <option value="0.5" style={{ background: '#222', color: '#fff' }}>0.5x</option>
-                <option value="1" style={{ background: '#222', color: '#fff' }}>1.0x</option>
-                <option value="1.5" style={{ background: '#222', color: '#fff' }}>1.5x</option>
-                <option value="2" style={{ background: '#222', color: '#fff' }}>2.0x</option>
-              </select>
+                searchable={false}
+                icon="fa-solid fa-gauge-high"
+                style={{ width: '90px' }}
+              />
             </div>
 
             {/* Quality Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '120px' }}>
               <span style={{ fontSize: '12px', color: '#aaa' }}>{t('watch.quality')}:</span>
-              <select
+              <PremiumSelect
+                options={[
+                  { id: 'Auto', name: 'Auto' },
+                  { id: '1080p', name: '1080p' },
+                  { id: '720p', name: '720p' },
+                  { id: '480p', name: '480p' }
+                ]}
                 value={quality}
                 onChange={(e) => handleQualityChange(e.target.value)}
-                style={{
-                  background: '#222',
-                  border: '1px solid #444',
-                  color: '#fff',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  padding: '4px',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                <option value="Auto" style={{ background: '#222', color: '#fff' }}>Auto</option>
-                <option value="1080p" style={{ background: '#222', color: '#fff' }}>1080p</option>
-                <option value="720p" style={{ background: '#222', color: '#fff' }}>720p</option>
-                <option value="480p" style={{ background: '#222', color: '#fff' }}>480p</option>
-              </select>
+                searchable={false}
+                icon="fa-solid fa-sliders"
+                style={{ width: '100px' }}
+              />
             </div>
 
             {/* Fullscreen */}

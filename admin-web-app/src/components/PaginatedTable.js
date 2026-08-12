@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PremiumSelect from './PremiumSelect';
 
 const PaginatedTable = ({ 
   headers, 
@@ -80,29 +81,24 @@ const PaginatedTable = ({
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Rows per page:</span>
-              <select 
-                value={itemsPerPage} 
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '95px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Rows:</span>
+              <PremiumSelect
+                options={[
+                  { id: 5, name: '5' },
+                  { id: 10, name: '10' },
+                  { id: 20, name: '20' },
+                  { id: 50, name: '50' }
+                ]}
+                value={itemsPerPage}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  borderRadius: '4px',
-                  padding: '2px 6px',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                {[5, 10, 20, 50].map(size => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
+                searchable={false}
+                icon="fa-solid fa-list-ol"
+                style={{ width: '75px' }}
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>

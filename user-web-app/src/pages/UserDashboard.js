@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import ThreeDLoader from '../components/ThreeDLoader';
+import PremiumSelect from '../components/PremiumSelect';
 
 // Category map with emojis
 const categoriesWithIcons = [
@@ -1446,40 +1447,46 @@ const UserDashboard = () => {
                   <h2 style={{ fontSize: '22px', fontWeight: 700 }}>{t('sidebar.explore')}</h2>
                   
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    <select 
-                      value={filterDifficulty} 
+                    <PremiumSelect
+                      options={[
+                        { id: 'All', name: language === 'hi' ? 'सभी कठिनाइयां' : language === 'kn' ? 'ಎಲ್ಲಾ ಕಠಿಣತೆ' : 'All Difficulties' },
+                        { id: 'Beginner', name: t('video.beginner') },
+                        { id: 'Intermediate', name: t('video.intermediate') },
+                        { id: 'Advanced', name: t('video.advanced') }
+                      ]}
+                      value={filterDifficulty}
                       onChange={(e) => setFilterDifficulty(e.target.value)}
-                      className="form-input" 
-                      style={{ width: 'auto', padding: '6px 12px', borderRadius: '8px' }}
-                    >
-                      <option value="All">{language === 'hi' ? 'सभी कठिनाइयां' : language === 'kn' ? 'ಎಲ್ಲಾ ಕಠಿಣತೆ' : 'All Difficulties'}</option>
-                      <option value="Beginner">{t('video.beginner')}</option>
-                      <option value="Intermediate">{t('video.intermediate')}</option>
-                      <option value="Advanced">{t('video.advanced')}</option>
-                    </select>
+                      searchable={false}
+                      icon="fa-solid fa-layer-group"
+                      style={{ width: '160px' }}
+                    />
 
-                    <select 
-                      value={filterDuration} 
+                    <PremiumSelect
+                      options={[
+                        { id: 'All', name: language === 'hi' ? 'सभी अवधियां' : language === 'kn' ? 'ಎಲ್ಲಾ ಅವಧಿಗಳು' : 'All Durations' },
+                        { id: 'short', name: '< 5 mins' },
+                        { id: 'medium', name: '5 - 15 mins' },
+                        { id: 'long', name: '> 15 mins' }
+                      ]}
+                      value={filterDuration}
                       onChange={(e) => setFilterDuration(e.target.value)}
-                      className="form-input" 
-                      style={{ width: 'auto', padding: '6px 12px', borderRadius: '8px' }}
-                    >
-                      <option value="All">{language === 'hi' ? 'सभी अवधियां' : language === 'kn' ? 'ಎಲ್ಲಾ ಅವಧಿಗಳು' : 'All Durations'}</option>
-                      <option value="short">&lt; 5 mins</option>
-                      <option value="medium">5 - 15 mins</option>
-                      <option value="long">&gt; 15 mins</option>
-                    </select>
+                      searchable={false}
+                      icon="fa-solid fa-clock"
+                      style={{ width: '150px' }}
+                    />
 
-                    <select 
-                      value={sortBy} 
+                    <PremiumSelect
+                      options={[
+                        { id: 'views', name: t('video.views') },
+                        { id: 'rating', name: t('video.rating') },
+                        { id: 'title', name: language === 'hi' ? 'शीर्षक' : language === 'kn' ? 'ಶೀರ್ಷಿಕೆ' : 'Title' }
+                      ]}
+                      value={sortBy}
                       onChange={(e) => setSortBy(e.target.value)}
-                      className="form-input" 
-                      style={{ width: 'auto', padding: '6px 12px', borderRadius: '8px' }}
-                    >
-                      <option value="views">{t('video.views')}</option>
-                      <option value="rating">{t('video.rating')}</option>
-                      <option value="title">{language === 'hi' ? 'शीर्षक' : language === 'kn' ? 'ಶೀರ್ಷಿಕೆ' : 'Title'}</option>
-                    </select>
+                      searchable={false}
+                      icon="fa-solid fa-arrow-down-short-wide"
+                      style={{ width: '130px' }}
+                    />
                   </div>
                 </div>
 

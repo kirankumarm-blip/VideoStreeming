@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import PremiumSelect from './PremiumSelect';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const user = getCurrentUser();
@@ -341,27 +342,19 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         )}
 
         {/* Language Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} className="nav-lang-switcher">
-          <span style={{ fontSize: '14px' }} title={t('nav.language')}>🌐</span>
-          <select 
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px' }} className="nav-lang-switcher">
+          <PremiumSelect
+            options={[
+              { id: 'en', name: 'English' },
+              { id: 'hi', name: 'हिंदी' },
+              { id: 'kn', name: 'ಕನ್ನಡ' }
+            ]}
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            style={{
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              padding: '4px 8px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none'
-            }}
-          >
-            <option value="en">English</option>
-            <option value="hi">हिंदी</option>
-            <option value="kn">ಕನ್ನಡ</option>
-          </select>
+            searchable={false}
+            icon="fa-solid fa-globe"
+            style={{ width: '110px' }}
+          />
         </div>
 
         {/* Theme Switcher */}
