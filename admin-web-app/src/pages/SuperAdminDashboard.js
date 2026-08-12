@@ -588,19 +588,19 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     setAdminFormLoading(true);
     try {
       const dataToSave = {
-        first_name: adminForm.firstName,
-        last_name: adminForm.lastName,
-        email: adminForm.email,
-        phonenumber: adminForm.mobile,
+        first_name: adminForm.firstName.trim(),
+        last_name: adminForm.lastName.trim(),
+        email: adminForm.email.trim(),
+        phonenumber: adminForm.mobile.trim(),
         gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
         date_of_birth: adminForm.dob ? new Date(adminForm.dob).toISOString() : null,
-        address: adminForm.address,
+        address: adminForm.address.trim(),
         stat_id: adminForm.state_id || adminForm.state,
         state_id: adminForm.state_id || adminForm.state,
         city_id: adminForm.city_id || adminForm.city,
-        state: adminForm.state || adminForm.state_id,
-        city: adminForm.city || adminForm.city_id,
-        zipcode: adminForm.zipcode
+        state: String(adminForm.state || adminForm.state_id).trim(),
+        city: String(adminForm.city || adminForm.city_id).trim(),
+        zipcode: adminForm.zipcode.trim()
       };
 
       if (editingAdmin) {
@@ -2915,7 +2915,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     placeholder="Enter first name"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.firstName} 
-                    onChange={e => setAdminForm({...adminForm, firstName: e.target.value})} 
+                    onChange={e => setAdminForm({...adminForm, firstName: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out first name')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -2929,7 +2929,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     placeholder="Enter last name"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.lastName} 
-                    onChange={e => setAdminForm({...adminForm, lastName: e.target.value})} 
+                    onChange={e => setAdminForm({...adminForm, lastName: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out last name')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -2943,7 +2943,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     placeholder="Enter email address"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.email} 
-                    onChange={e => setAdminForm({...adminForm, email: e.target.value})} 
+                    onChange={e => setAdminForm({...adminForm, email: e.target.value.trim()})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -2993,7 +2993,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     placeholder="Enter address"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.address} 
-                    onChange={e => setAdminForm({...adminForm, address: e.target.value})} 
+                    onChange={e => setAdminForm({...adminForm, address: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out address')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 

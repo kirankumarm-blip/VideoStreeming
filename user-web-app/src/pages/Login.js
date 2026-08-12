@@ -448,7 +448,7 @@ const Login = ({ initialAuthMode }) => {
                 className="form-input"
                 placeholder={t('auth.enterEmail')}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value.trim())}
                 onInvalid={(e) => e.target.setCustomValidity('Please fill out email address')}
                 onInput={(e) => e.target.setCustomValidity('')}
                 required
@@ -466,7 +466,7 @@ const Login = ({ initialAuthMode }) => {
                   className="form-input"
                   placeholder={t('auth.enterPassword')}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value.trim())}
                   onInvalid={(e) => e.target.setCustomValidity('Please fill out password')}
                   onInput={(e) => e.target.setCustomValidity('')}
                   style={{ width: '100%', paddingRight: '50px' }}

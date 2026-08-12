@@ -1489,16 +1489,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setUserFormLoading(true);
     try {
       const dataToSave = {
-        first_name: userForm.firstName,
-        last_name: userForm.lastName,
-        email: userForm.email,
-        phonenumber: userForm.mobile,
+        first_name: userForm.firstName.trim(),
+        last_name: userForm.lastName.trim(),
+        email: userForm.email.trim(),
+        phonenumber: userForm.mobile.trim(),
         gender_id: userForm.gender ? (parseInt(userForm.gender, 10) || userForm.gender) : null,
         date_of_birth: userForm.dob ? new Date(userForm.dob).toISOString() : null,
-        address: userForm.address,
-        city: userForm.city,
-        state: userForm.state,
-        zipcode: userForm.zipcode
+        address: userForm.address.trim(),
+        city: userForm.city.trim(),
+        state: userForm.state.trim(),
+        zipcode: userForm.zipcode.trim()
       };
 
       if (editingUser) {
@@ -4146,7 +4146,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="Enter first name"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.firstName} 
-                    onChange={e => setUserForm({...userForm, firstName: e.target.value})} 
+                    onChange={e => setUserForm({...userForm, firstName: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out first name')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -4160,7 +4160,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="Enter last name"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.lastName} 
-                    onChange={e => setUserForm({...userForm, lastName: e.target.value})} 
+                    onChange={e => setUserForm({...userForm, lastName: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out last name')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -4174,7 +4174,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="Enter email address"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.email} 
-                    onChange={e => setUserForm({...userForm, email: e.target.value})} 
+                    onChange={e => setUserForm({...userForm, email: e.target.value.trim()})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -4224,7 +4224,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="Enter address"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.address} 
-                    onChange={e => setUserForm({...userForm, address: e.target.value})} 
+                    onChange={e => setUserForm({...userForm, address: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out address')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -4238,7 +4238,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="Enter city"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.city} 
-                    onChange={e => setUserForm({...userForm, city: e.target.value})} 
+                    onChange={e => setUserForm({...userForm, city: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out city')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -4252,7 +4252,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="Enter state"
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.state} 
-                    onChange={e => setUserForm({...userForm, state: e.target.value})} 
+                    onChange={e => setUserForm({...userForm, state: e.target.value.replace(/^\s+/, '')})} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out state')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 

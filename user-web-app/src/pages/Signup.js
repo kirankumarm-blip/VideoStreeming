@@ -299,7 +299,7 @@ const Signup = () => {
                 className="form-input"
                 placeholder="Enter first name"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => setFirstName(e.target.value.replace(/^\s+/, ''))}
                 onInvalid={(e) => e.target.setCustomValidity('Please fill out first name')}
                 onInput={(e) => e.target.setCustomValidity('')}
                 required
@@ -313,7 +313,7 @@ const Signup = () => {
                 className="form-input"
                 placeholder="Enter last name"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => setLastName(e.target.value.replace(/^\s+/, ''))}
                 onInvalid={(e) => e.target.setCustomValidity('Please fill out last name')}
                 onInput={(e) => e.target.setCustomValidity('')}
                 required
@@ -350,7 +350,7 @@ const Signup = () => {
               className="form-input"
               placeholder={t('auth.enterEmail')}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value.trim())}
               onInvalid={(e) => e.target.setCustomValidity('Please fill out email address')}
               onInput={(e) => e.target.setCustomValidity('')}
               required

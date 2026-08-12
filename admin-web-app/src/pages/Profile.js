@@ -322,7 +322,9 @@ const Profile = () => {
                 type="text" 
                 className="form-input" 
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={e => setName(e.target.value.replace(/^\s+/, ''))}
+                onInvalid={e => e.target.setCustomValidity('Please fill out full name')}
+                onInput={e => e.target.setCustomValidity('')}
                 required
               />
             </div>
@@ -343,7 +345,9 @@ const Profile = () => {
                 type="tel" 
                 className="form-input" 
                 value={mobile}
-                onChange={e => setMobile(e.target.value)}
+                onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onInvalid={e => e.target.setCustomValidity('Please fill out mobile number')}
+                onInput={e => e.target.setCustomValidity('')}
                 required
               />
             </div>
@@ -366,7 +370,9 @@ const Profile = () => {
                 className="form-input" 
                 placeholder="Enter current password"
                 value={oldPassword}
-                onChange={e => setOldPassword(e.target.value)}
+                onChange={e => setOldPassword(e.target.value.trim())}
+                onInvalid={e => e.target.setCustomValidity('Please fill out current password')}
+                onInput={e => e.target.setCustomValidity('')}
                 required
               />
             </div>
@@ -378,7 +384,9 @@ const Profile = () => {
                 className="form-input" 
                 placeholder={t('auth.passwordMin')}
                 value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
+                onChange={e => setNewPassword(e.target.value.trim())}
+                onInvalid={e => e.target.setCustomValidity('Please fill out new password')}
+                onInput={e => e.target.setCustomValidity('')}
                 required
               />
             </div>
@@ -390,7 +398,9 @@ const Profile = () => {
                 className="form-input" 
                 placeholder="Confirm password"
                 value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
+                onChange={e => setConfirmPassword(e.target.value.trim())}
+                onInvalid={e => e.target.setCustomValidity('Please fill out confirm password')}
+                onInput={e => e.target.setCustomValidity('')}
                 required
               />
             </div>
