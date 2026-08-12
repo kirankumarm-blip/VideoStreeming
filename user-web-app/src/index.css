@@ -1103,11 +1103,12 @@ select option {
 .data-table thead tr,
 table thead tr,
 .paginated-table thead tr {
-  background: var(--menu-active-bg, #f3e8ff) !important;
+  background: #f3e8ff !important;
 }
 
 .data-table th,
 table th,
 .paginated-table th {
-  color: var(--menu-active-color, #7c3aed) !important;
+  background-color: #f3e8ff !important;
+  color: #7c3aed !important;
 }
