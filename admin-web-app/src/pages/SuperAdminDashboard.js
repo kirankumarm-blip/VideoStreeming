@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 import AdminDashboard from './AdminDashboard';
-import PaginatedTable from '../components/PaginatedTable';
+import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActionButton } from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
@@ -1514,43 +1514,39 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Name', 'Email', 'Mobile', 'Status', 'Actions']}
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Role', 'Actions']}
                     data={admins}
                     emptyMessage="No administrators registered yet"
                     renderRow={(admin, index) => {
                       const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
+                      const fullName = admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin';
+                      const roleName = admin.role || (admin.isSuperAdmin ? 'Super Admin' : 'Admin');
                       return (
                         <tr key={admin.id || index}>
-                          <td style={{ fontWeight: 600 }}>{admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Admin'}</td>
-                          <td>{admin.email}</td>
-                          <td>{admin.phonenumber || admin.mobile}</td>
                           <td>
-                            <span className={`badge ${isAdminActive ? 'badge-active' : 'badge-disabled'}`}>
-                              {isAdminActive ? 'Active' : 'InActive'}
-                            </span>
+                            <UserAvatar name={fullName} index={index} />
+                          </td>
+                          <td style={{ color: '#475569' }}>{admin.email}</td>
+                          <td style={{ color: '#475569' }}>{admin.phonenumber || admin.mobile}</td>
+                          <td>
+                            <TableStatusBadge status={isAdminActive} />
+                          </td>
+                          <td>
+                            <TableRoleBadge role={roleName} />
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
+                              <TableActionButton
+                                icon="fa-solid fa-pen"
+                                title="Edit Admin"
                                 onClick={() => handleEditClick(admin)}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                Edit
-                              </button>
-                              <button 
+                              />
+                              <TableActionButton
+                                icon={isAdminActive ? "fa-solid fa-trash-can" : "fa-solid fa-user-check"}
+                                type={isAdminActive ? "delete" : "secondary"}
+                                title={isAdminActive ? "Disable Admin" : "Enable Admin"}
                                 onClick={() => handleToggleAdminStatus(admin)}
-                                className="btn"
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: '12px',
-                                  backgroundColor: isAdminActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                  color: isAdminActive ? '#ef4444' : '#10b981',
-                                  border: 'none'
-                                }}
-                              >
-                                {isAdminActive ? 'Disable' : 'Enable'}
-                              </button>
+                              />
                             </div>
                           </td>
                         </tr>

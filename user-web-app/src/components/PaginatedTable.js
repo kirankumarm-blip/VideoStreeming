@@ -1,6 +1,161 @@
 import React, { useState, useMemo } from 'react';
 import PremiumSelect from './PremiumSelect';
 
+// Helper for Initials Avatar
+export const UserAvatar = ({ name = '', index = 0, style = {} }) => {
+  const getInitials = (str) => {
+    if (!str) return '??';
+    const clean = String(str).trim();
+    const parts = clean.split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
+  };
+
+  const getAvatarColor = (idx) => {
+    const colors = [
+      { bg: '#f3e8ff', color: '#7e22ce' }, // soft purple/lavender
+      { bg: '#dbeafe', color: '#1d4ed8' }, // soft blue
+      { bg: '#dcfce7', color: '#15803d' }, // soft green
+      { bg: '#fef3c7', color: '#b45309' }, // soft amber
+      { bg: '#ffe4e6', color: '#be185d' }, // soft pink
+      { bg: '#e0e7ff', color: '#4338ca' }  // soft indigo
+    ];
+    return colors[idx % colors.length];
+  };
+
+  const avatarStyle = getAvatarColor(index);
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', ...style }}>
+      <div style={{
+        width: '38px',
+        height: '38px',
+        borderRadius: '50%',
+        background: avatarStyle.bg,
+        color: avatarStyle.color,
+        fontWeight: 700,
+        fontSize: '13px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+      }}>
+        {getInitials(name)}
+      </div>
+      <span style={{ fontWeight: 700, color: 'var(--text-primary, #1e293b)', fontSize: '14px' }}>
+        {name}
+      </span>
+    </div>
+  );
+};
+
+// Helper for Status Badge
+export const TableStatusBadge = ({ status = 'Active', style = {} }) => {
+  const isActive = status === true || String(status).toLowerCase() === 'true' || String(status).toLowerCase() === 'active';
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '6px 14px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      fontWeight: 600,
+      background: isActive ? '#dcfce7' : '#fee2e2',
+      color: isActive ? '#15803d' : '#b91c1c',
+      ...style
+    }}>
+      {isActive ? 'Active' : 'InActive'}
+    </span>
+  );
+};
+
+// Helper for Role Badge
+export const TableRoleBadge = ({ role = 'User', style = {} }) => {
+  const r = String(role).toLowerCase();
+  let bg = '#fef3c7';
+  let color = '#b45309';
+
+  if (r.includes('super')) {
+    bg = '#f3e8ff';
+    color = '#7e22ce';
+  } else if (r.includes('admin')) {
+    bg = '#e0f2fe';
+    color = '#0369a1';
+  } else if (r.includes('editor')) {
+    bg = '#fef3c7';
+    color = '#b45309';
+  }
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '6px 14px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      fontWeight: 600,
+      background: bg,
+      color: color,
+      ...style
+    }}>
+      {role}
+    </span>
+  );
+};
+
+// Helper for Action Icon Buttons
+export const TableActionButton = ({ icon, onClick, title, type = 'secondary', style = {} }) => {
+  const isDelete = type === 'delete' || type === 'danger';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      style={{
+        width: '36px',
+        height: '36px',
+        borderRadius: '8px',
+        border: isDelete ? '1px solid #fee2e2' : '1px solid var(--border-color, #e2e8f0)',
+        background: 'var(--bg-card, #ffffff)',
+        color: isDelete ? '#ef4444' : '#64748b',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        fontSize: '13px',
+        transition: 'all 0.15s ease',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+        ...style
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        if (isDelete) {
+          e.currentTarget.style.background = '#fef2f2';
+          e.currentTarget.style.borderColor = '#fca5a5';
+        } else {
+          e.currentTarget.style.borderColor = '#c7d2fe';
+          e.currentTarget.style.color = '#4f46e5';
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        if (isDelete) {
+          e.currentTarget.style.background = 'var(--bg-card, #ffffff)';
+          e.currentTarget.style.borderColor = '#fee2e2';
+        } else {
+          e.currentTarget.style.borderColor = 'var(--border-color, #e2e8f0)';
+          e.currentTarget.style.color = '#64748b';
+        }
+      }}
+    >
+      <i className={icon}></i>
+    </button>
+  );
+};
+
 const PaginatedTable = ({ 
   headers = [], 
   data = [], 
@@ -8,39 +163,67 @@ const PaginatedTable = ({
   emptyMessage = "No records found", 
   defaultItemsPerPage = 5,
   showSearch = true,
-  searchPlaceholder = "Search in table...",
+  searchPlaceholder = "Search by name, email or mobile...",
+  statusFilterOptions = ['All', 'Active', 'InActive'],
+  showStatusFilter = true,
+  onStatusFilterChange,
+  showExport = true,
+  onExport,
   tableStyle = {},
   tableClassName = "data-table"
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [sortColumnIndex, setSortColumnIndex] = useState(null);
   const [sortDirection, setSortDirection] = useState(null); // 'asc' | 'desc' | null
 
-  // Real-time Search Filtering
+  // Real-time Filtering (Search + Status Filter)
   const filteredData = useMemo(() => {
-    if (!searchQuery || !searchQuery.trim()) return data;
-    const q = searchQuery.toLowerCase().trim();
-    return data.filter(item => {
-      if (item === null || item === undefined) return false;
-      if (typeof item === 'string' || typeof item === 'number') {
-        return String(item).toLowerCase().includes(q);
-      }
-      if (typeof item === 'object') {
-        return Object.values(item).some(val => {
-          if (val === null || val === undefined) return false;
-          if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-            return String(val).toLowerCase().includes(q);
-          }
-          return false;
-        });
-      }
-      return false;
-    });
-  }, [data, searchQuery]);
+    let result = data;
 
-  // Helper to extract sort key from data item
+    // Status Filter
+    if (statusFilter && statusFilter !== 'All') {
+      const targetStatus = statusFilter.toLowerCase();
+      result = result.filter(item => {
+        if (!item) return false;
+        const s = String(item.status || item.active || '').toLowerCase();
+        if (targetStatus === 'active') {
+          return s === 'active' || s === 'true' || item.status === true;
+        }
+        if (targetStatus === 'inactive') {
+          return s === 'inactive' || s === 'false' || item.status === false;
+        }
+        return s === targetStatus;
+      });
+    }
+
+    // Search Query Filter
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(item => {
+        if (item === null || item === undefined) return false;
+        if (typeof item === 'string' || typeof item === 'number') {
+          return String(item).toLowerCase().includes(q);
+        }
+        if (typeof item === 'object') {
+          return Object.values(item).some(val => {
+            if (val === null || val === undefined) return false;
+            if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+              return String(val).toLowerCase().includes(q);
+            }
+            return false;
+          });
+        }
+        return false;
+      });
+    }
+
+    return result;
+  }, [data, searchQuery, statusFilter]);
+
+  // Extract sort key
   const getSortKeyForItem = (item, headerObj, colIndex) => {
     if (!item || typeof item !== 'object') return item;
     
@@ -55,17 +238,12 @@ const PaginatedTable = ({
       if (item.name) return item.name;
       if (item.first_name) return `${item.first_name} ${item.last_name || ''}`;
       if (item.title) return item.title;
-      if (item.videoLesson) return item.videoLesson;
     }
     if (labelStr.includes('email')) return item.email;
     if (labelStr.includes('mobile') || labelStr.includes('phone')) return item.phonenumber || item.mobile || item.phone;
     if (labelStr.includes('status')) return item.status;
-    if (labelStr.includes('date') || labelStr.includes('time') || labelStr.includes('created')) return item.date || item.timestamp || item.created_at || item.created_on;
     if (labelStr.includes('role')) return item.role;
-    if (labelStr.includes('category')) return item.category || item.category_name || item.name;
-    if (labelStr.includes('view')) return item.views;
-    if (labelStr.includes('duration') || labelStr.includes('watch')) return item.duration || item.watchTime;
-    if (labelStr.includes('growth') || labelStr.includes('progress') || labelStr.includes('completion')) return item.completionPercentage || item.growth || item.progress;
+    if (labelStr.includes('date') || labelStr.includes('time') || labelStr.includes('created')) return item.date || item.timestamp || item.created_at;
 
     const camelKey = labelStr.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
     const snakeKey = labelStr.replace(/[^a-zA-Z0-9]+/g, '_');
@@ -147,42 +325,71 @@ const PaginatedTable = ({
     return pages;
   };
 
-  return (
-    <div className="paginated-table-wrapper" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+  // Export handler default CSV export
+  const handleExportCSV = () => {
+    if (onExport) {
+      onExport(sortedData);
+      return;
+    }
+    if (!sortedData || sortedData.length === 0) return;
+    try {
+      const first = sortedData[0];
+      const keys = Object.keys(first).filter(k => typeof first[k] !== 'object' && typeof first[k] !== 'function');
+      const csvContent = "data:text/csv;charset=utf-8," 
+        + keys.join(",") + "\n"
+        + sortedData.map(row => keys.map(k => `"${String(row[k] || '').replace(/"/g, '""')}"`).join(",")).join("\n");
       
-      {/* Premium Top Bar: Search + Stats + Rows Selector */}
-      {showSearch && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          padding: '12px 16px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
-        }}>
-          {/* Glass Search Input */}
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `table_export_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error("Export failed:", e);
+    }
+  };
+
+  return (
+    <div style={{
+      width: '100%',
+      background: 'var(--bg-card, #ffffff)',
+      borderRadius: '20px',
+      border: '1px solid var(--border-color, #f0f0f5)',
+      padding: '24px',
+      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.04)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '20px'
+    }}>
+      
+      {/* Top Header Control Bar */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        {/* Left: Clean Search Bar */}
+        {showSearch && (
           <div style={{
             position: 'relative',
             display: 'flex',
             alignItems: 'center',
-            minWidth: '240px',
-            flex: '1 1 240px',
-            maxWidth: '360px'
+            minWidth: '280px',
+            flex: '1 1 280px',
+            maxWidth: '380px'
           }}>
             <i className="fa-solid fa-magnifying-glass" style={{
               position: 'absolute',
-              left: '12px',
-              color: 'var(--accent-primary, #e50914)',
-              fontSize: '13px'
+              left: '16px',
+              color: '#94a3b8',
+              fontSize: '14px'
             }}></i>
             <input
               type="text"
-              className="form-input"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -191,15 +398,17 @@ const PaginatedTable = ({
               placeholder={searchPlaceholder}
               style={{
                 width: '100%',
-                paddingLeft: '36px',
-                paddingRight: searchQuery ? '32px' : '12px',
-                height: '36px',
+                paddingLeft: '44px',
+                paddingRight: searchQuery ? '36px' : '16px',
+                height: '44px',
                 fontSize: '13px',
-                borderRadius: '8px',
-                background: 'rgba(0, 0, 0, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: 'var(--text-primary, #ffffff)',
-                transition: 'all 0.2s ease'
+                borderRadius: '10px',
+                background: 'var(--input-bg, #ffffff)',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                color: 'var(--text-primary, #1e293b)',
+                outline: 'none',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)'
               }}
             />
             {searchQuery && (
@@ -211,13 +420,13 @@ const PaginatedTable = ({
                 }}
                 style={{
                   position: 'absolute',
-                  right: '10px',
+                  right: '12px',
                   background: 'none',
                   border: 'none',
-                  color: 'var(--text-secondary, #999)',
+                  color: '#94a3b8',
                   cursor: 'pointer',
-                  fontSize: '12px',
-                  padding: '2px'
+                  fontSize: '13px',
+                  padding: '4px'
                 }}
                 title="Clear Search"
               >
@@ -225,62 +434,73 @@ const PaginatedTable = ({
               </button>
             )}
           </div>
+        )}
 
-          {/* Stats Badge & Sort Indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            {searchQuery && (
-              <span style={{
-                fontSize: '12px',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                background: 'rgba(229, 9, 20, 0.15)',
-                color: 'var(--accent-primary, #e50914)',
-                border: '1px solid rgba(229, 9, 20, 0.3)',
-                fontWeight: 600
-              }}>
-                Found {totalItems} match{totalItems === 1 ? '' : 'es'}
-              </span>
-            )}
-            
-            {sortColumnIndex !== null && sortDirection && (
-              <span style={{
-                fontSize: '12px',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                color: 'var(--text-secondary, #ccc)',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
-              }}>
-                Sorted by <strong style={{ color: 'var(--text-primary, #fff)' }}>
-                  {typeof headers[sortColumnIndex] === 'object' ? headers[sortColumnIndex].label : headers[sortColumnIndex]}
-                </strong> ({sortDirection.toUpperCase()})
-                <button
-                  type="button"
-                  onClick={() => { setSortColumnIndex(null); setSortDirection(null); }}
-                  style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer', marginLeft: '6px', fontSize: '11px' }}
-                  title="Reset Sort"
-                >
-                  <i className="fa-solid fa-rotate-left"></i>
-                </button>
-              </span>
-            )}
-          </div>
+        {/* Right Controls: Status Filter & Export Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+          {showStatusFilter && (
+            <div style={{ minWidth: '150px' }}>
+              <PremiumSelect
+                options={statusFilterOptions.map(opt => ({ id: opt, name: `Status: ${opt}` }))}
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                  if (onStatusFilterChange) onStatusFilterChange(e.target.value);
+                }}
+                searchable={false}
+                icon="fa-solid fa-sliders"
+                style={{ height: '44px', borderRadius: '10px' }}
+              />
+            </div>
+          )}
+
+          {showExport && (
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '44px',
+                padding: '0 20px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color, #e2e8f0)',
+                background: 'var(--bg-card, #ffffff)',
+                color: 'var(--text-primary, #1e293b)',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#cbd5e1';
+                e.currentTarget.style.background = 'var(--hover-bg, #f8fafc)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color, #e2e8f0)';
+                e.currentTarget.style.background = 'var(--bg-card, #ffffff)';
+              }}
+            >
+              <i className="fa-solid fa-download" style={{ fontSize: '13px', color: '#64748b' }}></i>
+              Export
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Table Container */}
       <div className="table-container" style={{
         overflowX: 'auto',
         width: '100%',
-        borderRadius: '12px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        background: 'rgba(255, 255, 255, 0.01)',
-        backdropFilter: 'blur(8px)',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)'
+        borderRadius: '14px',
+        border: '1px solid var(--border-color, #f0f0f5)'
       }}>
         <table className={tableClassName} style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, ...tableStyle }}>
           <thead>
-            <tr style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)' }}>
+            <tr style={{ background: 'var(--table-header-bg, #f1edff)' }}>
               {headers.map((h, i) => {
                 const label = typeof h === 'object' ? h.label : h;
                 const isSortable = typeof h === 'object' ? h.sortable !== false : true;
@@ -292,14 +512,18 @@ const PaginatedTable = ({
                     key={i} 
                     onClick={() => canSort && handleHeaderClick(i, h)}
                     style={{
-                      padding: '14px 16px',
+                      padding: '16px 20px',
                       textAlign: 'left',
                       fontSize: '12px',
                       fontWeight: 700,
-                      letterSpacing: '0.5px',
+                      letterSpacing: '0.6px',
                       textTransform: 'uppercase',
-                      color: isSorted ? 'var(--accent-primary, #e50914)' : 'var(--text-secondary, #aaa)',
-                      borderBottom: '2px solid rgba(255, 255, 255, 0.1)',
+                      color: 'var(--table-header-color, #6e56f8)',
+                      borderBottom: 'none',
+                      borderTopLeftRadius: i === 0 ? '12px' : '0',
+                      borderBottomLeftRadius: i === 0 ? '12px' : '0',
+                      borderTopRightRadius: i === headers.length - 1 ? '12px' : '0',
+                      borderBottomRightRadius: i === headers.length - 1 ? '12px' : '0',
                       cursor: canSort ? 'pointer' : 'default',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
@@ -315,12 +539,12 @@ const PaginatedTable = ({
                         <span style={{ fontSize: '11px', opacity: isSorted ? 1 : 0.4 }}>
                           {isSorted ? (
                             sortDirection === 'asc' ? (
-                              <i className="fa-solid fa-sort-up" style={{ color: 'var(--accent-primary, #e50914)' }}></i>
+                              <i className="fa-solid fa-sort-up"></i>
                             ) : (
-                              <i className="fa-solid fa-sort-down" style={{ color: 'var(--accent-primary, #e50914)' }}></i>
+                              <i className="fa-solid fa-sort-down"></i>
                             )
                           ) : (
-                            <i className="fa-solid fa-sort" style={{ color: '#888' }}></i>
+                            <i className="fa-solid fa-sort" style={{ opacity: 0.5 }}></i>
                           )}
                         </span>
                       )}
@@ -335,30 +559,30 @@ const PaginatedTable = ({
               currentData.map((item, index) => renderRow(item, startIndex + index))
             ) : (
               <tr>
-                <td colSpan={headers.length} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-secondary, #999)' }}>
+                <td colSpan={headers.length} style={{ textAlign: 'center', padding: '56px 16px', color: '#94a3b8' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
                     <div style={{
-                      width: '56px',
-                      height: '56px',
+                      width: '60px',
+                      height: '60px',
                       borderRadius: '50%',
-                      background: 'rgba(255, 255, 255, 0.04)',
+                      background: '#f8fafc',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '24px',
-                      border: '1px solid rgba(255, 255, 255, 0.08)'
+                      border: '1px solid #e2e8f0'
                     }}>
-                      <i className="fa-solid fa-folder-open" style={{ color: 'var(--accent-primary, #e50914)' }}></i>
+                      <i className="fa-solid fa-folder-open" style={{ color: '#6e56f8' }}></i>
                     </div>
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #fff)' }}>{emptyMessage}</span>
-                    {searchQuery && (
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>{emptyMessage}</span>
+                    {(searchQuery || statusFilter !== 'All') && (
                       <button
                         type="button"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => { setSearchQuery(''); setStatusFilter('All'); }}
                         className="btn btn-secondary"
                         style={{ padding: '6px 14px', fontSize: '12px', marginTop: '4px' }}
                       >
-                        Clear Search Filter
+                        Reset Filters
                       </button>
                     )}
                   </div>
@@ -369,35 +593,31 @@ const PaginatedTable = ({
         </table>
       </div>
 
-      {/* Pagination Controls */}
+      {/* Pagination Footer Bar */}
       {totalItems > 0 && (
         <div className="pagination-controls" style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          padding: '12px 16px', 
-          background: 'rgba(255, 255, 255, 0.03)', 
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)', 
-          borderRadius: '12px',
+          marginTop: '8px',
           flexWrap: 'wrap',
-          gap: '12px'
+          gap: '16px'
         }}>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary, #999)' }}>
-            Showing <strong style={{ color: 'var(--text-primary, #fff)' }}>{startIndex + 1}</strong> to <strong style={{ color: 'var(--text-primary, #fff)' }}>{Math.min(endIndex, totalItems)}</strong> of <strong style={{ color: 'var(--text-primary, #fff)' }}>{totalItems}</strong> entries
+          {/* Entries Info */}
+          <div style={{ fontSize: '13px', color: '#64748b' }}>
+            Showing <strong style={{ color: 'var(--text-primary, #1e293b)' }}>{startIndex + 1}</strong> to <strong style={{ color: 'var(--text-primary, #1e293b)' }}>{Math.min(endIndex, totalItems)}</strong> of <strong style={{ color: 'var(--text-primary, #1e293b)' }}>{totalItems}</strong> entries
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
             {/* Rows Per Page Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '95px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary, #999)' }}>Rows:</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#64748b' }}>Rows per page:</span>
               <PremiumSelect
                 options={[
                   { id: 5, name: '5' },
                   { id: 10, name: '10' },
                   { id: 20, name: '20' },
-                  { id: 50, name: '50' },
-                  { id: 100, name: '100' }
+                  { id: 50, name: '50' }
                 ]}
                 value={itemsPerPage}
                 onChange={(e) => {
@@ -405,13 +625,12 @@ const PaginatedTable = ({
                   setCurrentPage(1);
                 }}
                 searchable={false}
-                icon="fa-solid fa-list-ol"
-                style={{ width: '80px' }}
+                style={{ width: '70px', height: '36px', borderRadius: '8px' }}
               />
             </div>
 
             {/* Page Buttons */}
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <button 
                 type="button"
                 onClick={(e) => {
@@ -420,15 +639,28 @@ const PaginatedTable = ({
                   setCurrentPage(prev => Math.max(prev - 1, 1));
                 }}
                 disabled={activePage === 1}
-                className="btn btn-secondary"
-                style={{ padding: '6px 10px', fontSize: '12px', cursor: activePage === 1 ? 'not-allowed' : 'pointer', opacity: activePage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{
+                  height: '36px',
+                  padding: '0 14px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  background: 'var(--bg-card, #ffffff)',
+                  color: activePage === 1 ? '#cbd5e1' : '#64748b',
+                  cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
               >
-                <i className="fa-solid fa-chevron-left" style={{ fontSize: '10px' }}></i> Prev
+                &lt; Prev
               </button>
               
               {getPageNumbers().map((pageNum, idx) => {
                 if (pageNum === '...') {
-                  return <span key={`dots-${idx}`} style={{ color: 'var(--text-secondary, #999)', padding: '0 4px', fontSize: '12px' }}>...</span>;
+                  return <span key={`dots-${idx}`} style={{ color: '#94a3b8', padding: '0 4px', fontSize: '13px' }}>...</span>;
                 }
                 const isActive = activePage === pageNum;
                 return (
@@ -441,17 +673,17 @@ const PaginatedTable = ({
                       setCurrentPage(pageNum);
                     }}
                     style={{ 
-                      padding: '5px 12px', 
-                      fontSize: '12px', 
-                      fontWeight: isActive ? 700 : 500,
-                      minWidth: '32px',
-                      height: '32px',
-                      background: isActive ? 'var(--accent-primary, #e50914)' : 'rgba(255, 255, 255, 0.04)',
-                      border: isActive ? '1px solid var(--accent-primary, #e50914)' : '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '6px',
-                      color: isActive ? '#ffffff' : 'var(--text-primary, #fff)',
+                      minWidth: '36px', 
+                      height: '36px', 
+                      padding: '0 8px',
+                      fontSize: '13px', 
+                      fontWeight: 700,
+                      borderRadius: '8px',
+                      border: isActive ? 'none' : 'none',
+                      background: isActive ? '#4f46e5' : 'transparent',
+                      color: isActive ? '#ffffff' : 'var(--text-primary, #1e293b)',
                       cursor: 'pointer',
-                      boxShadow: isActive ? '0 2px 10px rgba(229, 9, 20, 0.4)' : 'none',
+                      boxShadow: isActive ? '0 4px 14px rgba(79, 70, 229, 0.35)' : 'none',
                       transition: 'all 0.15s ease'
                     }}
                   >
@@ -468,10 +700,23 @@ const PaginatedTable = ({
                   setCurrentPage(prev => Math.min(prev + 1, totalPages));
                 }}
                 disabled={activePage === totalPages}
-                className="btn btn-secondary"
-                style={{ padding: '6px 10px', fontSize: '12px', cursor: activePage === totalPages ? 'not-allowed' : 'pointer', opacity: activePage === totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{
+                  height: '36px',
+                  padding: '0 14px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  background: 'var(--bg-card, #ffffff)',
+                  color: activePage === totalPages ? '#cbd5e1' : 'var(--text-primary, #1e293b)',
+                  cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
               >
-                Next <i className="fa-solid fa-chevron-right" style={{ fontSize: '10px' }}></i>
+                Next &gt;
               </button>
             </div>
           </div>
