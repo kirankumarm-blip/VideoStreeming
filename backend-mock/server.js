@@ -300,6 +300,45 @@ app.put('/api/auth/profile', authenticateToken, upload.single('avatar'), (req, r
 
 // ================= CATEGORIES MODULE =================
 
+const handleVdCategories = (req, res) => {
+  const formstep = req.body.formstep || req.body.formStep;
+  if (formstep === 'getStates') {
+    return res.json([
+      { state_id: "1", name: "California" },
+      { state_id: "2", name: "Texas" },
+      { state_id: "3", name: "New York" },
+      { state_id: "4", name: "Florida" },
+      { state_id: "5", name: "Illinois" },
+      { state_id: "6", name: "Maharashtra" },
+      { state_id: "7", name: "Karnataka" },
+      { state_id: "8", name: "Delhi" }
+    ]);
+  }
+  if (formstep === 'getCity') {
+    const stateId = String(req.body.state_id || req.body.stat_id || '1');
+    const citiesMap = {
+      "1": [{ city_id: "101", name: "Los Angeles" }, { city_id: "102", name: "San Francisco" }, { city_id: "103", name: "San Diego" }],
+      "2": [{ city_id: "201", name: "Houston" }, { city_id: "202", name: "Austin" }, { city_id: "203", name: "Dallas" }],
+      "3": [{ city_id: "301", name: "New York City" }, { city_id: "302", name: "Buffalo" }, { city_id: "303", name: "Albany" }],
+      "4": [{ city_id: "401", name: "Miami" }, { city_id: "402", name: "Orlando" }, { city_id: "403", name: "Tampa" }],
+      "5": [{ city_id: "501", name: "Chicago" }, { city_id: "502", name: "Springfield" }, { city_id: "503", name: "Peoria" }],
+      "6": [{ city_id: "601", name: "Mumbai" }, { city_id: "602", name: "Pune" }, { city_id: "603", name: "Nagpur" }],
+      "7": [{ city_id: "701", name: "Bengaluru" }, { city_id: "702", name: "Mysuru" }, { city_id: "703", name: "Mangaluru" }],
+      "8": [{ city_id: "801", name: "New Delhi" }, { city_id: "802", name: "North Delhi" }, { city_id: "803", name: "South Delhi" }]
+    };
+    return res.json(citiesMap[stateId] || [
+      { city_id: "901", name: "City Center" },
+      { city_id: "902", name: "Metro Area" }
+    ]);
+  }
+  return res.json([]);
+};
+
+app.post('/vdcategories', handleVdCategories);
+app.post('/api/vdcategories', handleVdCategories);
+app.post('/webhook/vdcategories', handleVdCategories);
+
+
 app.get('/api/categories', (req, res) => {
   const db = readDB();
   res.json(db.categories);

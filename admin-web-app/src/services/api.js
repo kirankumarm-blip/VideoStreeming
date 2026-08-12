@@ -257,6 +257,10 @@ async function request(endpoint, options = {}) {
       bodyObj.formstep === 'levels' ||
       bodyObj.formstep === 'getGender' ||
       bodyObj.formStep === 'getGender' ||
+      bodyObj.formstep === 'getStates' ||
+      bodyObj.formStep === 'getStates' ||
+      bodyObj.formstep === 'getCity' ||
+      bodyObj.formStep === 'getCity' ||
       bodyObj.formStep === 'list';
 
     const isN8n = responseData.length > 0 && responseData[0] && typeof responseData[0] === 'object' && 'json' in responseData[0];
@@ -526,6 +530,22 @@ export const api = {
     delete: (id) => {
       return request(`/categories/${id}`, {
         method: 'DELETE',
+      });
+    }
+  },
+  vdcategories: {
+    getStates: () => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: "getStates" }),
+        expectArray: true
+      });
+    },
+    getCity: (stateId) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: "getCity", state_id: stateId }),
+        expectArray: true
       });
     }
   },

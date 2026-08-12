@@ -53,10 +53,78 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   // Admins CRUD states
   const [admins, setAdmins] = useState([]);
-  const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
+  const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', state_id: '', city_id: '', zipcode: '', address: '' });
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminFormLoading, setAdminFormLoading] = useState(false);
+  const [statesList, setStatesList] = useState([]);
+  const [citiesList, setCitiesList] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  useEffect(() => {
+    if (showAdminModal) {
+      fetchStates();
+    }
+  }, [showAdminModal]);
+
+  const fetchStates = async () => {
+    setLoadingStates(true);
+    try {
+      const res = await api.vdcategories.getStates();
+      const list = Array.isArray(res) ? res : (res?.data || res?.result || []);
+      const formatted = list.map(item => ({
+        id: String(item.state_id || item.id || item.stat_id),
+        name: item.name || item.state_name || item.title || item.state
+      }));
+      setStatesList(formatted);
+    } catch (err) {
+      console.error("Failed to fetch states:", err);
+    } finally {
+      setLoadingStates(false);
+    }
+  };
+
+  const fetchCities = async (stateId) => {
+    if (!stateId) {
+      setCitiesList([]);
+      return;
+    }
+    setLoadingCities(true);
+    try {
+      const res = await api.vdcategories.getCity(stateId);
+      const list = Array.isArray(res) ? res : (res?.data || res?.result || []);
+      const formatted = list.map(item => ({
+        id: String(item.city_id || item.id),
+        name: item.name || item.city_name || item.title || item.city
+      }));
+      setCitiesList(formatted);
+    } catch (err) {
+      console.error("Failed to fetch cities:", err);
+      setCitiesList([]);
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  const handleStateChange = async (selectedStateId) => {
+    const selectedStateObj = statesList.find(s => String(s.id) === String(selectedStateId));
+    const stateName = selectedStateObj ? selectedStateObj.name : '';
+    
+    setAdminForm(prev => ({
+      ...prev,
+      state_id: selectedStateId,
+      state: stateName,
+      city_id: '',
+      city: ''
+    }));
+    
+    if (selectedStateId) {
+      fetchCities(selectedStateId);
+    } else {
+      setCitiesList([]);
+    }
+  };
 
   const [customAlert, setCustomAlert] = useState({
     show: false,
@@ -492,8 +560,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
         date_of_birth: adminForm.dob ? new Date(adminForm.dob).toISOString() : null,
         address: adminForm.address,
-        city: adminForm.city,
-        state: adminForm.state,
+        stat_id: adminForm.state_id || adminForm.state,
+        state_id: adminForm.state_id || adminForm.state,
+        city_id: adminForm.city_id || adminForm.city,
+        state: adminForm.state || adminForm.state_id,
+        city: adminForm.city || adminForm.city_id,
         zipcode: adminForm.zipcode
       };
 
@@ -505,7 +576,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         showSuccess('Admin added successfully');
       }
       setShowAdminModal(false);
-      setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
+      setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', state_id: '', city_id: '', zipcode: '', address: '' });
       setEditingAdmin(null);
       fetchAdmins();
       fetchDashboardData();
@@ -554,6 +625,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       }
     }
 
+    const stateVal = adminData.stat_id || adminData.state_id || adminData.state || '';
+    const cityVal = adminData.city_id || adminData.city || '';
+
     setAdminForm({
       firstName: adminData.first_name || adminData.firstName || '',
       lastName: adminData.last_name || adminData.lastName || '',
@@ -561,11 +635,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       mobile: adminData.phonenumber || adminData.mobile || '',
       gender: genderVal,
       dob: formattedDob,
-      city: adminData.city || '',
-      state: adminData.state || '',
+      city: adminData.city || cityVal,
+      city_id: cityVal,
+      state: adminData.state || stateVal,
+      state_id: stateVal,
       zipcode: adminData.zipcode || '',
       address: adminData.address || ''
     });
+
+    if (stateVal) {
+      fetchCities(stateVal);
+    }
     setShowAdminModal(true);
   };
 
@@ -2879,27 +2959,32 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Enter city"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={adminForm.city} 
-                    onChange={e => setAdminForm({...adminForm, city: e.target.value})} 
-                    required 
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State *</label>
+                  <PremiumSelect
+                    options={statesList}
+                    value={adminForm.state_id || adminForm.state}
+                    onChange={e => handleStateChange(e.target.value)}
+                    placeholder={loadingStates ? "Loading states..." : "Select State"}
+                    icon="fa-solid fa-map-location-dot"
+                    disabled={loadingStates}
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Enter state"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={adminForm.state} 
-                    onChange={e => setAdminForm({...adminForm, state: e.target.value})} 
-                    required 
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City *</label>
+                  <PremiumSelect
+                    options={citiesList}
+                    value={adminForm.city_id || adminForm.city}
+                    onChange={e => {
+                      const selectedCityObj = citiesList.find(c => String(c.id) === String(e.target.value));
+                      setAdminForm({
+                        ...adminForm,
+                        city_id: e.target.value,
+                        city: selectedCityObj ? selectedCityObj.name : e.target.value
+                      });
+                    }}
+                    placeholder={loadingCities ? "Loading cities..." : (!adminForm.state_id && !adminForm.state ? "Select State First" : "Select City")}
+                    icon="fa-solid fa-city"
+                    disabled={loadingCities || (!adminForm.state_id && !adminForm.state)}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
