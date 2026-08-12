@@ -163,6 +163,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
+  // Sub Categories CRUD states
+  const [subCategories, setSubCategories] = useState([]);
+  const [subCategoryForm, setSubCategoryForm] = useState({ id: '', cat_id: '', name: '', description: '' });
+  const [editingSubCategory, setEditingSubCategory] = useState(null);
+  const [showSubCategoryModal, setShowSubCategoryModal] = useState(false);
+
   // Videos & Assignments states
   const [videos, setVideos] = useState([]);
   const [assignForm, setAssignForm] = useState({ videoId: '', assignedAdmins: [] });
@@ -268,6 +274,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchVideos();
     }
     if (activeTab === 'categories') {
+      fetchCategories();
+    }
+    if (activeTab === 'sub_categories') {
+      fetchSubCategories();
       fetchCategories();
     }
   }, [activeTab, selectedAdminId, selectedReportType]);
@@ -487,6 +497,25 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchCategories = async () => {
     fetchDashboardData('categories', selectedAdminId);
+  };
+
+  const fetchSubCategories = async () => {
+    try {
+      const data = await api.vdcategories.getSubCategories();
+      let list = [];
+      if (Array.isArray(data)) {
+        list = data.map(item => item.json || item);
+      } else if (data && Array.isArray(data.data)) {
+        list = data.data.map(item => item.json || item);
+      } else if (data && typeof data === 'object') {
+        const arrayProp = Object.values(data).find(val => Array.isArray(val));
+        if (arrayProp) list = arrayProp.map(item => item.json || item);
+      }
+      setSubCategories(list);
+    } catch (e) {
+      console.error("Error fetching subcategories:", e);
+      setSubCategories([]);
+    }
   };
 
   const fetchVideos = async () => {
@@ -821,6 +850,67 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  // --- Sub Category CRUD Handlers ---
+  const handleSubCategorySubmit = async (e) => {
+    e.preventDefault();
+    if (!subCategoryForm.cat_id) {
+      showError("Please select a parent Category");
+      return;
+    }
+    const cleanName = String(subCategoryForm.name || '').trim();
+    if (!cleanName) {
+      showError("Please fill out sub category name");
+      return;
+    }
+
+    try {
+      if (editingSubCategory) {
+        const subCatId = editingSubCategory.id || editingSubCategory.sub_category_id;
+        await api.vdcategories.editSubCategory(
+          subCatId,
+          subCategoryForm.cat_id,
+          cleanName,
+          subCategoryForm.description ? subCategoryForm.description.trim() : ''
+        );
+        showSuccess("Sub category updated successfully!");
+      } else {
+        await api.vdcategories.addSubCategory(
+          subCategoryForm.cat_id,
+          cleanName,
+          subCategoryForm.description ? subCategoryForm.description.trim() : ''
+        );
+        showSuccess("Sub category created successfully!");
+      }
+      setShowSubCategoryModal(false);
+      setSubCategoryForm({ id: '', cat_id: '', name: '', description: '' });
+      setEditingSubCategory(null);
+      fetchSubCategories();
+    } catch (err) {
+      console.error("SubCategory submission error:", err);
+      const is410 = err?.status === 410 || 
+                    err?.response?.status === 410 || 
+                    String(err?.message || '').includes('410') || 
+                    String(err?.message || '').toLowerCase().includes('already exist');
+
+      if (is410) {
+        showError("Sub category already exist");
+      } else {
+        showError(err?.message || 'Failed to save sub category');
+      }
+    }
+  };
+
+  const handleDeleteSubCategory = async (id) => {
+    if (window.confirm('Are you sure you want to delete this sub category?')) {
+      try {
+        await api.vdcategories.deleteSubCategory(id);
+        fetchSubCategories();
+      } catch (err) {
+        showError(err.message || 'Failed to delete sub category');
+      }
+    }
+  };
+
   // --- Video Assignment Handlers ---
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
@@ -1031,7 +1121,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
         { id: 'content_videos', label: 'All Videos', iconClass: 'fa-solid fa-video' },
         { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
-        { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' }
+        { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
+        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
       ]
     },
     {
@@ -1308,6 +1399,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 if (activeTab === 'course_all') return 'All Courses';
                 if (activeTab === 'admins_all') return 'All Admins';
                 if (activeTab === 'users_all') return 'All Users';
+                if (activeTab === 'categories') return 'Categories';
+                if (activeTab === 'sub_categories') return 'Sub Category';
                 if (activeTab === 'rep_export' || activeTab.startsWith('rep_')) return 'Reports';
                 return activeTab.replace(/_/g, ' ');
               })()}
@@ -1315,7 +1408,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'admins_all'].includes(activeTab) && (
+            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'admins_all'].includes(activeTab) && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
@@ -1793,6 +1886,93 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         </td>
                       </tr>
                     )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* SUB CATEGORIES VIEW */}
+            {activeTab === 'sub_categories' && (
+              <div className="animate-fade-in glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '20px' }}>Video Sub Categories</h2>
+                  <button 
+                    onClick={() => {
+                      fetchCategories();
+                      setEditingSubCategory(null);
+                      setSubCategoryForm({
+                        id: '',
+                        cat_id: categories[0]?.id || categories[0]?.category_id || '',
+                        name: '',
+                        description: ''
+                      });
+                      setShowSubCategoryModal(true);
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '13px' }}
+                  >
+                    Add Sub Category
+                  </button>
+                </div>
+
+                <div className="table-container">
+                  <PaginatedTable
+                    headers={['Sub Category Name', 'Parent Category', 'Description', 'Actions']}
+                    data={subCategories}
+                    emptyMessage="No sub categories found"
+                    renderRow={(subCat, index) => {
+                      const matchedCat = categories.find(c => String(c.id || c.category_id) === String(subCat.cat_id || subCat.category_id || subCat.catId));
+                      const parentCatName = matchedCat ? (matchedCat.name || matchedCat.category_name) : (subCat.category_name || subCat.cat_name || subCat.category || 'N/A');
+                      const subCatId = subCat.id || subCat.sub_category_id;
+
+                      return (
+                        <tr key={subCatId || index}>
+                          <td style={{ fontWeight: 600 }}>{subCat.name || subCat.sub_category_name}</td>
+                          <td>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              background: 'rgba(124, 58, 237, 0.15)',
+                              color: '#7c3aed'
+                            }}>
+                              {parentCatName}
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{subCat.description || '-'}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={() => {
+                                  fetchCategories();
+                                  setEditingSubCategory(subCat);
+                                  setSubCategoryForm({
+                                    id: subCatId,
+                                    cat_id: subCat.cat_id || subCat.category_id || subCat.catId || (matchedCat ? String(matchedCat.id || matchedCat.category_id) : ''),
+                                    name: subCat.name || subCat.sub_category_name || '',
+                                    description: subCat.description || ''
+                                  });
+                                  setShowSubCategoryModal(true);
+                                }}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteSubCategory(subCatId)}
+                                className="btn"
+                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }}
                   />
                 </div>
               </div>
@@ -3196,6 +3376,65 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
                 <button type="button" onClick={() => setShowCategoryModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Submit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- SUB CATEGORY CRUD MODAL --- */}
+      {showSubCategoryModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+              {editingSubCategory ? 'Edit Sub Category' : 'Add New Sub Category'}
+            </h3>
+            <form onSubmit={handleSubCategorySubmit}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Category</label>
+                <PremiumSelect
+                  options={categories.map(cat => ({
+                    id: String(cat.id || cat.category_id),
+                    name: cat.name || cat.category_name
+                  }))}
+                  value={String(subCategoryForm.cat_id)}
+                  onChange={(e) => setSubCategoryForm({ ...subCategoryForm, cat_id: e.target.value })}
+                  placeholder="Select Category"
+                  searchable={true}
+                  icon="fa-solid fa-list-check"
+                  style={{ height: '44px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Sub Category Name</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="e.g., Mobile Development, Machine Learning, Web Design"
+                  value={subCategoryForm.name} 
+                  onChange={e => setSubCategoryForm({...subCategoryForm, name: e.target.value.replace(/^\s+/, '')})} 
+                  onInvalid={(e) => e.target.setCustomValidity('Please fill out sub category name')}
+                  onInput={(e) => e.target.setCustomValidity('')}
+                  required 
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label className="form-label">Description</label>
+                <textarea 
+                  className="form-input" 
+                  placeholder="Enter sub category description (optional)..."
+                  value={subCategoryForm.description} 
+                  onChange={e => setSubCategoryForm({...subCategoryForm, description: e.target.value.replace(/^\s+/, '')})}
+                  rows="3" 
+                  style={{ resize: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+                <button type="button" onClick={() => setShowSubCategoryModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Submit</button>
               </div>
             </form>

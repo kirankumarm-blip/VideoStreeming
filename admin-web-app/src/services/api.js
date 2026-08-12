@@ -257,6 +257,8 @@ async function request(endpoint, options = {}) {
       bodyObj.formstep === 'users_blocked' ||
       bodyObj.formstep === 'getAllVidoes' ||
       bodyObj.formstep === 'getCategories' ||
+      bodyObj.formstep === 'getSubCategory' ||
+      bodyObj.formstep === 'getSubCategories' ||
       bodyObj.formstep === 'analytics' ||
       bodyObj.formstep === 'levels' ||
       bodyObj.formstep === 'getGender' ||
@@ -550,6 +552,45 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ formstep: "getCity", state_id: stateId }),
         expectArray: true
+      });
+    },
+    getSubCategories: () => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: "getSubCategory" }),
+        expectArray: true
+      });
+    },
+    addSubCategory: (catId, name, description) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "addSubCategory",
+          cat_id: catId,
+          name,
+          description
+        })
+      });
+    },
+    editSubCategory: (id, catId, name, description) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "editSubCategory",
+          id,
+          cat_id: catId,
+          name,
+          description
+        })
+      });
+    },
+    deleteSubCategory: (id) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteSubCategory",
+          id
+        })
       });
     }
   },
