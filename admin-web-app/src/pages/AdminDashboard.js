@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { encryptUrl } from '../utils/crypto';
 import PaginatedTable from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
+import PremiumSelect from '../components/PremiumSelect';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -4155,18 +4156,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Gender</label>
-                  <select 
-                    className="form-input" 
-                    value={userForm.gender} 
+                  <PremiumSelect
+                    options={genders}
+                    value={userForm.gender}
                     onChange={e => setUserForm({...userForm, gender: e.target.value})}
-                    required
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                  >
-                    <option value="">Select Gender</option>
-                    {genders.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
+                    placeholder="Select Gender"
+                    icon="fa-solid fa-venus-mars"
+                  />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth</label>
