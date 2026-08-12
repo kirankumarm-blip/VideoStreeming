@@ -1537,6 +1537,51 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
+  const formatDateToYYYYMMDD = (dobRaw) => {
+    if (!dobRaw) return '';
+    const str = String(dobRaw).trim();
+    
+    // Case 1: ISO string or YYYY-MM-DD e.g. "1976-08-12T00:00:00.000Z" or "1976-08-12"
+    if (str.includes('-')) {
+      const datePart = str.split('T')[0];
+      const parts = datePart.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+    }
+    
+    // Case 2: Slash format e.g. "08/12/1976" or "1976/08/12"
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        if (parts[2].length === 4) {
+          // MM/DD/YYYY format
+          const month = parts[0].padStart(2, '0');
+          const day = parts[1].padStart(2, '0');
+          const year = parts[2];
+          return `${year}-${month}-${day}`;
+        } else if (parts[0].length === 4) {
+          // YYYY/MM/DD format
+          return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      }
+    }
+
+    // Fallback: local date parsing without UTC conversion
+    try {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    } catch (e) {
+      console.error("Error formatting date", e);
+    }
+    return str;
+  };
+
   const handleEditClick = async (user) => {
     setEditingUser(user);
     let userData = user;
@@ -1555,18 +1600,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     const genderVal = matchedGender ? matchedGender.id : (userData.gender_id || userData.gender || '');
 
-    let formattedDob = '';
-    const dobRaw = userData.date_of_birth || userData.dob;
-    if (dobRaw) {
-      try {
-        const d = new Date(dobRaw);
-        if (!isNaN(d.getTime())) {
-          formattedDob = d.toISOString().split('T')[0];
-        }
-      } catch (e) {
-        formattedDob = dobRaw;
-      }
-    }
+    const formattedDob = formatDateToYYYYMMDD(userData.date_of_birth || userData.dob);
 
     setUserForm({
       firstName: userData.first_name || userData.firstName || '',

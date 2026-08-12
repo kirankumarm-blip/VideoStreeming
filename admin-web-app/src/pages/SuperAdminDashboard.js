@@ -629,6 +629,51 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const formatDateToYYYYMMDD = (dobRaw) => {
+    if (!dobRaw) return '';
+    const str = String(dobRaw).trim();
+    
+    // Case 1: ISO string or YYYY-MM-DD e.g. "1976-08-12T00:00:00.000Z" or "1976-08-12"
+    if (str.includes('-')) {
+      const datePart = str.split('T')[0];
+      const parts = datePart.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+    }
+    
+    // Case 2: Slash format e.g. "08/12/1976" or "1976/08/12"
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        if (parts[2].length === 4) {
+          // MM/DD/YYYY format
+          const month = parts[0].padStart(2, '0');
+          const day = parts[1].padStart(2, '0');
+          const year = parts[2];
+          return `${year}-${month}-${day}`;
+        } else if (parts[0].length === 4) {
+          // YYYY/MM/DD format
+          return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      }
+    }
+
+    // Fallback: local date parsing without UTC conversion
+    try {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    } catch (e) {
+      console.error("Error formatting date", e);
+    }
+    return str;
+  };
+
   const handleEditClick = async (admin) => {
     setEditingAdmin(admin);
     let adminData = admin;
@@ -647,21 +692,55 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     );
     const genderVal = matchedGender ? matchedGender.id : (adminData.gender_id || adminData.gender || '');
 
-    let formattedDob = '';
-    const dobRaw = adminData.date_of_birth || adminData.dob;
-    if (dobRaw) {
+    const formattedDob = formatDateToYYYYMMDD(adminData.date_of_birth || adminData.dob);
+
+    // Ensure states list is available
+    let currentStates = statesList;
+    if (!currentStates || currentStates.length === 0) {
       try {
-        const d = new Date(dobRaw);
-        if (!isNaN(d.getTime())) {
-          formattedDob = d.toISOString().split('T')[0];
-        }
-      } catch (e) {
-        formattedDob = dobRaw;
+        const res = await api.vdcategories.getStates();
+        const list = Array.isArray(res) ? res : (res?.data || res?.result || []);
+        currentStates = list.map(item => ({
+          id: String(item.state_id || item.id || item.stat_id || item.name),
+          name: item.name || item.state_name || item.title || item.state
+        }));
+        setStatesList(currentStates);
+      } catch (err) {
+        console.error("Failed to fetch states:", err);
       }
     }
 
-    const stateVal = adminData.stat_id || adminData.state_id || adminData.state || '';
-    const cityVal = adminData.city_id || adminData.city || '';
+    const rawState = adminData.stat_id || adminData.state_id || adminData.state || '';
+    const matchedState = currentStates.find(s => 
+      String(s.id).toLowerCase() === String(rawState).toLowerCase() ||
+      String(s.name).toLowerCase() === String(rawState).toLowerCase()
+    );
+    const stateIdVal = matchedState ? matchedState.id : rawState;
+    const stateNameVal = matchedState ? matchedState.name : rawState;
+
+    // Fetch cities for stateIdVal
+    let currentCities = [];
+    if (stateIdVal) {
+      try {
+        const res = await api.vdcategories.getCity(stateIdVal);
+        const list = Array.isArray(res) ? res : (res?.data || res?.result || []);
+        currentCities = list.map(item => ({
+          id: String(item.city_id || item.id || item.name),
+          name: item.name || item.city_name || item.title || item.city
+        }));
+        setCitiesList(currentCities);
+      } catch (err) {
+        console.error("Failed to fetch cities:", err);
+      }
+    }
+
+    const rawCity = adminData.city_id || adminData.city || '';
+    const matchedCity = currentCities.find(c => 
+      String(c.id).toLowerCase() === String(rawCity).toLowerCase() ||
+      String(c.name).toLowerCase() === String(rawCity).toLowerCase()
+    );
+    const cityIdVal = matchedCity ? matchedCity.id : rawCity;
+    const cityNameVal = matchedCity ? matchedCity.name : rawCity;
 
     setAdminForm({
       firstName: adminData.first_name || adminData.firstName || '',
@@ -670,17 +749,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       mobile: adminData.phonenumber || adminData.mobile || '',
       gender: genderVal,
       dob: formattedDob,
-      city: adminData.city || cityVal,
-      city_id: cityVal,
-      state: adminData.state || stateVal,
-      state_id: stateVal,
+      city: cityNameVal,
+      city_id: cityIdVal,
+      state: stateNameVal,
+      state_id: stateIdVal,
       zipcode: adminData.zipcode || '',
       address: adminData.address || ''
     });
 
-    if (stateVal) {
-      fetchCities(stateVal);
-    }
     setShowAdminModal(true);
   };
 
