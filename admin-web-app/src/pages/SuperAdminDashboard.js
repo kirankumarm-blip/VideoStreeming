@@ -1921,9 +1921,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     data={subCategories}
                     emptyMessage="No sub categories found"
                     renderRow={(subCat, index) => {
-                      const matchedCat = categories.find(c => String(c.id || c.category_id) === String(subCat.cat_id || subCat.category_id || subCat.catId));
-                      const parentCatName = matchedCat ? (matchedCat.name || matchedCat.category_name) : (subCat.category_name || subCat.cat_name || subCat.category || 'N/A');
+                      const matchedCat = categories.find(c => 
+                        String(c.id || c.category_id) === String(subCat.cat_id || subCat.category_id || subCat.catId || subCat.category) ||
+                        String(c.name || c.category_name).toLowerCase() === String(subCat.category || subCat.cat_name || subCat.category_name).toLowerCase()
+                      );
+                      const parentCatName = matchedCat ? (matchedCat.name || matchedCat.category_name) : (subCat.category || subCat.category_name || subCat.cat_name || 'N/A');
                       const subCatId = subCat.id || subCat.sub_category_id;
+                      const catIdVal = matchedCat ? String(matchedCat.id || matchedCat.category_id) : String(subCat.cat_id || subCat.category_id || subCat.category || '');
 
                       return (
                         <tr key={subCatId || index}>
@@ -1945,12 +1949,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
-                                onClick={() => {
-                                  fetchCategories();
+                                onClick={async () => {
+                                  if (categories.length === 0) {
+                                    await fetchCategories();
+                                  }
                                   setEditingSubCategory(subCat);
                                   setSubCategoryForm({
                                     id: subCatId,
-                                    cat_id: subCat.cat_id || subCat.category_id || subCat.catId || (matchedCat ? String(matchedCat.id || matchedCat.category_id) : ''),
+                                    cat_id: catIdVal,
                                     name: subCat.name || subCat.sub_category_name || '',
                                     description: subCat.description || ''
                                   });
@@ -3394,22 +3400,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <form onSubmit={handleSubCategorySubmit}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Category</label>
-                <select 
-                  className="form-input"
+                <PremiumSelect
+                  options={categories.map(cat => ({
+                    id: String(cat.id || cat.category_id),
+                    name: cat.name || cat.category_name
+                  }))}
                   value={String(subCategoryForm.cat_id)}
                   onChange={(e) => setSubCategoryForm({ ...subCategoryForm, cat_id: e.target.value })}
-                  onInvalid={(e) => e.target.setCustomValidity('Please select a category')}
-                  onInput={(e) => e.target.setCustomValidity('')}
-                  required
-                  style={{ width: '100%', height: '48px' }}
-                >
-                  <option value="" disabled>Select Category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id || cat.category_id} value={String(cat.id || cat.category_id)}>
-                      {cat.name || cat.category_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Category"
+                  searchable={true}
+                  icon="fa-solid fa-list-check"
+                  style={{ height: '48px', borderRadius: '12px' }}
+                />
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
