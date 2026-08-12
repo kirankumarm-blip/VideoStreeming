@@ -1,0 +1,205 @@
+import React, { useState, useRef, useEffect } from 'react';
+
+const PremiumSelect = ({
+  options = [],
+  value,
+  onChange,
+  placeholder = "Select Option...",
+  disabled = false,
+  searchable = true,
+  className = "",
+  style = {},
+  icon = "fa-solid fa-list",
+  label = ""
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Format options normalized: { id, label, icon }
+  const normalizedOptions = options.map(opt => {
+    if (typeof opt === 'object' && opt !== null) {
+      return {
+        id: opt.id ?? opt.value ?? opt.name ?? opt.code ?? opt,
+        label: opt.name ?? opt.title ?? opt.label ?? opt.language_name ?? opt.plan_name ?? opt.id ?? String(opt),
+        icon: opt.icon || opt.iconClass || null,
+        subLabel: opt.description || opt.subLabel || null
+      };
+    }
+    return { id: opt, label: String(opt), icon: null };
+  });
+
+  const selectedOption = normalizedOptions.find(opt => String(opt.id) === String(value));
+
+  const filteredOptions = normalizedOptions.filter(opt =>
+    opt.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSelect = (opt) => {
+    onChange({ target: { value: opt.id, name: label } });
+    setIsOpen(false);
+    setSearchQuery("");
+  };
+
+  return (
+    <div ref={dropdownRef} className={`premium-select-container ${className}`} style={{ position: 'relative', width: '100%', ...style }}>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+          backgroundColor: 'var(--bg-secondary, rgba(255,255,255,0.05))',
+          border: isOpen ? '1px solid var(--accent-primary, #e50914)' : '1px solid var(--border-color, rgba(255,255,255,0.12))',
+          borderRadius: '10px',
+          color: selectedOption ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #94a3b8)',
+          fontSize: '14px',
+          fontWeight: 500,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          outline: 'none',
+          boxShadow: isOpen ? '0 0 0 3px rgba(229, 9, 20, 0.25), 0 8px 20px rgba(0,0,0,0.3)' : 'none',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          opacity: disabled ? 0.6 : 1
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+          {selectedOption?.icon ? (
+            <i className={selectedOption.icon} style={{ color: 'var(--accent-primary, #e50914)', fontSize: '14px' }}></i>
+          ) : icon ? (
+            <i className={icon} style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '13px' }}></i>
+          ) : null}
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+        </div>
+        <i
+          className="fa-solid fa-chevron-down"
+          style={{
+            fontSize: '12px',
+            color: isOpen ? 'var(--accent-primary, #e50914)' : 'var(--text-secondary, #94a3b8)',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.25s ease'
+          }}
+        ></i>
+      </button>
+
+      {/* Floating Menu Panel */}
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          left: 0,
+          right: 0,
+          zIndex: 999,
+          backgroundColor: 'var(--bg-secondary, #18181c)',
+          border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+          borderRadius: '12px',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+          overflow: 'hidden',
+          animation: 'dropdownFadeIn 0.2s ease-out'
+        }}>
+          {searchable && normalizedOptions.length > 5 && (
+            <div style={{ padding: '8px', borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.08))' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)', fontSize: '12px' }}></i>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 32px',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary, #ffffff)',
+                    fontSize: '13px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div style={{ maxHeight: '240px', overflowY: 'auto', padding: '6px' }}>
+            {filteredOptions.length === 0 ? (
+              <div style={{ padding: '16px', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                No options found
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = String(opt.id) === String(value);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelect(opt)}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.15)' : 'transparent',
+                      color: isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.15s ease',
+                      marginBottom: '2px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {opt.icon && <i className={opt.icon} style={{ fontSize: '13px' }}></i>}
+                      <div>
+                        <div>{opt.label}</div>
+                        {opt.subLabel && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{opt.subLabel}</div>}
+                      </div>
+                    </div>
+                    {isSelected && <i className="fa-solid fa-check" style={{ fontSize: '12px' }}></i>}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes dropdownFadeIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default PremiumSelect;
