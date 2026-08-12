@@ -622,14 +622,15 @@ const PaginatedTable = ({
                   { id: 20, name: '20' },
                   { id: 50, name: '50' }
                 ]}
-                value={itemsPerPage}
+                value={String(itemsPerPage)}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
                 searchable={false}
                 dropUp={true}
-                style={{ width: '70px', height: '36px', borderRadius: '8px' }}
+                icon="fa-solid fa-list"
+                style={{ minWidth: '95px', width: '95px', height: '36px', borderRadius: '8px' }}
               />
             </div>
 
@@ -649,9 +650,10 @@ const PaginatedTable = ({
                   fontSize: '13px',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
-                  background: 'var(--bg-card, #121217)',
-                  color: activePage === 1 ? 'rgba(255,255,255,0.3)' : 'var(--text-primary, #ffffff)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  background: activePage === 1 ? 'transparent' : 'var(--bg-card, #ffffff)',
+                  color: activePage === 1 ? 'var(--text-secondary, #94a3b8)' : 'var(--text-primary, #0f172a)',
+                  opacity: activePage === 1 ? 0.5 : 1,
                   cursor: activePage === 1 ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -664,7 +666,7 @@ const PaginatedTable = ({
               
               {getPageNumbers().map((pageNum, idx) => {
                 if (pageNum === '...') {
-                  return <span key={`dots-${idx}`} style={{ color: '#94a3b8', padding: '0 4px', fontSize: '13px' }}>...</span>;
+                  return <span key={`dots-${idx}`} style={{ color: 'var(--text-secondary, #94a3b8)', padding: '0 4px', fontSize: '13px' }}>...</span>;
                 }
                 const isActive = activePage === pageNum;
                 return (
@@ -683,9 +685,9 @@ const PaginatedTable = ({
                       fontSize: '13px', 
                       fontWeight: 700,
                       borderRadius: '8px',
-                      border: isActive ? 'none' : 'none',
-                      background: isActive ? '#4f46e5' : 'transparent',
-                      color: isActive ? '#ffffff' : 'var(--text-primary, #1e293b)',
+                      border: isActive ? 'none' : '1px solid var(--border-color, #e2e8f0)',
+                      background: isActive ? '#4f46e5' : 'var(--bg-card, #ffffff)',
+                      color: isActive ? '#ffffff' : 'var(--text-primary, #0f172a)',
                       cursor: 'pointer',
                       boxShadow: isActive ? '0 4px 14px rgba(79, 70, 229, 0.35)' : 'none',
                       transition: 'all 0.15s ease'
@@ -710,9 +712,10 @@ const PaginatedTable = ({
                   fontSize: '13px',
                   fontWeight: 600,
                   borderRadius: '8px',
-                  border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
-                  background: 'var(--bg-card, #121217)',
-                  color: activePage === totalPages ? 'rgba(255,255,255,0.3)' : 'var(--text-primary, #ffffff)',
+                  border: '1px solid var(--border-color, #e2e8f0)',
+                  background: activePage === totalPages ? 'transparent' : 'var(--bg-card, #ffffff)',
+                  color: activePage === totalPages ? 'var(--text-secondary, #94a3b8)' : 'var(--text-primary, #0f172a)',
+                  opacity: activePage === totalPages ? 0.5 : 1,
                   cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',

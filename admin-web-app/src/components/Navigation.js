@@ -342,7 +342,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         )}
 
         {/* Language Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px' }} className="nav-lang-switcher">
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: '145px' }} className="nav-lang-switcher">
           <PremiumSelect
             options={[
               { id: 'en', name: 'English' },
@@ -353,7 +353,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             onChange={(e) => setLanguage(e.target.value)}
             searchable={false}
             icon="fa-solid fa-globe"
-            style={{ width: '110px' }}
+            style={{ width: '140px', minWidth: '140px' }}
           />
         </div>
 
