@@ -1085,6 +1085,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 if (activeTab === 'course_all') return 'All Courses';
                 if (activeTab === 'admins_all') return 'All Admins';
                 if (activeTab === 'users_all') return 'All Users';
+                if (activeTab === 'rep_export' || activeTab.startsWith('rep_')) return 'Reports';
                 return activeTab.replace(/_/g, ' ');
               })()}
             </h1>
@@ -1542,14 +1543,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Category Name', 'Description', 'Slug ID', 'Actions']}
+                    headers={['Category Name', 'Description', 'Actions']}
                     data={categories}
                     emptyMessage="No categories found"
                     renderRow={(cat, index) => (
                       <tr key={cat.id || index}>
                         <td style={{ fontWeight: 600 }}>{cat.name}</td>
                         <td style={{ color: 'var(--text-secondary)' }}>{cat.description}</td>
-                        <td><code>{cat.id}</code></td>
                         <td>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
@@ -1661,7 +1661,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['User', 'Video', 'Action', 'Timestamp']}
+                    headers={['User', 'Video', 'Action', 'Date']}
                     data={filteredActivities}
                     emptyMessage="No activity logs found"
                     renderRow={(act, index) => (
@@ -1773,7 +1773,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Admin Name', 'Action', 'IP Address', 'Timestamp']}
+                    headers={['Admin Name', 'Action', 'IP Address', 'Date']}
                     data={adminLogs}
                     emptyMessage="No activity logs found matching the filters"
                     renderRow={(log, index) => (
@@ -1915,7 +1915,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['User', 'Video', 'Action', 'Timestamp']}
+                    headers={['User', 'Video', 'Action', 'Date']}
                     data={filteredActivities}
                     emptyMessage="No activity logs found"
                     renderRow={(act, index) => {
