@@ -78,23 +78,23 @@ const PremiumSelect = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 16px',
-          backgroundColor: style.background || style.backgroundColor || 'var(--input-bg, rgba(255,255,255,0.05))',
-          border: isOpen ? '1px solid var(--accent-primary, #e50914)' : '1px solid var(--border-color, rgba(255,255,255,0.12))',
-          borderRadius: '10px',
+          padding: '14px 18px',
+          backgroundColor: 'var(--input-bg, rgba(255,255,255,0.04))',
+          border: isOpen ? '1px solid var(--accent-secondary, #7c3aed)' : '1px solid var(--border-color, rgba(0,0,0,0.12))',
+          borderRadius: '12px',
           color: selectedOption ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #94a3b8)',
-          fontSize: '14px',
+          fontSize: '15px',
           fontWeight: 500,
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
-          boxShadow: isOpen ? '0 0 0 3px rgba(229, 9, 20, 0.25), 0 8px 20px rgba(0,0,0,0.3)' : 'none',
+          boxShadow: isOpen ? '0 0 0 1px var(--accent-secondary, #7c3aed), 0 0 16px rgba(139, 92, 246, 0.25)' : 'none',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           opacity: disabled ? 0.6 : 1
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
           {selectedOption?.icon ? (
-            <i className={selectedOption.icon} style={{ color: 'var(--accent-primary, #e50914)', fontSize: '14px' }}></i>
+            <i className={selectedOption.icon} style={{ color: 'var(--accent-secondary, #7c3aed)', fontSize: '14px' }}></i>
           ) : icon ? (
             <i className={icon} style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '13px' }}></i>
           ) : null}
@@ -106,7 +106,7 @@ const PremiumSelect = ({
           className="fa-solid fa-chevron-down"
           style={{
             fontSize: '12px',
-            color: isOpen ? 'var(--accent-primary, #e50914)' : 'var(--text-secondary, #94a3b8)',
+            color: isOpen ? 'var(--accent-secondary, #7c3aed)' : 'var(--text-secondary, #94a3b8)',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.25s ease'
           }}
