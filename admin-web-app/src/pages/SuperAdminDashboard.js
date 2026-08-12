@@ -135,6 +135,24 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     onConfirm: null
   });
 
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    confirmText: 'Delete',
+    onConfirm: null
+  });
+
+  const showConfirmDelete = (message, onConfirm) => {
+    setConfirmModal({
+      show: true,
+      title: 'Confirm Delete',
+      message,
+      confirmText: 'Delete',
+      onConfirm
+    });
+  };
+
   const showSuccess = (message, onConfirm = null) => {
     setCustomAlert({
       show: true,
@@ -838,16 +856,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  const handleDeleteCategory = async (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
+  const handleDeleteCategory = (id) => {
+    showConfirmDelete('Are you sure you want to delete this category?', async () => {
       try {
         await api.vdcategories.deleteCategory(id);
         fetchCategories();
         fetchDashboardData();
+        showSuccess("Category deleted successfully!");
       } catch (err) {
         showError(err.message || 'Failed to delete category');
       }
-    }
+    });
   };
 
   // --- Sub Category CRUD Handlers ---
@@ -900,15 +919,16 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  const handleDeleteSubCategory = async (id) => {
-    if (window.confirm('Are you sure you want to delete this sub category?')) {
+  const handleDeleteSubCategory = (id) => {
+    showConfirmDelete('Are you sure you want to delete this sub category?', async () => {
       try {
         await api.vdcategories.deleteSubCategory(id);
         fetchSubCategories();
+        showSuccess("Sub category deleted successfully!");
       } catch (err) {
         showError(err.message || 'Failed to delete sub category');
       }
-    }
+    });
   };
 
   // --- Video Assignment Handlers ---
@@ -2614,11 +2634,16 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           Edit
                         </button>
                         <button 
-                          onClick={async () => {
-                            if (window.confirm('Delete this plan?')) {
-                              await api.plans.delete(plan.id);
-                              fetchSubscriptionData();
-                            }
+                          onClick={() => {
+                            showConfirmDelete('Are you sure you want to delete this plan?', async () => {
+                              try {
+                                await api.plans.delete(plan.id);
+                                fetchSubscriptionData();
+                                showSuccess("Plan deleted successfully!");
+                              } catch (err) {
+                                showError(err.message || 'Failed to delete plan');
+                              }
+                            });
                           }}
                           className="btn"
                           style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', flex: 1 }}
@@ -3654,6 +3679,115 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             >
               {customAlert.buttonText}
             </button>
+          </div>
+        </div>
+      )}
+      {/* --- CUSTOM CONFIRMATION MODAL --- */}
+      {confirmModal.show && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.25s ease'
+        }}>
+          <div style={{
+            background: 'var(--bg-card, #ffffff)',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            width: '100%',
+            maxWidth: '400px',
+            padding: '36px 28px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            color: 'var(--text-primary, #333333)',
+            animation: 'scaleIn 0.25s ease',
+            border: '1px solid var(--border-color, rgba(0,0,0,0.1))'
+          }}>
+            {/* Warning Circle Icon */}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '3px solid #ef4444',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '26px', color: '#ef4444' }}></i>
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--text-primary, #111827)',
+              margin: '0 0 10px 0'
+            }}>
+              {confirmModal.title || 'Confirm Action'}
+            </h3>
+
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--text-secondary, #6b7280)',
+              lineHeight: '1.5',
+              margin: '0 0 28px 0'
+            }}>
+              {confirmModal.message}
+            </p>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+                className="btn btn-secondary"
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  borderRadius: '10px'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const onConf = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, show: false }));
+                  if (onConf) onConf();
+                }}
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {confirmModal.confirmText || 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
