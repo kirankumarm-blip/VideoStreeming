@@ -625,6 +625,7 @@ const PaginatedTable = ({
                   setCurrentPage(1);
                 }}
                 searchable={false}
+                dropUp={true}
                 style={{ width: '70px', height: '36px', borderRadius: '8px' }}
               />
             </div>

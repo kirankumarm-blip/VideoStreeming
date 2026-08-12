@@ -10,11 +10,25 @@ const PremiumSelect = ({
   className = "",
   style = {},
   icon = "fa-solid fa-list",
-  label = ""
+  label = "",
+  dropUp = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [autoDropUp, setAutoDropUp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (dropUp || spaceBelow < 220) {
+        setAutoDropUp(true);
+      } else {
+        setAutoDropUp(false);
+      }
+    }
+  }, [isOpen, dropUp]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -103,14 +117,16 @@ const PremiumSelect = ({
       {isOpen && (
         <div style={{
           position: 'absolute',
-          top: 'calc(100% + 6px)',
+          top: (dropUp || autoDropUp) ? 'auto' : 'calc(100% + 6px)',
+          bottom: (dropUp || autoDropUp) ? 'calc(100% + 6px)' : 'auto',
           left: 0,
           right: 0,
-          zIndex: 999,
-          backgroundColor: 'var(--bg-secondary, #18181c)',
-          border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+          minWidth: '100%',
+          zIndex: 9999,
+          backgroundColor: 'var(--bg-card, #ffffff)',
+          border: '1px solid var(--border-color, rgba(0,0,0,0.12))',
           borderRadius: '12px',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)',
           overflow: 'hidden',
           animation: 'dropdownFadeIn 0.2s ease-out'
         }}>
@@ -159,7 +175,7 @@ const PremiumSelect = ({
                       justifyContent: 'space-between',
                       padding: '10px 12px',
                       backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.15)' : 'transparent',
-                      color: isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)',
+                      color: isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #1e293b)',
                       border: 'none',
                       borderRadius: '8px',
                       fontSize: '13px',
@@ -176,7 +192,7 @@ const PremiumSelect = ({
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = isSelected ? 'rgba(229, 9, 20, 0.18)' : 'transparent';
-                      e.currentTarget.style.color = isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)';
+                      e.currentTarget.style.color = isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #1e293b)';
                       e.currentTarget.style.boxShadow = isSelected ? 'inset 3px 0 0 var(--accent-primary, #e50914)' : 'none';
                     }}
                   >
