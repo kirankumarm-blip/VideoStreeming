@@ -2099,16 +2099,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       ]
     },
     {
-      title: 'Engagement',
-      iconClass: 'fa-solid fa-star',
-      iconColor: '#f59e0b',
-      items: [
-        { id: 'engage_likes', label: 'Likes & Reactions', iconClass: 'fa-solid fa-thumbs-up' },
-        { id: 'engage_comments', label: 'Comments', iconClass: 'fa-solid fa-comments' },
-        { id: 'engage_reviews', label: 'Reviews & Ratings', iconClass: 'fa-solid fa-star-half-stroke' }
-      ]
-    },
-    {
       title: 'Reports',
       iconClass: 'fa-solid fa-file-invoice-dollar',
       iconColor: '#6366f1',
@@ -4059,131 +4049,44 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             )}
 
             {/* CATEGORIES VIEW */}
-            {activeTab === 'categories' && (
-              <div className="animate-fade-in glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '20px' }}>Video Categories</h2>
-                  <button 
-                    onClick={() => {
-                      setEditingCategory(null);
-                      setCategoryForm({ name: '', description: '' });
-                      setShowCategoryModal(true);
-                    }}
-                    className="btn btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '13px' }}
-                  >
-                    Add Category
-                  </button>
-                </div>
+            {activeTab === 'categories' && (() => {
+              const isLight = theme === 'light';
+              const cardBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
+              const textColor = isLight ? '#18181b' : 'var(--text-primary)';
+              const borderColor = isLight ? '#e4e4e7' : 'var(--border-color)';
+              return (
+                <div className="animate-fade-in glass-card" style={{ backgroundColor: cardBg, color: textColor, border: `1px solid ${borderColor}`, boxShadow: isLight ? '0 10px 30px rgba(0,0,0,0.04)' : 'none', padding: '24px', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '20px', color: textColor, margin: 0 }}>Video Categories</h2>
+                    <button 
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setCategoryForm({ name: '', description: '' });
+                        setShowCategoryModal(true);
+                      }}
+                      className="btn btn-primary"
+                      style={{ padding: '8px 16px', fontSize: '13px' }}
+                    >
+                      Add Category
+                    </button>
+                  </div>
 
-                <div className="table-container">
-                  <PaginatedTable
-                    headers={['Category Name', 'Description', 'Actions']}
-                    data={categories}
-                    emptyMessage="No categories found"
-                    renderRow={(cat, index) => (
-                      <tr key={cat.id || index}>
-                        <td style={{ fontWeight: 600 }}>{cat.name}</td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{cat.description}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
-                              onClick={() => {
-                                setEditingCategory(cat);
-                                setCategoryForm({ name: cat.name, description: cat.description });
-                                setShowCategoryModal(true);
-                              }}
-                              className="btn btn-secondary"
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
-                            >
-                              Edit
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteCategory(cat.id)}
-                              className="btn"
-                              style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* SUB CATEGORIES VIEW */}
-            {activeTab === 'sub_categories' && (
-              <div className="animate-fade-in glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '20px' }}>Video Sub Categories</h2>
-                  <button 
-                    onClick={() => {
-                      fetchCategories();
-                      setEditingSubCategory(null);
-                      setSubCategoryForm({
-                        id: '',
-                        cat_id: categories[0]?.id || categories[0]?.category_id || '',
-                        name: '',
-                        description: ''
-                      });
-                      setShowSubCategoryModal(true);
-                    }}
-                    className="btn btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '13px' }}
-                  >
-                    Add Sub Category
-                  </button>
-                </div>
-
-                <div className="table-container">
-                  <PaginatedTable
-                    headers={['Sub Category Name', 'Parent Category', 'Description', 'Actions']}
-                    data={subCategories}
-                    emptyMessage="No sub categories found"
-                    renderRow={(subCat, index) => {
-                      const matchedCat = categories.find(c => 
-                        String(c.id || c.category_id) === String(subCat.cat_id || subCat.category_id || subCat.catId || subCat.category) ||
-                        String(c.name || c.category_name).toLowerCase() === String(subCat.category || subCat.cat_name || subCat.category_name).toLowerCase()
-                      );
-                      const parentCatName = matchedCat ? (matchedCat.name || matchedCat.category_name) : (subCat.category || subCat.category_name || subCat.cat_name || 'N/A');
-                      const subCatId = subCat.id || subCat.sub_category_id;
-                      const catIdVal = matchedCat ? String(matchedCat.id || matchedCat.category_id) : String(subCat.cat_id || subCat.category_id || subCat.category || '');
-
-                      return (
-                        <tr key={subCatId || index}>
-                          <td style={{ fontWeight: 600 }}>{subCat.name || subCat.sub_category_name}</td>
-                          <td>
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '4px 10px',
-                              borderRadius: '12px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              background: 'rgba(124, 58, 237, 0.15)',
-                              color: '#7c3aed'
-                            }}>
-                              {parentCatName}
-                            </span>
-                          </td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{subCat.description || '-'}</td>
+                  <div className="table-container">
+                    <PaginatedTable
+                      headers={['Category Name', 'Description', 'Actions']}
+                      data={categories}
+                      emptyMessage="No categories found"
+                      renderRow={(cat, index) => (
+                        <tr key={cat.id || index}>
+                          <td style={{ fontWeight: 600 }}>{cat.name}</td>
+                          <td style={{ color: isLight ? '#71717a' : 'var(--text-secondary)' }}>{cat.description || '-'}</td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
-                                onClick={async () => {
-                                  if (categories.length === 0) {
-                                    await fetchCategories();
-                                  }
-                                  setEditingSubCategory(subCat);
-                                  setSubCategoryForm({
-                                    id: subCatId,
-                                    cat_id: catIdVal,
-                                    name: subCat.name || subCat.sub_category_name || '',
-                                    description: subCat.description || ''
-                                  });
-                                  setShowSubCategoryModal(true);
+                                onClick={() => {
+                                  setEditingCategory(cat);
+                                  setCategoryForm({ name: cat.name, description: cat.description || '' });
+                                  setShowCategoryModal(true);
                                 }}
                                 className="btn btn-secondary"
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
@@ -4191,7 +4094,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 Edit
                               </button>
                               <button 
-                                onClick={() => handleDeleteSubCategory(subCatId)}
+                                onClick={() => handleDeleteCategory(cat.id)}
                                 className="btn"
                                 style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
                               >
@@ -4200,12 +4103,111 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             </div>
                           </td>
                         </tr>
-                      );
-                    }}
-                  />
+                      )}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
+
+            {/* SUB CATEGORIES VIEW */}
+            {activeTab === 'sub_categories' && (() => {
+              const isLight = theme === 'light';
+              const cardBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
+              const textColor = isLight ? '#18181b' : 'var(--text-primary)';
+              const borderColor = isLight ? '#e4e4e7' : 'var(--border-color)';
+              return (
+                <div className="animate-fade-in glass-card" style={{ backgroundColor: cardBg, color: textColor, border: `1px solid ${borderColor}`, boxShadow: isLight ? '0 10px 30px rgba(0,0,0,0.04)' : 'none', padding: '24px', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '20px', color: textColor, margin: 0 }}>Video Sub Categories</h2>
+                    <button 
+                      onClick={() => {
+                        fetchCategories();
+                        setEditingSubCategory(null);
+                        setSubCategoryForm({
+                          id: '',
+                          cat_id: categories[0]?.id || categories[0]?.category_id || '',
+                          name: '',
+                          description: ''
+                        });
+                        setShowSubCategoryModal(true);
+                      }}
+                      className="btn btn-primary"
+                      style={{ padding: '8px 16px', fontSize: '13px' }}
+                    >
+                      Add Sub Category
+                    </button>
+                  </div>
+
+                  <div className="table-container">
+                    <PaginatedTable
+                      headers={['Sub Category Name', 'Parent Category', 'Description', 'Actions']}
+                      data={subCategories}
+                      emptyMessage="No sub categories found"
+                      renderRow={(subCat, index) => {
+                        const matchedCat = categories.find(c => 
+                          String(c.id || c.category_id) === String(subCat.cat_id || subCat.category_id || subCat.catId || subCat.category) ||
+                          String(c.name || c.category_name).toLowerCase() === String(subCat.category || subCat.cat_name || subCat.category_name).toLowerCase()
+                        );
+                        const parentCatName = matchedCat ? (matchedCat.name || matchedCat.category_name) : (subCat.category || subCat.category_name || subCat.cat_name || 'N/A');
+                        const subCatId = subCat.id || subCat.sub_category_id;
+                        const catIdVal = matchedCat ? String(matchedCat.id || matchedCat.category_id) : String(subCat.cat_id || subCat.category_id || subCat.category || '');
+
+                        return (
+                          <tr key={subCatId || index}>
+                            <td style={{ fontWeight: 600 }}>{subCat.name || subCat.sub_category_name}</td>
+                            <td>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                background: 'rgba(124, 58, 237, 0.15)',
+                                color: '#7c3aed'
+                              }}>
+                                {parentCatName}
+                              </span>
+                            </td>
+                            <td style={{ color: isLight ? '#71717a' : 'var(--text-secondary)' }}>{subCat.description || '-'}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  onClick={async () => {
+                                    if (categories.length === 0) {
+                                      await fetchCategories();
+                                    }
+                                    setEditingSubCategory(subCat);
+                                    setSubCategoryForm({
+                                      id: subCatId,
+                                      cat_id: catIdVal,
+                                      name: subCat.name || subCat.sub_category_name || '',
+                                      description: subCat.description || ''
+                                    });
+                                    setShowSubCategoryModal(true);
+                                  }}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                >
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteSubCategory(subCatId)}
+                                  className="btn"
+                                  style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
             
             {/* --- DYNAMIC USER MANAGEMENT VIEWS --- */}
             {activeTab.startsWith('users_') && activeTab !== 'users_logs' && activeTab !== 'users_all' && (
@@ -5028,16 +5030,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       {/* --- CATEGORY CRUD MODAL --- */}
       {showCategoryModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px', background: '#ffffff', color: '#18181b', borderRadius: '16px', boxShadow: '0 12px 30px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '24px', fontWeight: 700, color: '#111111' }}>{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
             <form onSubmit={handleCategorySubmit}>
               <div className="form-group">
-                <label className="form-label">Category Name</label>
+                <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Category Name</label>
                 <input 
                   type="text" 
                   className="form-input" 
                   placeholder="e.g., Technology, Entertainment, Science & Tech"
+                  style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                   value={categoryForm.name} 
                   onChange={e => setCategoryForm({...categoryForm, name: e.target.value.replace(/^\s+/, '')})} 
                   onInvalid={(e) => e.target.setCustomValidity('Please fill out category name')}
@@ -5046,14 +5049,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Description</label>
+                <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Description</label>
                 <textarea 
                   className="form-input" 
                   placeholder="Enter category description (optional)..."
+                  style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd', resize: 'none' }}
                   value={categoryForm.description} 
                   onChange={e => setCategoryForm({...categoryForm, description: e.target.value.replace(/^\s+/, '')})}
                   rows="3" 
-                  style={{ resize: 'none' }}
                 />
               </div>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
@@ -5067,14 +5070,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       {/* --- SUB CATEGORY CRUD MODAL --- */}
       {showSubCategoryModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px', background: '#ffffff', color: '#18181b', borderRadius: '16px', boxShadow: '0 12px 30px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '24px', fontWeight: 700, color: '#111111' }}>
               {editingSubCategory ? 'Edit Sub Category' : 'Add Sub Category'}
             </h3>
             <form onSubmit={handleSubCategorySubmit}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Category</label>
+                <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Category</label>
                 <PremiumSelect
                   options={categories.map(cat => ({
                     id: String(cat.id || cat.category_id),
@@ -5085,16 +5088,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   placeholder="Select Category"
                   searchable={true}
                   icon="fa-solid fa-list-check"
-                  style={{ height: '48px', borderRadius: '12px' }}
+                  style={{ height: '44px', borderRadius: '8px' }}
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Sub Category Name</label>
+                <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Sub Category Name</label>
                 <input 
                   type="text" 
                   className="form-input" 
                   placeholder="e.g., Mobile Development, Machine Learning, Web Design"
+                  style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                   value={subCategoryForm.name} 
                   onChange={e => setSubCategoryForm({...subCategoryForm, name: e.target.value.replace(/^\s+/, '')})} 
                   onInvalid={(e) => e.target.setCustomValidity('Please fill out sub category name')}
@@ -5104,14 +5108,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               </div>
 
               <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label className="form-label">Description</label>
+                <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Description</label>
                 <textarea 
                   className="form-input" 
                   placeholder="Enter sub category description (optional)..."
+                  style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd', resize: 'none' }}
                   value={subCategoryForm.description} 
                   onChange={e => setSubCategoryForm({...subCategoryForm, description: e.target.value.replace(/^\s+/, '')})}
                   rows="3" 
-                  style={{ resize: 'none' }}
                 />
               </div>
 
