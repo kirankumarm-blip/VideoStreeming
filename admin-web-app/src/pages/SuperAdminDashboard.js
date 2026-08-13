@@ -1472,8 +1472,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <ThreeDLoader text="Loading telemetry core..." />
         ) : (
           <>
-            {/* Embed Video Upload / Course Upload / All Courses from AdminDashboard */}
-            {['video_upload', 'course_upload', 'course_all'].includes(activeTab) && (
+            {/* Embed Video Upload / Course Upload / All Courses / Categories / Sub Categories from AdminDashboard */}
+            {['video_upload', 'course_upload', 'course_all', 'categories', 'sub_categories'].includes(activeTab) && (
               <AdminDashboard justContent={true} activeTabOverride={activeTab} selectedAdminId={selectedAdminId} theme={theme} />
             )}
 

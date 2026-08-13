@@ -256,8 +256,35 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingCities, setLoadingCities] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
-  // Video Upload states
+  // Video Upload & Content Management states
   const [categories, setCategories] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
+
+  const [subCategories, setSubCategories] = useState([]);
+  const [showSubCategoryModal, setShowSubCategoryModal] = useState(false);
+  const [editingSubCategory, setEditingSubCategory] = useState(null);
+  const [subCategoryForm, setSubCategoryForm] = useState({ id: '', cat_id: '', name: '', description: '' });
+
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    confirmText: 'Delete',
+    onConfirm: null
+  });
+
+  const showConfirmDelete = (message, onConfirm) => {
+    setConfirmModal({
+      show: true,
+      title: 'Confirm Delete',
+      message,
+      confirmText: 'Delete',
+      onConfirm
+    });
+  };
+
   const [visibilities, setVisibilities] = useState([]);
   const [levels, setLevels] = useState([]);
   const [uploadForm, setUploadForm] = useState({
@@ -271,7 +298,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     languageId: '',
     adminId: ''
   });
-  const [subCategories, setSubCategories] = useState([]);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -517,6 +543,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchLanguages();
       fetchAdminsList();
     }
+    if (activeTab === 'categories') {
+      fetchCategories();
+    }
+    if (activeTab === 'sub_categories') {
+      fetchSubCategories();
+      fetchCategories();
+    }
     if (activeTab === 'video_all') {
       fetchVideos();
     }
@@ -729,25 +762,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async (categoryId) => {
-    if (!categoryId) {
-      setSubCategories([]);
-      return;
-    }
+  const fetchSubCategories = async (categoryId = null) => {
     setLoadingSubCategories(true);
     try {
-      const res = await api.videos.getSubCategories(categoryId);
+      let res;
+      if (categoryId) {
+        res = await api.videos.getSubCategories(categoryId);
+      } else {
+        res = await api.vdcategories.getSubCategories();
+      }
       const subCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       setSubCategories(subCats);
-      if (subCats.length > 0) {
-        setUploadForm(prev => ({ ...prev, subCategory: subCats[0].id || subCats[0].name }));
-      } else {
-        setUploadForm(prev => ({ ...prev, subCategory: '' }));
+      if (categoryId) {
+        if (subCats.length > 0) {
+          setUploadForm(prev => ({ ...prev, subCategory: subCats[0].id || subCats[0].name }));
+        } else {
+          setUploadForm(prev => ({ ...prev, subCategory: '' }));
+        }
       }
+      return subCats;
     } catch (e) {
       console.error('Failed to fetch sub categories:', e);
       setSubCategories([]);
-      setUploadForm(prev => ({ ...prev, subCategory: '' }));
+      if (categoryId) setUploadForm(prev => ({ ...prev, subCategory: '' }));
+      return [];
     } finally {
       setLoadingSubCategories(false);
     }
@@ -1746,6 +1784,118 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
+  // --- Category CRUD Handlers ---
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+    const cleanName = String(categoryForm.name || '').trim();
+    if (!cleanName) {
+      showError("Please fill out category name");
+      return;
+    }
+
+    try {
+      if (editingCategory) {
+        await api.categories.update(editingCategory.id, cleanName, categoryForm.description ? categoryForm.description.trim() : '');
+        showSuccess("Category updated successfully!");
+      } else {
+        await api.categories.create(cleanName, categoryForm.description ? categoryForm.description.trim() : '');
+        showSuccess("Category created successfully!");
+      }
+      setShowCategoryModal(false);
+      setCategoryForm({ name: '', description: '' });
+      setEditingCategory(null);
+      fetchCategories();
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Category error:", err);
+      const is410 = err?.status === 410 || 
+                    err?.response?.status === 410 || 
+                    String(err?.message || '').includes('410') || 
+                    String(err?.message || '').toLowerCase().includes('already exist');
+
+      if (is410) {
+        showError("Category already exist");
+      } else {
+        showError(err?.message || 'Failed to save category');
+      }
+    }
+  };
+
+  const handleDeleteCategory = (id) => {
+    showConfirmDelete('Are you sure you want to delete this category?', async () => {
+      try {
+        await api.vdcategories.deleteCategory(id);
+        fetchCategories();
+        fetchDashboardData();
+        showSuccess("Category deleted successfully!");
+      } catch (err) {
+        showError(err.message || 'Failed to delete category');
+      }
+    });
+  };
+
+  // --- Sub Category CRUD Handlers ---
+  const handleSubCategorySubmit = async (e) => {
+    e.preventDefault();
+    if (!subCategoryForm.cat_id) {
+      showError("Please select a parent Category");
+      return;
+    }
+    const cleanName = String(subCategoryForm.name || '').trim();
+    if (!cleanName) {
+      showError("Please fill out sub category name");
+      return;
+    }
+
+    try {
+      if (editingSubCategory) {
+        const subCatId = editingSubCategory.id || editingSubCategory.sub_category_id;
+        await api.vdcategories.editSubCategory(
+          subCatId,
+          subCategoryForm.cat_id,
+          cleanName,
+          subCategoryForm.description ? subCategoryForm.description.trim() : ''
+        );
+        showSuccess("Sub category updated successfully!");
+      } else {
+        await api.vdcategories.addSubCategory(
+          subCategoryForm.cat_id,
+          cleanName,
+          subCategoryForm.description ? subCategoryForm.description.trim() : ''
+        );
+        showSuccess("Sub category created successfully!");
+      }
+      setShowSubCategoryModal(false);
+      setSubCategoryForm({ id: '', cat_id: '', name: '', description: '' });
+      setEditingSubCategory(null);
+      fetchSubCategories();
+    } catch (err) {
+      console.error("SubCategory submission error:", err);
+      const is410 = err?.status === 410 || 
+                    err?.response?.status === 410 || 
+                    String(err?.message || '').includes('410') || 
+                    String(err?.message || '').toLowerCase().includes('already exist');
+
+      if (is410) {
+        showError("Sub category already exist");
+      } else {
+        showError(err?.message || 'Failed to save sub category');
+      }
+    }
+  };
+
+  const handleDeleteSubCategory = (id) => {
+    showConfirmDelete('Are you sure you want to delete this sub category?', async () => {
+      try {
+        await api.vdcategories.deleteSubCategory(id);
+        fetchSubCategories();
+        showSuccess("Sub category deleted successfully!");
+      } catch (err) {
+        showError(err.message || 'Failed to delete sub category');
+      }
+    });
+  };
+
   const handleUnblockUser = async (user) => {
     try {
       await api.users.unblock(user.id);
@@ -1927,12 +2077,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       items: isSuperAdmin ? [
         { id: 'video_upload', label: 'Upload video', iconClass: 'fa-solid fa-cloud-arrow-up' },
         { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
-        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' }
+        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
+        { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
+        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
       ] : [
         { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
         { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
         { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
-        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' }
+        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
+        { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
+        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
       ]
     },
     {
@@ -3903,6 +4057,155 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </div>
               </div>
             )}
+
+            {/* CATEGORIES VIEW */}
+            {activeTab === 'categories' && (
+              <div className="animate-fade-in glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '20px' }}>Video Categories</h2>
+                  <button 
+                    onClick={() => {
+                      setEditingCategory(null);
+                      setCategoryForm({ name: '', description: '' });
+                      setShowCategoryModal(true);
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '13px' }}
+                  >
+                    Add Category
+                  </button>
+                </div>
+
+                <div className="table-container">
+                  <PaginatedTable
+                    headers={['Category Name', 'Description', 'Actions']}
+                    data={categories}
+                    emptyMessage="No categories found"
+                    renderRow={(cat, index) => (
+                      <tr key={cat.id || index}>
+                        <td style={{ fontWeight: 600 }}>{cat.name}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{cat.description}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => {
+                                setEditingCategory(cat);
+                                setCategoryForm({ name: cat.name, description: cat.description });
+                                setShowCategoryModal(true);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteCategory(cat.id)}
+                              className="btn"
+                              style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* SUB CATEGORIES VIEW */}
+            {activeTab === 'sub_categories' && (
+              <div className="animate-fade-in glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '20px' }}>Video Sub Categories</h2>
+                  <button 
+                    onClick={() => {
+                      fetchCategories();
+                      setEditingSubCategory(null);
+                      setSubCategoryForm({
+                        id: '',
+                        cat_id: categories[0]?.id || categories[0]?.category_id || '',
+                        name: '',
+                        description: ''
+                      });
+                      setShowSubCategoryModal(true);
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '13px' }}
+                  >
+                    Add Sub Category
+                  </button>
+                </div>
+
+                <div className="table-container">
+                  <PaginatedTable
+                    headers={['Sub Category Name', 'Parent Category', 'Description', 'Actions']}
+                    data={subCategories}
+                    emptyMessage="No sub categories found"
+                    renderRow={(subCat, index) => {
+                      const matchedCat = categories.find(c => 
+                        String(c.id || c.category_id) === String(subCat.cat_id || subCat.category_id || subCat.catId || subCat.category) ||
+                        String(c.name || c.category_name).toLowerCase() === String(subCat.category || subCat.cat_name || subCat.category_name).toLowerCase()
+                      );
+                      const parentCatName = matchedCat ? (matchedCat.name || matchedCat.category_name) : (subCat.category || subCat.category_name || subCat.cat_name || 'N/A');
+                      const subCatId = subCat.id || subCat.sub_category_id;
+                      const catIdVal = matchedCat ? String(matchedCat.id || matchedCat.category_id) : String(subCat.cat_id || subCat.category_id || subCat.category || '');
+
+                      return (
+                        <tr key={subCatId || index}>
+                          <td style={{ fontWeight: 600 }}>{subCat.name || subCat.sub_category_name}</td>
+                          <td>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              background: 'rgba(124, 58, 237, 0.15)',
+                              color: '#7c3aed'
+                            }}>
+                              {parentCatName}
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{subCat.description || '-'}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={async () => {
+                                  if (categories.length === 0) {
+                                    await fetchCategories();
+                                  }
+                                  setEditingSubCategory(subCat);
+                                  setSubCategoryForm({
+                                    id: subCatId,
+                                    cat_id: catIdVal,
+                                    name: subCat.name || subCat.sub_category_name || '',
+                                    description: subCat.description || ''
+                                  });
+                                  setShowSubCategoryModal(true);
+                                }}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteSubCategory(subCatId)}
+                                className="btn"
+                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             
             {/* --- DYNAMIC USER MANAGEMENT VIEWS --- */}
             {activeTab.startsWith('users_') && activeTab !== 'users_logs' && activeTab !== 'users_all' && (
@@ -4719,6 +5022,137 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CATEGORY CRUD MODAL --- */}
+      {showCategoryModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
+            <form onSubmit={handleCategorySubmit}>
+              <div className="form-group">
+                <label className="form-label">Category Name</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="e.g., Technology, Entertainment, Science & Tech"
+                  value={categoryForm.name} 
+                  onChange={e => setCategoryForm({...categoryForm, name: e.target.value.replace(/^\s+/, '')})} 
+                  onInvalid={(e) => e.target.setCustomValidity('Please fill out category name')}
+                  onInput={(e) => e.target.setCustomValidity('')}
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea 
+                  className="form-input" 
+                  placeholder="Enter category description (optional)..."
+                  value={categoryForm.description} 
+                  onChange={e => setCategoryForm({...categoryForm, description: e.target.value.replace(/^\s+/, '')})}
+                  rows="3" 
+                  style={{ resize: 'none' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+                <button type="button" onClick={() => setShowCategoryModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Submit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- SUB CATEGORY CRUD MODAL --- */}
+      {showSubCategoryModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+              {editingSubCategory ? 'Edit Sub Category' : 'Add Sub Category'}
+            </h3>
+            <form onSubmit={handleSubCategorySubmit}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Category</label>
+                <PremiumSelect
+                  options={categories.map(cat => ({
+                    id: String(cat.id || cat.category_id),
+                    name: cat.name || cat.category_name
+                  }))}
+                  value={String(subCategoryForm.cat_id)}
+                  onChange={(e) => setSubCategoryForm({ ...subCategoryForm, cat_id: e.target.value })}
+                  placeholder="Select Category"
+                  searchable={true}
+                  icon="fa-solid fa-list-check"
+                  style={{ height: '48px', borderRadius: '12px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Sub Category Name</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="e.g., Mobile Development, Machine Learning, Web Design"
+                  value={subCategoryForm.name} 
+                  onChange={e => setSubCategoryForm({...subCategoryForm, name: e.target.value.replace(/^\s+/, '')})} 
+                  onInvalid={(e) => e.target.setCustomValidity('Please fill out sub category name')}
+                  onInput={(e) => e.target.setCustomValidity('')}
+                  required 
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label className="form-label">Description</label>
+                <textarea 
+                  className="form-input" 
+                  placeholder="Enter sub category description (optional)..."
+                  value={subCategoryForm.description} 
+                  onChange={e => setSubCategoryForm({...subCategoryForm, description: e.target.value.replace(/^\s+/, '')})}
+                  rows="3" 
+                  style={{ resize: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+                <button type="button" onClick={() => setShowSubCategoryModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Submit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CONFIRMATION MODAL --- */}
+      {confirmModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
+          <div className="animate-fade-in glass-card" style={{ width: '90%', maxWidth: '420px', padding: '32px', textAlign: 'center', background: 'var(--bg-secondary, #ffffff)', color: 'var(--text-primary)' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', fontSize: '24px' }}>
+              <i className="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>{confirmModal.title}</h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.5' }}>{confirmModal.message}</p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))} 
+                className="btn btn-secondary" 
+                style={{ padding: '8px 20px', fontSize: '13px' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const cb = confirmModal.onConfirm;
+                  setConfirmModal(prev => ({ ...prev, show: false }));
+                  if (cb) cb();
+                }} 
+                className="btn" 
+                style={{ padding: '8px 20px', fontSize: '13px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                {confirmModal.confirmText || 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
