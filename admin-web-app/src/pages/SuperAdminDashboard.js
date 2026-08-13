@@ -285,16 +285,16 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     // Initial fetch based on current activeTab (defaults to overview)
     if (activeTab === 'overview') {
       fetchDashboardData('overview');
+      fetchCategories();
+      fetchVideos();
+      fetchUsers();
+      fetchGenders();
     } else if (activeTab === 'analytics') {
       fetchDashboardData('analytics');
     } else if (activeTab === 'admins_all') {
       fetchAdmins();
     }
     fetchDropdownClients();
-    fetchCategories();
-    fetchVideos();
-    fetchUsers();
-    fetchGenders();
   }, []);
 
   useEffect(() => {
@@ -353,8 +353,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   }, [showClientModal]);
 
   useEffect(() => {
-    if (showAdminModal || activeTab === 'admins_create' || activeTab === 'admins_all') {
-      fetchGenders();
+    if (showAdminModal || activeTab === 'admins_create') {
       fetchAdminClientsOptions();
     }
   }, [showAdminModal, activeTab]);
@@ -546,7 +545,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchAdmins = async (clientId = selectedClientId) => {
     try {
-      const data = await api.admins.list({ 
+      const data = await api.vdadmins.list({ 
         client_id: clientId || null,
         admin_id: clientId || null
       });
