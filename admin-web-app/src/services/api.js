@@ -603,6 +603,15 @@ export const api = {
       });
     }
   },
+  vdadmins: {
+    getAdmins: () => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: "getAdmins" }),
+        expectArray: true
+      });
+    }
+  },
   vdclients: {
     getClients: () => {
       return request('/vdClients', {

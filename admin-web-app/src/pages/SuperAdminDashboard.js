@@ -53,7 +53,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   // Admins CRUD states
   const [admins, setAdmins] = useState([]);
-  const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', state_id: '', city_id: '', zipcode: '', address: '' });
+  const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', client_id: '', mobile: '', gender: '', dob: '', city: '', state: '', state_id: '', city_id: '', zipcode: '', address: '' });
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminFormLoading, setAdminFormLoading] = useState(false);
@@ -61,6 +61,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [citiesList, setCitiesList] = useState([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [adminClientsList, setAdminClientsList] = useState([]);
+  const [loadingAdminClients, setLoadingAdminClients] = useState(false);
 
   // Clients CRUD states
   const [clients, setClients] = useState([]);
@@ -140,6 +142,24 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchCities(selectedStateId);
     } else {
       setCitiesList([]);
+    }
+  };
+
+  const fetchAdminClientsOptions = async () => {
+    setLoadingAdminClients(true);
+    try {
+      const res = await api.vdadmins.getAdmins();
+      const list = Array.isArray(res) ? res : (res?.data || res?.clients || res?.result || []);
+      const formatted = list.map(item => ({
+        id: String(item.id || item.client_id || item.value || ''),
+        name: item.name || item.client_name || item.title || item.label || ''
+      })).filter(item => item.id && item.name);
+      setAdminClientsList(formatted);
+    } catch (err) {
+      console.error("Failed to fetch admin clients options:", err);
+      setAdminClientsList([]);
+    } finally {
+      setLoadingAdminClients(false);
     }
   };
 
@@ -327,10 +347,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   }, [showClientModal]);
 
   useEffect(() => {
-    if (showAdminModal) {
+    if (showAdminModal || activeTab === 'admins_create' || activeTab === 'admins_all') {
       fetchGenders();
+      fetchAdminClientsOptions();
     }
-  }, [showAdminModal]);
+  }, [showAdminModal, activeTab]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -664,6 +685,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         first_name: adminForm.firstName.trim(),
         last_name: adminForm.lastName.trim(),
         email: adminForm.email.trim(),
+        client_id: adminForm.client_id || null,
         phonenumber: adminForm.mobile.trim(),
         gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
         date_of_birth: adminForm.dob ? new Date(adminForm.dob).toISOString() : null,
@@ -819,6 +841,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       firstName: adminData.first_name || adminData.firstName || '',
       lastName: adminData.last_name || adminData.lastName || '',
       email: adminData.email || '',
+      client_id: adminData.client_id || adminData.clientId || '',
       mobile: adminData.phonenumber || adminData.mobile || '',
       gender: genderVal,
       dob: formattedDob,
@@ -2094,6 +2117,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       onChange={e => setAdminForm({...adminForm, email: e.target.value})} 
                       placeholder="e.g. admin@stream.com"
                       required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Client</label>
+                    <PremiumSelect
+                      options={adminClientsList}
+                      value={adminForm.client_id}
+                      onChange={e => setAdminForm({...adminForm, client_id: e.target.value})}
+                      placeholder={loadingAdminClients ? "Loading clients..." : "Select Client"}
+                      searchable={true}
+                      icon="fa-solid fa-building-user"
                     />
                   </div>
                   <div className="form-group">
@@ -3525,6 +3559,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     onInput={e => e.target.setCustomValidity('')}
                     required 
                     disabled={!!editingAdmin}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Client</label>
+                  <PremiumSelect
+                    options={adminClientsList}
+                    value={adminForm.client_id}
+                    onChange={e => setAdminForm({...adminForm, client_id: e.target.value})}
+                    placeholder={loadingAdminClients ? "Loading clients..." : "Select Client"}
+                    searchable={true}
+                    icon="fa-solid fa-building-user"
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>

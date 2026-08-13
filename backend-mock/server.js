@@ -424,6 +424,23 @@ app.post('/vdclients', handleVdClients);
 app.post('/api/vdclients', handleVdClients);
 app.post('/webhook/vdclients', handleVdClients);
 
+// ================= VdAdmins GET ADMINS =================
+const handleVdAdmins = (req, res) => {
+  const formstep = req.body.formstep || req.body.formStep;
+  if (formstep === 'getAdmins' || formstep === 'get_admins') {
+    const db = readDB();
+    const clients = db.clients || [
+      { id: "1", name: "Acme Media Corp" }
+    ];
+    return res.json(clients);
+  }
+  return res.json([]);
+};
+
+app.post('/vdadmins', handleVdAdmins);
+app.post('/api/vdadmins', handleVdAdmins);
+app.post('/webhook/vdadmins', handleVdAdmins);
+
 
 app.get('/api/categories', (req, res) => {
   const db = readDB();
