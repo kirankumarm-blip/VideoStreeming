@@ -688,11 +688,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
     setAdminFormLoading(true);
     try {
+      const resolvedClientId = adminForm.client_id || 
+                               editingAdmin?.client_id || 
+                               editingAdmin?.clientId || 
+                               selectedClientId || 
+                               null;
+
       const dataToSave = {
         first_name: adminForm.firstName.trim(),
         last_name: adminForm.lastName.trim(),
         email: adminForm.email.trim(),
-        client_id: adminForm.client_id || null,
+        client_id: resolvedClientId,
+        admin_id: resolvedClientId,
         phonenumber: adminForm.mobile.trim(),
         gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
         date_of_birth: adminForm.dob ? new Date(adminForm.dob).toISOString() : null,
@@ -844,11 +851,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     const cityIdVal = matchedCity ? matchedCity.id : rawCity;
     const cityNameVal = matchedCity ? matchedCity.name : rawCity;
 
+    const resolvedClientId = adminData.client_id || adminData.clientId || admin.client_id || admin.clientId || selectedClientId || '';
+
     setAdminForm({
       firstName: adminData.first_name || adminData.firstName || '',
       lastName: adminData.last_name || adminData.lastName || '',
       email: adminData.email || '',
-      client_id: adminData.client_id || adminData.clientId || '',
+      client_id: resolvedClientId,
       mobile: adminData.phonenumber || adminData.mobile || '',
       gender: genderVal,
       dob: formattedDob,
@@ -866,8 +875,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const handleToggleAdminStatus = async (admin) => {
     const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
     const nextStatus = !isAdminActive;
+    const resolvedClientId = admin.client_id || admin.clientId || selectedClientId || null;
     try {
-      await api.admins.toggleStatus(admin.id, nextStatus);
+      await api.admins.toggleStatus(admin.id, nextStatus, resolvedClientId);
       fetchAdmins();
     } catch (err) {
       console.error(err);

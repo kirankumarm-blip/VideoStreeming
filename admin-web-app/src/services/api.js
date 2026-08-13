@@ -768,13 +768,17 @@ export const api = {
         body: JSON.stringify({ formStep: "getAdmin", user_id: userId }),
       });
     },
-    toggleStatus: (userId, nextStatus) => {
+    toggleStatus: (userId, nextStatus, clientId = null) => {
       return request('/admins', {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "activeStatus",
+          formStep: "activeStatus",
           user_id: userId,
-          status: nextStatus
+          id: userId,
+          status: nextStatus,
+          client_id: clientId,
+          admin_id: clientId
         }),
       });
     }
