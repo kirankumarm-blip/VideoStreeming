@@ -539,11 +539,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     if (!['video_upload', 'course_upload', 'course_all'].includes(activeTab)) {
       fetchDashboardData(activeTab, value);
     }
+    if (activeTab === 'admins_all') {
+      fetchAdmins(value);
+    }
   };
 
-  const fetchAdmins = async () => {
+  const fetchAdmins = async (clientId = selectedClientId) => {
     try {
-      const data = await api.admins.list();
+      const data = await api.admins.list({ client_id: clientId });
       let list = [];
       if (Array.isArray(data)) {
         list = data.map(item => item.json || item);
@@ -1639,7 +1642,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'admins_all', 'client_management'].includes(activeTab) && (
+            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'client_management'].includes(activeTab) && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Client:</span>
