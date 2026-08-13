@@ -1432,27 +1432,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
-                  <select 
-                    value={selectedAdminId} 
-                    onChange={handleAdminChange} 
-                    className="btn btn-secondary" 
-                    style={{ 
-                      fontSize: '13px', 
-                      padding: '8px 16px', 
-                      background: 'rgba(255, 255, 255, 0.08)', 
-                      border: '1px solid var(--border-color)', 
-                      color: 'var(--text-primary)', 
-                      borderRadius: '8px', 
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {dropdownAdmins.map(admin => (
-                      <option key={admin.id} value={admin.id}>
-                        {admin.name || admin.username || admin.email || `Admin ${admin.id}`}
-                      </option>
-                    ))}
-                  </select>
+                  <PremiumSelect
+                    options={dropdownAdmins.map(admin => ({
+                      id: String(admin.id),
+                      name: admin.name || admin.username || admin.email || `Admin ${admin.id}`
+                    }))}
+                    value={String(selectedAdminId)}
+                    onChange={handleAdminChange}
+                    searchable={dropdownAdmins.length > 5}
+                    icon="fa-solid fa-user-shield"
+                    style={{ minWidth: '170px', height: '38px', borderRadius: '8px' }}
+                  />
                 </div>
                 {activeTab === 'rep_export' && (
                   <>
