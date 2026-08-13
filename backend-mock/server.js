@@ -427,7 +427,7 @@ app.post('/webhook/vdclients', handleVdClients);
 // ================= VdAdmins GET ADMINS =================
 const handleVdAdmins = (req, res) => {
   const formstep = req.body.formstep || req.body.formStep;
-  if (formstep === 'getAdmins' || formstep === 'get_admins') {
+  if (formstep === 'getClients' || formstep === 'getAdmins' || formstep === 'get_admins') {
     const db = readDB();
     const clients = db.clients || [
       { id: "1", name: "Acme Media Corp" }

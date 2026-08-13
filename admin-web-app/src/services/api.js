@@ -607,7 +607,7 @@ export const api = {
     getAdmins: () => {
       return request('/vdadmins', {
         method: 'POST',
-        body: JSON.stringify({ formstep: "getAdmins" }),
+        body: JSON.stringify({ formstep: "getClients" }),
         expectArray: true
       });
     }
