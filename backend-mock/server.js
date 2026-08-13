@@ -338,6 +338,92 @@ app.post('/vdcategories', handleVdCategories);
 app.post('/api/vdcategories', handleVdCategories);
 app.post('/webhook/vdcategories', handleVdCategories);
 
+// ================= CLIENTS MODULE =================
+const handleVdClients = (req, res) => {
+  const db = readDB();
+  if (!db.clients) {
+    db.clients = [
+      {
+        id: "1",
+        name: "Acme Media Corp",
+        phonenumber: "9876543210",
+        mobile: "9876543210",
+        address_line1: "100 Silicon Way",
+        address_line2: "Suite 500",
+        state: "California",
+        state_id: "1",
+        city: "Los Angeles",
+        city_id: "101",
+        zipcode: "90001"
+      }
+    ];
+    writeDB(db);
+  }
+
+  const formstep = req.body.formstep || req.body.formStep;
+
+  if (formstep === 'getClients' || formstep === 'get client') {
+    return res.json(db.clients);
+  }
+
+  if (formstep === 'add client' || formstep === 'addClient') {
+    const newClient = {
+      id: String(Date.now()),
+      name: req.body.name || req.body.client_name || '',
+      phonenumber: req.body.phonenumber || req.body.mobile || req.body.phone_number || '',
+      mobile: req.body.mobile || req.body.phonenumber || req.body.phone_number || '',
+      address_line1: req.body.address_line1 || req.body.address1 || req.body.address_line_1 || '',
+      address_line2: req.body.address_line2 || req.body.address2 || req.body.address_line_2 || '',
+      state: req.body.state || '',
+      state_id: req.body.state_id || '',
+      city: req.body.city || '',
+      city_id: req.body.city_id || '',
+      zipcode: req.body.zipcode || ''
+    };
+    db.clients.push(newClient);
+    writeDB(db);
+    return res.json({ success: true, message: "Client added successfully", client: newClient });
+  }
+
+  if (formstep === 'edit client' || formstep === 'editClient') {
+    const clientId = String(req.body.id);
+    const index = db.clients.findIndex(c => String(c.id) === clientId);
+    if (index !== -1) {
+      db.clients[index] = {
+        ...db.clients[index],
+        name: req.body.name || req.body.client_name || db.clients[index].name,
+        phonenumber: req.body.phonenumber || req.body.mobile || db.clients[index].phonenumber,
+        mobile: req.body.mobile || req.body.phonenumber || db.clients[index].mobile,
+        address_line1: req.body.address_line1 || req.body.address1 || db.clients[index].address_line1,
+        address_line2: req.body.address_line2 || req.body.address2 || db.clients[index].address_line2,
+        state: req.body.state || db.clients[index].state,
+        state_id: req.body.state_id || db.clients[index].state_id,
+        city: req.body.city || db.clients[index].city,
+        city_id: req.body.city_id || db.clients[index].city_id,
+        zipcode: req.body.zipcode || db.clients[index].zipcode
+      };
+      writeDB(db);
+      return res.json({ success: true, message: "Client updated successfully", client: db.clients[index] });
+    }
+  }
+
+  if (formstep === 'delete client' || formstep === 'deleteClient') {
+    const clientId = String(req.body.id);
+    db.clients = db.clients.filter(c => String(c.id) !== clientId);
+    writeDB(db);
+    return res.json({ success: true, message: "Client deleted successfully" });
+  }
+
+  return res.json(db.clients);
+};
+
+app.post('/vdClients', handleVdClients);
+app.post('/api/vdClients', handleVdClients);
+app.post('/webhook/vdClients', handleVdClients);
+app.post('/vdclients', handleVdClients);
+app.post('/api/vdclients', handleVdClients);
+app.post('/webhook/vdclients', handleVdClients);
+
 
 app.get('/api/categories', (req, res) => {
   const db = readDB();

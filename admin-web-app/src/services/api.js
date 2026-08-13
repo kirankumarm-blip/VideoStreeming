@@ -603,6 +603,43 @@ export const api = {
       });
     }
   },
+  vdclients: {
+    getClients: () => {
+      return request('/vdClients', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: "getClients" }),
+        expectArray: true
+      });
+    },
+    addClient: (clientData) => {
+      return request('/vdClients', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "add client",
+          ...clientData
+        })
+      });
+    },
+    editClient: (id, clientData) => {
+      return request('/vdClients', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "edit client",
+          id,
+          ...clientData
+        })
+      });
+    },
+    deleteClient: (id) => {
+      return request('/vdClients', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "delete client",
+          id
+        })
+      });
+    }
+  },
   users: {
     list: () => {
       return request('/adminUsers', {

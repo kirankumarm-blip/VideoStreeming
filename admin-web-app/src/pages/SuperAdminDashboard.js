@@ -62,6 +62,23 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
 
+  // Clients CRUD states
+  const [clients, setClients] = useState([]);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+  const [clientFormLoading, setClientFormLoading] = useState(false);
+  const [clientForm, setClientForm] = useState({
+    name: '',
+    mobile: '',
+    address_line1: '',
+    address_line2: '',
+    state_id: '',
+    state: '',
+    city_id: '',
+    city: '',
+    zipcode: ''
+  });
+
   useEffect(() => {
     if (showAdminModal) {
       fetchStates();
@@ -298,7 +315,16 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchSubCategories();
       fetchCategories();
     }
+    if (activeTab === 'client_management') {
+      fetchClients();
+    }
   }, [activeTab, selectedAdminId, selectedReportType]);
+
+  useEffect(() => {
+    if (showClientModal) {
+      fetchStates();
+    }
+  }, [showClientModal]);
 
   useEffect(() => {
     if (showAdminModal) {
@@ -931,6 +957,150 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     });
   };
 
+  // --- Client Management Handlers ---
+  const fetchClients = async () => {
+    try {
+      const res = await api.vdclients.getClients();
+      const list = Array.isArray(res) ? res : (res?.data || res?.clients || []);
+      setClients(list);
+    } catch (err) {
+      console.error("Failed to fetch clients:", err);
+      setClients([]);
+    }
+  };
+
+  const handleClientSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!clientForm.name || !clientForm.name.trim()) {
+      showError('Please fill out client name');
+      return;
+    }
+    if (!clientForm.mobile || !clientForm.mobile.trim()) {
+      showError('Please fill out phone number');
+      return;
+    }
+    if (clientForm.mobile.replace(/\D/g, '').length !== 10) {
+      showError('Phone number must be exactly 10 digits');
+      return;
+    }
+    if (!clientForm.address_line1 || !clientForm.address_line1.trim()) {
+      showError('Please fill out address line 1');
+      return;
+    }
+    if (!clientForm.state_id && !clientForm.state) {
+      showError('Please select state');
+      return;
+    }
+    if (!clientForm.city_id && !clientForm.city) {
+      showError('Please select city');
+      return;
+    }
+    if (!clientForm.zipcode || !clientForm.zipcode.trim()) {
+      showError('Please fill out zipcode');
+      return;
+    }
+    if (clientForm.zipcode.replace(/\D/g, '').length !== 6) {
+      showError('Zipcode must be exactly 6 digits');
+      return;
+    }
+
+    setClientFormLoading(true);
+    try {
+      const payload = {
+        name: clientForm.name.trim(),
+        phonenumber: clientForm.mobile.trim(),
+        mobile: clientForm.mobile.trim(),
+        address_line1: clientForm.address_line1.trim(),
+        address_line2: clientForm.address_line2 ? clientForm.address_line2.trim() : '',
+        state_id: clientForm.state_id || null,
+        state: clientForm.state ? clientForm.state.trim() : '',
+        city_id: clientForm.city_id || null,
+        city: clientForm.city ? clientForm.city.trim() : '',
+        zipcode: clientForm.zipcode.trim()
+      };
+
+      if (editingClient) {
+        await api.vdclients.editClient(editingClient.id, payload);
+        showSuccess('Client updated successfully!');
+      } else {
+        await api.vdclients.addClient(payload);
+        showSuccess('Client added successfully!');
+      }
+
+      setShowClientModal(false);
+      setClientForm({
+        name: '',
+        mobile: '',
+        address_line1: '',
+        address_line2: '',
+        state_id: '',
+        state: '',
+        city_id: '',
+        city: '',
+        zipcode: ''
+      });
+      setEditingClient(null);
+      fetchClients();
+    } catch (err) {
+      console.error('Failed to submit client:', err);
+      showError(err?.message || 'Failed to save client');
+    } finally {
+      setClientFormLoading(false);
+    }
+  };
+
+  const handleEditClient = async (client) => {
+    setEditingClient(client);
+
+    const curStatesList = statesList.length > 0 ? statesList : await fetchStates();
+
+    const matchedState = curStatesList.find(s => 
+      String(s.id) === String(client.state_id || client.state) ||
+      String(s.name).toLowerCase() === String(client.state).toLowerCase()
+    );
+    const stateIdVal = matchedState ? matchedState.id : (client.state_id || client.state || '');
+    const stateNameVal = matchedState ? matchedState.name : (client.state || '');
+
+    let curCitiesList = [];
+    if (stateIdVal) {
+      curCitiesList = await fetchCities(stateIdVal);
+    }
+
+    const matchedCity = curCitiesList.find(c => 
+      String(c.id) === String(client.city_id || client.city) ||
+      String(c.name).toLowerCase() === String(client.city).toLowerCase()
+    );
+    const cityIdVal = matchedCity ? matchedCity.id : (client.city_id || client.city || '');
+    const cityNameVal = matchedCity ? matchedCity.name : (client.city || '');
+
+    setClientForm({
+      name: client.name || client.client_name || '',
+      mobile: client.phonenumber || client.mobile || client.phone_number || '',
+      address_line1: client.address_line1 || client.address1 || '',
+      address_line2: client.address_line2 || client.address2 || '',
+      state_id: stateIdVal,
+      state: stateNameVal,
+      city_id: cityIdVal,
+      city: cityNameVal,
+      zipcode: client.zipcode || ''
+    });
+
+    setShowClientModal(true);
+  };
+
+  const handleDeleteClient = (id) => {
+    showConfirmDelete('Are you sure you want to delete this client?', async () => {
+      try {
+        await api.vdclients.deleteClient(id);
+        fetchClients();
+        showSuccess('Client deleted successfully!');
+      } catch (err) {
+        showError(err.message || 'Failed to delete client');
+      }
+    });
+  };
+
   // --- Video Assignment Handlers ---
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
@@ -1128,6 +1298,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       iconColor: '#38bdf8',
       items: [
         { id: 'users_all', label: 'All Users', iconClass: 'fa-solid fa-user-group' },
+        { id: 'client_management', label: 'Client Management', iconClass: 'fa-solid fa-building-user' },
         { id: 'users_logs', label: 'User Activity Logs', iconClass: 'fa-solid fa-clock-rotate-left' },
         { id: 'users_blocked', label: 'Blocked Users', iconClass: 'fa-solid fa-user-slash' }
       ]
@@ -1421,6 +1592,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 if (activeTab === 'users_all') return 'All Users';
                 if (activeTab === 'categories') return 'Categories';
                 if (activeTab === 'sub_categories') return 'Sub Category';
+                if (activeTab === 'client_management') return 'Client Management';
                 if (activeTab === 'rep_export' || activeTab.startsWith('rep_')) return 'Reports';
                 return activeTab.replace(/_/g, ' ');
               })()}
@@ -1428,7 +1600,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'admins_all'].includes(activeTab) && (
+            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'admins_all', 'client_management'].includes(activeTab) && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
@@ -1784,6 +1956,100 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         </tr>
                       );
                     }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* CLIENT MANAGEMENT VIEW */}
+            {activeTab === 'client_management' && (
+              <div className="animate-fade-in glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>Client Management</h2>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Manage client profiles, contact numbers, and registered locations.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setEditingClient(null);
+                      setClientForm({
+                        name: '',
+                        mobile: '',
+                        address_line1: '',
+                        address_line2: '',
+                        state_id: '',
+                        state: '',
+                        city_id: '',
+                        city: '',
+                        zipcode: ''
+                      });
+                      setShowClientModal(true);
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 18px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <i className="fa-solid fa-plus"></i> Add Client
+                  </button>
+                </div>
+
+                <div className="table-container">
+                  <PaginatedTable
+                    headers={['Client Name', 'Phone Number', 'Address Line 1', 'Address Line 2', 'State', 'City', 'Zipcode', 'Actions']}
+                    data={clients}
+                    emptyMessage="No clients found"
+                    renderRow={(client, index) => (
+                      <tr key={client.id || index}>
+                        <td style={{ fontWeight: 600 }}>{client.name || client.client_name}</td>
+                        <td>{client.phonenumber || client.mobile || client.phone_number || '-'}</td>
+                        <td>{client.address_line1 || client.address1 || '-'}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{client.address_line2 || client.address2 || '-'}</td>
+                        <td>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            color: '#3b82f6'
+                          }}>
+                            {client.state || 'N/A'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981'
+                          }}>
+                            {client.city || 'N/A'}
+                          </span>
+                        </td>
+                        <td>{client.zipcode || '-'}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => handleEditClient(client)}
+                              className="btn btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteClient(client.id)}
+                              className="btn"
+                              style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   />
                 </div>
               </div>
@@ -3070,6 +3336,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             {/* --- DEFAULT OTHER TAB FALLBACK --- */}
             {activeTab !== 'overview' && 
              activeTab !== 'admins_all' && 
+             activeTab !== 'client_management' && 
              activeTab !== 'categories' && 
              activeTab !== 'sub_categories' && 
              activeTab !== 'content_videos' && 
@@ -3359,6 +3626,164 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       <span>Saving...</span>
                     </>
                   ) : 'Save Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD / EDIT CLIENT MODAL --- */}
+      {showClientModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{
+            width: isMobile ? '92%' : '100%',
+            maxWidth: '640px',
+            padding: isMobile ? '24px 16px' : '32px',
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            color: '#333333',
+            maxHeight: isMobile ? '85vh' : '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', color: '#111111' }}>
+              {editingClient ? 'Edit Client' : 'Add Client'}
+            </h3>
+            <form onSubmit={handleClientSubmit}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Client Name *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter client name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={clientForm.name} 
+                    onChange={e => setClientForm({...clientForm, name: e.target.value.replace(/^\s+/, '')})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out client name')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number *</label>
+                  <input 
+                    type="tel" 
+                    className="form-input" 
+                    placeholder="Enter phone number"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={clientForm.mobile} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setClientForm({...clientForm, mobile: value});
+                    }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address Line 1 *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter address line 1"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={clientForm.address_line1} 
+                    onChange={e => setClientForm({...clientForm, address_line1: e.target.value.replace(/^\s+/, '')})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out address line 1')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address Line 2</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Suite, apartment, unit, building (optional)"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={clientForm.address_line2} 
+                    onChange={e => setClientForm({...clientForm, address_line2: e.target.value.replace(/^\s+/, '')})} 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State *</label>
+                  <PremiumSelect
+                    options={statesList}
+                    value={clientForm.state_id || clientForm.state}
+                    onChange={e => {
+                      const selectedStateId = e.target.value;
+                      const selectedStateObj = statesList.find(s => String(s.id) === String(selectedStateId));
+                      setClientForm(prev => ({
+                        ...prev,
+                        state_id: selectedStateId,
+                        state: selectedStateObj ? selectedStateObj.name : '',
+                        city_id: '',
+                        city: ''
+                      }));
+                      if (selectedStateId) fetchCities(selectedStateId);
+                    }}
+                    placeholder={loadingStates ? "Loading states..." : "Select State"}
+                    icon="fa-solid fa-map-location-dot"
+                    disabled={loadingStates}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City *</label>
+                  <PremiumSelect
+                    options={citiesList}
+                    value={clientForm.city_id || clientForm.city}
+                    onChange={e => {
+                      const selectedCityObj = citiesList.find(c => String(c.id) === String(e.target.value));
+                      setClientForm(prev => ({
+                        ...prev,
+                        city_id: e.target.value,
+                        city: selectedCityObj ? selectedCityObj.name : e.target.value
+                      }));
+                    }}
+                    placeholder={loadingCities ? "Loading cities..." : (!clientForm.state_id && !clientForm.state ? "Select State First" : "Select City")}
+                    icon="fa-solid fa-city"
+                    disabled={loadingCities || (!clientForm.state_id && !clientForm.state)}
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Zipcode *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter zipcode"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={clientForm.zipcode} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setClientForm({...clientForm, zipcode: value});
+                    }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowClientModal(false)} className="btn btn-secondary" style={{ background: '#e0e0e0', color: '#333333', border: 'none' }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} disabled={clientFormLoading}>
+                  {clientFormLoading ? 'Saving...' : 'Save Client'}
                 </button>
               </div>
             </form>
