@@ -239,8 +239,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     mobile: '',
     gender: '',
     dob: '',
-    city: '',
+    state_id: '',
     state: '',
+    city_id: '',
+    city: '',
     zipcode: '',
     address: ''
   });
@@ -248,6 +250,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [showUserModal, setShowUserModal] = useState(false);
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [genders, setGenders] = useState([]);
+  const [statesList, setStatesList] = useState([]);
+  const [citiesList, setCitiesList] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
   // Video Upload states
@@ -536,8 +542,71 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   useEffect(() => {
     if (showUserModal) {
       fetchGenders();
+      fetchStates();
     }
   }, [showUserModal]);
+
+  const fetchStates = async () => {
+    setLoadingStates(true);
+    try {
+      const res = await api.vdcategories.getStates();
+      const list = Array.isArray(res) ? res : (res?.data || res?.result || []);
+      const formatted = list.map(item => ({
+        id: String(item.state_id || item.id || item.stat_id),
+        name: item.name || item.state_name || item.title || item.state
+      }));
+      setStatesList(formatted);
+      return formatted;
+    } catch (err) {
+      console.error("Failed to fetch states:", err);
+      return [];
+    } finally {
+      setLoadingStates(false);
+    }
+  };
+
+  const fetchCities = async (stateId) => {
+    if (!stateId) {
+      setCitiesList([]);
+      return [];
+    }
+    setLoadingCities(true);
+    try {
+      const res = await api.vdcategories.getCity(stateId);
+      const list = Array.isArray(res) ? res : (res?.data || res?.result || []);
+      const formatted = list.map(item => ({
+        id: String(item.city_id || item.id),
+        name: item.name || item.city_name || item.title || item.city
+      }));
+      setCitiesList(formatted);
+      return formatted;
+    } catch (err) {
+      console.error("Failed to fetch cities:", err);
+      setCitiesList([]);
+      return [];
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  const handleStateChange = async (selectedStateId) => {
+    const selectedStateObj = statesList.find(s => String(s.id) === String(selectedStateId));
+    const stateName = selectedStateObj ? selectedStateObj.name : '';
+    
+    setUserForm(prev => ({
+      ...prev,
+      state_id: selectedStateId,
+      state: stateName,
+      city_id: '',
+      city: ''
+    }));
+    
+    if (selectedStateId) {
+      fetchCities(selectedStateId);
+    } else {
+      setCitiesList([]);
+    }
+  };
 
   const fetchAnalyticsData = async () => {
     try {
@@ -1519,8 +1588,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         gender_id: userForm.gender ? (parseInt(userForm.gender, 10) || userForm.gender) : null,
         date_of_birth: userForm.dob ? new Date(userForm.dob).toISOString() : null,
         address: userForm.address.trim(),
-        city: userForm.city.trim(),
-        state: userForm.state.trim(),
+        state_id: userForm.state_id || null,
+        state: userForm.state ? userForm.state.trim() : '',
+        city_id: userForm.city_id || null,
+        city: userForm.city ? userForm.city.trim() : '',
         zipcode: userForm.zipcode.trim()
       };
 
@@ -1539,8 +1610,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         mobile: '',
         gender: '',
         dob: '',
-        city: '',
+        state_id: '',
         state: '',
+        city_id: '',
+        city: '',
         zipcode: '',
         address: ''
       });
@@ -1625,6 +1698,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     const formattedDob = formatDateToYYYYMMDD(userData.date_of_birth || userData.dob);
 
+    const curStatesList = statesList.length > 0 ? statesList : await fetchStates();
+    
+    const matchedState = curStatesList.find(s => 
+      String(s.id) === String(userData.state_id || userData.state) ||
+      String(s.name).toLowerCase() === String(userData.state).toLowerCase()
+    );
+    const stateIdVal = matchedState ? matchedState.id : (userData.state_id || userData.state || '');
+    const stateNameVal = matchedState ? matchedState.name : (userData.state || '');
+
+    let curCitiesList = [];
+    if (stateIdVal) {
+      curCitiesList = await fetchCities(stateIdVal);
+    }
+
+    const matchedCity = curCitiesList.find(c => 
+      String(c.id) === String(userData.city_id || userData.city) ||
+      String(c.name).toLowerCase() === String(userData.city).toLowerCase()
+    );
+    const cityIdVal = matchedCity ? matchedCity.id : (userData.city_id || userData.city || '');
+    const cityNameVal = matchedCity ? matchedCity.name : (userData.city || '');
+
     setUserForm({
       firstName: userData.first_name || userData.firstName || '',
       lastName: userData.last_name || userData.lastName || '',
@@ -1632,8 +1726,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       mobile: userData.phonenumber || userData.mobile || '',
       gender: genderVal,
       dob: formattedDob,
-      city: userData.city || '',
-      state: userData.state || '',
+      state_id: stateIdVal,
+      state: stateNameVal,
+      city_id: cityIdVal,
+      city: cityNameVal,
       zipcode: userData.zipcode || '',
       address: userData.address || ''
     });
@@ -4555,31 +4651,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Enter city"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={userForm.city} 
-                    onChange={e => setUserForm({...userForm, city: e.target.value.replace(/^\s+/, '')})} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out city')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State *</label>
+                  <PremiumSelect
+                    options={statesList}
+                    value={userForm.state_id || userForm.state}
+                    onChange={e => handleStateChange(e.target.value)}
+                    placeholder={loadingStates ? "Loading states..." : "Select State"}
+                    icon="fa-solid fa-map-location-dot"
+                    disabled={loadingStates}
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Enter state"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={userForm.state} 
-                    onChange={e => setUserForm({...userForm, state: e.target.value.replace(/^\s+/, '')})} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out state')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City *</label>
+                  <PremiumSelect
+                    options={citiesList}
+                    value={userForm.city_id || userForm.city}
+                    onChange={e => {
+                      const selectedCityObj = citiesList.find(c => String(c.id) === String(e.target.value));
+                      setUserForm({
+                        ...userForm,
+                        city_id: e.target.value,
+                        city: selectedCityObj ? selectedCityObj.name : e.target.value
+                      });
+                    }}
+                    placeholder={loadingCities ? "Loading cities..." : (!userForm.state_id && !userForm.state ? "Select State First" : "Select City")}
+                    icon="fa-solid fa-city"
+                    disabled={loadingCities || (!userForm.state_id && !userForm.state)}
                   />
                 </div>
                 <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
