@@ -24,6 +24,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const currentUser = getCurrentUser();
   const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     if (activeTabOverride) {
       setActiveTab(activeTabOverride);
@@ -4849,21 +4859,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       {showUserModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div className="animate-fade-in" style={{
-            width: '90%',
+            width: isMobile ? '92%' : '100%',
             maxWidth: '640px',
-            padding: '32px',
+            padding: isMobile ? '24px 16px' : '32px',
             background: '#ffffff',
             borderRadius: '16px',
             boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
             color: '#333333',
-            maxHeight: '90vh',
+            maxHeight: isMobile ? '85vh' : '90vh',
             overflowY: 'auto'
           }}>
             <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', color: '#111111' }}>{editingUser ? 'Edit User' : 'Add User'}</h3>
             <form onSubmit={handleUserSubmit}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
                 gap: '16px',
                 marginBottom: '24px'
               }}>
@@ -4945,7 +4955,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     placeholder="YYYY-MM-DD"
                   />
                 </div>
-                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address</label>
                   <input 
                     type="text" 
@@ -4988,7 +4998,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     disabled={loadingCities || (!userForm.state_id && !userForm.state)}
                   />
                 </div>
-                <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Zipcode</label>
                   <input 
                     type="text" 
