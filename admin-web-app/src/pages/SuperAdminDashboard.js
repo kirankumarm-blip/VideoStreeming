@@ -1284,6 +1284,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       items: []
     },
     {
+      title: 'Client Management',
+      iconClass: 'fa-solid fa-building-user',
+      iconColor: '#10b981',
+      items: []
+    },
+    {
       title: 'Admin Management',
       iconClass: 'fa-solid fa-user-shield',
       iconColor: '#6366f1',
@@ -1298,7 +1304,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       iconColor: '#38bdf8',
       items: [
         { id: 'users_all', label: 'All Users', iconClass: 'fa-solid fa-user-group' },
-        { id: 'client_management', label: 'Client Management', iconClass: 'fa-solid fa-building-user' },
         { id: 'users_logs', label: 'User Activity Logs', iconClass: 'fa-solid fa-clock-rotate-left' },
         { id: 'users_blocked', label: 'Blocked Users', iconClass: 'fa-solid fa-user-slash' }
       ]
@@ -1474,8 +1479,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
         {menuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
+          const isClientMgmt = section.title === 'Client Management';
           const isReports = section.title === 'Reports';
-          const isSelected = (isDashboard && activeTab === 'overview') || (isReports && (activeTab === 'rep_export' || activeTab.startsWith('rep_')));
+          const isSelected = (isDashboard && activeTab === 'overview') || 
+                             (isClientMgmt && activeTab === 'client_management') || 
+                             (isReports && (activeTab === 'rep_export' || activeTab.startsWith('rep_')));
           return (
             <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
               <button 
@@ -1483,6 +1491,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   if (isDashboard) {
                     setActiveTab('overview');
                     fetchDropdownAdmins();
+                    setError('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else if (isClientMgmt) {
+                    setActiveTab('client_management');
                     setError('');
                     if (isSidebarOpen && toggleSidebar) {
                       toggleSidebar();
@@ -1526,7 +1540,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <i className={section.iconClass || 'fa-solid fa-circle'} style={{ fontSize: '15px', color: section.iconColor || 'var(--accent-primary)', width: '18px', textAlign: 'center' }}></i>
                   <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
                 </span>
-                {!isDashboard && !isReports && (
+                {!isDashboard && !isReports && !isClientMgmt && (
                   <i className={`fa-solid ${expandedSections[section.title] ? 'fa-chevron-down' : 'fa-chevron-right'}`} style={{ fontSize: '11px', opacity: 0.7 }}></i>
                 )}
               </button>
