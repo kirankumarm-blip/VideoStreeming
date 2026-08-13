@@ -4747,6 +4747,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
              activeTab !== 'video_all' && 
              activeTab !== 'course_upload' && 
              activeTab !== 'course_all' && 
+             activeTab !== 'categories' &&
+             activeTab !== 'sub_categories' &&
              !activeTab.includes('analytics') &&
              !activeTab.startsWith('mon_') &&
              activeTab !== 'realtime' &&
