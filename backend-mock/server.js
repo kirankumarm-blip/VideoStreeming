@@ -424,17 +424,28 @@ app.post('/vdclients', handleVdClients);
 app.post('/api/vdclients', handleVdClients);
 app.post('/webhook/vdclients', handleVdClients);
 
-// ================= VdAdmins GET ADMINS =================
+// ================= VdAdmins GET ADMINS & LISTING =================
 const handleVdAdmins = (req, res) => {
   const formstep = req.body.formstep || req.body.formStep;
-  if (formstep === 'getClients' || formstep === 'getAdmins' || formstep === 'get_admins') {
-    const db = readDB();
-    const clients = db.clients || [
-      { id: "1", name: "Acme Media Corp" }
-    ];
+  const db = readDB();
+
+  if (formstep === 'getClients') {
+    const clients = db.clients || [{ id: "1", name: "Acme Media Corp" }];
     return res.json(clients);
   }
-  return res.json([]);
+
+  if (formstep === 'getAllAdmins' || formstep === 'getAdmins' || formstep === 'get_admins') {
+    const clientId = String(req.body.client_id || req.body.admin_id || '');
+    let adminsList = db.admins || [
+      { id: "1", first_name: "Shetty", last_name: "Amogh", email: "amogh@lurnax.com", phonenumber: "9876543210", role: "admin", status: "Active", client_id: "1" }
+    ];
+    if (clientId) {
+      adminsList = adminsList.filter(a => String(a.client_id || a.clientId || '1') === clientId);
+    }
+    return res.json(adminsList);
+  }
+
+  return res.json(db.admins || []);
 };
 
 app.post('/vdadmins', handleVdAdmins);

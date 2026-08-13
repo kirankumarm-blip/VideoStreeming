@@ -546,7 +546,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchAdmins = async (clientId = selectedClientId) => {
     try {
-      const data = await api.admins.list({ client_id: clientId });
+      const data = await api.admins.list({ 
+        client_id: clientId || null,
+        admin_id: clientId || null
+      });
       let list = [];
       if (Array.isArray(data)) {
         list = data.map(item => item.json || item);

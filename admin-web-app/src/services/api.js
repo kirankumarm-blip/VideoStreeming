@@ -649,6 +649,30 @@ export const api = {
       });
     }
   },
+  vdadmins: {
+    getAdmins: (params = {}) => {
+      const payload = typeof params === 'object' ? params : { client_id: params, admin_id: params };
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "getClients",
+          ...payload
+        }),
+        expectArray: true
+      });
+    },
+    list: (params = {}) => {
+      const payload = typeof params === 'object' ? params : { client_id: params, admin_id: params };
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "getAllAdmins",
+          formStep: "getAllAdmins",
+          ...payload
+        }),
+      });
+    }
+  },
   users: {
     list: () => {
       return request('/adminUsers', {
@@ -715,10 +739,15 @@ export const api = {
     }
   },
   admins: {
-    list: () => {
-      return request('/admins', {
+    list: (params = {}) => {
+      const payload = typeof params === 'object' ? params : { client_id: params, admin_id: params };
+      return request('/vdadmins', {
         method: 'POST',
-        body: JSON.stringify({ formStep: "getAllAdmins" }),
+        body: JSON.stringify({ 
+          formstep: "getAllAdmins",
+          formStep: "getAllAdmins",
+          ...payload
+        }),
       });
     },
     create: (data) => {
