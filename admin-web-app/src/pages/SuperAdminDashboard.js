@@ -268,8 +268,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [moderationReports, setModerationReports] = useState({ reportedVideos: [], reportedUsers: [], copyrightIssues: [], spamDetection: [] });
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState({});
-  const [dropdownAdmins, setDropdownAdmins] = useState([]);
-  const [selectedAdminId, setSelectedAdminId] = useState('');
+  const [dropdownClients, setDropdownClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const selectedAdminId = selectedClientId;
+  const setSelectedAdminId = setSelectedClientId;
+  const dropdownAdmins = dropdownClients;
+  const setDropdownAdmins = setDropdownClients;
+  const handleAdminChange = (e) => handleClientChange(e);
+  const fetchDropdownAdmins = (currentTab) => fetchDropdownClients(currentTab);
   const [genders, setGenders] = useState([]);
   const [selectedReportType, setSelectedReportType] = useState('user_activity');
   const [reportData, setReportData] = useState([]);
@@ -284,7 +290,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     } else if (activeTab === 'admins_all') {
       fetchAdmins();
     }
-    fetchDropdownAdmins();
+    fetchDropdownClients();
     fetchCategories();
     fetchVideos();
     fetchUsers();
@@ -292,12 +298,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   }, []);
 
   useEffect(() => {
-    fetchDropdownAdmins(activeTab);
+    fetchDropdownClients(activeTab);
     if (activeTab === 'overview') {
-      fetchDashboardData('overview', selectedAdminId);
+      fetchDashboardData('overview', selectedClientId);
     }
     if (activeTab === 'analytics' || activeTab.includes('analytics')) {
-      fetchDashboardData('analytics', selectedAdminId);
+      fetchDashboardData('analytics', selectedClientId);
       fetchAnalyticsData();
     }
     if (activeTab === 'admins_all') {
@@ -320,7 +326,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
     if (activeTab === 'rep_export') {
       fetchTransactions();
-      fetchReportData(selectedReportType, selectedAdminId);
+      fetchReportData(selectedReportType, selectedClientId);
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
       fetchUsers();
@@ -338,7 +344,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     if (activeTab === 'client_management') {
       fetchClients();
     }
-  }, [activeTab, selectedAdminId, selectedReportType]);
+  }, [activeTab, selectedClientId, selectedReportType]);
 
   useEffect(() => {
     if (showClientModal) {
@@ -430,12 +436,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  const fetchReportData = async (reportType = selectedReportType, adminId = selectedAdminId) => {
+  const fetchReportData = async (reportType = selectedReportType, clientId = selectedClientId) => {
     setReportLoading(true);
     try {
       const payload = {};
-      if (adminId) {
-        payload.admin_id = adminId;
+      if (clientId) {
+        payload.client_id = clientId;
+        payload.admin_id = clientId;
       }
       const res = await api.reports.getSuperAdminReport(reportType, payload);
       let list = [];
@@ -461,12 +468,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  const fetchDashboardData = async (formStep = 'overview', adminId = selectedAdminId) => {
+  const fetchDashboardData = async (formStep = 'overview', clientId = selectedClientId) => {
     setLoading(true);
     try {
       const payload = {};
-      if (adminId) {
-        payload.admin_id = adminId;
+      if (clientId) {
+        payload.client_id = clientId;
+        payload.admin_id = clientId;
       }
       
       let data;
@@ -501,39 +509,33 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
-  const fetchDropdownAdmins = async (currentTab = activeTab) => {
+  const fetchDropdownClients = async (currentTab = activeTab) => {
     try {
-      const formstep = (currentTab === 'content_videos' || currentTab === 'course_all') ? 'getAdminSA' : 'GetAdmins';
-      const res = await api.dashboard.getSuperAdmin(formstep);
-      console.log(`Fetched dropdown admins (${formstep}):`, res);
-      let list = [];
-      if (Array.isArray(res)) {
-        list = res.map(item => item.json || item);
-      } else if (res && Array.isArray(res.admins)) {
-        list = res.admins.map(item => item.json || item);
-      } else if (res && Array.isArray(res.data)) {
-        list = res.data.map(item => item.json || item);
-      } else if (res && typeof res === 'object') {
-        const arrayProp = Object.values(res).find(val => Array.isArray(val));
-        if (arrayProp) list = arrayProp.map(item => item.json || item);
-      }
-      setDropdownAdmins(list);
+      const res = await api.vdclients.getClients();
+      const list = Array.isArray(res) ? res : (res?.data || res?.clients || []);
+      const formatted = list.map(item => ({
+        id: String(item.id || item.client_id || item.value || ''),
+        name: item.name || item.client_name || item.title || item.label || `Client ${item.id}`
+      })).filter(c => c.id && c.name);
+
+      setDropdownClients(formatted);
       
-      // Auto-select the first admin if none selected
-      if (list.length > 0 && !selectedAdminId) {
-        const firstId = list[0].id || list[0].alpha_id || list[0].admin_id;
+      // Auto-select the first client if none selected
+      if (formatted.length > 0 && !selectedClientId) {
+        const firstId = formatted[0].id;
         if (firstId) {
-          setSelectedAdminId(firstId);
+          setSelectedClientId(firstId);
         }
       }
     } catch (err) {
-      console.error('Failed to fetch dropdown admins', err);
+      console.error('Failed to fetch dropdown clients', err);
+      setDropdownClients([]);
     }
   };
 
-  const handleAdminChange = (e) => {
+  const handleClientChange = (e) => {
     const value = e.target.value;
-    setSelectedAdminId(value);
+    setSelectedClientId(value);
     if (!['video_upload', 'course_upload', 'course_all'].includes(activeTab)) {
       fetchDashboardData(activeTab, value);
     }
@@ -1640,16 +1642,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'admins_all', 'client_management'].includes(activeTab) && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Admin:</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Client:</span>
                   <PremiumSelect
-                    options={dropdownAdmins.map(admin => ({
-                      id: String(admin.id),
-                      name: admin.name || admin.username || admin.email || `Admin ${admin.id}`
+                    options={dropdownClients.map(client => ({
+                      id: String(client.id || client.client_id),
+                      name: client.name || client.client_name || client.username || client.email || `Client ${client.id}`
                     }))}
-                    value={String(selectedAdminId)}
-                    onChange={handleAdminChange}
-                    searchable={dropdownAdmins.length > 5}
-                    icon="fa-solid fa-user-shield"
+                    value={String(selectedClientId)}
+                    onChange={handleClientChange}
+                    searchable={dropdownClients.length > 5}
+                    icon="fa-solid fa-building-user"
+                    placeholder="Select Client"
                     style={{ minWidth: '170px', height: '38px', borderRadius: '8px' }}
                   />
                 </div>
