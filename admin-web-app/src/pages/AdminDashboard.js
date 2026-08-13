@@ -2555,16 +2555,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
                   <h2 style={{ fontSize: '20px' }}>{t('admin.tabUsers')}</h2>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <select 
-                      value={userStatusFilter} 
+                    <PremiumSelect
+                      options={[
+                        { id: 'all', name: 'All Status' },
+                        { id: 'active', name: 'Active' },
+                        { id: 'inactive', name: 'Inactive' }
+                      ]}
+                      value={userStatusFilter}
                       onChange={(e) => setUserStatusFilter(e.target.value)}
-                      className="form-input" 
-                      style={{ width: 'auto', padding: '6px 12px', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                    >
-                      <option value="all">All Status</option>
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
+                      searchable={false}
+                      icon="fa-solid fa-filter"
+                      style={{ width: '135px', minWidth: '135px' }}
+                    />
                     <button 
                       onClick={() => {
                         setEditingUser(null);
