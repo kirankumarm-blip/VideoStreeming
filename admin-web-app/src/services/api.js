@@ -691,6 +691,16 @@ export const api = {
         })
       });
     },
+    assignCourse: (data = {}) => {
+      const payload = typeof data === 'object' ? data : {};
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "assignCourse",
+          ...payload
+        })
+      });
+    },
     addAuthorAdmin: (data = {}) => {
       return request('/vdadmins', {
         method: 'POST',

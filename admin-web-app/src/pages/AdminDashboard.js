@@ -294,6 +294,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [assignSearchQuery, setAssignSearchQuery] = useState('');
   const [showAlreadyAssignedModal, setShowAlreadyAssignedModal] = useState(false);
   const [alreadyAssignedAdminName, setAlreadyAssignedAdminName] = useState('');
+  const [alreadyAssignedItemType, setAlreadyAssignedItemType] = useState('video');
 
   const getAssignedAdminName = (item) => {
     if (!item || typeof item !== 'object') return '';
@@ -341,6 +342,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const currentAdminName = getAssignedAdminName(item);
     if (currentAdminName && currentAdminName !== 'None') {
       setAlreadyAssignedAdminName(currentAdminName);
+      setAlreadyAssignedItemType(itemType);
       setShowAlreadyAssignedModal(true);
       return;
     }
@@ -405,12 +407,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        formstep: 'AssignVideo',
-        video_id: assignForm.itemId,
-        admin_id: assignForm.assignedAdminId
-      };
-      await api.vdadmins.assignVideo(payload);
+      if (assignForm.itemType === 'course') {
+        const payload = {
+          formstep: 'assignCourse',
+          course_id: assignForm.itemId,
+          admin_id: assignForm.assignedAdminId
+        };
+        await api.vdadmins.assignCourse(payload);
+      } else {
+        const payload = {
+          formstep: 'AssignVideo',
+          video_id: assignForm.itemId,
+          admin_id: assignForm.assignedAdminId
+        };
+        await api.vdadmins.assignVideo(payload);
+      }
       setShowAssignModal(false);
       if (typeof showSuccess === 'function') {
         showSuccess(`Assigned successfully for ${assignForm.title}`);
@@ -5967,10 +5978,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <i className="fa-solid fa-circle-exclamation"></i>
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              Video Already Assigned
+              {alreadyAssignedItemType === 'course' ? 'Course Already Assigned' : 'Video Already Assigned'}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>
-              This video is already assigned to <strong style={{ color: 'var(--accent-primary)' }}>{alreadyAssignedAdminName}</strong>.
+              This {alreadyAssignedItemType === 'course' ? 'course' : 'video'} is already assigned to <strong style={{ color: 'var(--accent-primary)' }}>{alreadyAssignedAdminName}</strong>.
             </p>
             <button 
               onClick={() => setShowAlreadyAssignedModal(false)}
