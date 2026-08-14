@@ -1712,16 +1712,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         flexShrink: 0,
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-color)',
-        paddingTop: '0px',
-        paddingBottom: '0px',
+        paddingTop: '12px',
+        paddingBottom: '12px',
         paddingLeft: '12px',
         paddingRight: '12px',
         marginTop: '0px',
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
-        position: 'sticky',
+        position: 'fixed',
         top: '60px',
+        left: '0px',
+        bottom: '0px',
         height: 'calc(100vh - 60px)',
         overflowY: 'auto',
         zIndex: 995,
@@ -1880,7 +1882,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       </div>
 
       {/* 2. MAIN WORKSPACE CONTAINER */}
-      <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="admin-content-container">
+      <div style={{
+        marginLeft: '260px',
+        padding: '32px 40px',
+        width: 'calc(100% - 260px)',
+        minHeight: 'calc(100vh - 60px)',
+        boxSizing: 'border-box'
+      }} className="admin-content-container">
         
         {/* Top Header Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
