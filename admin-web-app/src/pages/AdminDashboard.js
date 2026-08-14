@@ -23,6 +23,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const currentUser = getCurrentUser();
   const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
+  const isAuthorAdminUser = Boolean(
+    currentUser && (
+      currentUser.role_id === 4 || 
+      currentUser.role_id === '4' || 
+      currentUser.role === 4 || 
+      currentUser.role === '4' || 
+      currentUser.role === 'author_admin' || 
+      currentUser.role === 'author admin' ||
+      currentUser.originalRole === 4 ||
+      currentUser.originalRole === '4' ||
+      currentUser.originalRole === 'author_admin' ||
+      currentUser.originalRole === 'author admin'
+    )
+  );
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -2395,8 +2409,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     { label: 'Sun', count: 980 }
   ];
 
+  const visibleMenuStructure = menuStructure.filter(section => {
+    if (isAuthorAdminUser) {
+      if (section.title === 'Author Admin' || section.title === 'Administration' || section.title === 'AI Insights') {
+        return false;
+      }
+    }
+    return true;
+  });
+
   const getActiveTabLabel = () => {
-    for (const section of menuStructure) {
+    for (const section of visibleMenuStructure) {
       if (section.title === 'Author Admin' && activeTab === 'author_admin') return 'Author Admin';
       const item = section.items.find(i => i.id === activeTab);
       if (item) return item.label;
@@ -2478,7 +2501,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
         </div>
 
-        {menuStructure.map((section, idx) => {
+        {visibleMenuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
           const isAuthorAdmin = section.title === 'Author Admin';
           const isReports = section.title === 'Reports';
