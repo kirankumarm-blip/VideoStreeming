@@ -603,15 +603,7 @@ export const api = {
       });
     }
   },
-  vdadmins: {
-    getAdmins: () => {
-      return request('/vdadmins', {
-        method: 'POST',
-        body: JSON.stringify({ formstep: "getClients" }),
-        expectArray: true
-      });
-    }
-  },
+
   vdclients: {
     getClients: () => {
       return request('/vdClients', {
@@ -670,6 +662,27 @@ export const api = {
           formStep: "getAllAdmins",
           ...payload
         }),
+      });
+    },
+    getAuthorAdmin: (params = {}) => {
+      const payload = typeof params === 'object' ? params : {};
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "authorAdmin",
+          formStep: "authorAdmin",
+          ...payload
+        })
+      });
+    },
+    addAuthorAdmin: (data = {}) => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "addAuthorAdmin",
+          formStep: "addAuthorAdmin",
+          ...data
+        })
       });
     }
   },

@@ -434,6 +434,38 @@ const handleVdAdmins = (req, res) => {
     return res.json(clients);
   }
 
+  if (formstep === 'authorAdmin') {
+    const authorAdmins = db.authorAdmins || [
+      { id: "1", first_name: "Sarah", last_name: "Connor", name: "Sarah Connor", email: "sarah@lurnax.com", phonenumber: "9876543211", role: "Author Admin", status: "Active", created_at: "2026-08-14" }
+    ];
+    return res.json(authorAdmins);
+  }
+
+  if (formstep === 'addAuthorAdmin') {
+    if (!db.authorAdmins) db.authorAdmins = [];
+    const newAuthor = {
+      id: String(Date.now()),
+      first_name: req.body.first_name || req.body.firstName || '',
+      last_name: req.body.last_name || req.body.lastName || '',
+      name: `${req.body.first_name || req.body.firstName || ''} ${req.body.last_name || req.body.lastName || ''}`.trim(),
+      email: req.body.email || '',
+      phonenumber: req.body.phonenumber || req.body.mobile || '',
+      gender_id: req.body.gender_id || req.body.gender || null,
+      date_of_birth: req.body.date_of_birth || req.body.dob || null,
+      address: req.body.address || '',
+      state: req.body.state || '',
+      city: req.body.city || '',
+      zipcode: req.body.zipcode || '',
+      client_id: req.body.client_id || null,
+      role: "Author Admin",
+      status: "Active",
+      created_at: new Date().toISOString().slice(0, 10)
+    };
+    db.authorAdmins.unshift(newAuthor);
+    writeDB(db);
+    return res.json({ success: true, message: "Author Admin added successfully", authorAdmin: newAuthor });
+  }
+
   if (formstep === 'getAllAdmins' || formstep === 'getAdmins' || formstep === 'get_admins') {
     const clientId = String(req.body.client_id || req.body.admin_id || '');
     let adminsList = db.admins || [

@@ -81,6 +81,26 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     zipcode: ''
   });
 
+  // Author Admin CRUD states
+  const [authorAdmins, setAuthorAdmins] = useState([]);
+  const [showAuthorAdminModal, setShowAuthorAdminModal] = useState(false);
+  const [editingAuthorAdmin, setEditingAuthorAdmin] = useState(null);
+  const [authorAdminFormLoading, setAuthorAdminFormLoading] = useState(false);
+  const [authorAdminForm, setAuthorAdminForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    mobile: '',
+    gender: '',
+    dob: '',
+    address: '',
+    state: '',
+    state_id: '',
+    city: '',
+    city_id: '',
+    zipcode: ''
+  });
+
   useEffect(() => {
     if (showAdminModal) {
       fetchStates();
@@ -142,6 +162,125 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchCities(selectedStateId);
     } else {
       setCitiesList([]);
+    }
+  };
+
+  const fetchAuthorAdmins = async () => {
+    try {
+      const res = await api.vdadmins.getAuthorAdmin();
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res.map(item => item.json || item);
+      } else if (res && Array.isArray(res.data)) {
+        list = res.data.map(item => item.json || item);
+      } else if (res && Array.isArray(res.authorAdmins)) {
+        list = res.authorAdmins.map(item => item.json || item);
+      } else if (res && typeof res === 'object') {
+        const arrayProp = Object.values(res).find(val => Array.isArray(val));
+        if (arrayProp) list = arrayProp.map(item => item.json || item);
+      }
+      setAuthorAdmins(list);
+    } catch (err) {
+      console.error("Failed to fetch author admins:", err);
+      setAuthorAdmins([]);
+    }
+  };
+
+  const handleAuthorAdminSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!authorAdminForm.firstName || !authorAdminForm.firstName.trim()) {
+      showError('Please fill out first name');
+      return;
+    }
+    if (!authorAdminForm.lastName || !authorAdminForm.lastName.trim()) {
+      showError('Please fill out last name');
+      return;
+    }
+    if (!authorAdminForm.email || !authorAdminForm.email.trim()) {
+      showError('Please fill out email address');
+      return;
+    }
+    if (!authorAdminForm.mobile || !authorAdminForm.mobile.trim()) {
+      showError('Please fill out phone number');
+      return;
+    }
+    if (authorAdminForm.mobile.replace(/\D/g, '').length !== 10) {
+      showError('Phone number must be exactly 10 digits');
+      return;
+    }
+    if (!authorAdminForm.gender) {
+      showError('Please select gender');
+      return;
+    }
+    if (!authorAdminForm.dob) {
+      showError('Please select date of birth');
+      return;
+    }
+    if (!authorAdminForm.address || !authorAdminForm.address.trim()) {
+      showError('Please fill out address');
+      return;
+    }
+    if (!authorAdminForm.state_id && !authorAdminForm.state) {
+      showError('Please select state');
+      return;
+    }
+    if (!authorAdminForm.city_id && !authorAdminForm.city) {
+      showError('Please select city');
+      return;
+    }
+    if (!authorAdminForm.zipcode || !authorAdminForm.zipcode.trim()) {
+      showError('Please fill out zipcode');
+      return;
+    }
+    if (authorAdminForm.zipcode.replace(/\D/g, '').length !== 6) {
+      showError('Zipcode must be exactly 6 digits');
+      return;
+    }
+
+    setAuthorAdminFormLoading(true);
+    try {
+      const payload = {
+        first_name: authorAdminForm.firstName.trim(),
+        last_name: authorAdminForm.lastName.trim(),
+        email: authorAdminForm.email.trim(),
+        phonenumber: authorAdminForm.mobile.trim(),
+        mobile: authorAdminForm.mobile.trim(),
+        gender_id: authorAdminForm.gender ? (parseInt(authorAdminForm.gender, 10) || authorAdminForm.gender) : null,
+        date_of_birth: authorAdminForm.dob ? new Date(authorAdminForm.dob).toISOString() : null,
+        address: authorAdminForm.address.trim(),
+        state_id: authorAdminForm.state_id || authorAdminForm.state,
+        state: String(authorAdminForm.state || authorAdminForm.state_id).trim(),
+        city_id: authorAdminForm.city_id || authorAdminForm.city,
+        city: String(authorAdminForm.city || authorAdminForm.city_id).trim(),
+        zipcode: authorAdminForm.zipcode.trim(),
+        client_id: selectedClientId || null
+      };
+
+      await api.vdadmins.addAuthorAdmin(payload);
+      showSuccess('Author Admin added successfully!');
+
+      setShowAuthorAdminModal(false);
+      setAuthorAdminForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        mobile: '',
+        gender: '',
+        dob: '',
+        address: '',
+        state: '',
+        state_id: '',
+        city: '',
+        city_id: '',
+        zipcode: ''
+      });
+      fetchAuthorAdmins();
+    } catch (err) {
+      console.error('Failed to submit author admin:', err);
+      showError(err?.message || 'Failed to save author admin');
+    } finally {
+      setAuthorAdminFormLoading(false);
     }
   };
 
@@ -344,13 +483,19 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     if (activeTab === 'client_management') {
       fetchClients();
     }
+    if (activeTab === 'author_admin') {
+      fetchAuthorAdmins();
+    }
   }, [activeTab, selectedClientId, selectedReportType]);
 
   useEffect(() => {
-    if (showClientModal) {
+    if (showClientModal || showAuthorAdminModal) {
       fetchStates();
     }
-  }, [showClientModal]);
+    if (showAuthorAdminModal) {
+      fetchGenders();
+    }
+  }, [showClientModal, showAuthorAdminModal]);
 
   useEffect(() => {
     if (showAdminModal || activeTab === 'admins_create') {
@@ -1324,6 +1469,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       items: []
     },
     {
+      title: 'Author Admin',
+      iconClass: 'fa-solid fa-user-pen',
+      iconColor: '#f59e0b',
+      items: []
+    },
+    {
       title: 'Client Management',
       iconClass: 'fa-solid fa-building-user',
       iconColor: '#10b981',
@@ -1519,9 +1670,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
         {menuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
+          const isAuthorAdmin = section.title === 'Author Admin';
           const isClientMgmt = section.title === 'Client Management';
           const isReports = section.title === 'Reports';
           const isSelected = (isDashboard && activeTab === 'overview') || 
+                             (isAuthorAdmin && activeTab === 'author_admin') ||
                              (isClientMgmt && activeTab === 'client_management') || 
                              (isReports && (activeTab === 'rep_export' || activeTab.startsWith('rep_')));
           return (
@@ -1531,6 +1684,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   if (isDashboard) {
                     setActiveTab('overview');
                     fetchDropdownAdmins();
+                    setError('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else if (isAuthorAdmin) {
+                    setActiveTab('author_admin');
                     setError('');
                     if (isSidebarOpen && toggleSidebar) {
                       toggleSidebar();
@@ -1580,7 +1739,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <i className={section.iconClass || 'fa-solid fa-circle'} style={{ fontSize: '15px', color: section.iconColor || 'var(--accent-primary)', width: '18px', textAlign: 'center' }}></i>
                   <span>{t('admin.menu.' + section.title.toLowerCase().replace(/ & /g, '_and_').replace(/\s+/g, '_'), section.title)}</span>
                 </span>
-                {!isDashboard && !isReports && !isClientMgmt && (
+                {!isDashboard && !isReports && !isClientMgmt && !isAuthorAdmin && (
                   <i className={`fa-solid ${expandedSections[section.title] ? 'fa-chevron-down' : 'fa-chevron-right'}`} style={{ fontSize: '11px', opacity: 0.7 }}></i>
                 )}
               </button>
@@ -2105,6 +2264,95 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         </td>
                       </tr>
                     )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* AUTHOR ADMIN VIEW */}
+            {activeTab === 'author_admin' && (
+              <div className="animate-fade-in glass-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>Author Admin</h2>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Manage author admin accounts, profiles, and publishing access.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setEditingAuthorAdmin(null);
+                      setAuthorAdminForm({
+                        firstName: '',
+                        lastName: '',
+                        email: '',
+                        mobile: '',
+                        gender: '',
+                        dob: '',
+                        address: '',
+                        state: '',
+                        state_id: '',
+                        city: '',
+                        city_id: '',
+                        zipcode: ''
+                      });
+                      setShowAuthorAdminModal(true);
+                    }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 18px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <i className="fa-solid fa-plus"></i> Add Author Admin
+                  </button>
+                </div>
+
+                <div className="table-container">
+                  <PaginatedTable
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Role', 'Actions']}
+                    data={authorAdmins}
+                    emptyMessage="No author admins registered yet"
+                    renderRow={(admin, index) => {
+                      const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
+                      const fullName = admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Author Admin';
+                      return (
+                        <tr key={admin.id || index}>
+                          <td>
+                            <UserAvatar name={fullName} index={index} />
+                          </td>
+                          <td style={{ color: 'var(--text-primary)' }}>{admin.email || '-'}</td>
+                          <td style={{ color: 'var(--text-primary)' }}>{admin.phonenumber || admin.mobile || '-'}</td>
+                          <td>
+                            <TableStatusBadge status={isAdminActive} />
+                          </td>
+                          <td>
+                            <TableRoleBadge role={admin.role || 'Author Admin'} />
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <TableActionButton
+                                icon="fa-solid fa-pen"
+                                title="Edit Author Admin"
+                                onClick={() => {
+                                  setEditingAuthorAdmin(admin);
+                                  setAuthorAdminForm({
+                                    firstName: admin.first_name || '',
+                                    lastName: admin.last_name || '',
+                                    email: admin.email || '',
+                                    mobile: admin.phonenumber || admin.mobile || '',
+                                    gender: admin.gender_id || admin.gender || '',
+                                    dob: admin.date_of_birth || admin.dob || '',
+                                    address: admin.address || '',
+                                    state: admin.state || '',
+                                    state_id: admin.state_id || admin.state || '',
+                                    city: admin.city || '',
+                                    city_id: admin.city_id || admin.city || '',
+                                    zipcode: admin.zipcode || ''
+                                  });
+                                  setShowAuthorAdminModal(true);
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }}
                   />
                 </div>
               </div>
@@ -3401,6 +3649,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
             {/* --- DEFAULT OTHER TAB FALLBACK --- */}
             {activeTab !== 'overview' && 
+             activeTab !== 'author_admin' &&
              activeTab !== 'admins_all' && 
              activeTab !== 'client_management' && 
              activeTab !== 'categories' && 
@@ -3703,6 +3952,202 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       <span>Saving...</span>
                     </>
                   ) : 'Save Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD AUTHOR ADMIN MODAL --- */}
+      {showAuthorAdminModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="animate-fade-in" style={{
+            width: isMobile ? '92%' : '100%',
+            maxWidth: '640px',
+            padding: isMobile ? '24px 16px' : '32px',
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.15)',
+            color: '#333333',
+            maxHeight: isMobile ? '85vh' : '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px', color: '#111111' }}>
+              {editingAuthorAdmin ? 'Edit Author Admin' : 'Add Author Admin'}
+            </h3>
+            <form onSubmit={handleAuthorAdminSubmit}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: '16px',
+                marginBottom: '24px'
+              }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>First Name *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter first name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.firstName} 
+                    onChange={e => setAuthorAdminForm({...authorAdminForm, firstName: e.target.value.replace(/^\s+/, '')})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out first name')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Last Name *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter last name"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.lastName} 
+                    onChange={e => setAuthorAdminForm({...authorAdminForm, lastName: e.target.value.replace(/^\s+/, '')})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out last name')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Email Address *</label>
+                  <input 
+                    type="email" 
+                    className="form-input" 
+                    placeholder="Enter email address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.email} 
+                    onChange={e => setAuthorAdminForm({...authorAdminForm, email: e.target.value.trim()})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number *</label>
+                  <input 
+                    type="tel" 
+                    className="form-input" 
+                    placeholder="Enter phone number"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.mobile} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setAuthorAdminForm({...authorAdminForm, mobile: value});
+                    }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Gender *</label>
+                  <PremiumSelect
+                    options={genders}
+                    value={authorAdminForm.gender}
+                    onChange={e => setAuthorAdminForm({...authorAdminForm, gender: e.target.value})}
+                    placeholder="Select Gender"
+                    icon="fa-solid fa-venus-mars"
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Date of Birth *</label>
+                  <PremiumDatePicker
+                    value={authorAdminForm.dob}
+                    onChange={e => setAuthorAdminForm({...authorAdminForm, dob: e.target.value})}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Address *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter full address"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.address} 
+                    onChange={e => setAuthorAdminForm({...authorAdminForm, address: e.target.value.replace(/^\s+/, '')})} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out address')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>State *</label>
+                  <PremiumSelect
+                    options={statesList}
+                    value={authorAdminForm.state_id || authorAdminForm.state}
+                    onChange={e => {
+                      const selectedStateId = e.target.value;
+                      const selectedStateObj = statesList.find(s => String(s.id) === String(selectedStateId));
+                      setAuthorAdminForm(prev => ({
+                        ...prev,
+                        state_id: selectedStateId,
+                        state: selectedStateObj ? selectedStateObj.name : '',
+                        city_id: '',
+                        city: ''
+                      }));
+                      if (selectedStateId) fetchCities(selectedStateId);
+                    }}
+                    placeholder={loadingStates ? "Loading states..." : "Select State"}
+                    icon="fa-solid fa-map-location-dot"
+                    disabled={loadingStates}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>City *</label>
+                  <PremiumSelect
+                    options={citiesList}
+                    value={authorAdminForm.city_id || authorAdminForm.city}
+                    onChange={e => {
+                      const selectedCityObj = citiesList.find(c => String(c.id) === String(e.target.value));
+                      setAuthorAdminForm(prev => ({
+                        ...prev,
+                        city_id: e.target.value,
+                        city: selectedCityObj ? selectedCityObj.name : e.target.value
+                      }));
+                    }}
+                    placeholder={loadingCities ? "Loading cities..." : (!authorAdminForm.state_id && !authorAdminForm.state ? "Select State First" : "Select City")}
+                    icon="fa-solid fa-city"
+                    disabled={loadingCities || (!authorAdminForm.state_id && !authorAdminForm.state)}
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: isMobile ? 'span 1' : 'span 2', marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Zipcode *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter zipcode"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.zipcode} 
+                    onChange={e => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setAuthorAdminForm({...authorAdminForm, zipcode: value});
+                    }} 
+                    onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
+                    onInput={e => e.target.setCustomValidity('')}
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowAuthorAdminModal(false)} className="btn btn-secondary" style={{ background: '#e0e0e0', color: '#333333', border: 'none' }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ border: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }} disabled={authorAdminFormLoading}>
+                  {authorAdminFormLoading ? 'Saving...' : 'Save Author Admin'}
                 </button>
               </div>
             </form>
