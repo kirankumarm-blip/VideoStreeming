@@ -175,6 +175,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleAddAuthorAdminClick = async () => {
     setEditingAuthorAdmin(null);
+    const clients = dropdownClients.length > 0 ? dropdownClients : (await fetchDropdownClients() || []);
+    const actualClients = (clients || []).filter(c => String(c.id) !== '0');
+    const initialClientId = (selectedClientId && selectedClientId !== '0') ? selectedClientId : (actualClients[0]?.id || '');
+
     setAuthorAdminForm({
       firstName: '',
       lastName: '',
@@ -188,7 +192,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       city: '',
       city_id: '',
       zipcode: '',
-      client_id: selectedClientId || '',
+      client_id: initialClientId,
       admin_id: ''
     });
     setCitiesList([]);
@@ -196,7 +200,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     fetchStates();
     fetchGenders();
     fetchDropdownClients();
-    fetchClientAdmins(selectedClientId || '0');
+    if (initialClientId) {
+      fetchClientAdmins(initialClientId);
+    } else {
+      setClientAdminsList([]);
+    }
   };
 
   const handleEditAuthorAdminClick = async (admin) => {
@@ -234,6 +242,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     );
     const resolvedGender = matchedGender ? String(matchedGender.id) : String(rawGender);
 
+    const initialClientId = String(rawRecord.client_id || rawRecord.clientId || (selectedClientId !== '0' ? selectedClientId : ''));
     setAuthorAdminForm({
       firstName: rawRecord.first_name || '',
       lastName: rawRecord.last_name || '',
@@ -247,13 +256,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       city: resolvedCityName,
       city_id: resolvedCityId,
       zipcode: rawRecord.zipcode || '',
-      client_id: String(rawRecord.client_id || rawRecord.clientId || selectedClientId || ''),
+      client_id: initialClientId,
       admin_id: String(rawRecord.admin_id || rawRecord.adminId || '')
     });
 
     setShowAuthorAdminModal(true);
     fetchDropdownClients();
-    fetchClientAdmins(rawRecord.client_id || selectedClientId || '0');
+    if (initialClientId) {
+      fetchClientAdmins(initialClientId);
+    } else {
+      setClientAdminsList([]);
+    }
   };
 
   const fetchClientAdmins = async (clientId = selectedClientId) => {
@@ -4164,7 +4177,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
                         transition: 'all 0.2s ease'
                       }}
-                      value={authorAdminForm.client_id || selectedClientId || '0'}
+                      value={authorAdminForm.client_id}
                       onChange={e => {
                         const newClientId = e.target.value;
                         setAuthorAdminForm(prev => ({
@@ -4172,14 +4185,22 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           client_id: newClientId,
                           admin_id: ''
                         }));
-                        fetchClientAdmins(newClientId);
+                        if (newClientId) {
+                          fetchClientAdmins(newClientId);
+                        } else {
+                          setClientAdminsList([]);
+                        }
                       }}
                     >
-                      {(dropdownClients && dropdownClients.length > 0 ? dropdownClients : [{ id: '0', name: 'Super Admin' }]).map(client => (
-                        <option key={client.id} value={client.id}>
-                          {client.name}
-                        </option>
-                      ))}
+                      <option value="">Select Client</option>
+                      {(dropdownClients || [])
+                        .filter(client => String(client.id) !== '0')
+                        .map(client => (
+                          <option key={client.id} value={client.id}>
+                            {client.name}
+                          </option>
+                        ))
+                      }
                     </select>
                     <i className="fa-solid fa-chevron-down" style={{
                       position: 'absolute',
