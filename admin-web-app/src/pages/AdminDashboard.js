@@ -291,27 +291,33 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [assignForm, setAssignForm] = useState({ itemType: 'video', itemId: '', title: '', assignedAdmins: [] });
   const [authorAdminsList, setAuthorAdminsList] = useState([]);
   const [loadingAuthorAdmins, setLoadingAuthorAdmins] = useState(false);
+  const [assignSearchQuery, setAssignSearchQuery] = useState('');
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
+    setAssignSearchQuery('');
     setAssignForm({
       itemType,
       itemId: item.id,
       title: item.title || item.course_title || 'Item',
-      assignedAdmins: Array.isArray(item.assignedAdmins) ? item.assignedAdmins : []
+      assignedAdmins: Array.isArray(item.assignedAdmins) ? item.assignedAdmins.map(String) : []
     });
     setShowAssignModal(true);
     setLoadingAuthorAdmins(true);
     try {
       const res = await api.vdadmins.getAuthorAdmin({ formstep: 'getAuthorAdmin' });
       const list = Array.isArray(res) ? res : (res?.data || res?.admins || res?.authorAdmins || res?.result || []);
-      const mappedAdmins = list.map(item => ({
-        id: String(item.id || item.admin_id || item.user_id || item.value || ''),
-        name: item.name || item.username || (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : '') || item.title || item.label || item.email || `Admin ${item.id}`,
-        email: item.email || ''
-      })).filter(a => a.id && a.name);
+      const mappedAdmins = list.map(rawItem => {
+        const itemObj = rawItem.json || rawItem;
+        return {
+          id: String(itemObj.id ?? itemObj.admin_id ?? itemObj.user_id ?? itemObj.value ?? rawItem.id ?? ''),
+          name: itemObj.name || itemObj.username || (itemObj.firstName ? `${itemObj.firstName} ${itemObj.lastName || ''}`.trim() : '') || itemObj.title || itemObj.label || itemObj.email || rawItem.name || `Admin ${itemObj.id}`,
+          email: itemObj.email || itemObj.userEmail || ''
+        };
+      }).filter(a => a.id && a.name);
       setAuthorAdminsList(mappedAdmins);
     } catch (err) {
       console.error('Failed to fetch author admins via getAuthorAdmin API:', err);
+      setAuthorAdminsList([]);
     } finally {
       setLoadingAuthorAdmins(false);
     }
@@ -5659,44 +5665,186 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       {/* --- ASSIGN ADMIN MODAL --- */}
       {showAssignModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px', color: 'var(--text-primary)' }}>
-              Assign Admins to {assignForm.itemType === 'video' ? 'Video' : 'Course'}
-            </h3>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2000,
+          padding: '16px'
+        }}>
+          <div className="glass-card animate-fade-in" style={{
+            width: '100%',
+            maxWidth: '520px',
+            padding: '28px 32px',
+            borderRadius: '16px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+            position: 'relative'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <i className="fa-solid fa-user-gear" style={{ color: 'var(--accent-primary)', fontSize: '18px' }}></i>
+                  Assign Admins to {assignForm.itemType === 'video' ? 'Video' : 'Course'}
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px', marginBottom: 0 }}>
+                  Select administrators to grant access rights for <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{assignForm.title}</span>
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowAssignModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  lineHeight: 1
+                }}
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
+
             <form onSubmit={handleAssignSubmit}>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                Select administrators to assign access and management rights for <strong>{assignForm.title}</strong>.
-              </p>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '20px' }}>
+              {/* Search input for quick filtering */}
+              {authorAdminsList.length > 3 && (
+                <div style={{ marginBottom: '14px', position: 'relative' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Search admin by name..."
+                    value={assignSearchQuery}
+                    onChange={e => setAssignSearchQuery(e.target.value)}
+                    className="form-input"
+                    style={{
+                      width: '100%',
+                      padding: '8px 14px',
+                      fontSize: '13px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Admin Cards List Container */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                padding: '4px',
+                marginBottom: '24px'
+              }}>
                 {loadingAuthorAdmins ? (
-                  <div style={{ textAlign: 'center', padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    Loading Author Admins...
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 0', gap: '10px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                    <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '24px', color: 'var(--accent-primary)' }}></i>
+                    <span>Fetching Author Admins...</span>
                   </div>
-                ) : (authorAdminsList.length > 0 ? authorAdminsList : (authorAdmins.length > 0 ? authorAdmins : [{ id: 'admin-1', name: 'Admin One', email: 'admin1@lurnax.com' }])).map(admin => (
-                  <label key={admin.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={assignForm.assignedAdmins.includes(admin.id)}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setAssignForm(prev => {
-                          const list = checked 
-                            ? [...prev.assignedAdmins, admin.id]
-                            : prev.assignedAdmins.filter(id => id !== admin.id);
-                          return { ...prev, assignedAdmins: list };
-                        });
-                      }}
-                    />
-                    {admin.name} {admin.email ? `(${admin.email})` : ''}
-                  </label>
-                ))}
+                ) : authorAdminsList.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '36px 16px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px dashed var(--border-color)' }}>
+                    <i className="fa-solid fa-users-slash" style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5, display: 'block' }}></i>
+                    No Author Admins found.
+                  </div>
+                ) : (
+                  authorAdminsList
+                    .filter(admin => !assignSearchQuery || admin.name.toLowerCase().includes(assignSearchQuery.toLowerCase()))
+                    .map(admin => {
+                      const isSelected = assignForm.assignedAdmins.includes(String(admin.id));
+                      return (
+                        <div 
+                          key={admin.id}
+                          onClick={() => {
+                            setAssignForm(prev => {
+                              const strId = String(admin.id);
+                              const list = prev.assignedAdmins.includes(strId)
+                                ? prev.assignedAdmins.filter(id => id !== strId)
+                                : [...prev.assignedAdmins, strId];
+                              return { ...prev, assignedAdmins: list };
+                            });
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            background: isSelected ? 'rgba(124, 58, 237, 0.08)' : 'var(--bg-primary)',
+                            border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              width: '34px',
+                              height: '34px',
+                              borderRadius: '50%',
+                              background: isSelected ? 'var(--accent-primary)' : 'var(--border-color)',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '13px',
+                              fontWeight: 700
+                            }}>
+                              {(admin.name || 'A').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {admin.name}
+                              </div>
+                              {admin.email && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                  {admin.email}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected}
+                            readOnly
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              accentColor: 'var(--accent-primary)',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </div>
+                      );
+                    })
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Submit</button>
+              {/* Modal Footer */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                  {assignForm.assignedAdmins.length} selected
+                </span>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px' }}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600 }}>
+                    Save Assignments
+                  </button>
+                </div>
               </div>
             </form>
           </div>
