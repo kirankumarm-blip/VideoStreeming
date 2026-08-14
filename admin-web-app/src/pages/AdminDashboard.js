@@ -2625,7 +2625,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         marginLeft: '260px',
         padding: '50px',
         width: 'calc(100% - 260px)',
-        minHeight: 'calc(100vh - 60px)',
+        height: 'calc(100vh - 60px)',
+        overflowY: 'auto',
         boxSizing: 'border-box'
       }} className="admin-content-container">
         
