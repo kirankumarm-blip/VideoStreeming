@@ -299,40 +299,39 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (!item || typeof item !== 'object') return '';
     
     // Direct string values
-    if (item.assigned_admin_name && typeof item.assigned_admin_name === 'string') return item.assigned_admin_name;
-    if (item.assignedAdminName && typeof item.assignedAdminName === 'string') return item.assignedAdminName;
-    if (item.admin_name && typeof item.admin_name === 'string') return item.admin_name;
-    if (item.assigned_admin && typeof item.assigned_admin === 'string') return item.assigned_admin;
-    if (item.assignedAdmin && typeof item.assignedAdmin === 'string') return item.assignedAdmin;
-    if (item.author_admin && typeof item.author_admin === 'string') return item.author_admin;
+    if (item.assigned_admin_name && typeof item.assigned_admin_name === 'string' && item.assigned_admin_name.trim() !== '') return item.assigned_admin_name.trim();
+    if (item.assignedAdminName && typeof item.assignedAdminName === 'string' && item.assignedAdminName.trim() !== '') return item.assignedAdminName.trim();
+    if (item.assigned_admin && typeof item.assigned_admin === 'string' && item.assigned_admin.trim() !== '') return item.assigned_admin.trim();
+    if (item.assignedAdmin && typeof item.assignedAdmin === 'string' && item.assignedAdmin.trim() !== '') return item.assignedAdmin.trim();
+    if (item.author_admin && typeof item.author_admin === 'string' && item.author_admin.trim() !== '') return item.author_admin.trim();
 
     // Object forms: assigned_admin: { name: "Manoj JD" } or { json: { name: "Manoj JD" } }
     if (item.assigned_admin && typeof item.assigned_admin === 'object') {
       const obj = item.assigned_admin.json || item.assigned_admin;
-      if (obj.name || obj.username) return obj.name || obj.username;
+      if (obj.name || obj.username) return String(obj.name || obj.username).trim();
     }
     if (item.assignedAdmin && typeof item.assignedAdmin === 'object') {
       const obj = item.assignedAdmin.json || item.assignedAdmin;
-      if (obj.name || obj.username) return obj.name || obj.username;
+      if (obj.name || obj.username) return String(obj.name || obj.username).trim();
     }
 
     // Array forms: assigned_admins: [...] or assignedAdmins: [...]
     const list = item.assigned_admins || item.assignedAdmins;
     if (Array.isArray(list) && list.length > 0) {
       const names = list.map(a => {
-        if (typeof a === 'string') return a;
+        if (typeof a === 'string') return a.trim();
         if (typeof a === 'object' && a) {
           const obj = a.json || a;
-          return obj.name || obj.username || obj.title || obj.email || '';
+          return (obj.name || obj.username || obj.title || obj.email || '').trim();
         }
-        return String(a);
+        return String(a).trim();
       }).filter(Boolean);
       if (names.length > 0) return names.join(', ');
     }
 
-    if (item.assigned_admin_id || item.assignedAdminId || item.admin_id) {
-      const idVal = item.assigned_admin_id || item.assignedAdminId || item.admin_id;
-      if (idVal && idVal !== '0') return `Admin ${idVal}`;
+    if (item.assigned_admin_id || item.assignedAdminId) {
+      const idVal = String(item.assigned_admin_id || item.assignedAdminId).trim();
+      if (idVal && idVal !== '0' && idVal !== 'null' && idVal !== 'undefined') return `Admin ${idVal}`;
     }
 
     return '';
