@@ -10,19 +10,31 @@ const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const PremiumDatePicker = ({
   value,
   onChange,
-  placeholder = "Select Date",
+  placeholder = "Select Date of Birth",
   disabled = false,
   className = "",
   style = {},
   minYear = 1940,
-  maxYear = 2030
+  maxYear = new Date().getFullYear()
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef(null);
+  const [isMonthOpen, setIsMonthOpen] = useState(false);
+  const [isYearOpen, setIsYearOpen] = useState(false);
 
-  // Parse current date string (YYYY-MM-DD)
-  const initialDate = value ? new Date(value) : new Date();
-  const validInitialDate = !isNaN(initialDate.getTime()) ? initialDate : new Date();
+  const containerRef = useRef(null);
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
+
+  const todayObj = new Date();
+  const todayMidnight = new Date(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate());
+
+  // Yesterday date
+  const yesterdayObj = new Date(todayMidnight.getTime() - 86400000);
+  const yesterdayStr = `${yesterdayObj.getFullYear()}-${String(yesterdayObj.getMonth() + 1).padStart(2, '0')}-${String(yesterdayObj.getDate()).padStart(2, '0')}`;
+
+  // Parse initial date string (YYYY-MM-DD)
+  const initialDate = value ? new Date(value) : yesterdayObj;
+  const validInitialDate = !isNaN(initialDate.getTime()) ? initialDate : yesterdayObj;
 
   const [currentMonth, setCurrentMonth] = useState(validInitialDate.getMonth());
   const [currentYear, setCurrentYear] = useState(validInitialDate.getFullYear());
@@ -31,8 +43,13 @@ const PremiumDatePicker = ({
     if (value) {
       const d = new Date(value);
       if (!isNaN(d.getTime())) {
-        setCurrentMonth(d.getMonth());
-        setCurrentYear(d.getFullYear());
+        // If passed value is today or future, auto-clamp to yesterday
+        if (d >= todayMidnight) {
+          onChange({ target: { value: yesterdayStr } });
+        } else {
+          setCurrentMonth(d.getMonth());
+          setCurrentYear(d.getFullYear());
+        }
       }
     }
   }, [value]);
@@ -42,6 +59,8 @@ const PremiumDatePicker = ({
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
+        setIsMonthOpen(false);
+        setIsYearOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -49,6 +68,8 @@ const PremiumDatePicker = ({
   }, []);
 
   const handlePrevMonth = () => {
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
     if (currentMonth === 0) {
       setCurrentMonth(11);
       setCurrentYear(prev => prev - 1);
@@ -57,7 +78,16 @@ const PremiumDatePicker = ({
     }
   };
 
+  const isNextMonthDisabled = () => {
+    if (currentYear > todayObj.getFullYear()) return true;
+    if (currentYear === todayObj.getFullYear() && currentMonth >= todayObj.getMonth()) return true;
+    return false;
+  };
+
   const handleNextMonth = () => {
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
+    if (isNextMonthDisabled()) return;
     if (currentMonth === 11) {
       setCurrentMonth(0);
       setCurrentYear(prev => prev + 1);
@@ -67,27 +97,35 @@ const PremiumDatePicker = ({
   };
 
   const handleSelectDay = (day) => {
+    const cellDate = new Date(currentYear, currentMonth, day);
+    if (cellDate >= todayMidnight) return; // Block today and future dates
+
     const m = String(currentMonth + 1).padStart(2, '0');
     const d = String(day).padStart(2, '0');
     const formatted = `${currentYear}-${m}-${d}`;
     onChange({ target: { value: formatted } });
     setIsOpen(false);
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
   };
 
   const handleClear = () => {
     onChange({ target: { value: '' } });
     setIsOpen(false);
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
   };
 
-  const handleToday = () => {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
+  const handleYesterday = () => {
+    const y = yesterdayObj.getFullYear();
+    const m = String(yesterdayObj.getMonth() + 1).padStart(2, '0');
+    const d = String(yesterdayObj.getDate()).padStart(2, '0');
     setCurrentYear(y);
-    setCurrentMonth(today.getMonth());
+    setCurrentMonth(yesterdayObj.getMonth());
     onChange({ target: { value: `${y}-${m}-${d}` } });
     setIsOpen(false);
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
   };
 
   // Generate calendar matrix
@@ -95,8 +133,9 @@ const PremiumDatePicker = ({
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
 
+  const effectiveMaxYear = Math.min(maxYear, todayObj.getFullYear());
   const yearOptions = [];
-  for (let y = maxYear; y >= minYear; y--) {
+  for (let y = effectiveMaxYear; y >= minYear; y--) {
     yearOptions.push(y);
   }
 
@@ -105,10 +144,6 @@ const PremiumDatePicker = ({
   const selectedDay = isSelectedDateValid ? selectedDateObj.getDate() : null;
   const selectedMonth = isSelectedDateValid ? selectedDateObj.getMonth() : null;
   const selectedYear = isSelectedDateValid ? selectedDateObj.getFullYear() : null;
-
-  const todayObj = new Date();
-  const isTodayCurrentMonth = todayObj.getMonth() === currentMonth && todayObj.getFullYear() === currentYear;
-  const todayDate = todayObj.getDate();
 
   return (
     <div ref={containerRef} className={`premium-date-picker ${className}`} style={{ position: 'relative', width: '100%', ...style }}>
@@ -200,51 +235,200 @@ const PremiumDatePicker = ({
             </button>
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {/* Month Select */}
-              <select
-                value={currentMonth}
-                onChange={(e) => setCurrentMonth(Number(e.target.value))}
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid var(--border-color, rgba(255,255,255,0.12))',
-                  color: 'var(--text-primary, #ffffff)',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                {MONTHS.map((m, idx) => (
-                  <option key={m} value={idx}>{m}</option>
-                ))}
-              </select>
+              {/* Custom Premium Month Selector */}
+              <div style={{ position: 'relative' }} ref={monthRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsYearOpen(false);
+                    setIsMonthOpen(prev => !prev);
+                  }}
+                  style={{
+                    background: isMonthOpen ? 'rgba(229, 9, 20, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                    border: isMonthOpen ? '1px solid var(--accent-primary, #e50914)' : '1px solid var(--border-color, rgba(255,255,255,0.12))',
+                    color: 'var(--text-primary, #ffffff)',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    outline: 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>{MONTHS[currentMonth]}</span>
+                  <i className="fa-solid fa-chevron-down" style={{
+                    fontSize: '10px',
+                    transform: isMonthOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    color: isMonthOpen ? 'var(--accent-primary, #e50914)' : 'var(--text-secondary, #94a3b8)'
+                  }}></i>
+                </button>
 
-              {/* Year Select */}
-              <select
-                value={currentYear}
-                onChange={(e) => setCurrentYear(Number(e.target.value))}
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid var(--border-color, rgba(255,255,255,0.12))',
-                  color: 'var(--text-primary, #ffffff)',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-              >
-                {yearOptions.map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+                {isMonthOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    zIndex: 2100,
+                    minWidth: '130px',
+                    backgroundColor: 'var(--bg-secondary, #1e1e24)',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.06)',
+                    padding: '4px',
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    {MONTHS.map((m, idx) => {
+                      const isSelected = idx === currentMonth;
+                      const isMonthInFuture = currentYear === todayObj.getFullYear() && idx > todayObj.getMonth();
+                      return (
+                        <div
+                          key={m}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isMonthInFuture) return;
+                            setCurrentMonth(idx);
+                            setIsMonthOpen(false);
+                          }}
+                          style={{
+                            padding: '7px 10px',
+                            borderRadius: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isMonthInFuture ? 'rgba(255,255,255,0.2)' : isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)',
+                            background: isSelected ? 'rgba(229, 9, 20, 0.15)' : 'transparent',
+                            cursor: isMonthInFuture ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '2px',
+                            opacity: isMonthInFuture ? 0.35 : 1
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected && !isMonthInFuture) {
+                              e.currentTarget.style.background = 'rgba(229, 9, 20, 0.12)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected && !isMonthInFuture) {
+                              e.currentTarget.style.background = 'transparent';
+                            }
+                          }}
+                        >
+                          <span>{m}</span>
+                          {isSelected && <i className="fa-solid fa-check" style={{ fontSize: '10px' }}></i>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Premium Year Selector */}
+              <div style={{ position: 'relative' }} ref={yearRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMonthOpen(false);
+                    setIsYearOpen(prev => !prev);
+                  }}
+                  style={{
+                    background: isYearOpen ? 'rgba(229, 9, 20, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                    border: isYearOpen ? '1px solid var(--accent-primary, #e50914)' : '1px solid var(--border-color, rgba(255,255,255,0.12))',
+                    color: 'var(--text-primary, #ffffff)',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    outline: 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>{currentYear}</span>
+                  <i className="fa-solid fa-chevron-down" style={{
+                    fontSize: '10px',
+                    transform: isYearOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    color: isYearOpen ? 'var(--accent-primary, #e50914)' : 'var(--text-secondary, #94a3b8)'
+                  }}></i>
+                </button>
+
+                {isYearOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    right: 0,
+                    zIndex: 2100,
+                    minWidth: '96px',
+                    backgroundColor: 'var(--bg-secondary, #1e1e24)',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.06)',
+                    padding: '4px',
+                    maxHeight: '190px',
+                    overflowY: 'auto'
+                  }}>
+                    {yearOptions.map(y => {
+                      const isSelected = y === currentYear;
+                      return (
+                        <div
+                          key={y}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentYear(y);
+                            if (y === todayObj.getFullYear() && currentMonth > todayObj.getMonth()) {
+                              setCurrentMonth(todayObj.getMonth());
+                            }
+                            setIsYearOpen(false);
+                          }}
+                          style={{
+                            padding: '7px 10px',
+                            borderRadius: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)',
+                            background: isSelected ? 'rgba(229, 9, 20, 0.15)' : 'transparent',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '2px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'rgba(229, 9, 20, 0.12)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = 'transparent';
+                            }
+                          }}
+                        >
+                          <span>{y}</span>
+                          {isSelected && <i className="fa-solid fa-check" style={{ fontSize: '10px' }}></i>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <button
               type="button"
+              disabled={isNextMonthDisabled()}
               onClick={handleNextMonth}
               style={{
                 background: 'rgba(255,255,255,0.05)',
@@ -255,8 +439,9 @@ const PremiumDatePicker = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--text-primary)',
-                cursor: 'pointer'
+                color: isNextMonthDisabled() ? 'rgba(255,255,255,0.2)' : 'var(--text-primary)',
+                cursor: isNextMonthDisabled() ? 'not-allowed' : 'pointer',
+                opacity: isNextMonthDisabled() ? 0.4 : 1
               }}
             >
               <i className="fa-solid fa-chevron-right" style={{ fontSize: '12px' }}></i>
@@ -287,38 +472,41 @@ const PremiumDatePicker = ({
             {/* Days of Current Month */}
             {Array.from({ length: daysInMonth }).map((_, idx) => {
               const dayNum = idx + 1;
+              const cellDate = new Date(currentYear, currentMonth, dayNum);
+              const isDisabled = cellDate >= todayMidnight;
               const isSelected = selectedDay === dayNum && selectedMonth === currentMonth && selectedYear === currentYear;
-              const isToday = isTodayCurrentMonth && todayDate === dayNum;
 
               return (
                 <button
                   key={`day-${dayNum}`}
                   type="button"
+                  disabled={isDisabled}
                   onClick={() => handleSelectDay(dayNum)}
                   style={{
                     textAlign: 'center',
                     padding: '8px 0',
                     fontSize: '13px',
-                    fontWeight: isSelected || isToday ? 700 : 500,
+                    fontWeight: isSelected ? 700 : 500,
                     borderRadius: '8px',
-                    border: isToday && !isSelected ? '1px solid var(--accent-primary, #e50914)' : 'none',
+                    border: 'none',
                     backgroundColor: isSelected ? 'var(--accent-primary, #e50914)' : 'transparent',
-                    color: isSelected ? '#ffffff' : isToday ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)',
-                    cursor: 'pointer',
+                    color: isDisabled ? 'rgba(255,255,255,0.2)' : isSelected ? '#ffffff' : 'var(--text-primary, #ffffff)',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
                     transition: 'all 0.15s ease',
                     outline: 'none',
+                    opacity: isDisabled ? 0.35 : 1,
                     boxShadow: isSelected ? '0 4px 12px rgba(229, 9, 20, 0.4)' : 'none'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) {
+                    if (!isSelected && !isDisabled) {
                       e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.15)';
                       e.currentTarget.style.color = 'var(--accent-primary, #e50914)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected) {
+                    if (!isSelected && !isDisabled) {
                       e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = isToday ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #ffffff)';
+                      e.currentTarget.style.color = 'var(--text-primary, #ffffff)';
                     }
                   }}
                 >
@@ -339,10 +527,10 @@ const PremiumDatePicker = ({
             </button>
             <button
               type="button"
-              onClick={handleToday}
+              onClick={handleYesterday}
               style={{ background: 'none', border: 'none', color: 'var(--accent-primary, #e50914)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
             >
-              Today
+              Yesterday
             </button>
           </div>
         </div>
