@@ -606,11 +606,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   }, [activeTab, selectedAdminId, adminReportType]);
 
   useEffect(() => {
-    if (showUserModal) {
+    if (showUserModal || showAuthorAdminModal) {
       fetchGenders();
       fetchStates();
     }
-  }, [showUserModal]);
+    if (showAuthorAdminModal && (authorAdminForm.state_id || authorAdminForm.state)) {
+      fetchCities(authorAdminForm.state_id || authorAdminForm.state);
+    }
+  }, [showUserModal, showAuthorAdminModal]);
 
   const fetchStates = async () => {
     setLoadingStates(true);

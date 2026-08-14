@@ -494,6 +494,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
     if (showAuthorAdminModal) {
       fetchGenders();
+      if (authorAdminForm.state_id || authorAdminForm.state) {
+        fetchCities(authorAdminForm.state_id || authorAdminForm.state);
+      }
     }
   }, [showClientModal, showAuthorAdminModal]);
 
