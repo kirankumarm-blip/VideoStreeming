@@ -288,19 +288,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   // Assign Modal States
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [assignForm, setAssignForm] = useState({ itemType: 'video', itemId: '', title: '', assignedAdmins: [] });
+  const [assignForm, setAssignForm] = useState({ itemType: 'video', itemId: '', title: '', assignedAdminId: '' });
   const [authorAdminsList, setAuthorAdminsList] = useState([]);
   const [loadingAuthorAdmins, setLoadingAuthorAdmins] = useState(false);
   const [assignSearchQuery, setAssignSearchQuery] = useState('');
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
     const videoId = String(item?.id || item?.video_id || item?.videoId || item?.id_video || item?._id || item?.course_id || item?.courseId || '');
+    let initialAdminId = '';
+    if (item?.assignedAdminId || item?.assigned_admin_id || item?.admin_id) {
+      initialAdminId = String(item.assignedAdminId || item.assigned_admin_id || item.admin_id);
+    } else if (Array.isArray(item?.assignedAdmins) && item.assignedAdmins.length > 0) {
+      initialAdminId = String(item.assignedAdmins[0]);
+    }
     setAssignSearchQuery('');
     setAssignForm({
       itemType,
       itemId: videoId,
       title: item?.title || item?.course_title || item?.name || 'Item',
-      assignedAdmins: Array.isArray(item?.assignedAdmins) ? item.assignedAdmins.map(String) : []
+      assignedAdminId: initialAdminId
     });
     setShowAssignModal(true);
     setLoadingAuthorAdmins(true);
@@ -329,6 +335,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         };
       }).filter(a => a.id !== '' && a.name !== '');
       setAuthorAdminsList(mappedAdmins);
+
+      // Default select the first admin if none currently selected
+      if (!initialAdminId && mappedAdmins.length > 0) {
+        setAssignForm(prev => ({ ...prev, assignedAdminId: mappedAdmins[0].id }));
+      }
     } catch (err) {
       console.error('Failed to fetch author admins via getAuthorAdmin API:', err);
       setAuthorAdminsList([]);
@@ -343,7 +354,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const payload = {
         formstep: 'AssignVideo',
         video_id: assignForm.itemId,
-        admin_id: assignForm.assignedAdmins
+        admin_id: assignForm.assignedAdminId
       };
       await api.vdadmins.assignVideo(payload);
       setShowAssignModal(false);
@@ -5777,24 +5788,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   authorAdminsList
                     .filter(admin => !assignSearchQuery || admin.name.toLowerCase().includes(assignSearchQuery.toLowerCase()))
                     .map(admin => {
-                      const isSelected = assignForm.assignedAdmins.includes(String(admin.id));
+                      const isSelected = String(assignForm.assignedAdminId) === String(admin.id);
                       return (
                         <div 
                           key={admin.id}
                           onClick={() => {
-                            setAssignForm(prev => {
-                              const strId = String(admin.id);
-                              const list = prev.assignedAdmins.includes(strId)
-                                ? prev.assignedAdmins.filter(id => id !== strId)
-                                : [...prev.assignedAdmins, strId];
-                              return { ...prev, assignedAdmins: list };
-                            });
+                            setAssignForm(prev => ({ ...prev, assignedAdminId: String(admin.id) }));
                           }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            padding: '10px 14px',
+                            padding: '12px 16px',
                             borderRadius: '10px',
                             cursor: 'pointer',
                             background: isSelected ? 'rgba(124, 58, 237, 0.08)' : 'var(--bg-primary)',
@@ -5829,9 +5834,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             </div>
                           </div>
                           <input 
-                            type="checkbox" 
+                            type="radio" 
+                            name="assignedAdmin"
                             checked={isSelected}
-                            readOnly
+                            onChange={() => {
+                              setAssignForm(prev => ({ ...prev, assignedAdminId: String(admin.id) }));
+                            }}
                             style={{
                               width: '18px',
                               height: '18px',
@@ -5848,14 +5856,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               {/* Modal Footer */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                  {assignForm.assignedAdmins.length} selected
+                  {assignForm.assignedAdminId ? '1 admin selected' : 'No admin selected'}
                 </span>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px' }}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600 }}>
-                    Save Assignments
+                  <button type="submit" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600 }} disabled={!assignForm.assignedAdminId}>
+                    Save Assignment
                   </button>
                 </div>
               </div>
