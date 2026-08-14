@@ -722,6 +722,16 @@ export const api = {
           ...data
         })
       });
+    },
+    editAuthorAdmin: (data = {}) => {
+      const payload = typeof data === 'object' ? data : {};
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "editAuthor",
+          ...payload
+        })
+      });
     }
   },
   users: {

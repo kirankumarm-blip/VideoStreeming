@@ -998,7 +998,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     setAuthorAdminFormLoading(true);
     try {
+      const isEditing = Boolean(editingAuthorAdmin);
       const payload = {
+        formstep: isEditing ? 'editAuthor' : 'addAuthorAdmin',
+        id: isEditing ? (editingAuthorAdmin.id || editingAuthorAdmin.user_id || editingAuthorAdmin.admin_id || editingAuthorAdmin._id) : undefined,
         first_name: authorAdminForm.firstName.trim(),
         last_name: authorAdminForm.lastName.trim(),
         email: authorAdminForm.email.trim(),
@@ -1014,8 +1017,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         zipcode: authorAdminForm.zipcode.trim()
       };
 
-      await api.vdadmins.addAuthorAdmin(payload);
-      showSuccess('Author Admin added successfully!');
+      if (isEditing) {
+        await api.vdadmins.editAuthorAdmin(payload);
+        showSuccess('Author Admin updated successfully!');
+      } else {
+        await api.vdadmins.addAuthorAdmin(payload);
+        showSuccess('Author Admin added successfully!');
+      }
 
       setShowAuthorAdminModal(false);
       setAuthorAdminForm({
