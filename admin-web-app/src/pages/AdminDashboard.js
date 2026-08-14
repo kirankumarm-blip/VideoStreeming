@@ -292,6 +292,61 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [authorAdminsList, setAuthorAdminsList] = useState([]);
   const [loadingAuthorAdmins, setLoadingAuthorAdmins] = useState(false);
   const [assignSearchQuery, setAssignSearchQuery] = useState('');
+  const [showAlreadyAssignedModal, setShowAlreadyAssignedModal] = useState(false);
+  const [alreadyAssignedAdminName, setAlreadyAssignedAdminName] = useState('');
+
+  const getAssignedAdminName = (item) => {
+    if (!item || typeof item !== 'object') return '';
+    
+    // Direct string values
+    if (item.assigned_admin_name && typeof item.assigned_admin_name === 'string') return item.assigned_admin_name;
+    if (item.assignedAdminName && typeof item.assignedAdminName === 'string') return item.assignedAdminName;
+    if (item.admin_name && typeof item.admin_name === 'string') return item.admin_name;
+    if (item.assigned_admin && typeof item.assigned_admin === 'string') return item.assigned_admin;
+    if (item.assignedAdmin && typeof item.assignedAdmin === 'string') return item.assignedAdmin;
+    if (item.author_admin && typeof item.author_admin === 'string') return item.author_admin;
+
+    // Object forms: assigned_admin: { name: "Manoj JD" } or { json: { name: "Manoj JD" } }
+    if (item.assigned_admin && typeof item.assigned_admin === 'object') {
+      const obj = item.assigned_admin.json || item.assigned_admin;
+      if (obj.name || obj.username) return obj.name || obj.username;
+    }
+    if (item.assignedAdmin && typeof item.assignedAdmin === 'object') {
+      const obj = item.assignedAdmin.json || item.assignedAdmin;
+      if (obj.name || obj.username) return obj.name || obj.username;
+    }
+
+    // Array forms: assigned_admins: [...] or assignedAdmins: [...]
+    const list = item.assigned_admins || item.assignedAdmins;
+    if (Array.isArray(list) && list.length > 0) {
+      const names = list.map(a => {
+        if (typeof a === 'string') return a;
+        if (typeof a === 'object' && a) {
+          const obj = a.json || a;
+          return obj.name || obj.username || obj.title || obj.email || '';
+        }
+        return String(a);
+      }).filter(Boolean);
+      if (names.length > 0) return names.join(', ');
+    }
+
+    if (item.assigned_admin_id || item.assignedAdminId || item.admin_id) {
+      const idVal = item.assigned_admin_id || item.assignedAdminId || item.admin_id;
+      if (idVal && idVal !== '0') return `Admin ${idVal}`;
+    }
+
+    return '';
+  };
+
+  const handleAssignButtonClick = (item, itemType = 'video') => {
+    const currentAdminName = getAssignedAdminName(item);
+    if (currentAdminName && currentAdminName !== 'None') {
+      setAlreadyAssignedAdminName(currentAdminName);
+      setShowAlreadyAssignedModal(true);
+      return;
+    }
+    handleOpenAssignModal(item, itemType);
+  };
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
     const videoId = String(item?.id || item?.video_id || item?.videoId || item?.id_video || item?._id || item?.course_id || item?.courseId || '');
@@ -4389,7 +4444,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           </td>
                           {!isSuperAdminView && (
                             <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                              {video.assignedAdminName || (Array.isArray(video.assignedAdmins) && video.assignedAdmins.length > 0 ? video.assignedAdmins.join(', ') : 'None')}
+                              {getAssignedAdminName(video) || 'None'}
                             </td>
                           )}
                           <td onClick={(e) => e.stopPropagation()}>
@@ -4403,7 +4458,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               </button>
                               {!isSuperAdminView && (
                                 <button 
-                                  onClick={() => handleOpenAssignModal(video, 'video')}
+                                  onClick={() => handleAssignButtonClick(video, 'video')}
                                   className="btn btn-primary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
                                 >
@@ -4474,7 +4529,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
                           {!isSuperAdminView && (
                             <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                              {course.assignedAdminName || (Array.isArray(course.assignedAdmins) && course.assignedAdmins.length > 0 ? course.assignedAdmins.join(', ') : 'None')}
+                              {getAssignedAdminName(course) || 'None'}
                             </td>
                           )}
                           <td>
@@ -4493,7 +4548,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <button 
                                   className="btn btn-primary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
-                                  onClick={() => handleOpenAssignModal(course, 'course')}
+                                  onClick={() => handleAssignButtonClick(course, 'course')}
                                 >
                                   Assign
                                 </button>
@@ -5868,6 +5923,63 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- VIDEO ALREADY ASSIGNED ALERT MODAL --- */}
+      {showAlreadyAssignedModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2500,
+          padding: '16px'
+        }}>
+          <div className="glass-card animate-fade-in" style={{
+            width: '100%',
+            maxWidth: '420px',
+            padding: '28px 32px',
+            borderRadius: '16px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              margin: '0 auto 16px auto'
+            }}>
+              <i className="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+              Video Already Assigned
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>
+              This video is already assigned to <strong style={{ color: 'var(--accent-primary)' }}>{alreadyAssignedAdminName}</strong>.
+            </p>
+            <button 
+              onClick={() => setShowAlreadyAssignedModal(false)}
+              className="btn btn-primary"
+              style={{ padding: '10px 28px', fontSize: '13px', fontWeight: 600, width: '100%' }}
+            >
+              OK, Got it
+            </button>
           </div>
         </div>
       )}
