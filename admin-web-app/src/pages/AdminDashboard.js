@@ -2623,7 +2623,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       {/* 2. MAIN ADMIN CONTENT CONTAINER */}
       <div style={justContent ? { flex: 1, minWidth: 0 } : {
         marginLeft: '260px',
-        padding: '32px 40px',
+        padding: '12px 20px 20px 20px',
         width: 'calc(100% - 260px)',
         minHeight: 'calc(100vh - 60px)',
         boxSizing: 'border-box'
@@ -2631,7 +2631,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         
         {/* Top Header Row */}
         {!justContent && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
             <div>
               <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
                 {getActiveTabLabel()}
