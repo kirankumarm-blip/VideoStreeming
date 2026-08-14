@@ -248,16 +248,25 @@ const Login = () => {
       const userObj = otpRes.user || (tempLoginData ? tempLoginData.user : null);
       
       const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '') || otpRes.token || otpRes.accessToken;
-      const role = otpRes.role || (userObj ? userObj.role : '') || (tempLoginData ? tempLoginData.role : '');
+      const rawRole = otpRes.role ?? otpRes.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (tempLoginData ? (tempLoginData.role ?? tempLoginData.role_id) : '');
+      const strRole = String(rawRole).toLowerCase();
       const name = otpRes.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '');
       const userEmail = otpRes.email || (userObj ? userObj.email : '') || email;
       const userId = otpRes.id || (userObj ? userObj.id : null) || (tempLoginData ? tempLoginData.id : null);
+
+      let normalizedRole = strRole;
+      if (rawRole === 4 || rawRole === '4' || strRole === '4' || strRole === 'author_admin' || strRole === 'author admin' || strRole === 'admin') {
+        normalizedRole = 'admin'; // Role 4 (Author Admin) operates in Admin portal (/admin)
+      } else if (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin') {
+        normalizedRole = 'super_admin';
+      }
 
       const finalUser = {
         id: userId,
         name: name,
         email: userEmail,
-        role: role
+        role: normalizedRole,
+        role_id: rawRole
       };
 
       // Save tokens to local storage to finalize session login
@@ -268,9 +277,9 @@ const Login = () => {
       setTimerActive(false);
 
       // Redirect based on role
-      if (role === 'super_admin') {
+      if (normalizedRole === 'super_admin') {
         navigate('/super-admin');
-      } else if (role === 'admin') {
+      } else if (normalizedRole === 'admin') {
         navigate('/admin');
       } else {
         localStorage.removeItem('accessToken');

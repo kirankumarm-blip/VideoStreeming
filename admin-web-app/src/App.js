@@ -23,7 +23,17 @@ const RoleRoute = ({ children, allowedRoles }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  if (!allowedRoles.includes(user.role)) {
+  const userRole = String(user.role || user.role_id || '').toLowerCase();
+  const isAllowed = allowedRoles.some(r => {
+    if (r === 'admin') {
+      return userRole === 'admin' || userRole === '4' || userRole === 'author_admin' || userRole === 'author admin' || user.role === 4 || user.role_id === 4;
+    }
+    if (r === 'super_admin') {
+      return userRole === 'super_admin' || userRole === '1' || user.role === 1 || user.role_id === 1;
+    }
+    return r === userRole;
+  });
+  if (!isAllowed) {
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -172,8 +182,9 @@ const AppLayout = ({ theme, setTheme }) => {
 const DashboardRedirect = () => {
   const user = getCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'super_admin') return <Navigate to="/super-admin" replace />;
-  if (user.role === 'admin') return <Navigate to="/admin" replace />;
+  const r = String(user.role || user.role_id || '').toLowerCase();
+  if (r === 'super_admin' || r === '1' || user.role === 1 || user.role_id === 1) return <Navigate to="/super-admin" replace />;
+  if (r === 'admin' || r === '4' || r === 'author_admin' || r === 'author admin' || user.role === 4 || user.role_id === 4) return <Navigate to="/admin" replace />;
   return <Navigate to="/login" replace />;
 };
 
