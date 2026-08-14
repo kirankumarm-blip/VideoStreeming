@@ -3051,28 +3051,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       icon="fa-solid fa-filter"
                       style={{ width: '135px', minWidth: '135px' }}
                     />
-                    <button 
-                      onClick={() => {
-                        setEditingUser(null);
-                        setUserForm({
-                          firstName: '',
-                          lastName: '',
-                          email: '',
-                          mobile: '',
-                          gender: '',
-                          dob: '',
-                          city: '',
-                          state: '',
-                          zipcode: '',
-                          address: ''
-                        });
-                        setShowUserModal(true);
-                      }}
-                      className="btn btn-primary"
-                      style={{ padding: '8px 16px', fontSize: '13px' }}
-                    >
-                      {t('admin.addUser')}
-                    </button>
+                    {!isAuthorAdminUser && (
+                      <button 
+                        onClick={() => {
+                          setEditingUser(null);
+                          setUserForm({
+                            firstName: '',
+                            lastName: '',
+                            email: '',
+                            mobile: '',
+                            gender: '',
+                            dob: '',
+                            city: '',
+                            state: '',
+                            zipcode: '',
+                            address: ''
+                          });
+                          setShowUserModal(true);
+                        }}
+                        className="btn btn-primary"
+                        style={{ padding: '8px 16px', fontSize: '13px' }}
+                      >
+                        {t('admin.addUser')}
+                      </button>
+                    )}
                   </div>
                 </div>
 
