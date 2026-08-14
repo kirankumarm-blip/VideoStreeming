@@ -490,8 +490,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [moderationReports, setModerationReports] = useState({ reportedVideos: [], reportedUsers: [], copyrightIssues: [], spamDetection: [] });
   const [transactions, setTransactions] = useState([]);
   const [settings, setSettings] = useState({});
-  const [dropdownClients, setDropdownClients] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
+  const [dropdownClients, setDropdownClients] = useState([{ id: '0', name: 'Super Admin' }]);
+  const [selectedClientId, setSelectedClientId] = useState('0');
   const selectedAdminId = selectedClientId;
   const setSelectedAdminId = setSelectedClientId;
   const dropdownAdmins = dropdownClients;
@@ -744,22 +744,23 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       const res = await api.vdclients.getClients();
       const list = Array.isArray(res) ? res : (res?.data || res?.clients || []);
       const formatted = list.map(item => ({
-        id: String(item.id || item.client_id || item.value || ''),
+        id: String(item.id ?? item.client_id ?? item.value ?? ''),
         name: item.name || item.client_name || item.title || item.label || `Client ${item.id}`
-      })).filter(c => c.id && c.name);
+      })).filter(c => c.id !== '' && c.name);
 
-      setDropdownClients(formatted);
+      const defaultOption = { id: '0', name: 'Super Admin' };
+      const filteredList = formatted.filter(c => String(c.id) !== '0');
+      const finalDropdownList = [defaultOption, ...filteredList];
+
+      setDropdownClients(finalDropdownList);
       
-      // Auto-select the first client if none selected
-      if (formatted.length > 0 && !selectedClientId) {
-        const firstId = formatted[0].id;
-        if (firstId) {
-          setSelectedClientId(firstId);
-        }
+      // Auto-select default Super Admin (id = 0) if none selected
+      if (!selectedClientId) {
+        setSelectedClientId('0');
       }
     } catch (err) {
       console.error('Failed to fetch dropdown clients', err);
-      setDropdownClients([]);
+      setDropdownClients([{ id: '0', name: 'Super Admin' }]);
     }
   };
 
@@ -1919,8 +1920,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Client:</span>
                   <PremiumSelect
                     options={dropdownClients.map(client => ({
-                      id: String(client.id || client.client_id),
-                      name: client.name || client.client_name || client.username || client.email || `Client ${client.id}`
+                      id: String(client.id ?? client.client_id ?? '0'),
+                      name: client.name || client.client_name || client.username || client.email || 'Super Admin'
                     }))}
                     value={String(selectedClientId)}
                     onChange={handleClientChange}
