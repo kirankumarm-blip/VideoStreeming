@@ -687,7 +687,6 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "AssignVideo",
-          formStep: "AssignVideo",
           ...payload
         })
       });

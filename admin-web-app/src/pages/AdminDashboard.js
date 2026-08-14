@@ -294,12 +294,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [assignSearchQuery, setAssignSearchQuery] = useState('');
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
+    const videoId = String(item?.id || item?.video_id || item?.videoId || item?.id_video || item?._id || item?.course_id || item?.courseId || '');
     setAssignSearchQuery('');
     setAssignForm({
       itemType,
-      itemId: item.id,
-      title: item.title || item.course_title || 'Item',
-      assignedAdmins: Array.isArray(item.assignedAdmins) ? item.assignedAdmins.map(String) : []
+      itemId: videoId,
+      title: item?.title || item?.course_title || item?.name || 'Item',
+      assignedAdmins: Array.isArray(item?.assignedAdmins) ? item.assignedAdmins.map(String) : []
     });
     setShowAssignModal(true);
     setLoadingAuthorAdmins(true);
@@ -341,7 +342,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     try {
       const payload = {
         formstep: 'AssignVideo',
-        formStep: 'AssignVideo',
         video_id: assignForm.itemId,
         admin_id: assignForm.assignedAdmins
       };
