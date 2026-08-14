@@ -305,13 +305,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setLoadingAuthorAdmins(true);
     try {
       const res = await api.vdadmins.getAuthorAdmin({ formstep: 'getAuthorAdmin' });
-      const list = Array.isArray(res) ? res : (res?.data || res?.admins || res?.authorAdmins || res?.result || []);
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res.flat ? res.flat(Infinity) : res.reduce((acc, val) => acc.concat(Array.isArray(val) ? val : [val]), []);
+      } else if (res && typeof res === 'object') {
+        const rawList = res.data || res.admins || res.authorAdmins || res.result || res.json || [];
+        list = Array.isArray(rawList) ? (rawList.flat ? rawList.flat(Infinity) : rawList) : [res];
+      }
+
       const mappedAdmins = list.map(rawItem => {
-        const itemObj = rawItem.json || rawItem;
+        const itemObj = (rawItem && typeof rawItem === 'object' && rawItem.json) ? rawItem.json : rawItem;
         return {
-          id: String(itemObj.id ?? itemObj.admin_id ?? itemObj.user_id ?? itemObj.value ?? rawItem.id ?? ''),
-          name: itemObj.name || itemObj.username || (itemObj.firstName ? `${itemObj.firstName} ${itemObj.lastName || ''}`.trim() : '') || itemObj.title || itemObj.label || itemObj.email || rawItem.name || `Admin ${itemObj.id}`,
-          email: itemObj.email || itemObj.userEmail || ''
+          id: String(itemObj?.id ?? itemObj?.admin_id ?? itemObj?.user_id ?? itemObj?.value ?? rawItem?.id ?? ''),
+          name: itemObj?.name || itemObj?.username || (itemObj?.firstName ? `${itemObj.firstName} ${itemObj.lastName || ''}`.trim() : '') || itemObj?.title || itemObj?.label || itemObj?.email || rawItem?.name || `Admin ${itemObj?.id}`,
+          email: itemObj?.email || itemObj?.userEmail || rawItem?.email || ''
         };
       }).filter(a => a.id && a.name);
       setAuthorAdminsList(mappedAdmins);
