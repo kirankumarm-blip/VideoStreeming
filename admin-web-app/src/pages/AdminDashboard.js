@@ -289,25 +289,51 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   // Assign Modal States
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignForm, setAssignForm] = useState({ itemType: 'video', itemId: '', title: '', assignedAdmins: [] });
+  const [authorAdminsList, setAuthorAdminsList] = useState([]);
+  const [loadingAuthorAdmins, setLoadingAuthorAdmins] = useState(false);
+
+  const handleOpenAssignModal = async (item, itemType = 'video') => {
+    setAssignForm({
+      itemType,
+      itemId: item.id,
+      title: item.title || item.course_title || 'Item',
+      assignedAdmins: Array.isArray(item.assignedAdmins) ? item.assignedAdmins : []
+    });
+    setShowAssignModal(true);
+    setLoadingAuthorAdmins(true);
+    try {
+      const res = await api.vdadmins.getAuthorAdmin({ formstep: 'getAuthorAdmin' });
+      const list = Array.isArray(res) ? res : (res?.data || res?.admins || res?.authorAdmins || res?.result || []);
+      const mappedAdmins = list.map(item => ({
+        id: String(item.id || item.admin_id || item.user_id || item.value || ''),
+        name: item.name || item.username || (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : '') || item.title || item.label || item.email || `Admin ${item.id}`,
+        email: item.email || ''
+      })).filter(a => a.id && a.name);
+      setAuthorAdminsList(mappedAdmins);
+    } catch (err) {
+      console.error('Failed to fetch author admins via getAuthorAdmin API:', err);
+    } finally {
+      setLoadingAuthorAdmins(false);
+    }
+  };
 
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (assignForm.itemType === 'video') {
-        if (api.dashboard.assignVideoAdmins) {
-          await api.dashboard.assignVideoAdmins(assignForm.itemId, assignForm.assignedAdmins);
-        }
-      } else {
-        if (api.dashboard.assignCourseAdmins) {
-          await api.dashboard.assignCourseAdmins(assignForm.itemId, assignForm.assignedAdmins);
-        }
-      }
+      const payload = {
+        formstep: 'AssignVideo',
+        formStep: 'AssignVideo',
+        video_id: assignForm.itemId,
+        admin_id: assignForm.assignedAdmins
+      };
+      await api.vdadmins.assignVideo(payload);
       setShowAssignModal(false);
       if (typeof showSuccess === 'function') {
         showSuccess(`Assigned successfully for ${assignForm.title}`);
       } else {
         alert(`Assigned successfully for ${assignForm.title}`);
       }
+      fetchDashboardData(activeTab);
     } catch (err) {
       if (typeof showError === 'function') {
         showError(err.message || 'Failed to assign admins');
@@ -4347,10 +4373,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               </button>
                               {!isSuperAdminView && (
                                 <button 
-                                  onClick={() => {
-                                    setAssignForm({ itemType: 'video', itemId: video.id, title: video.title || 'Video', assignedAdmins: video.assignedAdmins || [] });
-                                    setShowAssignModal(true);
-                                  }}
+                                  onClick={() => handleOpenAssignModal(video, 'video')}
                                   className="btn btn-primary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
                                 >
@@ -4440,10 +4463,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <button 
                                   className="btn btn-primary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
-                                  onClick={() => {
-                                    setAssignForm({ itemType: 'course', itemId: course.id, title: displayTitle, assignedAdmins: course.assignedAdmins || [] });
-                                    setShowAssignModal(true);
-                                  }}
+                                  onClick={() => handleOpenAssignModal(course, 'course')}
                                 >
                                   Assign
                                 </button>
@@ -5650,7 +5670,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               </p>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '20px' }}>
-                {(authorAdmins.length > 0 ? authorAdmins : [{ id: 'admin-1', name: 'Admin One', email: 'admin1@lurnax.com' }]).map(admin => (
+                {loadingAuthorAdmins ? (
+                  <div style={{ textAlign: 'center', padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    Loading Author Admins...
+                  </div>
+                ) : (authorAdminsList.length > 0 ? authorAdminsList : (authorAdmins.length > 0 ? authorAdmins : [{ id: 'admin-1', name: 'Admin One', email: 'admin1@lurnax.com' }])).map(admin => (
                   <label key={admin.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)' }}>
                     <input 
                       type="checkbox" 
@@ -5665,7 +5689,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         });
                       }}
                     />
-                    {admin.name || admin.firstName || 'Admin'} ({admin.email || 'N/A'})
+                    {admin.name} {admin.email ? `(${admin.email})` : ''}
                   </label>
                 ))}
               </div>

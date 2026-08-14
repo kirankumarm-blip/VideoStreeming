@@ -671,10 +671,21 @@ export const api = {
       return request('/vdadmins', {
         method: 'POST',
         body: JSON.stringify({ 
-          formstep: "authorAdmin",
+          formstep: "getAuthorAdmin",
+          formStep: "getAuthorAdmin",
           ...payload
-        }),
-        expectArray: true
+        })
+      });
+    },
+    assignVideo: (data = {}) => {
+      const payload = typeof data === 'object' ? data : {};
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "AssignVideo",
+          formStep: "AssignVideo",
+          ...payload
+        })
       });
     },
     addAuthorAdmin: (data = {}) => {
