@@ -2457,8 +2457,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         flexShrink: 0,
         background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-color)',
-        paddingTop: '12px',
-        paddingBottom: '12px',
+        paddingTop: '0px',
+        paddingBottom: '0px',
         paddingLeft: '12px',
         paddingRight: '12px',
         marginTop: '0px',
@@ -2473,7 +2473,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         transition: 'transform 0.3s ease, left 0.3s ease'
       }} className={`youtube-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         {/* Mobile Sidebar Brand Header */}
-        <div className="mobile-sidebar-brand-header" style={{
+        {isMobile && (
+          <div className="mobile-sidebar-brand-header" style={{
           alignItems: 'center',
           gap: '16px',
           padding: '12px 16px',
@@ -2500,6 +2501,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           </button>
           <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
         </div>
+        )}
 
         {visibleMenuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
@@ -2509,7 +2511,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                              (isAuthorAdmin && activeTab === 'author_admin') || 
                              (isReports && activeTab === 'rep_export');
           return (
-            <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
+            <div key={section.title} style={{ marginBottom: '6px', marginTop: '0px' }}>
               <button 
                 onClick={() => {
                   if (isDashboard) {

@@ -1728,7 +1728,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         transition: 'transform 0.3s ease, left 0.3s ease'
       }} className={`youtube-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         {/* Mobile Sidebar Brand Header */}
-        <div className="mobile-sidebar-brand-header" style={{
+        {isMobile && (
+          <div className="mobile-sidebar-brand-header" style={{
           alignItems: 'center',
           gap: '16px',
           padding: '12px 16px',
@@ -1755,6 +1756,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           </button>
           <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
         </div>
+        )}
 
         {menuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
@@ -1766,7 +1768,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                              (isClientMgmt && activeTab === 'client_management') || 
                              (isReports && (activeTab === 'rep_export' || activeTab.startsWith('rep_')));
           return (
-            <div key={section.title} style={{ marginBottom: '8px', marginTop: idx === 0 ? '0px' : undefined }}>
+            <div key={section.title} style={{ marginBottom: '6px', marginTop: '0px' }}>
               <button 
                 onClick={() => {
                   if (isDashboard) {
