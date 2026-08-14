@@ -2649,17 +2649,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Thumbnail', 'Title', 'Category', 'Uploaded By', 'Assigned Admins', 'Actions']}
+                    headers={['Thumbnail', 'Title', 'Category', 'Uploaded By', 'Actions']}
                     data={videos}
                     emptyMessage="No uploaded videos found"
                     renderRow={(video, index) => {
-                      const videoAdminNames = video.assignedAdmins 
-                        ? video.assignedAdmins.map(aid => {
-                            const found = admins.find(a => a.id === aid);
-                            return found ? found.name : 'Unknown';
-                          }).join(', ')
-                        : 'None';
-
                       return (
                         <tr key={video.id || index} style={{ cursor: 'pointer' }} onClick={() => setReviewVideo(video)}>
                           <td>
@@ -2672,9 +2665,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           <td style={{ fontWeight: 600 }}>{video.title}</td>
                           <td>{video.category}</td>
                           <td>{video.uploadedBy === 'u-superadmin' ? 'Super Admin' : (admins.find(a => a.id === video.uploadedBy)?.name || 'Admin')}</td>
-                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                            {videoAdminNames || 'None'}
-                          </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
@@ -2683,16 +2673,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
                               >
                                 Play
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setAssignForm({ videoId: video.id, assignedAdmins: video.assignedAdmins || [] });
-                                  setShowAssignModal(true);
-                                }}
-                                className="btn btn-primary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                Assign
                               </button>
                             </div>
                           </td>

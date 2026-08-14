@@ -280,11 +280,41 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingCities, setLoadingCities] = useState(false);
   const [userStatusFilter, setUserStatusFilter] = useState('all');
 
-  // Video Upload & Content Management states
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
+
+  // Assign Modal States
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignForm, setAssignForm] = useState({ itemType: 'video', itemId: '', title: '', assignedAdmins: [] });
+
+  const handleAssignSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (assignForm.itemType === 'video') {
+        if (api.dashboard.assignVideoAdmins) {
+          await api.dashboard.assignVideoAdmins(assignForm.itemId, assignForm.assignedAdmins);
+        }
+      } else {
+        if (api.dashboard.assignCourseAdmins) {
+          await api.dashboard.assignCourseAdmins(assignForm.itemId, assignForm.assignedAdmins);
+        }
+      }
+      setShowAssignModal(false);
+      if (typeof showSuccess === 'function') {
+        showSuccess(`Assigned successfully for ${assignForm.title}`);
+      } else {
+        alert(`Assigned successfully for ${assignForm.title}`);
+      }
+    } catch (err) {
+      if (typeof showError === 'function') {
+        showError(err.message || 'Failed to assign admins');
+      } else {
+        alert(err.message || 'Failed to assign admins');
+      }
+    }
+  };
 
   const [subCategories, setSubCategories] = useState([]);
   const [showSubCategoryModal, setShowSubCategoryModal] = useState(false);
@@ -4274,7 +4304,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Uploaded Videos</h2>
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')]}
+                    headers={['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
                     data={myVideos || []}
                     emptyMessage="No uploaded videos found"
                     renderRow={(video, index) => {
@@ -4300,6 +4330,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               {String(video.visibility || 'Public').toUpperCase()}
                             </span>
                           </td>
+                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                            {video.assignedAdminName || (Array.isArray(video.assignedAdmins) && video.assignedAdmins.length > 0 ? video.assignedAdmins.join(', ') : 'None')}
+                          </td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
@@ -4308,6 +4341,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
                               >
                                 {t('admin.playReviewBtn')}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setAssignForm({ itemType: 'video', itemId: video.id, title: video.title || 'Video', assignedAdmins: video.assignedAdmins || [] });
+                                  setShowAssignModal(true);
+                                }}
+                                className="btn btn-primary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                              >
+                                Assign
                               </button>
                               <button 
                                 onClick={() => handleDeleteVideo(video.id)}
@@ -4332,7 +4375,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>All Courses</h2>
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions']}
+                    headers={['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
                     data={(Array.isArray(courses) ? courses : []).filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name))}
                     emptyMessage="No data available"
                     renderRow={(course, index) => {
@@ -4371,16 +4414,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td>{chaptersCount}</td>
                           <td>{lessonsCount}</td>
                           <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
+                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                            {course.assignedAdminName || (Array.isArray(course.assignedAdmins) && course.assignedAdmins.length > 0 ? course.assignedAdmins.join(', ') : 'None')}
+                          </td>
                           <td>
-                            <button 
-                              className="btn btn-secondary"
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
-                              onClick={() => {
-                                showError('Coming soon');
-                              }}
-                            >
-                              View Details
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                                onClick={() => {
+                                  if (typeof showError === 'function') showError('Coming soon');
+                                  else alert('Coming soon');
+                                }}
+                              >
+                                View Details
+                              </button>
+                              <button 
+                                className="btn btn-primary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                                onClick={() => {
+                                  setAssignForm({ itemType: 'course', itemId: course.id, title: displayTitle, assignedAdmins: course.assignedAdmins || [] });
+                                  setShowAssignModal(true);
+                                }}
+                              >
+                                Assign
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -5563,6 +5622,48 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     </>
                   ) : 'Save User'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- ASSIGN ADMIN MODAL --- */}
+      {showAssignModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+            <h3 style={{ fontSize: '20px', marginBottom: '24px', color: 'var(--text-primary)' }}>
+              Assign Admins to {assignForm.itemType === 'video' ? 'Video' : 'Course'}
+            </h3>
+            <form onSubmit={handleAssignSubmit}>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Select administrators to assign access and management rights for <strong>{assignForm.title}</strong>.
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '20px' }}>
+                {(authorAdmins.length > 0 ? authorAdmins : [{ id: 'admin-1', name: 'Admin One', email: 'admin1@lurnax.com' }]).map(admin => (
+                  <label key={admin.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={assignForm.assignedAdmins.includes(admin.id)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setAssignForm(prev => {
+                          const list = checked 
+                            ? [...prev.assignedAdmins, admin.id]
+                            : prev.assignedAdmins.filter(id => id !== admin.id);
+                          return { ...prev, assignedAdmins: list };
+                        });
+                      }}
+                    />
+                    {admin.name || admin.firstName || 'Admin'} ({admin.email || 'N/A'})
+                  </label>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary">Cancel</button>
+                <button type="submit" className="btn btn-primary">Submit</button>
               </div>
             </form>
           </div>
