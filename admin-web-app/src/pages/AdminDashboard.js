@@ -2463,7 +2463,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       items: []
     },
     {
-      title: 'Author Admin',
+      title: 'Author Management',
       iconClass: 'fa-solid fa-user-pen',
       iconColor: '#f59e0b',
       items: []
@@ -2571,7 +2571,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const visibleMenuStructure = menuStructure.filter(section => {
     if (isAuthorAdminUser) {
-      if (section.title === 'Author Admin' || section.title === 'Administration' || section.title === 'AI Insights') {
+      if (section.title === 'Author Management' || section.title === 'Author Admin' || section.title === 'Administration' || section.title === 'AI Insights') {
         return false;
       }
     }
@@ -2580,11 +2580,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const getActiveTabLabel = () => {
     for (const section of visibleMenuStructure) {
-      if (section.title === 'Author Admin' && activeTab === 'author_admin') return 'Author Admin';
+      if ((section.title === 'Author Management' || section.title === 'Author Admin') && activeTab === 'author_admin') return 'Author Management';
       const item = section.items.find(i => i.id === activeTab);
       if (item) return item.label;
     }
-    if (activeTab === 'author_admin') return 'Author Admin';
+    if (activeTab === 'author_admin') return 'Author Management';
     if (activeTab === 'users_all') return 'Users';
     if (activeTab === 'rep_export') return 'Reports';
     return activeTab.replace(/_/g, ' ');
@@ -2667,7 +2667,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
         {visibleMenuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
-          const isAuthorAdmin = section.title === 'Author Admin';
+          const isAuthorAdmin = section.title === 'Author Management' || section.title === 'Author Admin';
           const isReports = section.title === 'Reports';
           const isSelected = (isDashboard && activeTab === 'overview') || 
                              (isAuthorAdmin && activeTab === 'author_admin') || 

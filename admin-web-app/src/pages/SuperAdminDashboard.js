@@ -244,9 +244,12 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     setShowAuthorAdminModal(true);
   };
 
-  const fetchAuthorAdmins = async () => {
+  const fetchAuthorAdmins = async (clientId = selectedClientId) => {
     try {
-      const res = await api.vdadmins.getAuthorAdmin();
+      const payload = {
+        client_id: clientId ?? '0'
+      };
+      const res = await api.vdadmins.getAuthorAdmin(payload);
       let list = [];
       if (Array.isArray(res)) {
         list = res.map(item => (item && item.json) ? item.json : item);
@@ -772,6 +775,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
     if (activeTab === 'admins_all') {
       fetchAdmins(value);
+    }
+    if (activeTab === 'author_admin') {
+      fetchAuthorAdmins(value);
     }
   };
 
@@ -1558,7 +1564,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       items: []
     },
     {
-      title: 'Author Admin',
+      title: 'Author Management',
       iconClass: 'fa-solid fa-user-pen',
       iconColor: '#f59e0b',
       items: []
@@ -1763,7 +1769,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
         {menuStructure.map((section, idx) => {
           const isDashboard = section.title === 'Dashboard';
-          const isAuthorAdmin = section.title === 'Author Admin';
+          const isAuthorAdmin = section.title === 'Author Management' || section.title === 'Author Admin';
           const isClientMgmt = section.title === 'Client Management';
           const isReports = section.title === 'Reports';
           const isSelected = (isDashboard && activeTab === 'overview') || 
@@ -1897,7 +1903,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
               {(() => {
-                if (activeTab === 'author_admin') return 'Author Admin';
+                if (activeTab === 'author_admin') return 'Author Management';
                 if (activeTab === 'video_upload') return 'Upload Video';
                 if (activeTab === 'course_upload') return 'Upload Course';
                 if (activeTab === 'content_videos') return 'All Videos';
