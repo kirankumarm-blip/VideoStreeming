@@ -2488,14 +2488,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
         { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
         { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
-      ] : [
-        { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
-        { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
-        { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
-        { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
-        { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
-        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
-      ]
+      ] : (
+        isAuthorAdminUser ? [
+          { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
+          { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
+          { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
+          { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' }
+        ] : [
+          { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
+          { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
+          { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
+          { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
+          { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
+          { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
+        ]
+      )
     },
     {
       title: 'Analytics',
@@ -4575,7 +4582,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             )}
 
             {/* CATEGORIES VIEW */}
-            {activeTab === 'categories' && (() => {
+            {activeTab === 'categories' && !isAuthorAdminUser && (() => {
               const isLight = theme === 'light';
               const cardBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
               const textColor = isLight ? '#18181b' : 'var(--text-primary)';
@@ -4637,7 +4644,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             })()}
 
             {/* SUB CATEGORIES VIEW */}
-            {activeTab === 'sub_categories' && (() => {
+            {activeTab === 'sub_categories' && !isAuthorAdminUser && (() => {
               const isLight = theme === 'light';
               const cardBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
               const textColor = isLight ? '#18181b' : 'var(--text-primary)';
