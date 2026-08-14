@@ -86,6 +86,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [showAuthorAdminModal, setShowAuthorAdminModal] = useState(false);
   const [editingAuthorAdmin, setEditingAuthorAdmin] = useState(null);
   const [authorAdminFormLoading, setAuthorAdminFormLoading] = useState(false);
+  const [clientAdminsList, setClientAdminsList] = useState([]);
+  const [loadingClientAdmins, setLoadingClientAdmins] = useState(false);
   const [authorAdminForm, setAuthorAdminForm] = useState({
     firstName: '',
     lastName: '',
@@ -98,7 +100,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     state_id: '',
     city: '',
     city_id: '',
-    zipcode: ''
+    zipcode: '',
+    client_id: '',
+    admin_id: ''
   });
 
   useEffect(() => {
@@ -183,12 +187,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       state_id: '',
       city: '',
       city_id: '',
-      zipcode: ''
+      zipcode: '',
+      client_id: selectedClientId || '',
+      admin_id: ''
     });
     setCitiesList([]);
     setShowAuthorAdminModal(true);
     fetchStates();
     fetchGenders();
+    fetchClientAdmins(selectedClientId);
   };
 
   const handleEditAuthorAdminClick = async (admin) => {
@@ -238,10 +245,50 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       state_id: resolvedStateId,
       city: resolvedCityName,
       city_id: resolvedCityId,
-      zipcode: rawRecord.zipcode || ''
+      zipcode: rawRecord.zipcode || '',
+      client_id: String(rawRecord.client_id || rawRecord.clientId || selectedClientId || ''),
+      admin_id: String(rawRecord.admin_id || rawRecord.adminId || '')
     });
 
     setShowAuthorAdminModal(true);
+    fetchClientAdmins(rawRecord.client_id || selectedClientId);
+  };
+
+  const fetchClientAdmins = async (clientId = selectedClientId) => {
+    setLoadingClientAdmins(true);
+    try {
+      const res = await api.vdadmins.getClientAdmin({ formstep: 'getClientAdmin', client_id: clientId || '0' });
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res.flat ? res.flat(Infinity) : res;
+      } else if (res && typeof res === 'object') {
+        const rawList = res.data || res.admins || res.clientAdmins || res.result || res.json;
+        if (Array.isArray(rawList)) {
+          list = rawList;
+        } else {
+          list = [res];
+        }
+      }
+
+      const mapped = list.map(rawItem => {
+        const itemObj = (rawItem && typeof rawItem === 'object' && rawItem.json) ? rawItem.json : rawItem;
+        const adminId = itemObj?.id ?? itemObj?.admin_id ?? itemObj?.user_id ?? itemObj?.value ?? rawItem?.id ?? '';
+        const adminName = itemObj?.name || itemObj?.username || (itemObj?.firstName ? `${itemObj.firstName} ${itemObj.lastName || ''}`.trim() : '') || itemObj?.title || itemObj?.label || itemObj?.email || rawItem?.name || (adminId ? `Admin ${adminId}` : '');
+        return {
+          id: String(adminId),
+          name: adminName,
+          client_id: String(itemObj?.client_id || itemObj?.clientId || '')
+        };
+      }).filter(a => a.id !== '' && a.name !== '');
+      setClientAdminsList(mapped);
+      return mapped;
+    } catch (err) {
+      console.error('Failed to fetch client admins via getClientAdmin API:', err);
+      setClientAdminsList([]);
+      return [];
+    } finally {
+      setLoadingClientAdmins(false);
+    }
   };
 
   const fetchAuthorAdmins = async (clientId = selectedClientId) => {
@@ -340,7 +387,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         city_id: authorAdminForm.city_id || authorAdminForm.city,
         city: String(authorAdminForm.city || authorAdminForm.city_id).trim(),
         zipcode: authorAdminForm.zipcode.trim(),
-        client_id: selectedClientId || null
+        client_id: authorAdminForm.client_id || selectedClientId || '0',
+        admin_id: authorAdminForm.admin_id || ''
       };
 
       await api.vdadmins.addAuthorAdmin(payload);
@@ -359,7 +407,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         state_id: '',
         city: '',
         city_id: '',
-        zipcode: ''
+        zipcode: '',
+        client_id: '',
+        admin_id: ''
       });
       fetchAuthorAdmins();
     } catch (err) {
@@ -4077,6 +4127,35 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     onInput={e => e.target.setCustomValidity('')}
                     required 
                   />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Admin</label>
+                  <select
+                    className="form-input"
+                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    value={authorAdminForm.admin_id}
+                    onChange={e => {
+                      const selectedAdminId = e.target.value;
+                      const selectedAdminObj = clientAdminsList.find(a => String(a.id) === String(selectedAdminId));
+                      setAuthorAdminForm({
+                        ...authorAdminForm,
+                        admin_id: selectedAdminId,
+                        client_id: selectedAdminObj?.client_id || authorAdminForm.client_id || selectedClientId || '0'
+                      });
+                    }}
+                  >
+                    <option value="">Select Admin</option>
+                    {loadingClientAdmins ? (
+                      <option disabled>Loading Admins...</option>
+                    ) : (
+                      clientAdminsList.map(admin => (
+                        <option key={admin.id} value={admin.id}>
+                          {admin.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>

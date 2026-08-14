@@ -273,6 +273,10 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'GetAuthorAdmin' ||
       bodyObj.formstep === 'authorAdmin' ||
       bodyObj.formStep === 'authorAdmin' ||
+      bodyObj.formstep === 'getClientAdmin' ||
+      bodyObj.formStep === 'getClientAdmin' ||
+      bodyObj.formstep === 'GetClientAdmin' ||
+      bodyObj.formStep === 'GetClientAdmin' ||
       bodyObj.formStep === 'list';
 
     const isN8n = responseData.length > 0 && responseData[0] && typeof responseData[0] === 'object' && 'json' in responseData[0];
@@ -676,7 +680,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "getAuthorAdmin",
-          formStep: "getAuthorAdmin",
+          ...payload
+        })
+      });
+    },
+    getClientAdmin: (data = {}) => {
+      const payload = typeof data === 'object' ? data : {};
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "getClientAdmin",
           ...payload
         })
       });
