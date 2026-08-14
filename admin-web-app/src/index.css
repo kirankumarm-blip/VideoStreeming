@@ -1004,7 +1004,9 @@ select option {
 
 @media (max-width: 992px) {
   .admin-content-container {
-    padding: 24px 16px !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 16px !important;
   }
 }
 
