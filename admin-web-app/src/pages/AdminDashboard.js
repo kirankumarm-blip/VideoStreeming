@@ -38,6 +38,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       currentUser.originalRole === 'author admin'
     )
   );
+  const hideAssignAdminColumn = Boolean(isSuperAdminView || isAuthorAdminUser);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
@@ -4426,7 +4427,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Uploaded Videos</h2>
                 <div className="table-container">
                   <PaginatedTable
-                    headers={isSuperAdminView ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
+                    headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
                     data={myVideos || []}
                     emptyMessage="No uploaded videos found"
                     renderRow={(video, index) => {
@@ -4452,7 +4453,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               {String(video.visibility || 'Public').toUpperCase()}
                             </span>
                           </td>
-                          {!isSuperAdminView && (
+                          {!hideAssignAdminColumn && (
                             <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
                               {getAssignedAdminName(video) || 'None'}
                             </td>
@@ -4466,7 +4467,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               >
                                 {t('admin.playReviewBtn')}
                               </button>
-                              {!isSuperAdminView && (
+                              {!hideAssignAdminColumn && (
                                 <button 
                                   onClick={() => handleAssignButtonClick(video, 'video')}
                                   className="btn btn-primary"
@@ -4498,7 +4499,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>All Courses</h2>
                 <div className="table-container">
                   <PaginatedTable
-                    headers={isSuperAdminView ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
+                    headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
                     data={(Array.isArray(courses) ? courses : []).filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name))}
                     emptyMessage="No data available"
                     renderRow={(course, index) => {
@@ -4537,7 +4538,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td>{chaptersCount}</td>
                           <td>{lessonsCount}</td>
                           <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
-                          {!isSuperAdminView && (
+                          {!hideAssignAdminColumn && (
                             <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
                               {getAssignedAdminName(course) || 'None'}
                             </td>
@@ -4554,7 +4555,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               >
                                 View Details
                               </button>
-                              {!isSuperAdminView && (
+                              {!hideAssignAdminColumn && (
                                 <button 
                                   className="btn btn-primary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
