@@ -267,6 +267,8 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'getStates' ||
       bodyObj.formstep === 'getCity' ||
       bodyObj.formStep === 'getCity' ||
+      bodyObj.formstep === 'authorAdmin' ||
+      bodyObj.formStep === 'authorAdmin' ||
       bodyObj.formStep === 'list';
 
     const isN8n = responseData.length > 0 && responseData[0] && typeof responseData[0] === 'object' && 'json' in responseData[0];
@@ -671,7 +673,8 @@ export const api = {
         body: JSON.stringify({ 
           formstep: "authorAdmin",
           ...payload
-        })
+        }),
+        expectArray: true
       });
     },
     addAuthorAdmin: (data = {}) => {

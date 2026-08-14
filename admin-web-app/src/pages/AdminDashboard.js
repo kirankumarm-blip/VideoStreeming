@@ -682,14 +682,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const res = await api.vdadmins.getAuthorAdmin();
       let list = [];
       if (Array.isArray(res)) {
-        list = res.map(item => item.json || item);
+        list = res.map(item => (item && item.json) ? item.json : item);
       } else if (res && Array.isArray(res.data)) {
-        list = res.data.map(item => item.json || item);
+        list = res.data.map(item => (item && item.json) ? item.json : item);
       } else if (res && Array.isArray(res.authorAdmins)) {
-        list = res.authorAdmins.map(item => item.json || item);
+        list = res.authorAdmins.map(item => (item && item.json) ? item.json : item);
+      } else if (res && typeof res === 'object' && res.json) {
+        list = [res.json];
+      } else if (res && typeof res === 'object' && (res.name || res.email || res.first_name || res.id)) {
+        list = [res];
       } else if (res && typeof res === 'object') {
         const arrayProp = Object.values(res).find(val => Array.isArray(val));
-        if (arrayProp) list = arrayProp.map(item => item.json || item);
+        if (arrayProp) list = arrayProp.map(item => (item && item.json) ? item.json : item);
       }
       setAuthorAdmins(list);
     } catch (err) {
@@ -2316,9 +2320,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const getActiveTabLabel = () => {
     for (const section of menuStructure) {
+      if (section.title === 'Author Admin' && activeTab === 'author_admin') return 'Author Admin';
       const item = section.items.find(i => i.id === activeTab);
       if (item) return item.label;
     }
+    if (activeTab === 'author_admin') return 'Author Admin';
     if (activeTab === 'users_all') return 'Users';
     if (activeTab === 'rep_export') return 'Reports';
     return activeTab.replace(/_/g, ' ');
@@ -2899,12 +2905,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Name', 'Email', 'Mobile', 'Status', 'Role', 'Actions']}
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Actions']}
                     data={authorAdmins}
                     emptyMessage="No author admins registered yet"
-                    renderRow={(admin, index) => {
+                    renderRow={(item, index) => {
+                      const admin = (item && item.json) ? item.json : item;
                       const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
-                      const fullName = admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Author Admin';
+                      const fullName = admin.first_name ? `${admin.first_name} ${admin.last_name || ''}`.trim() : admin.name || 'Author Admin';
                       return (
                         <tr key={admin.id || index}>
                           <td>
@@ -2914,9 +2921,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td style={{ color: 'var(--text-primary)' }}>{admin.phonenumber || admin.mobile || '-'}</td>
                           <td>
                             <TableStatusBadge status={isAdminActive} />
-                          </td>
-                          <td>
-                            <TableRoleBadge role={admin.role || 'Author Admin'} />
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>

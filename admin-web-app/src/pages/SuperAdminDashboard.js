@@ -170,14 +170,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       const res = await api.vdadmins.getAuthorAdmin();
       let list = [];
       if (Array.isArray(res)) {
-        list = res.map(item => item.json || item);
+        list = res.map(item => (item && item.json) ? item.json : item);
       } else if (res && Array.isArray(res.data)) {
-        list = res.data.map(item => item.json || item);
+        list = res.data.map(item => (item && item.json) ? item.json : item);
       } else if (res && Array.isArray(res.authorAdmins)) {
-        list = res.authorAdmins.map(item => item.json || item);
+        list = res.authorAdmins.map(item => (item && item.json) ? item.json : item);
+      } else if (res && typeof res === 'object' && res.json) {
+        list = [res.json];
+      } else if (res && typeof res === 'object' && (res.name || res.email || res.first_name || res.id)) {
+        list = [res];
       } else if (res && typeof res === 'object') {
         const arrayProp = Object.values(res).find(val => Array.isArray(val));
-        if (arrayProp) list = arrayProp.map(item => item.json || item);
+        if (arrayProp) list = arrayProp.map(item => (item && item.json) ? item.json : item);
       }
       setAuthorAdmins(list);
     } catch (err) {
@@ -1798,8 +1802,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         {/* Top Header Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, textTransform: 'capitalize' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
               {(() => {
+                if (activeTab === 'author_admin') return 'Author Admin';
                 if (activeTab === 'video_upload') return 'Upload Video';
                 if (activeTab === 'course_upload') return 'Upload Course';
                 if (activeTab === 'content_videos') return 'All Videos';
@@ -2308,12 +2313,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Name', 'Email', 'Mobile', 'Status', 'Role', 'Actions']}
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Actions']}
                     data={authorAdmins}
                     emptyMessage="No author admins registered yet"
-                    renderRow={(admin, index) => {
+                    renderRow={(item, index) => {
+                      const admin = (item && item.json) ? item.json : item;
                       const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
-                      const fullName = admin.first_name ? `${admin.first_name} ${admin.last_name || ''}` : admin.name || 'Author Admin';
+                      const fullName = admin.first_name ? `${admin.first_name} ${admin.last_name || ''}`.trim() : admin.name || 'Author Admin';
                       return (
                         <tr key={admin.id || index}>
                           <td>
@@ -2323,9 +2329,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           <td style={{ color: 'var(--text-primary)' }}>{admin.phonenumber || admin.mobile || '-'}</td>
                           <td>
                             <TableStatusBadge status={isAdminActive} />
-                          </td>
-                          <td>
-                            <TableRoleBadge role={admin.role || 'Author Admin'} />
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
