@@ -267,6 +267,10 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'getStates' ||
       bodyObj.formstep === 'getCity' ||
       bodyObj.formStep === 'getCity' ||
+      bodyObj.formstep === 'getAuthorAdmin' ||
+      bodyObj.formStep === 'getAuthorAdmin' ||
+      bodyObj.formstep === 'GetAuthorAdmin' ||
+      bodyObj.formStep === 'GetAuthorAdmin' ||
       bodyObj.formstep === 'authorAdmin' ||
       bodyObj.formStep === 'authorAdmin' ||
       bodyObj.formStep === 'list';

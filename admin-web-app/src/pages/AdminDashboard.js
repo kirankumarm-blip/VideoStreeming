@@ -309,18 +309,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (Array.isArray(res)) {
         list = res.flat ? res.flat(Infinity) : res.reduce((acc, val) => acc.concat(Array.isArray(val) ? val : [val]), []);
       } else if (res && typeof res === 'object') {
-        const rawList = res.data || res.admins || res.authorAdmins || res.result || res.json || [];
-        list = Array.isArray(rawList) ? (rawList.flat ? rawList.flat(Infinity) : rawList) : [res];
+        const rawList = res.data || res.admins || res.authorAdmins || res.result || res.json || res.author_admins;
+        if (Array.isArray(rawList)) {
+          list = rawList.flat ? rawList.flat(Infinity) : rawList;
+        } else {
+          list = [res];
+        }
       }
 
       const mappedAdmins = list.map(rawItem => {
         const itemObj = (rawItem && typeof rawItem === 'object' && rawItem.json) ? rawItem.json : rawItem;
+        const adminId = itemObj?.id ?? itemObj?.admin_id ?? itemObj?.user_id ?? itemObj?.value ?? rawItem?.id ?? '';
+        const adminName = itemObj?.name || itemObj?.username || (itemObj?.firstName ? `${itemObj.firstName} ${itemObj.lastName || ''}`.trim() : '') || itemObj?.title || itemObj?.label || itemObj?.email || rawItem?.name || (adminId ? `Admin ${adminId}` : '');
         return {
-          id: String(itemObj?.id ?? itemObj?.admin_id ?? itemObj?.user_id ?? itemObj?.value ?? rawItem?.id ?? ''),
-          name: itemObj?.name || itemObj?.username || (itemObj?.firstName ? `${itemObj.firstName} ${itemObj.lastName || ''}`.trim() : '') || itemObj?.title || itemObj?.label || itemObj?.email || rawItem?.name || `Admin ${itemObj?.id}`,
+          id: String(adminId),
+          name: adminName,
           email: itemObj?.email || itemObj?.userEmail || rawItem?.email || ''
         };
-      }).filter(a => a.id && a.name);
+      }).filter(a => a.id !== '' && a.name !== '');
       setAuthorAdminsList(mappedAdmins);
     } catch (err) {
       console.error('Failed to fetch author admins via getAuthorAdmin API:', err);
