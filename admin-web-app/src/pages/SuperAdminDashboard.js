@@ -1653,8 +1653,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       iconClass: 'fa-solid fa-user-shield',
       iconColor: '#6366f1',
       items: [
-        { id: 'admins_all', label: 'All Admins', iconClass: 'fa-solid fa-users-gear' },
-        { id: 'admins_perms', label: 'Admin Permissions', iconClass: 'fa-solid fa-key' }
+        { id: 'admins_all', label: 'All Admins', iconClass: 'fa-solid fa-users-gear' }
       ]
     },
     {
