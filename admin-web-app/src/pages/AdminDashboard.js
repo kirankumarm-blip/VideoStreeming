@@ -23,6 +23,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const currentUser = getCurrentUser();
   const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
+  const isSuperAdminView = Boolean(justContent || isSuperAdmin || (currentUser && (currentUser.role === 'super_admin' || currentUser.role_id === 1)));
   const isAuthorAdminUser = Boolean(
     currentUser && (
       currentUser.role_id === 4 || 
@@ -4304,7 +4305,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Uploaded Videos</h2>
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
+                    headers={isSuperAdminView ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
                     data={myVideos || []}
                     emptyMessage="No uploaded videos found"
                     renderRow={(video, index) => {
@@ -4330,9 +4331,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               {String(video.visibility || 'Public').toUpperCase()}
                             </span>
                           </td>
-                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                            {video.assignedAdminName || (Array.isArray(video.assignedAdmins) && video.assignedAdmins.length > 0 ? video.assignedAdmins.join(', ') : 'None')}
-                          </td>
+                          {!isSuperAdminView && (
+                            <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                              {video.assignedAdminName || (Array.isArray(video.assignedAdmins) && video.assignedAdmins.length > 0 ? video.assignedAdmins.join(', ') : 'None')}
+                            </td>
+                          )}
                           <td onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
@@ -4342,16 +4345,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               >
                                 {t('admin.playReviewBtn')}
                               </button>
-                              <button 
-                                onClick={() => {
-                                  setAssignForm({ itemType: 'video', itemId: video.id, title: video.title || 'Video', assignedAdmins: video.assignedAdmins || [] });
-                                  setShowAssignModal(true);
-                                }}
-                                className="btn btn-primary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                Assign
-                              </button>
+                              {!isSuperAdminView && (
+                                <button 
+                                  onClick={() => {
+                                    setAssignForm({ itemType: 'video', itemId: video.id, title: video.title || 'Video', assignedAdmins: video.assignedAdmins || [] });
+                                    setShowAssignModal(true);
+                                  }}
+                                  className="btn btn-primary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                >
+                                  Assign
+                                </button>
+                              )}
                               <button 
                                 onClick={() => handleDeleteVideo(video.id)}
                                 className="btn"
@@ -4375,7 +4380,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>All Courses</h2>
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
+                    headers={isSuperAdminView ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
                     data={(Array.isArray(courses) ? courses : []).filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name))}
                     emptyMessage="No data available"
                     renderRow={(course, index) => {
@@ -4414,9 +4419,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td>{chaptersCount}</td>
                           <td>{lessonsCount}</td>
                           <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
-                          <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                            {course.assignedAdminName || (Array.isArray(course.assignedAdmins) && course.assignedAdmins.length > 0 ? course.assignedAdmins.join(', ') : 'None')}
-                          </td>
+                          {!isSuperAdminView && (
+                            <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                              {course.assignedAdminName || (Array.isArray(course.assignedAdmins) && course.assignedAdmins.length > 0 ? course.assignedAdmins.join(', ') : 'None')}
+                            </td>
+                          )}
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
@@ -4429,16 +4436,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               >
                                 View Details
                               </button>
-                              <button 
-                                className="btn btn-primary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => {
-                                  setAssignForm({ itemType: 'course', itemId: course.id, title: displayTitle, assignedAdmins: course.assignedAdmins || [] });
-                                  setShowAssignModal(true);
-                                }}
-                              >
-                                Assign
-                              </button>
+                              {!isSuperAdminView && (
+                                <button 
+                                  className="btn btn-primary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  onClick={() => {
+                                    setAssignForm({ itemType: 'course', itemId: course.id, title: displayTitle, assignedAdmins: course.assignedAdmins || [] });
+                                    setShowAssignModal(true);
+                                  }}
+                                >
+                                  Assign
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
