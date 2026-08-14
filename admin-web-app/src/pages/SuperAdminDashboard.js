@@ -195,7 +195,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     setShowAuthorAdminModal(true);
     fetchStates();
     fetchGenders();
-    fetchClientAdmins(selectedClientId);
+    fetchDropdownClients();
+    fetchClientAdmins(selectedClientId || '0');
   };
 
   const handleEditAuthorAdminClick = async (admin) => {
@@ -251,7 +252,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     });
 
     setShowAuthorAdminModal(true);
-    fetchClientAdmins(rawRecord.client_id || selectedClientId);
+    fetchDropdownClients();
+    fetchClientAdmins(rawRecord.client_id || selectedClientId || '0');
   };
 
   const fetchClientAdmins = async (clientId = selectedClientId) => {
@@ -4137,33 +4139,117 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   />
                 </div>
 
+                {/* Client Selection Dropdown */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Admin</label>
-                  <select
-                    className="form-input"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={authorAdminForm.admin_id}
-                    onChange={e => {
-                      const selectedAdminId = e.target.value;
-                      const selectedAdminObj = clientAdminsList.find(a => String(a.id) === String(selectedAdminId));
-                      setAuthorAdminForm({
-                        ...authorAdminForm,
-                        admin_id: selectedAdminId,
-                        client_id: selectedAdminObj?.client_id || authorAdminForm.client_id || selectedClientId || '0'
-                      });
-                    }}
-                  >
-                    <option value="">Select Admin</option>
-                    {loadingClientAdmins ? (
-                      <option disabled>Loading Admins...</option>
-                    ) : (
-                      clientAdminsList.map(admin => (
-                        <option key={admin.id} value={admin.id}>
-                          {admin.name}
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="fa-solid fa-building" style={{ color: '#f59e0b', fontSize: '13px' }}></i>
+                    Client *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      className="form-input"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        padding: '0 36px 0 14px',
+                        background: '#f8fafc',
+                        color: '#1e293b',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '10px',
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      value={authorAdminForm.client_id || selectedClientId || '0'}
+                      onChange={e => {
+                        const newClientId = e.target.value;
+                        setAuthorAdminForm(prev => ({
+                          ...prev,
+                          client_id: newClientId,
+                          admin_id: ''
+                        }));
+                        fetchClientAdmins(newClientId);
+                      }}
+                    >
+                      {(dropdownClients && dropdownClients.length > 0 ? dropdownClients : [{ id: '0', name: 'Super Admin' }]).map(client => (
+                        <option key={client.id} value={client.id}>
+                          {client.name}
                         </option>
-                      ))
-                    )}
-                  </select>
+                      ))}
+                    </select>
+                    <i className="fa-solid fa-chevron-down" style={{
+                      position: 'absolute',
+                      right: '14px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: '#64748b',
+                      fontSize: '12px'
+                    }}></i>
+                  </div>
+                </div>
+
+                {/* Admin Selection Dropdown */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ color: '#444444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="fa-solid fa-user-shield" style={{ color: '#6366f1', fontSize: '13px' }}></i>
+                    Admin
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      className="form-input"
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        padding: '0 36px 0 14px',
+                        background: '#f8fafc',
+                        color: '#1e293b',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '10px',
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      value={authorAdminForm.admin_id}
+                      onChange={e => {
+                        const selectedAdminId = e.target.value;
+                        setAuthorAdminForm(prev => ({
+                          ...prev,
+                          admin_id: selectedAdminId
+                        }));
+                      }}
+                    >
+                      <option value="">Select Admin</option>
+                      {loadingClientAdmins ? (
+                        <option disabled>Loading Admins...</option>
+                      ) : clientAdminsList.length === 0 ? (
+                        <option disabled>No admins found for selected client</option>
+                      ) : (
+                        clientAdminsList.map(admin => (
+                          <option key={admin.id} value={admin.id}>
+                            {admin.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <i className="fa-solid fa-chevron-down" style={{
+                      position: 'absolute',
+                      right: '14px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: '#64748b',
+                      fontSize: '12px'
+                    }}></i>
+                  </div>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
