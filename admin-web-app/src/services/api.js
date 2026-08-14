@@ -670,7 +670,6 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "authorAdmin",
-          formStep: "authorAdmin",
           ...payload
         })
       });
@@ -680,7 +679,6 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "addAuthorAdmin",
-          formStep: "addAuthorAdmin",
           ...data
         })
       });
