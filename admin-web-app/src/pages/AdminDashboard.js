@@ -2623,7 +2623,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       {/* 2. MAIN ADMIN CONTENT CONTAINER */}
       <div style={justContent ? { flex: 1, minWidth: 0 } : {
         marginLeft: '260px',
-        padding: '50px',
+        padding: '15px',
         width: 'calc(100% - 260px)',
         height: 'calc(100vh - 60px)',
         overflowY: 'auto',

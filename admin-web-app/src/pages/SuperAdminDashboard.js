@@ -1884,7 +1884,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       {/* 2. MAIN WORKSPACE CONTAINER */}
       <div style={{
         marginLeft: '260px',
-        padding: '50px',
+        padding: '15px',
         width: 'calc(100% - 260px)',
         height: 'calc(100vh - 60px)',
         overflowY: 'auto',
