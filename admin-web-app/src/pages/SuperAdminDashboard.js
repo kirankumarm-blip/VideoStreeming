@@ -117,8 +117,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         name: item.name || item.state_name || item.title || item.state
       }));
       setStatesList(formatted);
+      return formatted;
     } catch (err) {
       console.error("Failed to fetch states:", err);
+      return [];
     } finally {
       setLoadingStates(false);
     }
@@ -127,7 +129,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const fetchCities = async (stateId) => {
     if (!stateId) {
       setCitiesList([]);
-      return;
+      return [];
     }
     setLoadingCities(true);
     try {
@@ -138,9 +140,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         name: item.name || item.city_name || item.title || item.city
       }));
       setCitiesList(formatted);
+      return formatted;
     } catch (err) {
       console.error("Failed to fetch cities:", err);
       setCitiesList([]);
+      return [];
     } finally {
       setLoadingCities(false);
     }
@@ -163,6 +167,81 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     } else {
       setCitiesList([]);
     }
+  };
+
+  const handleAddAuthorAdminClick = async () => {
+    setEditingAuthorAdmin(null);
+    setAuthorAdminForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      mobile: '',
+      gender: '',
+      dob: '',
+      address: '',
+      state: '',
+      state_id: '',
+      city: '',
+      city_id: '',
+      zipcode: ''
+    });
+    setCitiesList([]);
+    setShowAuthorAdminModal(true);
+    fetchStates();
+    fetchGenders();
+  };
+
+  const handleEditAuthorAdminClick = async (admin) => {
+    const rawRecord = (admin && admin.json) ? admin.json : admin;
+    setEditingAuthorAdmin(rawRecord);
+
+    const states = statesList.length > 0 ? statesList : (await fetchStates() || []);
+    const genderOpts = genders.length > 0 ? genders : (await fetchGenders() || []);
+
+    const rawState = rawRecord.state_id || rawRecord.state || '';
+    const matchedState = (states || []).find(s => 
+      String(s.id) === String(rawState) || 
+      String(s.name).toLowerCase() === String(rawState).toLowerCase()
+    );
+    const resolvedStateId = matchedState ? String(matchedState.id) : String(rawState);
+    const resolvedStateName = matchedState ? matchedState.name : String(rawState);
+
+    let fetchedCities = [];
+    if (resolvedStateId) {
+      fetchedCities = await fetchCities(resolvedStateId);
+    }
+
+    const rawCity = rawRecord.city_id || rawRecord.city || '';
+    const matchedCity = (fetchedCities || []).find(c => 
+      String(c.id) === String(rawCity) || 
+      String(c.name).toLowerCase() === String(rawCity).toLowerCase()
+    );
+    const resolvedCityId = matchedCity ? String(matchedCity.id) : String(rawCity);
+    const resolvedCityName = matchedCity ? matchedCity.name : String(rawCity);
+
+    const rawGender = rawRecord.gender_id || rawRecord.gender || '';
+    const matchedGender = (genderOpts || []).find(g => 
+      String(g.id) === String(rawGender) || 
+      String(g.name).toLowerCase() === String(rawGender).toLowerCase()
+    );
+    const resolvedGender = matchedGender ? String(matchedGender.id) : String(rawGender);
+
+    setAuthorAdminForm({
+      firstName: rawRecord.first_name || '',
+      lastName: rawRecord.last_name || '',
+      email: rawRecord.email || '',
+      mobile: rawRecord.phonenumber || rawRecord.mobile || '',
+      gender: resolvedGender,
+      dob: rawRecord.date_of_birth || rawRecord.dob ? String(rawRecord.date_of_birth || rawRecord.dob).slice(0, 10) : '',
+      address: rawRecord.address || '',
+      state: resolvedStateName,
+      state_id: resolvedStateId,
+      city: resolvedCityName,
+      city_id: resolvedCityId,
+      zipcode: rawRecord.zipcode || ''
+    });
+
+    setShowAuthorAdminModal(true);
   };
 
   const fetchAuthorAdmins = async () => {
@@ -774,9 +853,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         if (arrayProp) list = arrayProp.map(item => item.json || item);
       }
       setGenders(list);
+      return list;
     } catch (e) {
-      console.error('Failed to fetch genders', e);
+      console.error('Failed to fetch user genders', e);
       setGenders([]);
+      return [];
     }
   };
 
@@ -2286,24 +2367,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Manage author admin accounts, profiles, and publishing access.</p>
                   </div>
                   <button 
-                    onClick={() => {
-                      setEditingAuthorAdmin(null);
-                      setAuthorAdminForm({
-                        firstName: '',
-                        lastName: '',
-                        email: '',
-                        mobile: '',
-                        gender: '',
-                        dob: '',
-                        address: '',
-                        state: '',
-                        state_id: '',
-                        city: '',
-                        city_id: '',
-                        zipcode: ''
-                      });
-                      setShowAuthorAdminModal(true);
-                    }}
+                    onClick={handleAddAuthorAdminClick}
                     className="btn btn-primary"
                     style={{ padding: '8px 18px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
@@ -2335,24 +2399,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                               <TableActionButton
                                 icon="fa-solid fa-pen"
                                 title="Edit Author Admin"
-                                onClick={() => {
-                                  setEditingAuthorAdmin(admin);
-                                  setAuthorAdminForm({
-                                    firstName: admin.first_name || '',
-                                    lastName: admin.last_name || '',
-                                    email: admin.email || '',
-                                    mobile: admin.phonenumber || admin.mobile || '',
-                                    gender: admin.gender_id || admin.gender || '',
-                                    dob: admin.date_of_birth || admin.dob || '',
-                                    address: admin.address || '',
-                                    state: admin.state || '',
-                                    state_id: admin.state_id || admin.state || '',
-                                    city: admin.city || '',
-                                    city_id: admin.city_id || admin.city || '',
-                                    zipcode: admin.zipcode || ''
-                                  });
-                                  setShowAuthorAdminModal(true);
-                                }}
+                                onClick={() => handleEditAuthorAdminClick(admin)}
                               />
                             </div>
                           </td>
