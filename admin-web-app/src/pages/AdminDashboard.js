@@ -564,46 +564,81 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleEditCourse = (course) => {
     if (!course) return;
     setEditingCourse(course);
-    const catVal = String(course.category_id || course.cat_id || course.category || '');
-    const subCatVal = String(course.subcategory_id || course.sub_category_id || course.subCategory || '');
-    const langVal = String(course.language_id || course.languageId || course.language || '');
-    const lvlVal = String(course.level_id || course.level || '');
-    const visVal = String(course.visibility_id || course.visibility || '');
-    const admVal = String(course.admin_id || course.adminId || '');
+
+    // 1. Match Category (by ID or name)
+    const catRaw = course.category_id || course.cat_id || course.category || '';
+    const foundCat = categories.find(c => String(c.id) === String(catRaw) || String(c.name).toLowerCase() === String(catRaw).toLowerCase());
+    const catId = foundCat ? String(foundCat.id) : String(catRaw);
+
+    // 2. Subcategory raw value (by ID or name)
+    const subCatRaw = course.subcategory_id || course.sub_category_id || course.subcategory || course.subCategory || '';
+
+    // 3. Language, Level, Visibility, Admin
+    const langVal = String(course.language_id || course.languageId || course.language || (languages[0]?.id || ''));
+    const lvlVal = String(course.level_id || course.level || '1');
+    const visVal = String(course.visibility_id || course.visibility || (visibilities[0]?.id || ''));
+    const admVal = String(course.assigned_admin || course.admin_id || course.adminId || '').trim();
 
     setCourseForm({
       title: course.course_title || course.title || '',
       description: course.description || course.desc || '',
-      category: catVal,
-      subCategory: subCatVal,
+      category: catId,
+      subCategory: String(subCatRaw),
       languageId: langVal,
       instructor: course.instructor || '',
-      level: lvlVal || 'Beginner',
+      level: lvlVal || '1',
       tags: course.tags || '',
       totalChapters: String(course.totalChapters || (Array.isArray(course.chapters) ? course.chapters.length : 1)),
       visibility: visVal,
       adminId: admVal
     });
 
-    if (catVal) {
-      fetchSubCategories(catVal);
+    if (catId) {
+      fetchSubCategories(catId).then((subList) => {
+        if (Array.isArray(subList) && subList.length > 0) {
+          const foundSub = subList.find(s => String(s.id) === String(subCatRaw) || String(s.name).toLowerCase() === String(subCatRaw).toLowerCase());
+          if (foundSub) {
+            setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+          }
+        }
+      });
     }
 
     if (course.thumbnail || course.thumbnailUrl) {
       setCourseThumbnailUrl(course.thumbnail || course.thumbnailUrl);
+    } else {
+      setCourseThumbnailUrl('');
     }
+
     if (course.banner || course.bannerUrl) {
       setCourseBannerUrl(course.banner || course.bannerUrl);
+    } else {
+      setCourseBannerUrl('');
     }
 
     if (Array.isArray(course.chapters) && course.chapters.length > 0) {
       setChapters(course.chapters.map((ch, idx) => ({
-        id: ch.id || idx + 1,
-        title: ch.title || `Chapter ${idx + 1}`,
-        description: ch.description || '',
+        id: ch.chapter_id || ch.id || idx + 1,
+        title: ch.chapter_title || ch.title || `Chapter ${idx + 1}`,
+        description: ch.chapter_description || ch.description || '',
         visibility: ch.visibility || visibilities[0]?.id || '',
-        order: ch.order || idx + 1,
-        videos: Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])
+        order: ch.chapter_order || ch.order || idx + 1,
+        quiz: ch.quiz || null,
+        videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
+          const urlVal = v.video_url || v.videoUrl || '';
+          const thumbVal = v.thumbnail || v.thumbnailUrl || '';
+          return {
+            id: v.id || vIdx + 1,
+            title: v.title || `Lesson ${vIdx + 1}`,
+            videoUrl: urlVal,
+            thumbnailUrl: thumbVal,
+            fileName: v.fileName || v.title || 'video.mp4',
+            duration: v.duration || '0',
+            isPreview: v.isPreview || v.type === 1,
+            uploadStatus: urlVal ? 'success' : null,
+            thumbStatus: thumbVal ? 'success' : null
+          };
+        })
       })));
     } else {
       setChapters([
@@ -4116,44 +4151,94 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Thumbnail *</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="form-input"
-                            style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            onChange={async (e) => {
-                              const file = e.target.files[0];
-                              if (file && await verifyFileContent(file)) {
-                                e.target.value = '';
-                                return;
-                              }
-                              handleCourseThumbnailUpload(file);
-                            }}
-                          />
+                          {courseThumbnailUrl ? (
+                            <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg }}>
+                              <img src={courseThumbnailUrl} alt="Course Thumbnail" style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label htmlFor="course-thumbnail-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  ✏️ Edit Image
+                                </label>
+                                <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Loaded</span>
+                              </div>
+                              <input
+                                id="course-thumbnail-upload"
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={async (e) => {
+                                  const file = e.target.files[0];
+                                  if (file && await verifyFileContent(file)) {
+                                    e.target.value = '';
+                                    return;
+                                  }
+                                  handleCourseThumbnailUpload(file);
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="form-input"
+                              style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              onChange={async (e) => {
+                                const file = e.target.files[0];
+                                if (file && await verifyFileContent(file)) {
+                                  e.target.value = '';
+                                  return;
+                                }
+                                handleCourseThumbnailUpload(file);
+                              }}
+                            />
+                          )}
                           {thumbnailUploading && <span style={{ fontSize: '11px', color: '#e50914', display: 'block', marginTop: '4px' }}>Uploading thumbnail...</span>}
-                          {courseThumbnailUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
                         </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Banner (Optional)</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="form-input"
-                            style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            onChange={async (e) => {
-                              const file = e.target.files[0];
-                              if (file && await verifyFileContent(file)) {
-                                e.target.value = '';
-                                return;
-                              }
-                              handleCourseBannerUpload(file);
-                            }}
-                          />
+                          {courseBannerUrl ? (
+                            <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg }}>
+                              <img src={courseBannerUrl} alt="Course Banner" style={{ width: '100px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label htmlFor="course-banner-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  ✏️ Edit Image
+                                </label>
+                                <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Loaded</span>
+                              </div>
+                              <input
+                                id="course-banner-upload"
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={async (e) => {
+                                  const file = e.target.files[0];
+                                  if (file && await verifyFileContent(file)) {
+                                    e.target.value = '';
+                                    return;
+                                  }
+                                  handleCourseBannerUpload(file);
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="form-input"
+                              style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              onChange={async (e) => {
+                                const file = e.target.files[0];
+                                if (file && await verifyFileContent(file)) {
+                                  e.target.value = '';
+                                  return;
+                                }
+                                handleCourseBannerUpload(file);
+                              }}
+                            />
+                          )}
                           {bannerUploading && <span style={{ fontSize: '11px', color: '#e50914', display: 'block', marginTop: '4px' }}>Uploading banner...</span>}
-                          {courseBannerUrl && <span style={{ fontSize: '11px', color: '#10b981', display: 'block', marginTop: '4px' }}>✔️ Uploaded to MinIO</span>}
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Chapters *</label>
@@ -4291,30 +4376,62 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                         </td>
                                         <td style={{ padding: '10px' }}>
                                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <input
-                                              type="file"
-                                              accept="video/*"
-                                              style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
-                                              onChange={async (e) => {
-                                                const file = e.target.files[0];
-                                                if (file) {
-                                                  const capturedDuration = await getVideoDuration(file);
-                                                  if (capturedDuration > 0) {
-                                                    const formattedDuration = formatSecondsToTime(capturedDuration);
-                                                    updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
+                                            {(vid.videoUrl || vid.video_url) ? (
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                  🎬 Video Loaded
+                                                </span>
+                                                <label htmlFor={`vid-file-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
+                                                  Change
+                                                </label>
+                                                <input
+                                                  id={`vid-file-${ch.id}-${vid.id}`}
+                                                  type="file"
+                                                  accept="video/*"
+                                                  style={{ display: 'none' }}
+                                                  onChange={async (e) => {
+                                                    const file = e.target.files[0];
+                                                    if (file) {
+                                                      const capturedDuration = await getVideoDuration(file);
+                                                      if (capturedDuration > 0) {
+                                                        const formattedDuration = formatSecondsToTime(capturedDuration);
+                                                        updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
+                                                      }
+                                                    }
+                                                    if (file && await verifyFileContent(file)) {
+                                                      e.target.value = '';
+                                                      return;
+                                                    }
+                                                    handleChapterVideoUpload(ch.id, vid.id, file);
+                                                  }}
+                                                />
+                                              </div>
+                                            ) : (
+                                              <input
+                                                type="file"
+                                                accept="video/*"
+                                                style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
+                                                onChange={async (e) => {
+                                                  const file = e.target.files[0];
+                                                  if (file) {
+                                                    const capturedDuration = await getVideoDuration(file);
+                                                    if (capturedDuration > 0) {
+                                                      const formattedDuration = formatSecondsToTime(capturedDuration);
+                                                      updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
+                                                    }
                                                   }
-                                                }
-                                                if (file && await verifyFileContent(file)) {
-                                                  e.target.value = '';
-                                                  return;
-                                                }
-                                                handleChapterVideoUpload(ch.id, vid.id, file);
-                                              }}
-                                            />
+                                                  if (file && await verifyFileContent(file)) {
+                                                    e.target.value = '';
+                                                    return;
+                                                  }
+                                                  handleChapterVideoUpload(ch.id, vid.id, file);
+                                                }}
+                                              />
+                                            )}
                                             {vid.uploadStatus === 'uploading' && (
                                               <span style={{ fontSize: '10px', color: '#e50914' }}>Uploading: {vid.uploadProgress || 0}%</span>
                                             )}
-                                            {vid.uploadStatus === 'success' && (
+                                            {vid.uploadStatus === 'success' && !vid.videoUrl && (
                                               <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Done</span>
                                             )}
                                             {vid.uploadStatus === 'error' && (
@@ -4324,23 +4441,46 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                         </td>
                                         <td style={{ padding: '10px' }}>
                                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
-                                              onChange={async (e) => {
-                                                const file = e.target.files[0];
-                                                if (file && await verifyFileContent(file)) {
-                                                  e.target.value = '';
-                                                  return;
-                                                }
-                                                handleChapterThumbnailUpload(ch.id, vid.id, file);
-                                              }}
-                                            />
+                                            {(vid.thumbnailUrl || vid.thumbnail) ? (
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <img src={vid.thumbnailUrl || vid.thumbnail} alt="Lesson Thumb" style={{ width: '36px', height: '22px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                                                <label htmlFor={`vid-thumb-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
+                                                  Change
+                                                </label>
+                                                <input
+                                                  id={`vid-thumb-${ch.id}-${vid.id}`}
+                                                  type="file"
+                                                  accept="image/*"
+                                                  style={{ display: 'none' }}
+                                                  onChange={async (e) => {
+                                                    const file = e.target.files[0];
+                                                    if (file && await verifyFileContent(file)) {
+                                                      e.target.value = '';
+                                                      return;
+                                                    }
+                                                    handleChapterThumbnailUpload(ch.id, vid.id, file);
+                                                  }}
+                                                />
+                                              </div>
+                                            ) : (
+                                              <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
+                                                onChange={async (e) => {
+                                                  const file = e.target.files[0];
+                                                  if (file && await verifyFileContent(file)) {
+                                                    e.target.value = '';
+                                                    return;
+                                                  }
+                                                  handleChapterThumbnailUpload(ch.id, vid.id, file);
+                                                }}
+                                              />
+                                            )}
                                             {vid.thumbStatus === 'uploading' && (
                                               <span style={{ fontSize: '10px', color: '#e50914' }}>Uploading...</span>
                                             )}
-                                            {vid.thumbStatus === 'success' && (
+                                            {vid.thumbStatus === 'success' && !vid.thumbnailUrl && (
                                               <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Done</span>
                                             )}
                                             {vid.thumbStatus === 'error' && (
