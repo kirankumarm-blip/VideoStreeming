@@ -1172,13 +1172,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async (categoryId) => {
+  const fetchSubCategories = async (categoryId = null) => {
     setLoadingSubCategories(true);
     try {
       let res;
-      if (justContent || isSuperAdmin) {
-        res = await api.dashboard.getSuperAdmin('getSubCategories');
-      } else if (categoryId) {
+      if (categoryId) {
         res = await api.videos.getSubCategories(categoryId);
       } else {
         res = await api.vdcategories.getSubCategories();
@@ -1223,12 +1221,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchCategories = async () => {
     try {
-      let data;
-      if (justContent || isSuperAdmin) {
-        data = await api.dashboard.getSuperAdmin('getCategories');
-      } else {
-        data = await api.categories.list();
-      }
+      const data = await api.vdcategories.getCategories();
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
       const normalizedList = rawList.map(item => {
         let jsonObj = {};
@@ -2250,18 +2243,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     try {
       if (editingCategory) {
         const catId = editingCategory.id || editingCategory.category_id || editingCategory.json?.id;
-        if (justContent || isSuperAdmin) {
-          await api.dashboard.getSuperAdmin('editCategory', { id: catId, name: cleanName, category_name: cleanName, description: cleanDesc });
-        } else {
-          await api.categories.update(catId, cleanName, cleanDesc);
-        }
+        await api.vdcategories.editCategory(catId, cleanName, cleanDesc);
         showSuccess("Category updated successfully!");
       } else {
-        if (justContent || isSuperAdmin) {
-          await api.dashboard.getSuperAdmin('addCategory', { name: cleanName, category_name: cleanName, description: cleanDesc });
-        } else {
-          await api.categories.create(cleanName, cleanDesc);
-        }
+        await api.vdcategories.addCategory(cleanName, cleanDesc);
         showSuccess("Category created successfully!");
       }
       setShowCategoryModal(false);
@@ -2287,11 +2272,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleDeleteCategory = (id) => {
     showConfirmDelete('Are you sure you want to delete this category?', async () => {
       try {
-        if (justContent || isSuperAdmin) {
-          await api.dashboard.getSuperAdmin('deleteCategory', { id });
-        } else {
-          await api.vdcategories.deleteCategory(id);
-        }
+        await api.vdcategories.deleteCategory(id);
         fetchCategories();
         fetchDashboardData();
         showSuccess("Category deleted successfully!");
@@ -2318,27 +2299,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     try {
       if (editingSubCategory) {
         const subCatId = editingSubCategory.id || editingSubCategory.sub_category_id || editingSubCategory.json?.id;
-        if (justContent || isSuperAdmin) {
-          await api.dashboard.getSuperAdmin('editSubCategory', { id: subCatId, cat_id: subCategoryForm.cat_id, name: cleanName, description: cleanDesc });
-        } else {
-          await api.vdcategories.editSubCategory(
-            subCatId,
-            subCategoryForm.cat_id,
-            cleanName,
-            cleanDesc
-          );
-        }
+        await api.vdcategories.editSubCategory(
+          subCatId,
+          subCategoryForm.cat_id,
+          cleanName,
+          cleanDesc
+        );
         showSuccess("Sub category updated successfully!");
       } else {
-        if (justContent || isSuperAdmin) {
-          await api.dashboard.getSuperAdmin('addSubCategory', { cat_id: subCategoryForm.cat_id, name: cleanName, description: cleanDesc });
-        } else {
-          await api.vdcategories.addSubCategory(
-            subCategoryForm.cat_id,
-            cleanName,
-            cleanDesc
-          );
-        }
+        await api.vdcategories.addSubCategory(
+          subCategoryForm.cat_id,
+          cleanName,
+          cleanDesc
+        );
         showSuccess("Sub category created successfully!");
       }
       setShowSubCategoryModal(false);

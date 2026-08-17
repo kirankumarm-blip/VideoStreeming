@@ -517,13 +517,14 @@ export const api = {
   },
   categories: {
     list: () => {
-      return request('/adminVideos', {
+      return request('/vdcategories', {
         method: 'POST',
-        body: JSON.stringify({ formStep: "getCategories" }),
+        body: JSON.stringify({ formstep: "getCategories" }),
+        expectArray: true
       });
     },
     create: (name, description) => {
-      return request('/categories', {
+      return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "addCategory",
@@ -534,7 +535,7 @@ export const api = {
       });
     },
     update: (id, name, description) => {
-      return request('/categories', {
+      return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "editCategory",
@@ -546,12 +547,46 @@ export const api = {
       });
     },
     delete: (id) => {
-      return request(`/categories/${id}`, {
-        method: 'DELETE',
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteCategory",
+          id
+        })
       });
     }
   },
   vdcategories: {
+    getCategories: () => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({ formstep: "getCategories" }),
+        expectArray: true
+      });
+    },
+    addCategory: (name, description) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "addCategory",
+          name,
+          category_name: name,
+          description
+        })
+      });
+    },
+    editCategory: (id, name, description) => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "editCategory",
+          id,
+          name,
+          category_name: name,
+          description
+        })
+      });
+    },
     getStates: () => {
       return request('/vdcategories', {
         method: 'POST',

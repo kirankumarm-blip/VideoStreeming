@@ -788,7 +788,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         data = await api.dashboard.getSuperAdmin('getAllVidoes', payload);
         setVideos(Array.isArray(data) ? data : []);
       } else if (formStep === 'categories') {
-        data = await api.dashboard.getSuperAdmin('getCategories', payload);
+        data = await api.vdcategories.getCategories();
         const rawList = Array.isArray(data) ? data : [];
         const normalized = rawList.map(item => {
           let jsonObj = {};
