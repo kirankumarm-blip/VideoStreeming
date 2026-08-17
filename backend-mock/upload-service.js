@@ -167,14 +167,18 @@ app.post('/api/upload/complete', async (req, res) => {
 
 // 4. Register Video Metadata & notify n8n
 app.post('/api/upload/register-video', async (req, res) => {
-  const { title, description, category, tags, visibility, videoUrl, thumbnailUrl, fileId } = req.body;
+  const { title, description, message, category, tags, visibility, videoUrl, thumbnailUrl, fileId } = req.body;
   const authHeader = req.headers['authorization'];
+  const notifMsg = message || `"${title}" has been uploaded. Watch it now!`;
 
   try {
     const payload = {
       formStep: 'uploadVideo',
       title,
       description,
+      message: notifMsg,
+      notification_message: notifMsg,
+      notificationMessage: notifMsg,
       category,
       tags,
       visibility,

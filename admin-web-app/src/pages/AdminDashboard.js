@@ -1933,9 +1933,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         return chapterObj;
       }));
 
+      const courseNotifMsg = `"${courseForm.title}" course has been published. Check it out now!`;
+
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
+        message: courseNotifMsg,
+        notification_message: courseNotifMsg,
+        notificationMessage: courseNotifMsg,
         category: courseForm.category,
         subCategory: courseForm.subCategory,
         subcategory_id: courseForm.subCategory,
@@ -2418,9 +2423,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const encryptedVideoUrl = await encryptUrl(videoUrl);
       const encryptedThumbnailUrl = await encryptUrl(thumbnailUrl);
 
+      const videoNotifMsg = `"${uploadForm.title}" has been uploaded. Watch it now!`;
+
       const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
+        message: videoNotifMsg,
+        notification_message: videoNotifMsg,
+        notificationMessage: videoNotifMsg,
         category: uploadForm.category,
         subCategory: uploadForm.subCategory,
         subcategory_id: uploadForm.subCategory,
