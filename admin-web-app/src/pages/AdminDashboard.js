@@ -2510,7 +2510,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         notificationMessage: videoNotifMsg,
         category: uploadForm.category,
         subCategory: uploadForm.subCategory,
-        subcategory_id: uploadForm.subCategory,
         language_id: uploadForm.languageId,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,

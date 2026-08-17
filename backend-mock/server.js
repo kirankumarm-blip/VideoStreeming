@@ -59,8 +59,36 @@ function readDB() {
   }
 }
 
+const UNUSED_VIDEO_FIELDS = [
+  'modified_by',
+  'uploaded_by',
+  'archive_date',
+  'created_date',
+  'difficulty_id',
+  'visibility_id',
+  'archive_status',
+  'assigned_admin',
+  'subcategory_id',
+  'lastmodified_date'
+];
+
+function sanitizeVideoObj(item) {
+  if (!item || typeof item !== 'object') return item;
+  if (Array.isArray(item)) {
+    return item.map(sanitizeVideoObj);
+  }
+  const cleaned = { ...item };
+  UNUSED_VIDEO_FIELDS.forEach(field => {
+    delete cleaned[field];
+  });
+  return cleaned;
+}
+
 function writeDB(data) {
   try {
+    if (data && Array.isArray(data.videos)) {
+      data.videos = data.videos.map(sanitizeVideoObj);
+    }
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
     console.error("Error writing database", err);
