@@ -1472,12 +1472,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const addChapter = () => {
     setChapters(prev => {
-      const newId = prev.length > 0 ? Math.max(...prev.map(c => c.id)) + 1 : 1;
+      const newId = prev.length > 0 ? Math.max(...prev.map(c => typeof c.id === 'number' ? c.id : 0)) + 1 : 1;
       const defaultVisibility = visibilities[0]?.id || '';
       return [
         ...prev,
         {
           id: newId,
+          isNew: true,
           title: `Chapter ${newId}`,
           description: '',
           visibility: defaultVisibility,
@@ -1499,12 +1500,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const addVideoToChapter = (chapterId) => {
     setChapters(prev => prev.map(ch => {
       if (ch.id !== chapterId) return ch;
-      const newId = ch.videos.length > 0 ? Math.max(...ch.videos.map(v => v.id)) + 1 : 1;
+      const newId = ch.videos.length > 0 ? Math.max(...ch.videos.map(v => typeof v.id === 'number' ? v.id : 0)) + 1 : 1;
       return {
         ...ch,
         videos: [
           ...ch.videos,
-          { id: newId, title: 'New Lesson', file: null, fileName: '', thumbnail: null, thumbName: '', duration: '', isPreview: false }
+          { id: newId, isNew: true, title: 'New Lesson', file: null, fileName: '', thumbnail: null, thumbName: '', duration: '', isPreview: false }
         ]
       };
     }));
@@ -2023,8 +2024,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             duration: v.duration,
             isPreview: v.isPreview
           };
-          if (v.existingId) {
-            videoObj.id = v.existingId;
+          const vidId = !v.isNew ? (v.existingId || v.video_id || v.id) : null;
+          if (vidId) {
+            videoObj.id = vidId;
           }
           return videoObj;
         }));
@@ -2035,9 +2037,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           order: ch.order,
           videos: encryptedVideos
         };
-        if (ch.existingId) {
-          chapterObj.id = ch.existingId;
-          chapterObj.chapter_id = ch.existingId;
+        const chapId = !ch.isNew ? (ch.existingId || ch.chapter_id || ch.id) : null;
+        if (chapId) {
+          chapterObj.id = chapId;
+          chapterObj.chapter_id = chapId;
         }
 
         if (ch.quiz && Array.isArray(ch.quiz.questions) && ch.quiz.questions.length > 0) {
