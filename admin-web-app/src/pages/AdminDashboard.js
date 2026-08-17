@@ -1172,11 +1172,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async (categoryId = null) => {
+  const fetchSubCategories = async (categoryId) => {
     setLoadingSubCategories(true);
     try {
       let res;
-      if (categoryId) {
+      if (justContent || isSuperAdmin) {
+        res = await api.dashboard.getSuperAdmin('getSubCategories');
+      } else if (categoryId) {
         res = await api.videos.getSubCategories(categoryId);
       } else {
         res = await api.vdcategories.getSubCategories();
@@ -1221,7 +1223,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchCategories = async () => {
     try {
-      const data = await api.categories.list();
+      let data;
+      if (justContent || isSuperAdmin) {
+        data = await api.dashboard.getSuperAdmin('getCategories');
+      } else {
+        data = await api.categories.list();
+      }
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
       const normalizedList = rawList.map(item => {
         let jsonObj = {};
@@ -2238,13 +2245,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError("Please fill out category name");
       return;
     }
+    const cleanDesc = String(categoryForm.description || '').trim();
 
     try {
       if (editingCategory) {
-        await api.categories.update(editingCategory.id, cleanName, categoryForm.description ? categoryForm.description.trim() : '');
+        const catId = editingCategory.id || editingCategory.category_id || editingCategory.json?.id;
+        if (justContent || isSuperAdmin) {
+          await api.dashboard.getSuperAdmin('editCategory', { id: catId, name: cleanName, category_name: cleanName, description: cleanDesc });
+        } else {
+          await api.categories.update(catId, cleanName, cleanDesc);
+        }
         showSuccess("Category updated successfully!");
       } else {
-        await api.categories.create(cleanName, categoryForm.description ? categoryForm.description.trim() : '');
+        if (justContent || isSuperAdmin) {
+          await api.dashboard.getSuperAdmin('addCategory', { name: cleanName, category_name: cleanName, description: cleanDesc });
+        } else {
+          await api.categories.create(cleanName, cleanDesc);
+        }
         showSuccess("Category created successfully!");
       }
       setShowCategoryModal(false);
@@ -2270,7 +2287,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleDeleteCategory = (id) => {
     showConfirmDelete('Are you sure you want to delete this category?', async () => {
       try {
-        await api.vdcategories.deleteCategory(id);
+        if (justContent || isSuperAdmin) {
+          await api.dashboard.getSuperAdmin('deleteCategory', { id });
+        } else {
+          await api.vdcategories.deleteCategory(id);
+        }
         fetchCategories();
         fetchDashboardData();
         showSuccess("Category deleted successfully!");
@@ -2292,23 +2313,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError("Please fill out sub category name");
       return;
     }
+    const cleanDesc = String(subCategoryForm.description || '').trim();
 
     try {
       if (editingSubCategory) {
-        const subCatId = editingSubCategory.id || editingSubCategory.sub_category_id;
-        await api.vdcategories.editSubCategory(
-          subCatId,
-          subCategoryForm.cat_id,
-          cleanName,
-          subCategoryForm.description ? subCategoryForm.description.trim() : ''
-        );
+        const subCatId = editingSubCategory.id || editingSubCategory.sub_category_id || editingSubCategory.json?.id;
+        if (justContent || isSuperAdmin) {
+          await api.dashboard.getSuperAdmin('editSubCategory', { id: subCatId, cat_id: subCategoryForm.cat_id, name: cleanName, description: cleanDesc });
+        } else {
+          await api.vdcategories.editSubCategory(
+            subCatId,
+            subCategoryForm.cat_id,
+            cleanName,
+            cleanDesc
+          );
+        }
         showSuccess("Sub category updated successfully!");
       } else {
-        await api.vdcategories.addSubCategory(
-          subCategoryForm.cat_id,
-          cleanName,
-          subCategoryForm.description ? subCategoryForm.description.trim() : ''
-        );
+        if (justContent || isSuperAdmin) {
+          await api.dashboard.getSuperAdmin('addSubCategory', { cat_id: subCategoryForm.cat_id, name: cleanName, description: cleanDesc });
+        } else {
+          await api.vdcategories.addSubCategory(
+            subCategoryForm.cat_id,
+            cleanName,
+            cleanDesc
+          );
+        }
         showSuccess("Sub category created successfully!");
       }
       setShowSubCategoryModal(false);
