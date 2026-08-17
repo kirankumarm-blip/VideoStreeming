@@ -1327,6 +1327,52 @@ app.get('/api/dashboard/user', authenticateToken, authorizeRoles('user'), (req, 
 
 // ================= NOTIFICATIONS MODULE =================
 
+const handleVdNotification = (req, res) => {
+  const db = readDB();
+  const formstep = req.body.formstep || req.body.formStep;
+  const token = req.body.token;
+
+  let userId = null;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      userId = decoded.id;
+    } catch (e) {}
+  }
+  if (!userId && req.user) {
+    userId = req.user.id;
+  }
+
+  if (formstep === 'markAsRead') {
+    const notifId = String(req.body.id);
+    const notif = db.notifications.find(n => String(n.id) === notifId);
+    if (notif) {
+      notif.read = true;
+      writeDB(db);
+    }
+    return res.json({ success: true });
+  }
+
+  if (formstep === 'sendCampaign') {
+    const { type, title, message } = req.body;
+    db.users.filter(u => u.role === 'user' || u.role === 'student' || !u.role).forEach(u => {
+      addNotification(u.id, title || 'Announcement', message || '');
+    });
+    return res.json({ success: true, message: 'Campaign sent successfully' });
+  }
+
+  // Default: getNotifications
+  const userNotifs = userId ? db.notifications.filter(n => n.userId === userId) : db.notifications;
+  return res.json(userNotifs.sort((a, b) => new Date(b.date) - new Date(a.date)));
+};
+
+app.post('/vdnotification', handleVdNotification);
+app.post('/api/vdnotification', handleVdNotification);
+app.post('/webhook/vdnotification', handleVdNotification);
+app.post('/vdnotifications', handleVdNotification);
+app.post('/api/vdnotifications', handleVdNotification);
+app.post('/webhook/vdnotifications', handleVdNotification);
+
 app.get('/api/notifications', authenticateToken, (req, res) => {
   const db = readDB();
   const userNotifs = db.notifications.filter(n => n.userId === req.user.id);

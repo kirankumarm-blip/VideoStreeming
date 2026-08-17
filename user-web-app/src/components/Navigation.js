@@ -51,7 +51,25 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const fetchNotifications = async () => {
     try {
       const data = await api.notifications.list();
-      setNotifications(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const normalized = list.map((item, idx) => {
+        let jsonObj = {};
+        if (item && item.json) {
+          try {
+            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+          } catch (err) {
+            jsonObj = {};
+          }
+        }
+        return {
+          id: String(item.id || jsonObj.id || idx),
+          title: item.title || jsonObj.title || item.name || jsonObj.name || 'Notification',
+          message: item.message || jsonObj.message || item.description || jsonObj.description || '',
+          date: item.date || jsonObj.date || item.created_at || new Date().toISOString(),
+          read: Boolean(item.read || jsonObj.read)
+        };
+      });
+      setNotifications(normalized);
     } catch (e) {
       console.error("Failed to load notifications", e);
     }

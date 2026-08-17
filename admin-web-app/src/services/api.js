@@ -1054,16 +1054,42 @@ export const api = {
     }
   },
   notifications: {
-    list: () => request('/notifications'),
+    list: () => {
+      const token = getAccessToken();
+      return request('/vdnotification', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: "getNotifications",
+          formStep: "getNotifications"
+        }),
+        expectArray: true
+      });
+    },
     markAsRead: (id) => {
-      return request(`/notifications/${id}/read`, {
-        method: 'PUT',
+      const token = getAccessToken();
+      return request('/vdnotification', {
+        method: 'POST',
+        body: JSON.stringify({
+          id,
+          token: token || '',
+          formstep: "markAsRead",
+          formStep: "markAsRead"
+        })
       });
     },
     sendCampaign: (type, title, message) => {
-      return request('/notifications/campaign', {
+      const token = getAccessToken();
+      return request('/vdnotification', {
         method: 'POST',
-        body: JSON.stringify({ type, title, message }),
+        body: JSON.stringify({
+          type,
+          title,
+          message,
+          token: token || '',
+          formstep: "sendCampaign",
+          formStep: "sendCampaign"
+        })
       });
     }
   },
