@@ -121,17 +121,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     setSearchParams(newParams);
   };
 
-  const handleNotificationClick = async (notif) => {
-    if (!notif.read) {
-      try {
-        await api.notifications.markAsRead(notif.id);
-        // Update local state
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    // Perform any navigation if required
+  const handleNotificationClick = (notif) => {
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     setShowNotifDropdown(false);
   };
 
@@ -401,9 +392,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         {user && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
             <div onClick={() => {
-              const nextState = !showNotifDropdown;
-              setShowNotifDropdown(nextState);
-              if (nextState) fetchNotifications();
+              setShowNotifDropdown(!showNotifDropdown);
             }} className="notification-bell" style={{ position: 'relative', cursor: 'pointer', padding: '6px' }}>
               <span style={{ fontSize: '20px' }}>🔔</span>
               {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
@@ -415,12 +404,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                   <span style={{ fontWeight: 700, fontSize: '15px' }}>Notifications</span>
                   {unreadCount > 0 && (
                     <button 
-                      onClick={async () => {
-                        const updated = notifications.map(n => ({ ...n, read: true }));
-                        setNotifications(updated);
-                        notifications.forEach(n => {
-                          if (!n.read) api.notifications.markAsRead(n.id).catch(()=>{});
-                        });
+                      onClick={() => {
+                        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
                       }}
                       style={{ background: 'none', border: 'none', color: '#7c3aed', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
                     >
