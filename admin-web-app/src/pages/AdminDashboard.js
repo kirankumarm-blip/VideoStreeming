@@ -1185,10 +1185,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async () => {
+  const fetchSubCategories = async (categoryId = null) => {
     setLoadingSubCategories(true);
     try {
-      const res = await api.vdcategories.getSubCategories();
+      const res = await api.vdcategories.getSubCategories(categoryId);
       const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       const subCats = rawSubCats.map(item => {
         let jsonObj = {};
@@ -3408,61 +3408,47 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <div className="responsive-2col-grid">
                       <div className="form-group">
                         <label className="form-label">{t('admin.tableCategory')}</label>
-                        <select 
-                          className="form-input"
+                        <PremiumSelect
+                          options={categories.map(c => ({ id: c.id, name: c.name }))}
                           value={uploadForm.category}
                           onChange={(e) => {
                             const val = e.target.value;
                             setUploadForm(prev => ({ ...prev, category: val }));
                             fetchSubCategories(val);
                           }}
-                          required
-                        >
-                          <option value="">Select Category</option>
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                          ))}
-                        </select>
+                          placeholder="Select Category"
+                          icon="fa-solid fa-folder"
+                        />
                       </div>
 
                       <div className="form-group">
                         <label className="form-label">Sub Category</label>
-                        <select 
-                          className="form-input"
+                        <PremiumSelect
+                          options={subCategories.map(sc => ({ id: sc.id || sc.name, name: sc.name }))}
                           value={uploadForm.subCategory}
                           onChange={(e) => setUploadForm({ ...uploadForm, subCategory: e.target.value })}
-                          required
+                          placeholder={loadingSubCategories ? 'Loading...' : 'Select Sub Category'}
                           disabled={loadingSubCategories}
-                        >
-                          <option value="">{loadingSubCategories ? 'Loading...' : 'Select Sub Category'}</option>
-                          {subCategories.map(subCat => (
-                            <option key={subCat.id || subCat.name} value={subCat.id || subCat.name}>{subCat.name}</option>
-                          ))}
-                        </select>
+                          icon="fa-solid fa-layer-group"
+                        />
                       </div>
 
                       <div className="form-group">
                         <label className="form-label">Language</label>
-                        <select 
-                          className="form-input"
+                        <PremiumSelect
+                          options={languages.map(lang => ({ id: lang.id || lang.language_id || lang.name, name: lang.name || lang.title || lang.language_name || lang.id }))}
                           value={uploadForm.languageId}
                           onChange={(e) => setUploadForm({ ...uploadForm, languageId: e.target.value })}
-                          required
+                          placeholder={loadingLanguages ? 'Loading...' : 'Select Language'}
                           disabled={loadingLanguages}
-                        >
-                          <option value="">{loadingLanguages ? 'Loading...' : 'Select Language'}</option>
-                          {languages.map(lang => (
-                            <option key={lang.id || lang.language_id || lang.name} value={lang.id || lang.language_id || lang.name}>
-                              {lang.name || lang.title || lang.language_name || lang.id}
-                            </option>
-                          ))}
-                        </select>
+                          icon="fa-solid fa-globe"
+                        />
                       </div>
 
                       <div className="form-group">
                         <label className="form-label">Visibility</label>
-                        <select 
-                          className="form-input"
+                        <PremiumSelect
+                          options={visibilities.map(vis => ({ id: vis.id, name: vis.name || vis.visibility || vis.title || vis.id }))}
                           value={uploadForm.visibility}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -3477,12 +3463,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               fetchAdminsList();
                             }
                           }}
-                          required
-                        >
-                          {visibilities.map(vis => (
-                            <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
-                          ))}
-                        </select>
+                          placeholder="Select Visibility"
+                          icon="fa-solid fa-eye"
+                        />
                       </div>
 
                       {(() => {
@@ -3497,38 +3480,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         isSuperAdmin ? (
                           <div className="form-group">
                             <label className="form-label">Admin *</label>
-                            <select 
-                              className="form-input"
+                            <PremiumSelect
+                              options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                               value={uploadForm.adminId}
                               onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
-                              required
+                              placeholder={loadingAdminsList ? 'Loading...' : 'Select Admin'}
                               disabled={loadingAdminsList}
-                            >
-                              <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
-                              {adminsList.map(admin => (
-                                <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
-                                  {admin.name || admin.username || admin.email || admin.id}
-                                </option>
-                              ))}
-                            </select>
+                              icon="fa-solid fa-user-gear"
+                            />
                           </div>
                         ) : (
                           <div className="form-group">
                             <label className="form-label">Plan</label>
-                            <select 
-                              className="form-input"
+                            <PremiumSelect
+                              options={plans.map(p => ({ id: p.id || p.plan_id, name: p.name || p.title || p.plan_name || p.id }))}
                               value={uploadForm.planId}
                               onChange={(e) => setUploadForm({ ...uploadForm, planId: e.target.value })}
-                              required
+                              placeholder={loadingPlans ? 'Loading...' : 'Select Plan'}
                               disabled={loadingPlans}
-                            >
-                              <option value="">{loadingPlans ? 'Loading...' : 'Select Plan'}</option>
-                              {plans.map(p => (
-                                <option key={p.id || p.plan_id} value={p.id || p.plan_id}>
-                                  {p.name || p.title || p.plan_name || p.id}
-                                </option>
-                              ))}
-                            </select>
+                              icon="fa-solid fa-gem"
+                            />
                           </div>
                         )
                       )}
@@ -3925,67 +3896,49 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Category *</label>
-                          <select
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                          <PremiumSelect
+                            options={categories.map(c => ({ id: c.id, name: c.name }))}
                             value={courseForm.category}
                             onChange={(e) => {
                               const val = e.target.value;
                               setCourseForm(prev => ({ ...prev, category: val }));
                               fetchSubCategories(val);
                             }}
-                            required
-                          >
-                            <option value="">Select Category</option>
-                            {categories.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
+                            placeholder="Select Category"
+                            icon="fa-solid fa-folder"
+                          />
                         </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Sub Category *</label>
-                          <select
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                          <PremiumSelect
+                            options={subCategories.map(sc => ({ id: sc.id || sc.name, name: sc.name }))}
                             value={courseForm.subCategory}
-                            onChange={(e) => setCourseForm({ ...courseForm, subCategory: e.target.value })}
-                            required
+                            onChange={(e) => setCourseForm(prev => ({ ...prev, subCategory: e.target.value }))}
+                            placeholder={loadingSubCategories ? 'Loading...' : 'Select Sub Category'}
                             disabled={loadingSubCategories}
-                          >
-                            <option value="">{loadingSubCategories ? 'Loading...' : 'Select Sub Category'}</option>
-                            {subCategories.map((subCat) => (
-                              <option key={subCat.id || subCat.name} value={subCat.id || subCat.name}>{subCat.name}</option>
-                            ))}
-                          </select>
+                            icon="fa-solid fa-layer-group"
+                          />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Language *</label>
-                          <select
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                          <PremiumSelect
+                            options={languages.map(lang => ({ id: lang.id || lang.language_id || lang.name, name: lang.name || lang.title || lang.language_name || lang.id }))}
                             value={courseForm.languageId}
-                            onChange={(e) => setCourseForm({ ...courseForm, languageId: e.target.value })}
-                            required
+                            onChange={(e) => setCourseForm(prev => ({ ...prev, languageId: e.target.value }))}
+                            placeholder={loadingLanguages ? 'Loading...' : 'Select Language'}
                             disabled={loadingLanguages}
-                          >
-                            <option value="">{loadingLanguages ? 'Loading...' : 'Select Language'}</option>
-                            {languages.map((lang) => (
-                              <option key={lang.id || lang.language_id || lang.name} value={lang.id || lang.language_id || lang.name}>
-                                {lang.name || lang.title || lang.language_name || lang.id}
-                              </option>
-                            ))}
-                          </select>
+                            icon="fa-solid fa-globe"
+                          />
                         </div>
                         {isSuperAdmin && (
                           <>
                             <div className="form-group" style={{ margin: 0 }}>
                               <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Visibility *</label>
-                              <select
-                                className="form-input"
-                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              <PremiumSelect
+                                options={visibilities.map(vis => ({ id: vis.id, name: vis.name || vis.visibility || vis.title || vis.id }))}
                                 value={courseForm.visibility}
                                 onChange={(e) => {
                                   const val = e.target.value;
@@ -4000,13 +3953,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     fetchAdminsList();
                                   }
                                 }}
-                                required
-                              >
-                                <option value="">Select Visibility</option>
-                                {visibilities.map((vis) => (
-                                  <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
-                                ))}
-                              </select>
+                                placeholder="Select Visibility"
+                                icon="fa-solid fa-eye"
+                              />
                             </div>
                             {(() => {
                               const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
@@ -4019,21 +3968,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             })() && (
                               <div className="form-group" style={{ margin: 0 }}>
                                 <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
-                                <select
-                                  className="form-input"
-                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                <PremiumSelect
+                                  options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                                   value={courseForm.adminId}
-                                  onChange={(e) => setCourseForm({ ...courseForm, adminId: e.target.value })}
-                                  required
+                                  onChange={(e) => setCourseForm(prev => ({ ...prev, adminId: e.target.value }))}
+                                  placeholder={loadingAdminsList ? 'Loading...' : 'Select Admin'}
                                   disabled={loadingAdminsList}
-                                >
-                                  <option value="">{loadingAdminsList ? 'Loading...' : 'Select Admin'}</option>
-                                  {adminsList.map((admin) => (
-                                    <option key={admin.id || admin.admin_id} value={admin.id || admin.admin_id}>
-                                      {admin.name || admin.username || admin.email || admin.id}
-                                    </option>
-                                  ))}
-                                </select>
+                                  icon="fa-solid fa-user-gear"
+                                />
                               </div>
                             )}
                           </>
@@ -4055,20 +3997,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Level *</label>
-                          <select
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                          <PremiumSelect
+                            options={levels.map(lvl => ({ id: lvl.id || lvl.level, name: lvl.level || lvl.level_name || lvl.name }))}
                             value={courseForm.level}
-                            onChange={(e) => setCourseForm({ ...courseForm, level: e.target.value })}
-                            required
-                          >
-                            <option value="">Select Level</option>
-                            {levels.map(lvl => (
-                              <option key={lvl.id || lvl.level} value={lvl.id || lvl.level}>
-                                {lvl.level || lvl.level_name || lvl.name}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(e) => setCourseForm(prev => ({ ...prev, level: e.target.value }))}
+                            placeholder="Select Level"
+                            icon="fa-solid fa-signal"
+                          />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Tags (Comma separated)</label>

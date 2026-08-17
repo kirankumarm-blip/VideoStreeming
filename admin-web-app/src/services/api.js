@@ -601,10 +601,19 @@ export const api = {
         expectArray: true
       });
     },
-    getSubCategories: () => {
+    getSubCategories: (categoryId = null) => {
+      const payload = {
+        formstep: "getSubCategory",
+        formStep: "getSubCategory"
+      };
+      if (categoryId) {
+        payload.category_id = categoryId;
+        payload.cat_id = categoryId;
+        payload.catId = categoryId;
+      }
       return request('/vdcategories', {
         method: 'POST',
-        body: JSON.stringify({ formstep: "getSubCategory" }),
+        body: JSON.stringify(payload),
         expectArray: true
       });
     },
