@@ -881,9 +881,7 @@ export const api = {
         body: JSON.stringify({
           token: token || '',
           formstep: "saveNotification",
-          formStep: "saveNotification",
           notification_id: notificationId,
-          notificationId: notificationId,
           status: status
         })
       });
@@ -896,10 +894,7 @@ export const api = {
         body: JSON.stringify({
           token: token || '',
           formstep: "saveNotification",
-          formStep: "saveNotification",
           notification_id: idsParam,
-          notificationId: idsParam,
-          notification_ids: notificationIds,
           status: status
         })
       });
