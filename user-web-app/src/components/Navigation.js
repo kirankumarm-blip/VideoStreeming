@@ -137,9 +137,14 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     setSearchParams(newParams);
   };
 
-  const handleNotificationClick = (notif) => {
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+  const handleNotificationClick = async (notif) => {
+    setNotifications(prev => prev.map(n => String(n.id) === String(notif.id) ? { ...n, read: true } : n));
     setShowNotifDropdown(false);
+    try {
+      await api.notifications.saveNotification(notif.id, 'read');
+    } catch (e) {
+      console.error('Failed to save notification read status', e);
+    }
   };
 
   const toggleTheme = () => {
@@ -420,8 +425,16 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                   <span style={{ fontWeight: 700, fontSize: '15px' }}>Notifications</span>
                   {unreadCount > 0 && (
                     <button 
-                      onClick={() => {
+                      onClick={async () => {
+                        const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
                         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                        if (unreadIds.length > 0) {
+                          try {
+                            await api.notifications.saveAllNotifications(unreadIds, 'read');
+                          } catch (e) {
+                            console.error('Failed to save all notifications read status', e);
+                          }
+                        }
                       }}
                       style={{ background: 'none', border: 'none', color: '#7c3aed', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
                     >

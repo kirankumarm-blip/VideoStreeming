@@ -1414,6 +1414,88 @@ app.post('/vdnotifications', handleVdNotification);
 app.post('/api/vdnotifications', handleVdNotification);
 app.post('/webhook/vdnotifications', handleVdNotification);
 
+const handleVdUser = (req, res) => {
+  const db = readDB();
+  const formstep = req.body.formstep || req.body.formStep;
+  const token = req.body.token;
+
+  let userId = null;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      userId = decoded.id;
+    } catch (e) {}
+  }
+  if (!userId && req.user) {
+    userId = req.user.id;
+  }
+
+  if (formstep === 'saveNotification') {
+    const rawNotifId = req.body.notification_id || req.body.notificationId || req.body.notification_ids || req.body.id;
+    const status = req.body.status || 'read';
+    const isReadStatus = (status === 'read' || status === true || status === '1' || status === 1);
+
+    if (!db.user_notification_reads) {
+      db.user_notification_reads = [];
+    }
+
+    const now = new Date().toISOString();
+    let notifIds = [];
+
+    if (Array.isArray(rawNotifId)) {
+      notifIds = rawNotifId.map(id => String(id));
+    } else if (typeof rawNotifId === 'string' && rawNotifId.includes(',')) {
+      notifIds = rawNotifId.split(',').map(id => id.trim());
+    } else if (rawNotifId) {
+      notifIds = [String(rawNotifId)];
+    }
+
+    notifIds.forEach(notifId => {
+      // Update main notification
+      const notif = db.notifications.find(n => String(n.id) === String(notifId));
+      if (notif) {
+        notif.read = isReadStatus;
+      }
+
+      // Update or insert into user_notification_reads table
+      const existingIdx = db.user_notification_reads.findIndex(
+        r => String(r.user_id) === String(userId) && String(r.notification_id) === String(notifId)
+      );
+
+      if (existingIdx >= 0) {
+        db.user_notification_reads[existingIdx].is_read = isReadStatus;
+        db.user_notification_reads[existingIdx].status = status;
+        db.user_notification_reads[existingIdx].read_at = now;
+      } else {
+        db.user_notification_reads.push({
+          id: `unr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          user_id: userId || 'unknown',
+          notification_id: notifId,
+          is_read: isReadStatus,
+          status: status,
+          read_at: now,
+          created_at: now
+        });
+      }
+    });
+
+    writeDB(db);
+    return res.json({
+      success: true,
+      message: 'Notification read status saved via vdUser',
+      notification_id: rawNotifId,
+      status: status,
+      processed_count: notifIds.length
+    });
+  }
+
+  return res.json({ success: true, message: 'vdUser processed' });
+};
+
+app.post('/vdUser', handleVdUser);
+app.post('/api/vdUser', handleVdUser);
+app.post('/webhook/vdUser', handleVdUser);
+
 app.get('/api/notifications', authenticateToken, (req, res) => {
   const db = readDB();
   const userNotifs = db.notifications.filter(n => n.userId === req.user.id);

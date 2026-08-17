@@ -874,6 +874,36 @@ export const api = {
         })
       });
     },
+    saveNotification: (notificationId, status = 'read') => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: "saveNotification",
+          formStep: "saveNotification",
+          notification_id: notificationId,
+          notificationId: notificationId,
+          status: status
+        })
+      });
+    },
+    saveAllNotifications: (notificationIds, status = 'read') => {
+      const token = getAccessToken();
+      const idsParam = Array.isArray(notificationIds) ? notificationIds.join(',') : notificationIds;
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: "saveNotification",
+          formStep: "saveNotification",
+          notification_id: idsParam,
+          notificationId: idsParam,
+          notification_ids: notificationIds,
+          status: status
+        })
+      });
+    },
     sendCampaign: (type, title, message) => {
       const token = getAccessToken();
       return request('/vdnotifications', {
