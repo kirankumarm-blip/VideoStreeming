@@ -890,38 +890,12 @@ export const api = {
       });
     }
   },
-const UNUSED_VIDEO_FIELDS = [
-  'modified_by',
-  'uploaded_by',
-  'archive_date',
-  'created_date',
-  'difficulty_id',
-  'visibility_id',
-  'archive_status',
-  'assigned_admin',
-  'subcategory_id',
-  'lastmodified_date'
-];
-
-export const sanitizeVideoData = (item) => {
-  if (!item || typeof item !== 'object') return item;
-  if (Array.isArray(item)) {
-    return item.map(sanitizeVideoData);
-  }
-  const cleaned = { ...item };
-  UNUSED_VIDEO_FIELDS.forEach(field => {
-    delete cleaned[field];
-  });
-  return cleaned;
-};
-
   videos: {
-    list: async (params = {}) => {
-      const data = await request('/adminVideos', {
+    list: (params = {}) => {
+      return request('/adminVideos', {
         method: 'POST',
         body: JSON.stringify({ formStep: "getAllVideos" }),
       });
-      return sanitizeVideoData(data);
     },
     getLevels: () => {
       return request('/adminVideos', {
@@ -997,10 +971,10 @@ export const sanitizeVideoData = (item) => {
       const isSuperAdmin = user && user.role === 'super_admin';
       const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
       const token = getAccessToken();
-      const bodyObj = sanitizeVideoData({
+      const bodyObj = {
         ...payload,
         formStep: 'uploadVideo'
-      });
+      };
       if (token) {
         bodyObj.token = token;
       }
@@ -1024,34 +998,31 @@ export const sanitizeVideoData = (item) => {
       const endpoint = isSuperAdmin ? '/SuperAdminVideos' : '/adminVideos';
       return request(endpoint, {
         method: 'POST',
-        body: JSON.stringify(sanitizeVideoData({
+        body: JSON.stringify({
           ...payload,
           formStep: isSuperAdmin ? "uploadCourse" : "UploadCouse"
-        }))
+        })
       });
     },
 
-    listCourses: async (adminId = null) => {
+    listCourses: (adminId = null) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
-      let data;
       if (isSuperAdmin) {
         const payload = { formstep: "getAllCourses" };
         if (adminId) {
           payload.admin_id = adminId;
         }
-        data = await request('/dashboard/super-admin', {
+        return request('/dashboard/super-admin', {
           method: 'POST',
           body: JSON.stringify(payload),
           expectArray: true
         });
-      } else {
-        data = await request('/adminVideos', {
-          method: 'POST',
-          body: JSON.stringify({ formStep: "getAllCourses" }),
-        });
       }
-      return sanitizeVideoData(data);
+      return request('/adminVideos', {
+        method: 'POST',
+        body: JSON.stringify({ formStep: "getAllCourses" }),
+      });
     },
 
     listVisibilities: () => {

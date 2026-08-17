@@ -677,38 +677,12 @@ export const api = {
       });
     }
   },
-const UNUSED_VIDEO_FIELDS = [
-  'modified_by',
-  'uploaded_by',
-  'archive_date',
-  'created_date',
-  'difficulty_id',
-  'visibility_id',
-  'archive_status',
-  'assigned_admin',
-  'subcategory_id',
-  'lastmodified_date'
-];
-
-export const sanitizeVideoData = (item) => {
-  if (!item || typeof item !== 'object') return item;
-  if (Array.isArray(item)) {
-    return item.map(sanitizeVideoData);
-  }
-  const cleaned = { ...item };
-  UNUSED_VIDEO_FIELDS.forEach(field => {
-    delete cleaned[field];
-  });
-  return cleaned;
-};
-
   videos: {
-    list: async (params = {}) => {
-      const data = await request('/adminVideos', {
+    list: (params = {}) => {
+      return request('/adminVideos', {
         method: 'POST',
         body: JSON.stringify({ formStep: "getAllVideos" }),
       });
-      return sanitizeVideoData(data);
     },
     getLevels: () => {
       return request('/adminVideos', {
