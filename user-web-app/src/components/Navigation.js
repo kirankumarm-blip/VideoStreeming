@@ -23,12 +23,9 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const recentlyViewedRef = useRef(null);
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
     if (user && user.role === 'user') {
       fetchRecentlyViewedByFilter(activeFilter);
     }
-    return () => clearInterval(interval);
   }, []);
 
   // Close dropdowns on click outside

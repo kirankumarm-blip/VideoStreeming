@@ -1056,7 +1056,7 @@ export const api = {
   notifications: {
     list: () => {
       const token = getAccessToken();
-      return request('/vdnotification', {
+      return request('/vdnotifications', {
         method: 'POST',
         body: JSON.stringify({
           token: token || '',
@@ -1068,7 +1068,7 @@ export const api = {
     },
     markAsRead: (id) => {
       const token = getAccessToken();
-      return request('/vdnotification', {
+      return request('/vdnotifications', {
         method: 'POST',
         body: JSON.stringify({
           id,
@@ -1080,7 +1080,7 @@ export const api = {
     },
     sendCampaign: (type, title, message) => {
       const token = getAccessToken();
-      return request('/vdnotification', {
+      return request('/vdnotifications', {
         method: 'POST',
         body: JSON.stringify({
           type,
