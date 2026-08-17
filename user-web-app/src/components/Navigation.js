@@ -23,9 +23,12 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const recentlyViewedRef = useRef(null);
 
   useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
     if (user && user.role === 'user') {
       fetchRecentlyViewedByFilter(activeFilter);
     }
+    return () => clearInterval(interval);
   }, []);
 
   // Close dropdowns on click outside
@@ -55,16 +58,29 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           try {
             jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
           } catch (err) {
-            jsonObj = {};
+            jsonObj = item.json || {};
           }
         }
-        const titleVal = item.title || jsonObj.title || item.name || jsonObj.name || 'New Video Uploaded';
-        const msgVal = item.message || jsonObj.message || item.description || jsonObj.description || '';
+        
+        let msgVal = item.message || jsonObj.message || item.description || jsonObj.description || '';
+        if (typeof msgVal === 'string') {
+          msgVal = msgVal.replace(/^"|"$/g, '');
+        }
+        
+        let titleVal = item.title || jsonObj.title || item.name || jsonObj.name;
+        if (!titleVal) {
+          if (msgVal.toLowerCase().includes('course')) {
+            titleVal = 'New Course Published';
+          } else {
+            titleVal = 'New Video Uploaded';
+          }
+        }
+
         const dateVal = item.date || jsonObj.date || item.created_at || jsonObj.created_at || new Date().toISOString();
         const readVal = item.read !== undefined ? Boolean(item.read) : (jsonObj.read !== undefined ? Boolean(jsonObj.read) : false);
 
         return {
-          id: String(item.id || jsonObj.id || idx),
+          id: String(item.id || jsonObj.id || (item.pairedItem ? item.pairedItem.item : idx)),
           title: titleVal,
           message: msgVal,
           date: dateVal,
