@@ -254,16 +254,20 @@ const Login = () => {
       const userEmail = otpRes.email || (userObj ? userObj.email : '') || email;
       const userId = otpRes.id || (userObj ? userObj.id : null) || (tempLoginData ? tempLoginData.id : null);
 
+      let isSuperAdmin = (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin');
       let isAuthorAdmin = (rawRole === 4 || rawRole === '4' || strRole === '4' || strRole === 'author_admin' || strRole === 'author admin');
-      let normalizedRole = strRole;
+      let isAdmin = (rawRole === 2 || rawRole === '2' || strRole === 'admin');
 
-      if (isAuthorAdmin) {
-        normalizedRole = 'author_admin';
-      } else if (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin') {
-        normalizedRole = 'super_admin';
-      } else {
-        normalizedRole = 'admin';
+      if (!isSuperAdmin && !isAuthorAdmin && !isAdmin) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        showError('Access Denied: End users cannot access the Admin Portal.');
+        setLoading(false);
+        return;
       }
+
+      let normalizedRole = isSuperAdmin ? 'super_admin' : (isAuthorAdmin ? 'author_admin' : 'admin');
 
       const finalUser = {
         id: userId,
@@ -290,7 +294,7 @@ const Login = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
-        showError('Access denied. This portal is for administrators only.');
+        showError('Access Denied: End users cannot access the Admin Portal.');
         return;
       }
     } catch (err) {

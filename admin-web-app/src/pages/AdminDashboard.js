@@ -43,6 +43,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
   useEffect(() => {
+    if (currentUser) {
+      const userRole = String(currentUser.role || currentUser.role_id || '').toLowerCase();
+      if (userRole === 'user' || userRole === 'student' || userRole === 'end_user') {
+        alert('Access Denied: End users cannot log into the Admin Portal.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '#/login';
+      }
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 992);
     };

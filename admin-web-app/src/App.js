@@ -24,6 +24,13 @@ const RoleRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
   const userRole = String(user.role || user.role_id || '').toLowerCase();
+  if (userRole === 'user' || userRole === 'student' || userRole === 'end_user') {
+    alert('Access Denied: End users cannot log into the Admin Portal.');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    return <Navigate to="/login" replace />;
+  }
   const isAllowed = allowedRoles.some(r => {
     if (r === 'admin') {
       return userRole === 'admin' || userRole === '4' || userRole === 'author_admin' || userRole === 'author admin' || user.role === 4 || user.role_id === 4;
@@ -34,6 +41,10 @@ const RoleRoute = ({ children, allowedRoles }) => {
     return r === userRole;
   });
   if (!isAllowed) {
+    alert('Access Denied: Insufficient permissions for this portal.');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     return <Navigate to="/login" replace />;
   }
   return children;
