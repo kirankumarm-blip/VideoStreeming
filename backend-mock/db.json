@@ -746,5 +746,6 @@
       "mfaRequired": false,
       "failedLoginLockout": 5
     }
-  }
+  },
+  "user_notification_reads": []
 }

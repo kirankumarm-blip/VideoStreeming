@@ -1343,14 +1343,46 @@ const handleVdNotification = (req, res) => {
     userId = req.user.id;
   }
 
+  if (!db.user_notification_reads) {
+    db.user_notification_reads = [];
+  }
+
   if (formstep === 'markAsRead') {
-    const notifId = String(req.body.id);
+    const notifId = String(req.body.id || req.body.notification_id || req.body.notificationId || '');
+    
+    // Update main notification
     const notif = db.notifications.find(n => String(n.id) === notifId);
     if (notif) {
       notif.read = true;
-      writeDB(db);
     }
-    return res.json({ success: true });
+
+    // Save entry into user_notification_reads table
+    const now = new Date().toISOString();
+    const existingReadIndex = db.user_notification_reads.findIndex(
+      r => String(r.user_id) === String(userId) && String(r.notification_id) === notifId
+    );
+
+    if (existingReadIndex >= 0) {
+      db.user_notification_reads[existingReadIndex].is_read = true;
+      db.user_notification_reads[existingReadIndex].read_at = now;
+    } else {
+      db.user_notification_reads.push({
+        id: `unr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        user_id: userId || 'unknown',
+        notification_id: notifId,
+        is_read: true,
+        read_at: now,
+        created_at: now
+      });
+    }
+
+    writeDB(db);
+    return res.json({ success: true, message: 'Read status stored in user_notification_reads table' });
+  }
+
+  if (formstep === 'getUserNotificationReads' || formstep === 'getReadStatus') {
+    const reads = db.user_notification_reads.filter(r => !userId || String(r.user_id) === String(userId));
+    return res.json({ success: true, data: reads, user_notification_reads: reads });
   }
 
   if (formstep === 'sendCampaign') {
@@ -1362,7 +1394,16 @@ const handleVdNotification = (req, res) => {
   }
 
   // Default: getNotifications
-  const userNotifs = userId ? db.notifications.filter(n => n.userId === userId) : db.notifications;
+  const rawNotifs = userId ? db.notifications.filter(n => n.userId === userId || !n.userId) : db.notifications;
+  const userNotifs = rawNotifs.map(n => {
+    const readRecord = db.user_notification_reads.find(
+      r => String(r.user_id) === String(userId) && String(r.notification_id) === String(n.id)
+    );
+    return {
+      ...n,
+      read: readRecord ? Boolean(readRecord.is_read) : Boolean(n.read)
+    };
+  });
   return res.json(userNotifs.sort((a, b) => new Date(b.date) - new Date(a.date)));
 };
 
