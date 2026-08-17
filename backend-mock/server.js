@@ -795,8 +795,8 @@ app.post('/api/videos/upload', authenticateToken, authorizeRoles('super_admin', 
   writeDB(db);
 
   // Notify target users
-  db.users.filter(u => u.role === 'user' && parsedAdmins.includes(u.createdBy)).forEach(u => {
-    addNotification(u.id, "New Video Added", `"${title}" has been uploaded in ${category}. Watch it now!`);
+  db.users.filter(u => u.role === 'user' || u.role === 'student' || !u.role).forEach(u => {
+    addNotification(u.id, "New Video Added", `"${title}" has been uploaded. Watch it now!`);
   });
 
   res.status(201).json(newVideo);

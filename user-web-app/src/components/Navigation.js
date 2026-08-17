@@ -23,9 +23,12 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const recentlyViewedRef = useRef(null);
 
   useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
     if (user && user.role === 'user') {
       fetchRecentlyViewedByFilter(activeFilter);
     }
+    return () => clearInterval(interval);
   }, []);
 
   // Close dropdowns on click outside
@@ -48,7 +51,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const fetchNotifications = async () => {
     try {
       const data = await api.notifications.list();
-      setNotifications(data);
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to load notifications", e);
     }
@@ -377,7 +380,11 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         {/* Notifications (End Users only) */}
         {user.role === 'user' && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
-            <div onClick={() => setShowNotifDropdown(!showNotifDropdown)} className="notification-bell">
+            <div onClick={() => {
+              const nextState = !showNotifDropdown;
+              setShowNotifDropdown(nextState);
+              if (nextState) fetchNotifications();
+            }} className="notification-bell">
               <span style={{ fontSize: '20px' }}>🔔</span>
               {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
             </div>
