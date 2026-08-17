@@ -617,29 +617,35 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
 
     if (Array.isArray(course.chapters) && course.chapters.length > 0) {
-      setChapters(course.chapters.map((ch, idx) => ({
-        id: ch.chapter_id || ch.id || idx + 1,
-        title: ch.chapter_title || ch.title || `Chapter ${idx + 1}`,
-        description: ch.chapter_description || ch.description || '',
-        visibility: ch.visibility || visibilities[0]?.id || '',
-        order: ch.chapter_order || ch.order || idx + 1,
-        quiz: ch.quiz || null,
-        videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
-          const urlVal = v.video_url || v.videoUrl || '';
-          const thumbVal = v.thumbnail || v.thumbnailUrl || '';
-          return {
-            id: v.id || vIdx + 1,
-            title: v.title || `Lesson ${vIdx + 1}`,
-            videoUrl: urlVal,
-            thumbnailUrl: thumbVal,
-            fileName: v.fileName || v.title || 'video.mp4',
-            duration: v.duration || '0',
-            isPreview: v.isPreview || v.type === 1,
-            uploadStatus: urlVal ? 'success' : null,
-            thumbStatus: thumbVal ? 'success' : null
-          };
-        })
-      })));
+      setChapters(course.chapters.map((ch, idx) => {
+        const exChId = ch.chapter_id || ch.id || null;
+        return {
+          id: exChId || idx + 1,
+          existingId: exChId,
+          title: ch.chapter_title || ch.title || `Chapter ${idx + 1}`,
+          description: ch.chapter_description || ch.description || '',
+          visibility: ch.visibility || visibilities[0]?.id || '',
+          order: ch.chapter_order || ch.order || idx + 1,
+          quiz: ch.quiz || null,
+          videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
+            const exVidId = v.id || v.video_id || null;
+            const urlVal = v.video_url || v.videoUrl || '';
+            const thumbVal = v.thumbnail || v.thumbnailUrl || '';
+            return {
+              id: exVidId || vIdx + 1,
+              existingId: exVidId,
+              title: v.title || `Lesson ${vIdx + 1}`,
+              videoUrl: urlVal,
+              thumbnailUrl: thumbVal,
+              fileName: v.fileName || v.title || 'video.mp4',
+              duration: v.duration || '0',
+              isPreview: v.isPreview || v.type === 1,
+              uploadStatus: urlVal ? 'success' : null,
+              thumbStatus: thumbVal ? 'success' : null
+            };
+          })
+        };
+      }));
     } else {
       setChapters([
         {
@@ -2008,7 +2014,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       const encryptedChapters = await Promise.all(chapters.map(async (ch) => {
         const encryptedVideos = await Promise.all((ch.videos || []).map(async (v) => {
-          return {
+          const videoObj = {
             title: v.title,
             fileName: v.fileName || 'video.mp4',
             videoUrl: await encryptUrl(v.videoUrl || ''),
@@ -2017,6 +2023,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             duration: v.duration,
             isPreview: v.isPreview
           };
+          if (v.existingId) {
+            videoObj.id = v.existingId;
+          }
+          return videoObj;
         }));
         const chapterObj = {
           title: ch.title,
@@ -2025,6 +2035,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           order: ch.order,
           videos: encryptedVideos
         };
+        if (ch.existingId) {
+          chapterObj.id = ch.existingId;
+          chapterObj.chapter_id = ch.existingId;
+        }
 
         if (ch.quiz && Array.isArray(ch.quiz.questions) && ch.quiz.questions.length > 0) {
           chapterObj.quiz = {
@@ -2069,7 +2083,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         payload.id = editingCourse.id;
         payload.course_id = editingCourse.id;
         payload.formstep = "editCourse";
-        payload.formStep = "editCourse";
       }
 
       await api.videos.uploadCourse(payload);

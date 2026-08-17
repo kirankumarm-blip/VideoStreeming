@@ -996,12 +996,14 @@ export const api = {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       const endpoint = isSuperAdmin ? '/SuperAdminVideos' : '/adminVideos';
+      const bodyObj = { ...payload };
+      const step = bodyObj.formstep || bodyObj.formStep || (isSuperAdmin ? "uploadCourse" : "UploadCouse");
+      delete bodyObj.formstep;
+      delete bodyObj.formStep;
+      bodyObj.formstep = step;
       return request(endpoint, {
         method: 'POST',
-        body: JSON.stringify({
-          ...payload,
-          formStep: isSuperAdmin ? "uploadCourse" : "UploadCouse"
-        })
+        body: JSON.stringify(bodyObj)
       });
     },
 
