@@ -1959,6 +1959,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       await api.videos.uploadCourse(payload);
+      try {
+        await api.notifications.sendCampaign('all', 'New Course Published', `"${payload.title || 'A new course'}" has been published. Check it out now!`);
+      } catch (notifErr) {
+        console.warn("Course notification call warning:", notifErr);
+      }
       setUploadSuccess('Course created successfully!');
       setUploadProgress('');
       
@@ -2434,6 +2439,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       await api.videos.registerVideo(registerPayload);
+      try {
+        await api.notifications.sendCampaign('all', 'New Video Added', `"${registerPayload.title || 'A new video'}" has been uploaded. Watch it now!`);
+      } catch (notifErr) {
+        console.warn("Video notification call warning:", notifErr);
+      }
 
       setUploadSuccess('Video uploaded and registered successfully!');
       
