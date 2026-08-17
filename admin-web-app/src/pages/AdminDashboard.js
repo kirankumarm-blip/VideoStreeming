@@ -1181,7 +1181,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       } else {
         res = await api.vdcategories.getSubCategories();
       }
-      const subCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      const subCats = rawSubCats.map(item => {
+        let jsonObj = {};
+        if (item && item.json) {
+          try {
+            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+          } catch (err) {
+            jsonObj = {};
+          }
+        }
+        return {
+          ...item,
+          ...jsonObj,
+          id: String(item.id || jsonObj.id || item.sub_category_id || jsonObj.sub_category_id || ''),
+          name: item.name || jsonObj.name || item.sub_category_name || jsonObj.sub_category_name || '',
+          cat_id: item.cat_id || jsonObj.cat_id || item.category_id || jsonObj.category_id || item.catId || jsonObj.catId || '',
+          description: item.description || jsonObj.description || ''
+        };
+      });
       setSubCategories(subCats);
       if (categoryId) {
         if (subCats.length > 0) {
@@ -1204,9 +1222,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchCategories = async () => {
     try {
       const data = await api.categories.list();
-      setCategories(Array.isArray(data) ? data : []);
-      if (data.length > 0) {
-        const firstCatId = data[0].id;
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const normalizedList = rawList.map(item => {
+        let jsonObj = {};
+        if (item && item.json) {
+          try {
+            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+          } catch (err) {
+            jsonObj = {};
+          }
+        }
+        return {
+          ...item,
+          ...jsonObj,
+          id: String(item.id || jsonObj.id || item.category_id || jsonObj.category_id || ''),
+          name: item.name || jsonObj.name || item.category_name || jsonObj.category_name || '',
+          description: item.description || jsonObj.description || ''
+        };
+      });
+      setCategories(normalizedList);
+      if (normalizedList.length > 0) {
+        const firstCatId = normalizedList[0].id;
         setUploadForm(prev => ({ ...prev, category: firstCatId }));
         fetchSubCategories(firstCatId);
       }
@@ -4619,14 +4655,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       emptyMessage="No categories found"
                       renderRow={(cat, index) => (
                         <tr key={cat.id || index}>
-                          <td style={{ fontWeight: 600 }}>{cat.name}</td>
-                          <td style={{ color: isLight ? '#71717a' : 'var(--text-secondary)' }}>{cat.description || '-'}</td>
+                          <td style={{ fontWeight: 600 }}>{cat.name || cat.json?.name}</td>
+                          <td style={{ color: isLight ? '#71717a' : 'var(--text-secondary)' }}>{cat.description || cat.json?.description || '-'}</td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
                                 onClick={() => {
                                   setEditingCategory(cat);
-                                  setCategoryForm({ name: cat.name, description: cat.description || '' });
+                                  setCategoryForm({ name: cat.name || cat.json?.name || '', description: cat.description || cat.json?.description || '' });
                                   setShowCategoryModal(true);
                                 }}
                                 className="btn btn-secondary"
@@ -4710,7 +4746,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 {parentCatName}
                               </span>
                             </td>
-                            <td style={{ color: isLight ? '#71717a' : 'var(--text-secondary)' }}>{subCat.description || '-'}</td>
+                            <td style={{ color: isLight ? '#71717a' : 'var(--text-secondary)' }}>{subCat.description || subCat.json?.description || '-'}</td>
                             <td>
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button 
@@ -4722,8 +4758,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     setSubCategoryForm({
                                       id: subCatId,
                                       cat_id: catIdVal,
-                                      name: subCat.name || subCat.sub_category_name || '',
-                                      description: subCat.description || ''
+                                      name: subCat.name || subCat.sub_category_name || subCat.json?.name || '',
+                                      description: subCat.description || subCat.json?.description || ''
                                     });
                                     setShowSubCategoryModal(true);
                                   }}

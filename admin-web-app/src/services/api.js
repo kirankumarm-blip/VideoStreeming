@@ -528,6 +528,7 @@ export const api = {
         body: JSON.stringify({ 
           formstep: "addCategory",
           name, 
+          category_name: name,
           description 
         }),
       });
@@ -539,6 +540,7 @@ export const api = {
           formstep: "editCategory",
           id,
           name, 
+          category_name: name,
           description 
         }),
       });

@@ -789,7 +789,25 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         setVideos(Array.isArray(data) ? data : []);
       } else if (formStep === 'categories') {
         data = await api.dashboard.getSuperAdmin('getCategories', payload);
-        setCategories(Array.isArray(data) ? data : []);
+        const rawList = Array.isArray(data) ? data : [];
+        const normalized = rawList.map(item => {
+          let jsonObj = {};
+          if (item && item.json) {
+            try {
+              jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+            } catch (err) {
+              jsonObj = {};
+            }
+          }
+          return {
+            ...item,
+            ...jsonObj,
+            id: String(item.id || jsonObj.id || item.category_id || jsonObj.category_id || ''),
+            name: item.name || jsonObj.name || item.category_name || jsonObj.category_name || '',
+            description: item.description || jsonObj.description || ''
+          };
+        });
+        setCategories(normalized);
       } else {
         data = await api.dashboard.getSuperAdmin(formStep, payload);
         if (formStep === 'users_all' || formStep === 'users_blocked') {
