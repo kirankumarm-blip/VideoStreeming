@@ -546,6 +546,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [myVideos, setMyVideos] = useState([]);
 
   const [courses, setCourses] = useState([]);
+  const [editingCourse, setEditingCourse] = useState(null);
   const [courseForm, setCourseForm] = useState({
     title: '',
     description: '',
@@ -559,6 +560,66 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     visibility: '',
     adminId: ''
   });
+
+  const handleEditCourse = (course) => {
+    if (!course) return;
+    setEditingCourse(course);
+    const catVal = String(course.category_id || course.cat_id || course.category || '');
+    const subCatVal = String(course.subcategory_id || course.sub_category_id || course.subCategory || '');
+    const langVal = String(course.language_id || course.languageId || course.language || '');
+    const lvlVal = String(course.level_id || course.level || '');
+    const visVal = String(course.visibility_id || course.visibility || '');
+    const admVal = String(course.admin_id || course.adminId || '');
+
+    setCourseForm({
+      title: course.course_title || course.title || '',
+      description: course.description || course.desc || '',
+      category: catVal,
+      subCategory: subCatVal,
+      languageId: langVal,
+      instructor: course.instructor || '',
+      level: lvlVal || 'Beginner',
+      tags: course.tags || '',
+      totalChapters: String(course.totalChapters || (Array.isArray(course.chapters) ? course.chapters.length : 1)),
+      visibility: visVal,
+      adminId: admVal
+    });
+
+    if (catVal) {
+      fetchSubCategories(catVal);
+    }
+
+    if (course.thumbnail || course.thumbnailUrl) {
+      setCourseThumbnailUrl(course.thumbnail || course.thumbnailUrl);
+    }
+    if (course.banner || course.bannerUrl) {
+      setCourseBannerUrl(course.banner || course.bannerUrl);
+    }
+
+    if (Array.isArray(course.chapters) && course.chapters.length > 0) {
+      setChapters(course.chapters.map((ch, idx) => ({
+        id: ch.id || idx + 1,
+        title: ch.title || `Chapter ${idx + 1}`,
+        description: ch.description || '',
+        visibility: ch.visibility || visibilities[0]?.id || '',
+        order: ch.order || idx + 1,
+        videos: Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])
+      })));
+    } else {
+      setChapters([
+        {
+          id: 1,
+          title: 'Chapter 1',
+          description: 'Course Chapter',
+          visibility: visibilities[0]?.id || '',
+          order: 1,
+          videos: []
+        }
+      ]);
+    }
+
+    setActiveTab('course_upload');
+  };
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -1969,21 +2030,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      if (isSuperAdmin) {
-        payload.visibility = courseForm.visibility;
-        if (isPrivate) {
-          payload.admin_id = courseForm.adminId;
-        }
+      if (editingCourse) {
+        payload.id = editingCourse.id;
+        payload.course_id = editingCourse.id;
+        payload.formstep = "editCourse";
+        payload.formStep = "editCourse";
       }
 
       await api.videos.uploadCourse(payload);
-      try {
-        await api.notifications.sendCampaign('all', 'New Course Published', `"${payload.title || 'A new course'}" has been published. Check it out now!`);
-      } catch (notifErr) {
-        console.warn("Course notification call warning:", notifErr);
+      if (!editingCourse) {
+        try {
+          await api.notifications.sendCampaign('all', 'New Course Published', `"${payload.title || 'A new course'}" has been published. Check it out now!`);
+        } catch (notifErr) {
+          console.warn("Course notification call warning:", notifErr);
+        }
       }
-      setUploadSuccess('Course created successfully!');
+      setUploadSuccess(editingCourse ? 'Course updated successfully!' : 'Course created successfully!');
       setUploadProgress('');
+      setEditingCourse(null);
       
       // Reset
       const defaultCatId = categories[0]?.id || '';
@@ -3854,11 +3918,45 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               return (
                 <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
-                  <div style={{ marginBottom: '24px' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>Upload Course</h1>
-                    <p style={{ color: subtitleColor, fontSize: '14px', marginTop: '4px' }}>
-                      Add course details, chapters and multiple videos.
-                    </p>
+                  <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>
+                        {editingCourse ? 'Edit Course' : 'Upload Course'}
+                      </h1>
+                      <p style={{ color: subtitleColor, fontSize: '14px', marginTop: '4px' }}>
+                        {editingCourse ? 'Update details, chapters, and videos for this course.' : 'Add course details, chapters and multiple videos.'}
+                      </p>
+                    </div>
+                    {editingCourse && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px' }}
+                        onClick={() => {
+                          setEditingCourse(null);
+                          const defaultCatId = categories[0]?.id || '';
+                          const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
+                          setCourseForm({
+                            title: '',
+                            description: '',
+                            category: defaultCatId,
+                            subCategory: '',
+                            languageId: defaultLangId,
+                            instructor: '',
+                            level: levels[0]?.id || levels[0]?.level || 'Beginner',
+                            tags: '',
+                            totalChapters: '',
+                            visibility: '',
+                            adminId: ''
+                          });
+                          setChapters([]);
+                          setCourseThumbnailUrl('');
+                          setCourseBannerUrl('');
+                        }}
+                      >
+                        ❌ Cancel Edit
+                      </button>
+                    )}
                   </div>
 
                   <form onSubmit={handleCourseSubmit}>
@@ -4421,7 +4519,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         Save as Draft
                       </button>
                       <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
-                        Submit Course
+                        {editingCourse ? 'Update Course' : 'Submit Course'}
                       </button>
                     </div>
                   </form>
@@ -4554,12 +4652,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button 
+                                className="btn btn-warning"
+                                style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                onClick={() => handleEditCourse(course)}
+                              >
+                                ✏️ Edit
+                              </button>
+                              <button 
                                 className="btn btn-secondary"
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => {
-                                  if (typeof showError === 'function') showError('Coming soon');
-                                  else alert('Coming soon');
-                                }}
+                                onClick={() => handleEditCourse(course)}
                               >
                                 View Details
                               </button>
