@@ -61,12 +61,17 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             jsonObj = {};
           }
         }
+        const titleVal = item.title || jsonObj.title || item.name || jsonObj.name || 'New Video Uploaded';
+        const msgVal = item.message || jsonObj.message || item.description || jsonObj.description || '';
+        const dateVal = item.date || jsonObj.date || item.created_at || jsonObj.created_at || new Date().toISOString();
+        const readVal = item.read !== undefined ? Boolean(item.read) : (jsonObj.read !== undefined ? Boolean(jsonObj.read) : false);
+
         return {
           id: String(item.id || jsonObj.id || idx),
-          title: item.title || jsonObj.title || item.name || jsonObj.name || 'Notification',
-          message: item.message || jsonObj.message || item.description || jsonObj.description || '',
-          date: item.date || jsonObj.date || item.created_at || new Date().toISOString(),
-          read: Boolean(item.read || jsonObj.read)
+          title: titleVal,
+          message: msgVal,
+          date: dateVal,
+          read: readVal
         };
       });
       setNotifications(normalized);
@@ -395,25 +400,39 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
 
-        {/* Notifications (End Users only) */}
-        {user.role === 'user' && (
+        {/* Notifications */}
+        {user && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
             <div onClick={() => {
               const nextState = !showNotifDropdown;
               setShowNotifDropdown(nextState);
               if (nextState) fetchNotifications();
-            }} className="notification-bell">
+            }} className="notification-bell" style={{ position: 'relative', cursor: 'pointer', padding: '6px' }}>
               <span style={{ fontSize: '20px' }}>🔔</span>
               {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
             </div>
 
             {showNotifDropdown && (
               <div className="notification-dropdown glass-card">
-                <div style={{ fontWeight: 700, paddingBottom: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
-                  Notifications
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 700, fontSize: '15px' }}>Notifications</span>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={async () => {
+                        const updated = notifications.map(n => ({ ...n, read: true }));
+                        setNotifications(updated);
+                        notifications.forEach(n => {
+                          if (!n.read) api.notifications.markAsRead(n.id).catch(()=>{});
+                        });
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#7c3aed', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Mark all as read
+                    </button>
+                  )}
                 </div>
                 {notifications.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '16px 0', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>
                     No notifications yet
                   </div>
                 ) : (
@@ -422,10 +441,21 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                       key={n.id} 
                       onClick={() => handleNotificationClick(n)}
                       className={`notification-item ${n.read ? '' : 'unread'}`}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: '8px',
+                        marginBottom: '6px',
+                        backgroundColor: n.read ? 'transparent' : 'rgba(124, 58, 237, 0.08)',
+                        borderLeft: n.read ? 'none' : '3px solid #7c3aed',
+                        cursor: 'pointer'
+                      }}
                     >
-                      <div className="notification-title">{n.title}</div>
-                      <div className="notification-msg">{n.message}</div>
-                      <div className="notification-date">{new Date(n.date).toLocaleString()}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span className="notification-title" style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{n.title}</span>
+                        {!n.read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#7c3aed' }}></span>}
+                      </div>
+                      <div className="notification-msg" style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{n.message}</div>
+                      <div className="notification-date" style={{ fontSize: '11px', color: 'var(--text-tertiary, #a1a1aa)', marginTop: '4px' }}>{new Date(n.date).toLocaleString()}</div>
                     </div>
                   ))
                 )}

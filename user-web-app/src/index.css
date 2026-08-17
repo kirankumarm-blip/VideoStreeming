@@ -586,12 +586,17 @@ select option {
 
 .notification-dropdown {
   position: absolute;
-  top: 60px;
-  right: 20px;
+  top: 45px;
+  right: 0;
   width: 360px;
   max-height: 480px;
   overflow-y: auto;
   z-index: 1000;
+  background: var(--bg-secondary, #18181b);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  padding: 16px;
 }
 
 .notification-item {
