@@ -596,6 +596,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   }, []);
 
   useEffect(() => {
+    if (['categories', 'sub_categories'].includes(activeTab)) {
+      return;
+    }
     fetchDropdownClients(activeTab);
     if (activeTab === 'overview') {
       fetchDashboardData('overview', selectedClientId);
@@ -631,13 +634,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
     if (activeTab === 'content_videos') {
       fetchVideos();
-    }
-    if (activeTab === 'categories') {
-      fetchCategories();
-    }
-    if (activeTab === 'sub_categories') {
-      fetchSubCategories();
-      fetchCategories();
     }
     if (activeTab === 'client_management') {
       fetchClients();

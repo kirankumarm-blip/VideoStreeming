@@ -1172,15 +1172,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async (categoryId = null) => {
+  const fetchSubCategories = async () => {
     setLoadingSubCategories(true);
     try {
-      let res;
-      if (categoryId) {
-        res = await api.videos.getSubCategories(categoryId);
-      } else {
-        res = await api.vdcategories.getSubCategories();
-      }
+      const res = await api.vdcategories.getSubCategories();
       const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       const subCats = rawSubCats.map(item => {
         let jsonObj = {};
@@ -1196,23 +1191,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           ...jsonObj,
           id: String(item.id || jsonObj.id || item.sub_category_id || jsonObj.sub_category_id || ''),
           name: item.name || jsonObj.name || item.sub_category_name || jsonObj.sub_category_name || '',
-          cat_id: item.cat_id || jsonObj.cat_id || item.category_id || jsonObj.category_id || item.catId || jsonObj.catId || '',
-          description: item.description || jsonObj.description || ''
+          cat_id: String(item.cat_id || jsonObj.cat_id || item.category_id || jsonObj.category_id || item.catId || jsonObj.catId || ''),
+          description: item.description || jsonObj.description || item.desc || jsonObj.desc || item.details || jsonObj.details || item.sub_category_description || jsonObj.sub_category_description || ''
         };
       });
       setSubCategories(subCats);
-      if (categoryId) {
-        if (subCats.length > 0) {
-          setUploadForm(prev => ({ ...prev, subCategory: subCats[0].id || subCats[0].name }));
-        } else {
-          setUploadForm(prev => ({ ...prev, subCategory: '' }));
-        }
-      }
       return subCats;
     } catch (e) {
       console.error('Failed to fetch sub categories:', e);
       setSubCategories([]);
-      if (categoryId) setUploadForm(prev => ({ ...prev, subCategory: '' }));
       return [];
     } finally {
       setLoadingSubCategories(false);
@@ -1237,14 +1224,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           ...jsonObj,
           id: String(item.id || jsonObj.id || item.category_id || jsonObj.category_id || ''),
           name: item.name || jsonObj.name || item.category_name || jsonObj.category_name || '',
-          description: item.description || jsonObj.description || ''
+          description: item.description || jsonObj.description || item.desc || jsonObj.desc || ''
         };
       });
       setCategories(normalizedList);
       if (normalizedList.length > 0) {
         const firstCatId = normalizedList[0].id;
         setUploadForm(prev => ({ ...prev, category: firstCatId }));
-        fetchSubCategories(firstCatId);
       }
     } catch (e) {
       console.error(e);
