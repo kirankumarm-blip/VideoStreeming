@@ -1674,9 +1674,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setChapters(chapters.map(ch => {
       if (ch.id !== chapterId) return ch;
       const currentQuestions = ch.quiz?.questions || [];
-      const newId = currentQuestions.length > 0 ? Math.max(...currentQuestions.map(q => q.id)) + 1 : 1;
       const newQuestion = {
-        id: newId,
+        id: 'new-q-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+        isNew: true,
+        existingId: null,
         question: '',
         options: ['', '', '', ''],
         correctAnswer: 0
@@ -2161,14 +2162,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           const quizPayloadObj = {
             title: ch.quiz.title || `${ch.title || 'Chapter'} Quiz`,
             questions: ch.quiz.questions.map((q, idx) => {
+              const targetQId = (!q.isNew && q.existingId) ? q.existingId : null;
               const qObj = {
-                id: q.existingId || q.id || idx + 1,
-                question_id: q.existingId || q.id || idx + 1,
                 question: q.question,
                 options: (q.options || []).map((optItem, optIdx) => {
                   const isObj = typeof optItem === 'object' && optItem !== null;
                   const optText = isObj ? (optItem.text || optItem.option_text || '') : String(optItem || '');
-                  const optId = isObj ? (optItem.option_id || optItem.id || null) : null;
+                  const optId = (!q.isNew && isObj) ? (optItem.option_id || optItem.id || null) : null;
                   const optPayload = {
                     option_order: optIdx + 1,
                     option_text: optText,
@@ -2185,6 +2185,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   ? ((q.options || [])[q.correctAnswer]?.text || (q.options || [])[q.correctAnswer]?.option_text || '') 
                   : String((q.options || [])[q.correctAnswer] || '')
               };
+
+              if (targetQId) {
+                qObj.id = targetQId;
+                qObj.question_id = targetQId;
+              }
+
               return qObj;
             })
           };
