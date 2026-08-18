@@ -576,7 +576,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     // 3. Language, Level, Visibility, Admin
     const langVal = String(course.language_id || course.languageId || course.language || (languages[0]?.id || ''));
     const lvlVal = String(course.level_id || course.level || '1');
-    const visVal = String(course.visibility_id || course.visibility || (visibilities[0]?.id || ''));
+    const rawVis = course.visibility_id || course.visibility || '';
+    const foundVis = visibilities.find(v => 
+      String(v.id) === String(rawVis) || 
+      String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawVis).toLowerCase()
+    );
+    const visVal = foundVis ? String(foundVis.id) : String(rawVis || visibilities[0]?.id || '');
     const admVal = String(course.assigned_admin || course.admin_id || course.adminId || '').trim();
 
     setCourseForm({
@@ -619,12 +624,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (Array.isArray(course.chapters) && course.chapters.length > 0) {
       setChapters(course.chapters.map((ch, idx) => {
         const exChId = ch.chapter_id || ch.id || null;
+        const rawChVis = ch.visibility_id || ch.visibility || '';
+        const foundChVis = visibilities.find(v => 
+          String(v.id) === String(rawChVis) || 
+          String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
+        );
+        const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visibilities[0]?.id || '');
         return {
           id: exChId || idx + 1,
           existingId: exChId,
           title: ch.chapter_title || ch.title || `Chapter ${idx + 1}`,
           description: ch.chapter_description || ch.description || '',
-          visibility: ch.visibility || visibilities[0]?.id || '',
+          visibility: chVisVal,
           order: ch.chapter_order || ch.order || idx + 1,
           quiz: ch.quiz || null,
           videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
@@ -2030,10 +2041,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           }
           return videoObj;
         }));
+        const foundChVisObj = visibilities.find(v => 
+          String(v.id) === String(ch.visibility) || 
+          String(v.name || v.visibility || v.title || '').toLowerCase() === String(ch.visibility || '').toLowerCase()
+        );
+        const chVisId = foundChVisObj ? String(foundChVisObj.id) : String(ch.visibility || visibilities[0]?.id || '1');
+
         const chapterObj = {
           title: ch.title,
           description: ch.description,
-          visibility: ch.visibility || visibilities[0]?.id || '',
+          visibility: chVisId,
+          visibility_id: chVisId,
           order: ch.order,
           videos: encryptedVideos
         };
@@ -2061,6 +2079,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       const courseNotifMsg = `"${courseForm.title}" course has been published. Check it out now!`;
 
+      const foundRootVisObj = visibilities.find(v => 
+        String(v.id) === String(courseForm.visibility) || 
+        String(v.name || v.visibility || v.title || '').toLowerCase() === String(courseForm.visibility || '').toLowerCase()
+      );
+      const rootVisId = foundRootVisObj ? String(foundRootVisObj.id) : String(courseForm.visibility || visibilities[0]?.id || '1');
+
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
@@ -2070,6 +2094,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         category: courseForm.category,
         subCategory: courseForm.subCategory,
         subcategory_id: courseForm.subCategory,
+        visibility_id: rootVisId,
+        visibility: rootVisId,
         language_id: courseForm.languageId,
         instructor: courseForm.instructor,
         level: courseForm.level,
