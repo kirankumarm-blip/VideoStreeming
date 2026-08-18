@@ -586,18 +586,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const rawOpts = Array.isArray(q.options) ? q.options : (Array.isArray(q.choices) ? q.choices : (Array.isArray(q.answers) ? q.answers : []));
 
       let optionsArray = [];
+      let optionObjectsArray = [];
       let correctIdx = -1;
 
       if (rawOpts.length > 0) {
         if (typeof rawOpts[0] === 'object' && rawOpts[0] !== null) {
           const sortedOpts = [...rawOpts].sort((a, b) => (a.option_order || 0) - (b.option_order || 0));
           optionsArray = sortedOpts.map(opt => String(opt.option_text || opt.text || opt.label || opt.option || ''));
+          optionObjectsArray = sortedOpts.map(opt => ({
+            existingId: opt.option_id || opt.id || null
+          }));
           correctIdx = sortedOpts.findIndex(opt => opt && (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === 'true' || opt.isCorrect === true));
           if (correctIdx === -1 && q.correct_option_id !== undefined) {
             correctIdx = sortedOpts.findIndex(opt => String(opt.option_id || opt.id) === String(q.correct_option_id));
           }
         } else {
           optionsArray = rawOpts.map(opt => String(opt));
+          optionObjectsArray = rawOpts.map(opt => ({ existingId: null }));
         }
       }
 
@@ -624,6 +629,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       while (optionsArray.length < 4) {
         optionsArray.push('');
+        optionObjectsArray.push({ existingId: null });
       }
 
       return {
@@ -631,6 +637,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         existingId: q.question_id || q.id || null,
         question: qText,
         options: optionsArray,
+        optionObjects: optionObjectsArray,
         correctAnswer: correctIdx
       };
     });
@@ -2154,11 +2161,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 id: q.existingId || q.id || idx + 1,
                 question_id: q.existingId || q.id || idx + 1,
                 question: q.question,
-                options: (q.options || []).map((optText, optIdx) => ({
-                  option_order: optIdx + 1,
-                  option_text: optText,
-                  is_correct: q.correctAnswer === optIdx
-                })),
+                options: (q.options || []).map((optText, optIdx) => {
+                  const existingOptObj = (q.optionObjects && q.optionObjects[optIdx]) || null;
+                  const optId = existingOptObj && existingOptObj.existingId ? existingOptObj.existingId : null;
+                  const optPayload = {
+                    option_order: optIdx + 1,
+                    option_text: optText,
+                    is_correct: q.correctAnswer === optIdx
+                  };
+                  if (optId) {
+                    optPayload.option_id = optId;
+                    optPayload.id = optId;
+                  }
+                  return optPayload;
+                }),
                 correctAnswer: q.correctAnswer,
                 answer: q.options[q.correctAnswer] || ''
               };
