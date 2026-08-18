@@ -766,6 +766,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     setActiveTab('course_upload');
   };
+
+  const resetCourseFormToDefault = () => {
+    setEditingCourse(null);
+    const defaultCatId = categories[0]?.id || '';
+    const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
+    setCourseForm({
+      title: '',
+      description: '',
+      category: defaultCatId,
+      subCategory: '',
+      languageId: defaultLangId,
+      instructor: '',
+      level: levels[0]?.id || levels[0]?.level || '1',
+      tags: '',
+      totalChapters: '',
+      visibility: visibilities[0]?.id || '',
+      adminId: ''
+    });
+    setChapters([]);
+    setCourseThumbnailUrl('');
+    setCourseBannerUrl('');
+  };
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -3085,6 +3107,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <button
                       key={item.id}
                       onClick={() => {
+                        if (item.id === 'course_upload') {
+                          resetCourseFormToDefault();
+                        }
                         setActiveTab(item.id);
                         setError('');
                         setUploadSuccess('');
@@ -4147,25 +4172,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px' }}
                         onClick={() => {
-                          setEditingCourse(null);
-                          const defaultCatId = categories[0]?.id || '';
-                          const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
-                          setCourseForm({
-                            title: '',
-                            description: '',
-                            category: defaultCatId,
-                            subCategory: '',
-                            languageId: defaultLangId,
-                            instructor: '',
-                            level: levels[0]?.id || levels[0]?.level || 'Beginner',
-                            tags: '',
-                            totalChapters: '',
-                            visibility: '',
-                            adminId: ''
-                          });
-                          setChapters([]);
-                          setCourseThumbnailUrl('');
-                          setCourseBannerUrl('');
+                          resetCourseFormToDefault();
                         }}
                       >
                         ❌ Cancel Edit
