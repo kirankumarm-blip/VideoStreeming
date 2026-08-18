@@ -1556,7 +1556,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchVideos = async () => {
     try {
       const data = await api.videos.list();
-      setMyVideos(Array.isArray(data) ? data : []);
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const validVideos = rawList
+        .map(item => (item && item.json ? item.json : item))
+        .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
+      setMyVideos(validVideos);
     } catch (e) {
       console.error(e);
       setMyVideos([]);
