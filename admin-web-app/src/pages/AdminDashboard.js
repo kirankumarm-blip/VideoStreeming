@@ -561,6 +561,88 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     adminId: ''
   });
 
+  const parseQuizFromApi = (rawQuiz, defaultChapterTitle) => {
+    if (!rawQuiz) return null;
+
+    let quizObj = null;
+    if (Array.isArray(rawQuiz)) {
+      if (rawQuiz.length === 0) return null;
+      quizObj = rawQuiz[0];
+    } else if (typeof rawQuiz === 'object') {
+      quizObj = rawQuiz;
+    }
+
+    if (!quizObj || typeof quizObj !== 'object') return null;
+
+    const quizId = quizObj.quiz_id || quizObj.id || null;
+    const quizTitle = quizObj.title || quizObj.quiz_title || quizObj.name || `${defaultChapterTitle || 'Chapter'} Quiz`;
+
+    const rawQuestions = Array.isArray(quizObj.questions) ? quizObj.questions : (Array.isArray(quizObj.question_list) ? quizObj.question_list : []);
+    if (rawQuestions.length === 0) return null;
+
+    const parsedQuestions = rawQuestions.map((q, idx) => {
+      const qId = q.question_id || q.id || idx + 1;
+      const qText = q.question || q.question_text || q.statement || q.title || '';
+      const rawOpts = Array.isArray(q.options) ? q.options : (Array.isArray(q.choices) ? q.choices : (Array.isArray(q.answers) ? q.answers : []));
+
+      let optionsArray = [];
+      let correctIdx = -1;
+
+      if (rawOpts.length > 0) {
+        if (typeof rawOpts[0] === 'object' && rawOpts[0] !== null) {
+          const sortedOpts = [...rawOpts].sort((a, b) => (a.option_order || 0) - (b.option_order || 0));
+          optionsArray = sortedOpts.map(opt => String(opt.option_text || opt.text || opt.label || opt.option || ''));
+          correctIdx = sortedOpts.findIndex(opt => opt && (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === 'true' || opt.isCorrect === true));
+          if (correctIdx === -1 && q.correct_option_id !== undefined) {
+            correctIdx = sortedOpts.findIndex(opt => String(opt.option_id || opt.id) === String(q.correct_option_id));
+          }
+        } else {
+          optionsArray = rawOpts.map(opt => String(opt));
+        }
+      }
+
+      if (correctIdx === -1) {
+        const cAns = q.correctAnswer !== undefined ? q.correctAnswer : (q.correct_answer !== undefined ? q.correct_answer : q.answer);
+        if (typeof cAns === 'number' && cAns >= 0 && cAns < optionsArray.length) {
+          correctIdx = cAns;
+        } else if (cAns !== undefined && cAns !== null && String(cAns).trim() !== '') {
+          const foundIndex = optionsArray.findIndex(opt => opt.trim().toLowerCase() === String(cAns).trim().toLowerCase());
+          if (foundIndex !== -1) {
+            correctIdx = foundIndex;
+          } else {
+            const parsedInt = parseInt(cAns);
+            if (!isNaN(parsedInt) && parsedInt >= 0 && parsedInt < optionsArray.length) {
+              correctIdx = parsedInt;
+            }
+          }
+        }
+      }
+
+      if (correctIdx === -1) {
+        correctIdx = 0;
+      }
+
+      while (optionsArray.length < 4) {
+        optionsArray.push('');
+      }
+
+      return {
+        id: qId,
+        existingId: q.question_id || q.id || null,
+        question: qText,
+        options: optionsArray,
+        correctAnswer: correctIdx
+      };
+    });
+
+    return {
+      id: quizId,
+      existingId: quizId,
+      title: quizTitle,
+      questions: parsedQuestions
+    };
+  };
+
   const handleEditCourse = (course) => {
     if (!course) return;
     setEditingCourse(course);
@@ -632,14 +714,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
         );
         const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visibilities[0]?.id || '');
+        const chTitle = ch.chapter_title || ch.title || `Chapter ${idx + 1}`;
         return {
           id: exChId || idx + 1,
           existingId: exChId,
-          title: ch.chapter_title || ch.title || `Chapter ${idx + 1}`,
+          title: chTitle,
           description: ch.chapter_description || ch.description || '',
           visibility: chVisVal,
           order: ch.chapter_order || ch.order || idx + 1,
-          quiz: ch.quiz || null,
+          quiz: parseQuizFromApi(ch.quiz, chTitle),
           videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
             const exVidId = v.id || v.video_id || null;
             const urlVal = v.video_url || v.videoUrl || '';
@@ -2064,16 +2147,31 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
 
         if (ch.quiz && Array.isArray(ch.quiz.questions) && ch.quiz.questions.length > 0) {
-          chapterObj.quiz = {
+          const quizPayloadObj = {
             title: ch.quiz.title || `${ch.title || 'Chapter'} Quiz`,
-            questions: ch.quiz.questions.map((q, idx) => ({
-              id: q.id || idx + 1,
-              question: q.question,
-              options: q.options,
-              correctAnswer: q.correctAnswer,
-              answer: q.options[q.correctAnswer] || ''
-            }))
+            questions: ch.quiz.questions.map((q, idx) => {
+              const qObj = {
+                id: q.existingId || q.id || idx + 1,
+                question_id: q.existingId || q.id || idx + 1,
+                question: q.question,
+                options: (q.options || []).map((optText, optIdx) => ({
+                  option_order: optIdx + 1,
+                  option_text: optText,
+                  is_correct: q.correctAnswer === optIdx
+                })),
+                correctAnswer: q.correctAnswer,
+                answer: q.options[q.correctAnswer] || ''
+              };
+              return qObj;
+            })
           };
+
+          const qzId = ch.quiz.existingId || ch.quiz.id || ch.quiz.quiz_id;
+          if (qzId) {
+            quizPayloadObj.id = qzId;
+            quizPayloadObj.quiz_id = qzId;
+          }
+          chapterObj.quiz = quizPayloadObj;
         }
 
         return chapterObj;
