@@ -1684,6 +1684,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return {
         ...ch,
         quiz: {
+          ...ch.quiz,
           title: ch.quiz?.title || `${ch.title || 'Chapter'} Quiz`,
           questions: [...currentQuestions, newQuestion]
         }
