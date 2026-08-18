@@ -592,9 +592,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (rawOpts.length > 0) {
         if (typeof rawOpts[0] === 'object' && rawOpts[0] !== null) {
           const sortedOpts = [...rawOpts].sort((a, b) => (a.option_order || 0) - (b.option_order || 0));
-          optionsArray = sortedOpts.map(opt => String(opt.option_text || opt.text || opt.label || opt.option || ''));
-          optionObjectsArray = sortedOpts.map(opt => ({
-            existingId: opt.option_id || opt.id || null
+          optionsArray = sortedOpts.map(opt => ({
+            id: opt.option_id || opt.id || null,
+            option_id: opt.option_id || opt.id || null,
+            text: String(opt.option_text || opt.text || opt.label || opt.option || '')
           }));
           correctIdx = sortedOpts.findIndex(opt => opt && (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === 'true' || opt.isCorrect === true));
           if (correctIdx === -1 && q.correct_option_id !== undefined) {
@@ -602,7 +603,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           }
         } else {
           optionsArray = rawOpts.map(opt => String(opt));
-          optionObjectsArray = rawOpts.map(opt => ({ existingId: null }));
         }
       }
 
@@ -611,7 +611,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         if (typeof cAns === 'number' && cAns >= 0 && cAns < optionsArray.length) {
           correctIdx = cAns;
         } else if (cAns !== undefined && cAns !== null && String(cAns).trim() !== '') {
-          const foundIndex = optionsArray.findIndex(opt => opt.trim().toLowerCase() === String(cAns).trim().toLowerCase());
+          const foundIndex = optionsArray.findIndex(opt => (typeof opt === 'object' ? opt.text : String(opt)).trim().toLowerCase() === String(cAns).trim().toLowerCase());
           if (foundIndex !== -1) {
             correctIdx = foundIndex;
           } else {
@@ -629,7 +629,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       while (optionsArray.length < 4) {
         optionsArray.push('');
-        optionObjectsArray.push({ existingId: null });
       }
 
       return {
@@ -637,7 +636,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         existingId: q.question_id || q.id || null,
         question: qText,
         options: optionsArray,
-        optionObjects: optionObjectsArray,
         correctAnswer: correctIdx
       };
     });
@@ -1730,7 +1728,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           questions: ch.quiz.questions.map(q => {
             if (q.id !== questionId) return q;
             const newOptions = [...q.options];
-            newOptions[optIdx] = val;
+            if (typeof newOptions[optIdx] === 'object' && newOptions[optIdx] !== null) {
+              newOptions[optIdx] = { ...newOptions[optIdx], text: val, option_text: val };
+            } else {
+              newOptions[optIdx] = val;
+            }
             return { ...q, options: newOptions };
           })
         }
@@ -2161,9 +2163,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 id: q.existingId || q.id || idx + 1,
                 question_id: q.existingId || q.id || idx + 1,
                 question: q.question,
-                options: (q.options || []).map((optText, optIdx) => {
-                  const existingOptObj = (q.optionObjects && q.optionObjects[optIdx]) || null;
-                  const optId = existingOptObj && existingOptObj.existingId ? existingOptObj.existingId : null;
+                options: (q.options || []).map((optItem, optIdx) => {
+                  const isObj = typeof optItem === 'object' && optItem !== null;
+                  const optText = isObj ? (optItem.text || optItem.option_text || '') : String(optItem || '');
+                  const optId = isObj ? (optItem.option_id || optItem.id || null) : null;
                   const optPayload = {
                     option_order: optIdx + 1,
                     option_text: optText,
@@ -2176,7 +2179,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   return optPayload;
                 }),
                 correctAnswer: q.correctAnswer,
-                answer: q.options[q.correctAnswer] || ''
+                answer: typeof (q.options || [])[q.correctAnswer] === 'object' 
+                  ? ((q.options || [])[q.correctAnswer]?.text || (q.options || [])[q.correctAnswer]?.option_text || '') 
+                  : String((q.options || [])[q.correctAnswer] || '')
               };
               return qObj;
             })
@@ -4778,7 +4783,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                   className="form-input"
                                                   style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '4px', fontSize: '12px', flex: 1, padding: '4px 8px' }}
                                                   placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                                                  value={opt}
+                                                  value={typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : (opt || '')}
                                                   onChange={(e) => updateQuestionOption(ch.id, q.id, optIdx, e.target.value)}
                                                 />
                                               </div>
