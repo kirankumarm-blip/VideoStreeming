@@ -609,14 +609,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       });
     }
 
-    if (course.thumbnail || course.thumbnailUrl) {
-      setCourseThumbnailUrl(course.thumbnail || course.thumbnailUrl);
+    const parsedThumb = course.thumbnail_image || course.thumbnail_url || course.thumbnailUrl || course.thumbnail || course.image || '';
+    if (parsedThumb) {
+      setCourseThumbnailUrl(parsedThumb);
     } else {
       setCourseThumbnailUrl('');
     }
 
-    if (course.banner || course.bannerUrl) {
-      setCourseBannerUrl(course.banner || course.bannerUrl);
+    const parsedBanner = course.banner_image || course.banner_url || course.bannerUrl || course.banner || course.banner_img || '';
+    if (parsedBanner) {
+      setCourseBannerUrl(parsedBanner);
     } else {
       setCourseBannerUrl('');
     }
