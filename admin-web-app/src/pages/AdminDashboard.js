@@ -2085,7 +2085,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Question statement is required`);
             return;
           }
-          if (!q.options || q.options.length < 2 || q.options.some(opt => !opt?.trim())) {
+          const getOptText = (opt) => typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : String(opt || '');
+          if (!q.options || q.options.length < 2 || q.options.some(opt => !getOptText(opt).trim())) {
             showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): All option choices must be filled`);
             return;
           }
