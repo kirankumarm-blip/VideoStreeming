@@ -2051,9 +2051,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <ThreeDLoader text="Loading telemetry core..." />
         ) : (
           <>
-            {/* Embed Video Upload / Course Upload / All Courses / Categories / Sub Categories from AdminDashboard */}
-            {['video_upload', 'course_upload', 'course_all', 'categories', 'sub_categories'].includes(activeTab) && (
-              <AdminDashboard justContent={true} activeTabOverride={activeTab} selectedAdminId={selectedAdminId} theme={theme} />
+            {/* Embed Video Upload / Course Upload / All Courses / Video All / Categories / Sub Categories from AdminDashboard */}
+            {['video_upload', 'course_upload', 'course_all', 'video_all', 'content_videos', 'categories', 'sub_categories'].includes(activeTab) && (
+              <AdminDashboard justContent={true} activeTabOverride={activeTab === 'content_videos' ? 'video_all' : activeTab} selectedAdminId={selectedAdminId} theme={theme} />
             )}
 
             {/* OVERVIEW TAB WORKSPACE (Unified 5-second dashboard) */}
@@ -2582,50 +2582,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               </div>
             )}
 
-            {/* CONTENT_VIDEOS VIEW */}
-            {activeTab === 'content_videos' && (
-              <div className="animate-fade-in glass-card">
-                <div style={{ marginBottom: '16px' }}>
-                  <h2 style={{ fontSize: '20px' }}>Uploaded Videos & Assignments</h2>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Manage user access scopes by assigning videos to specific admins.</p>
-                </div>
-
-                <div className="table-container">
-                  <PaginatedTable
-                    headers={['Thumbnail', 'Title', 'Category', 'Uploaded By', 'Actions']}
-                    data={videos}
-                    emptyMessage="No uploaded videos found"
-                    renderRow={(video, index) => {
-                      return (
-                        <tr key={video.id || index} style={{ cursor: 'pointer' }} onClick={() => setReviewVideo(video)}>
-                          <td>
-                            <img 
-                              src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5000${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
-                              alt="Thumb" 
-                              style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
-                            />
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{video.title}</td>
-                          <td>{video.category}</td>
-                          <td>{video.uploadedBy === 'u-superadmin' ? 'Super Admin' : (admins.find(a => a.id === video.uploadedBy)?.name || 'Admin')}</td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => setReviewVideo(video)}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                Play
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* ACTIVITY VIEW */}
             {activeTab === 'activity' && (
