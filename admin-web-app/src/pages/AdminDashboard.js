@@ -2339,10 +2339,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      if (courseForm.adminId) {
-        payload.admin_id = courseForm.adminId;
-        payload.adminId = courseForm.adminId;
-        payload.assigned_admin = courseForm.adminId;
+      const effectiveClientId = courseForm.adminId || selectedAdminId || '';
+      if (effectiveClientId) {
+        payload.client_id = effectiveClientId;
+        payload.clientId = effectiveClientId;
+        payload.admin_id = effectiveClientId;
+        payload.adminId = effectiveClientId;
+        payload.assigned_admin = effectiveClientId;
       }
 
       if (editingCourse) {
@@ -2831,10 +2834,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         videoUrl: encryptedVideoUrl,
         thumbnailUrl: encryptedThumbnailUrl
       };
-      if (uploadForm.adminId) {
-        registerPayload.admin_id = uploadForm.adminId;
-        registerPayload.adminId = uploadForm.adminId;
-        registerPayload.assigned_admin = uploadForm.adminId;
+      const effectiveClientId = uploadForm.adminId || selectedAdminId || '';
+      if (effectiveClientId) {
+        registerPayload.client_id = effectiveClientId;
+        registerPayload.clientId = effectiveClientId;
+        registerPayload.admin_id = effectiveClientId;
+        registerPayload.adminId = effectiveClientId;
+        registerPayload.assigned_admin = effectiveClientId;
       }
       if (isPrivate && !isSuperAdmin) {
         registerPayload.plan_id = uploadForm.planId;
