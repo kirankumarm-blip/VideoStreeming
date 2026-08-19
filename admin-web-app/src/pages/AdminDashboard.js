@@ -826,12 +826,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (!video) return;
     setEditingVideo(video);
 
-    const catRaw = video.category_id || video.cat_id || video.category || video.category_name || '';
+    const catRawId = video.category_id || video.cat_id || '';
+    const catRawName = video.category || video.category_name || '';
     const foundCat = categories.find(c => 
-      String(c.id) === String(catRaw) || 
-      String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
+      (catRawId && String(c.id) === String(catRawId)) || 
+      (catRawName && String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRawName).trim().toLowerCase())
     );
-    const catId = foundCat ? String(foundCat.id) : String(catRaw);
+    const catId = foundCat ? String(foundCat.id) : String(catRawId || catRawName);
 
     const subCatRaw = video.sub_category || video.subcategory_id || video.sub_category_id || video.subcategory || video.subCategory || video.subcategory_name || '';
     const langVal = String(video.language_id || video.languageId || video.language || (languages[0]?.id || ''));
@@ -1664,7 +1665,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setCategories(normalizedList);
       if (normalizedList.length > 0) {
         const firstCatId = normalizedList[0].id;
-        setUploadForm(prev => ({ ...prev, category: firstCatId }));
+        setUploadForm(prev => (prev.category ? prev : { ...prev, category: firstCatId }));
       }
     } catch (e) {
       console.error(e);
@@ -1677,7 +1678,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const data = await api.videos.listVisibilities();
       setVisibilities(data);
       if (data.length > 0) {
-        setUploadForm(prev => ({ ...prev, visibility: data[0].id }));
+        setUploadForm(prev => (prev.visibility ? prev : { ...prev, visibility: data[0].id }));
       }
     } catch (e) {
       console.error(e);
