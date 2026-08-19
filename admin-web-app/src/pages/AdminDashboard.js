@@ -842,7 +842,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
     );
     const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
-    const admVal = String((isSuperAdmin && selectedAdminId) ? selectedAdminId : (video.assigned_admin || video.admin_id || video.adminId || selectedAdminId || '')).trim();
+    const admVal = String(video.client_id || video.clientId || video.assigned_admin || video.admin_id || video.adminId || selectedAdminId || '').trim();
 
     setUploadForm({
       title: video.title || video.video_title || '',
@@ -2482,7 +2482,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      const effectiveClientId = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (courseForm.adminId || selectedAdminId || '');
+      const effectiveClientId = String(courseForm.adminId || selectedAdminId || '').trim();
       if (effectiveClientId) {
         payload.client_id = effectiveClientId;
         payload.clientId = effectiveClientId;
@@ -3005,7 +3005,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         formstep: editingVideo ? "editVideo" : "uploadVideo",
         formStep: editingVideo ? "editVideo" : "uploadVideo"
       };
-      const effectiveClientId = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (uploadForm.adminId || selectedAdminId || '');
+      const effectiveClientId = String(uploadForm.adminId || selectedAdminId || '').trim();
       if (effectiveClientId) {
         registerPayload.client_id = effectiveClientId;
         registerPayload.clientId = effectiveClientId;
