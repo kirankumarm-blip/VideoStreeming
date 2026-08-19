@@ -2982,6 +2982,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         category: uploadForm.category,
         subCategory: uploadForm.subCategory,
         subcategory_id: uploadForm.subCategory,
+        sub_category_id: uploadForm.subCategory,
+        sub_category: uploadForm.subCategory,
         language_id: uploadForm.languageId,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
@@ -3968,7 +3970,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <div className="form-group">
                         <label className="form-label">Sub Category *</label>
                         <PremiumSelect
-                          options={subCategories.map(sc => ({ id: sc.id || sc.name, name: sc.name }))}
+                          options={subCategories.map(sc => ({ id: String(sc.id || sc.sub_category_id || sc.subcategory_id || ''), name: sc.name || sc.sub_category_name || sc.title || sc.id }))}
                           value={uploadForm.subCategory}
                           onChange={(e) => setUploadForm({ ...uploadForm, subCategory: e.target.value })}
                           placeholder={loadingSubCategories ? 'Loading...' : 'Select Sub Category'}
@@ -4484,7 +4486,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Sub Category *</label>
                           <PremiumSelect
-                            options={subCategories.map(sc => ({ id: sc.id || sc.name, name: sc.name }))}
+                            options={subCategories.map(sc => ({ id: String(sc.id || sc.sub_category_id || sc.subcategory_id || ''), name: sc.name || sc.sub_category_name || sc.title || sc.id }))}
                             value={courseForm.subCategory}
                             onChange={(e) => setCourseForm(prev => ({ ...prev, subCategory: e.target.value }))}
                             placeholder={loadingSubCategories ? 'Loading...' : 'Select Sub Category'}
