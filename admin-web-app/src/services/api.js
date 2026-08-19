@@ -971,10 +971,11 @@ export const api = {
       const isSuperAdmin = user && user.role === 'super_admin';
       const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
       const token = getAccessToken();
-      const bodyObj = {
-        ...payload,
-        formStep: 'uploadVideo'
-      };
+      const bodyObj = { ...payload };
+      const step = bodyObj.formstep || bodyObj.formStep || 'uploadVideo';
+      delete bodyObj.formstep;
+      delete bodyObj.formStep;
+      bodyObj.formstep = step;
       if (token) {
         bodyObj.token = token;
       }
