@@ -2873,6 +2873,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setUploadProgress('');
     setUploadSuccess('');
 
+    if (!uploadForm.title?.trim()) {
+      showError('Please enter a Video Title');
+      return;
+    }
+
+    if (!uploadForm.category) {
+      showError('Please select a Category');
+      return;
+    }
+
+    if (!uploadForm.subCategory) {
+      showError('Please select a Sub Category. Sub Category is required.');
+      return;
+    }
+
     if (!editingVideo && !videoFile) {
       showError('Please select a video file to upload');
       return;
@@ -2985,7 +3000,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
 
-      setUploadSuccess(editingVideo ? 'Video updated successfully!' : 'Video uploaded and registered successfully!');
+      const succMsg = editingVideo ? 'Video updated successfully!' : 'Video uploaded and registered successfully!';
+      setUploadSuccess(succMsg);
+      showSuccess(succMsg);
       resetVideoFormToDefault();
       fetchDashboardData(activeTab);
       fetchCourses(selectedAdminId);
@@ -3931,7 +3948,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">Sub Category</label>
+                        <label className="form-label">Sub Category *</label>
                         <PremiumSelect
                           options={subCategories.map(sc => ({ id: sc.id || sc.name, name: sc.name }))}
                           value={uploadForm.subCategory}
