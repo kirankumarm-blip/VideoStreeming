@@ -917,9 +917,16 @@ export const api = {
         body: JSON.stringify({ fileName, fileSize, fileType })
       });
     },
-    uploadChunk: (formData) => {
-      return uploadRequest('/api/upload/chunk', {
+    uploadChunk: (formData, uploadId, chunkIndex) => {
+      const query = (uploadId !== undefined && chunkIndex !== undefined)
+        ? `?uploadId=${encodeURIComponent(uploadId)}&chunkIndex=${encodeURIComponent(chunkIndex)}`
+        : '';
+      return uploadRequest(`/api/upload/chunk${query}`, {
         method: 'POST',
+        headers: (uploadId !== undefined && chunkIndex !== undefined) ? {
+          'X-Upload-Id': String(uploadId),
+          'X-Chunk-Index': String(chunkIndex)
+        } : {},
         body: formData
       });
     },

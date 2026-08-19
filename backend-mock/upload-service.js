@@ -55,7 +55,7 @@ if (!fs.existsSync(tempDir)) {
 // Multer for temp chunk upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const { uploadId } = req.body;
+    const uploadId = req.body?.uploadId || req.query?.uploadId || req.headers['x-upload-id'];
     const chunkPath = path.join(tempDir, uploadId || 'default');
     if (!fs.existsSync(chunkPath)) {
       fs.mkdirSync(chunkPath, { recursive: true });
@@ -63,8 +63,8 @@ const storage = multer.diskStorage({
     cb(null, chunkPath);
   },
   filename: (req, file, cb) => {
-    const { chunkIndex } = req.body;
-    cb(null, `part-${chunkIndex || '0'}`);
+    const chunkIndex = req.body?.chunkIndex !== undefined ? req.body.chunkIndex : (req.query?.chunkIndex !== undefined ? req.query.chunkIndex : req.headers['x-chunk-index']);
+    cb(null, `part-${chunkIndex !== undefined ? chunkIndex : '0'}`);
   }
 });
 const upload = multer({ storage });
@@ -89,7 +89,8 @@ app.post('/api/upload/initiate', (req, res) => {
 
 // 2. Upload Chunk
 app.post('/api/upload/chunk', upload.single('chunk'), (req, res) => {
-  const { uploadId, chunkIndex } = req.body;
+  const uploadId = req.body?.uploadId || req.query?.uploadId || req.headers['x-upload-id'];
+  const chunkIndex = req.body?.chunkIndex !== undefined ? req.body.chunkIndex : (req.query?.chunkIndex !== undefined ? req.query.chunkIndex : req.headers['x-chunk-index']);
   if (!uploadId || chunkIndex === undefined) {
     return res.status(400).json({ error: 'uploadId and chunkIndex are required' });
   }

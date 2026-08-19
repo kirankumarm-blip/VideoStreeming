@@ -2000,7 +2000,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chunkFormData.append('uploadId', uploadId);
         chunkFormData.append('chunkIndex', chunkIndex);
         chunkFormData.append('chunk', chunkBlob, file.name);
-        await api.videos.uploadChunk(chunkFormData);
+        await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
       }
       const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
       setCourseThumbnailUrl(completeRes.minioUrl);
@@ -2028,7 +2028,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chunkFormData.append('uploadId', uploadId);
         chunkFormData.append('chunkIndex', chunkIndex);
         chunkFormData.append('chunk', chunkBlob, file.name);
-        await api.videos.uploadChunk(chunkFormData);
+        await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
       }
       const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
       setCourseBannerUrl(completeRes.minioUrl);
@@ -2143,7 +2143,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const percent = Math.round((chunkIndex / totalChunks) * 100);
         updateVideoProp(chapterId, videoId, 'uploadProgress', percent);
 
-        await api.videos.uploadChunk(chunkFormData);
+        await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
       }
 
       const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
@@ -2181,7 +2181,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chunkFormData.append('chunkIndex', chunkIndex);
         chunkFormData.append('chunk', chunkBlob, file.name);
 
-        await api.videos.uploadChunk(chunkFormData);
+        await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
       }
 
       const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
@@ -2907,7 +2907,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const percent = Math.round((chunkIndex / totalChunks) * 100);
         setUploadProgress(`Uploading ${fileRoleLabel}: ${percent}% (${chunkIndex + 1}/${totalChunks} chunks)`);
 
-        await api.videos.uploadChunk(chunkFormData);
+        await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
       }
 
       setUploadProgress(`Finalizing and assembling ${fileRoleLabel} in MinIO...`);
