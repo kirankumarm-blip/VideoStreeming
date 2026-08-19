@@ -2328,6 +2328,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
+      if (courseForm.adminId) {
+        payload.admin_id = courseForm.adminId;
+        payload.adminId = courseForm.adminId;
+        payload.assigned_admin = courseForm.adminId;
+      }
+
       if (editingCourse) {
         payload.id = editingCourse.id;
         payload.course_id = editingCourse.id;
@@ -2814,12 +2820,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         videoUrl: encryptedVideoUrl,
         thumbnailUrl: encryptedThumbnailUrl
       };
-      if (isPrivate) {
-        if (isSuperAdmin) {
-          registerPayload.admin_id = uploadForm.adminId;
-        } else {
-          registerPayload.plan_id = uploadForm.planId;
-        }
+      if (uploadForm.adminId) {
+        registerPayload.admin_id = uploadForm.adminId;
+        registerPayload.adminId = uploadForm.adminId;
+        registerPayload.assigned_admin = uploadForm.adminId;
+      }
+      if (isPrivate && !isSuperAdmin) {
+        registerPayload.plan_id = uploadForm.planId;
       }
 
       await api.videos.registerVideo(registerPayload);
