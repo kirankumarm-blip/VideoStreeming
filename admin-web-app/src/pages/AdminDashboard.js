@@ -4053,7 +4053,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               value={uploadForm.adminId}
                               onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
                               placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
-                              disabled={loadingAdminsList}
+                              disabled={loadingAdminsList || !!editingVideo}
                               icon="fa-solid fa-user-gear"
                             />
                           </div>
