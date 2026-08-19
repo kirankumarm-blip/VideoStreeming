@@ -2953,7 +2953,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
         videoUrl: encryptedVideoUrl,
-        thumbnailUrl: encryptedThumbnailUrl
+        thumbnailUrl: encryptedThumbnailUrl,
+        formstep: editingVideo ? "editVideo" : "uploadVideo",
+        formStep: editingVideo ? "editVideo" : "uploadVideo"
       };
       const effectiveClientId = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (uploadForm.adminId || selectedAdminId || '');
       if (effectiveClientId) {
@@ -2972,7 +2974,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         registerPayload.id = vId;
         registerPayload.video_id = vId;
         registerPayload.videoId = vId;
-        registerPayload.formstep = "editVideo";
       }
 
       await api.videos.registerVideo(registerPayload);

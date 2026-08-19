@@ -980,9 +980,8 @@ export const api = {
       const token = getAccessToken();
       const bodyObj = { ...payload };
       const step = bodyObj.formstep || bodyObj.formStep || 'uploadVideo';
-      delete bodyObj.formstep;
-      delete bodyObj.formStep;
       bodyObj.formstep = step;
+      bodyObj.formStep = step;
       if (token) {
         bodyObj.token = token;
       }
