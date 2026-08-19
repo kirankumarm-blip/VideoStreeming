@@ -806,6 +806,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setVideoFile(null);
     setThumbnailFile(null);
     setThumbPreviewUrl(null);
+    setVideoPreviewUrl(null);
     const defaultCatId = categories[0]?.id || '';
     const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
     setUploadForm({
@@ -832,7 +833,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     const catId = foundCat ? String(foundCat.id) : String(catRaw);
 
-    const subCatRaw = video.subcategory_id || video.sub_category_id || video.subcategory || video.subCategory || video.subcategory_name || '';
+    const subCatRaw = video.sub_category || video.subcategory_id || video.sub_category_id || video.subcategory || video.subCategory || video.subcategory_name || '';
     const langVal = String(video.language_id || video.languageId || video.language || (languages[0]?.id || ''));
     const rawVis = video.visibility_id || video.visibility || video.visibility_name || '';
     const foundVis = visibilities.find(v => 
@@ -875,6 +876,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setThumbPreviewUrl(parsedThumb.startsWith('http') ? parsedThumb : `http://localhost:5000${parsedThumb}`);
     } else {
       setThumbPreviewUrl(null);
+    }
+
+    const parsedVideo = video.video_url || video.videoUrl || video.url || '';
+    if (parsedVideo) {
+      setVideoPreviewUrl(parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`);
+    } else {
+      setVideoPreviewUrl(null);
     }
 
     setActiveTab('video_upload');
@@ -924,6 +932,38 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     }
   }, [editingCourse, categories, visibilities]);
+
+  // Auto-match Category and Subcategory dynamically when editing a video
+  useEffect(() => {
+    if (!editingVideo) return;
+
+    if (categories.length > 0 && uploadForm.category) {
+      const foundCat = categories.find(c => 
+        String(c.id) === String(uploadForm.category) || 
+        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(uploadForm.category).trim().toLowerCase()
+      );
+      if (foundCat) {
+        if (String(uploadForm.category) !== String(foundCat.id)) {
+          setUploadForm(prev => ({ ...prev, category: String(foundCat.id) }));
+        }
+        if (lastFetchedSubCatIdRef.current !== String(foundCat.id)) {
+          fetchSubCategories(foundCat.id);
+        }
+      }
+    }
+
+    if (subCategories.length > 0 && uploadForm.subCategory) {
+      const target = String(uploadForm.subCategory).trim().toLowerCase();
+      const foundSub = subCategories.find(s => {
+        const sId = String(s.id);
+        const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+        return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
+      });
+      if (foundSub && String(uploadForm.subCategory) !== String(foundSub.id)) {
+        setUploadForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+      }
+    }
+  }, [editingVideo, categories, visibilities]);
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -3983,7 +4023,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginTop: '16px' }}>
                       <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label">Video File *</label>
+                        <label className="form-label">Video File {editingVideo ? '' : '*'}</label>
                         <input 
                           type="file" 
                           id="videoInput"
@@ -4002,14 +4042,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               }
                             }
                           }}
-                          required
+                          required={!editingVideo}
                           className="form-input"
                           style={{ fontSize: '13px', padding: '10px' }}
                         />
+                        {editingVideo && (
+                          <div style={{ fontSize: '12px', color: 'var(--accent-secondary)', marginTop: '6px', fontWeight: 500 }}>
+                            ✓ Existing video file loaded. Choose a new file only to replace it.
+                          </div>
+                        )}
                       </div>
 
                       <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label">Thumbnail Image *</label>
+                        <label className="form-label">Thumbnail Image {editingVideo ? '' : '*'}</label>
                         <input 
                           type="file" 
                           id="thumbInput"
@@ -4022,10 +4067,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             }
                             setThumbnailFile(file);
                           }}
-                          required
+                          required={!editingVideo}
                           className="form-input"
                           style={{ fontSize: '13px', padding: '10px' }}
                         />
+                        {editingVideo && (
+                          <div style={{ fontSize: '12px', color: 'var(--accent-secondary)', marginTop: '6px', fontWeight: 500 }}>
+                            ✓ Existing thumbnail loaded. Choose a new file only to replace it.
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -4037,7 +4087,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     )}
 
                     <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} disabled={!!uploadProgress}>
-                      {t('admin.tabUpload')}
+                      {editingVideo ? 'Update Video' : t('admin.tabUpload')}
                     </button>
                   </form>
                 </div>
