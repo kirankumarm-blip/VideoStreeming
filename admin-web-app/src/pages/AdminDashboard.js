@@ -657,20 +657,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setEditingCourse(course);
 
     // 1. Match Category (by ID or name)
-    const catRaw = course.category_id || course.cat_id || course.category || '';
-    const foundCat = categories.find(c => String(c.id) === String(catRaw) || String(c.name).toLowerCase() === String(catRaw).toLowerCase());
+    const catRaw = course.category_id || course.cat_id || course.category || course.category_name || '';
+    const foundCat = categories.find(c => 
+      String(c.id) === String(catRaw) || 
+      String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
+    );
     const catId = foundCat ? String(foundCat.id) : String(catRaw);
 
     // 2. Subcategory raw value (by ID or name)
-    const subCatRaw = course.subcategory_id || course.sub_category_id || course.subcategory || course.subCategory || '';
+    const subCatRaw = course.subcategory_id || course.sub_category_id || course.subcategory || course.subCategory || course.subcategory_name || '';
 
     // 3. Language, Level, Visibility, Admin
     const langVal = String(course.language_id || course.languageId || course.language || (languages[0]?.id || ''));
     const lvlVal = String(course.level_id || course.level || '1');
-    const rawVis = course.visibility_id || course.visibility || '';
+    const rawVis = course.visibility_id || course.visibility || course.visibility_name || '';
     const foundVis = visibilities.find(v => 
       String(v.id) === String(rawVis) || 
-      String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawVis).toLowerCase()
+      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
     );
     const visVal = foundVis ? String(foundVis.id) : String(rawVis || visibilities[0]?.id || '');
     const admVal = String(course.assigned_admin || course.admin_id || course.adminId || '').trim();
@@ -692,7 +695,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (catId) {
       fetchSubCategories(catId).then((subList) => {
         if (Array.isArray(subList) && subList.length > 0) {
-          const foundSub = subList.find(s => String(s.id) === String(subCatRaw) || String(s.name).toLowerCase() === String(subCatRaw).toLowerCase());
+          const foundSub = subList.find(s => 
+            String(s.id) === String(subCatRaw) || 
+            String(s.name || s.subcategory || s.title || '').trim().toLowerCase() === String(subCatRaw).trim().toLowerCase()
+          );
           if (foundSub) {
             setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
           }
@@ -788,6 +794,42 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setCourseThumbnailUrl('');
     setCourseBannerUrl('');
   };
+
+  // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
+  useEffect(() => {
+    if (!editingCourse) return;
+
+    if (categories.length > 0 && courseForm.category) {
+      const foundCat = categories.find(c => 
+        String(c.id) === String(courseForm.category) || 
+        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(courseForm.category).trim().toLowerCase()
+      );
+      if (foundCat && String(courseForm.category) !== String(foundCat.id)) {
+        setCourseForm(prev => ({ ...prev, category: String(foundCat.id) }));
+        fetchSubCategories(foundCat.id);
+      }
+    }
+
+    if (subCategories.length > 0 && courseForm.subCategory) {
+      const foundSub = subCategories.find(s => 
+        String(s.id) === String(courseForm.subCategory) || 
+        String(s.name || s.subcategory || s.title || '').trim().toLowerCase() === String(courseForm.subCategory).trim().toLowerCase()
+      );
+      if (foundSub && String(courseForm.subCategory) !== String(foundSub.id)) {
+        setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+      }
+    }
+
+    if (visibilities.length > 0 && courseForm.visibility) {
+      const foundVis = visibilities.find(v => 
+        String(v.id) === String(courseForm.visibility) || 
+        String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(courseForm.visibility).trim().toLowerCase()
+      );
+      if (foundVis && String(courseForm.visibility) !== String(foundVis.id)) {
+        setCourseForm(prev => ({ ...prev, visibility: String(foundVis.id) }));
+      }
+    }
+  }, [editingCourse, categories, subCategories, visibilities]);
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -1417,7 +1459,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchSubCategories = async (categoryId = null) => {
     setLoadingSubCategories(true);
     try {
-      const res = await api.vdcategories.getSubCategories(categoryId);
+      let targetId = categoryId;
+      if (categoryId && categories.length > 0) {
+        const foundCat = categories.find(c => 
+          String(c.id) === String(categoryId) || 
+          String(c.name || c.category || c.title || '').trim().toLowerCase() === String(categoryId).trim().toLowerCase()
+        );
+        if (foundCat) {
+          targetId = foundCat.id;
+        }
+      }
+      const res = await api.vdcategories.getSubCategories(targetId);
       const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       const subCats = rawSubCats.map(item => {
         let jsonObj = {};

@@ -54,7 +54,10 @@ const PremiumSelect = ({
     return { id: opt, label: String(opt), icon: null };
   });
 
-  const selectedOption = normalizedOptions.find(opt => String(opt.id) === String(value));
+  const selectedOption = normalizedOptions.find(opt => 
+    String(opt.id).toLowerCase() === String(value || '').toLowerCase() || 
+    String(opt.label).toLowerCase() === String(value || '').toLowerCase()
+  );
 
   const filteredOptions = normalizedOptions.filter(opt =>
     opt.label.toLowerCase().includes(searchQuery.toLowerCase())
