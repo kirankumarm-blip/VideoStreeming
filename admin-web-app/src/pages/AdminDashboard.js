@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api, getCurrentUser } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
@@ -508,6 +508,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     languageId: '',
     adminId: ''
   });
+  const lastFetchedSubCatIdRef = useRef(null);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -654,6 +655,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleEditCourse = (course) => {
     if (!course) return;
+    lastFetchedSubCatIdRef.current = null;
     setEditingCourse(course);
 
     // 1. Match Category (by ID or name)
@@ -776,6 +778,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const resetCourseFormToDefault = () => {
+    lastFetchedSubCatIdRef.current = null;
     setEditingCourse(null);
     const defaultCatId = categories[0]?.id || '';
     const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
@@ -810,7 +813,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         if (String(courseForm.category) !== String(foundCat.id)) {
           setCourseForm(prev => ({ ...prev, category: String(foundCat.id) }));
         }
-        fetchSubCategories(foundCat.id);
+        if (lastFetchedSubCatIdRef.current !== String(foundCat.id)) {
+          fetchSubCategories(foundCat.id);
+        }
       }
     }
 
@@ -838,7 +843,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         setCourseForm(prev => ({ ...prev, visibility: String(visibilities[0].id) }));
       }
     }
-  }, [editingCourse, categories, subCategories, visibilities]);
+  }, [editingCourse, categories, visibilities]);
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -1466,18 +1471,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchSubCategories = async (categoryId = null) => {
+    let targetId = categoryId;
+    if (categoryId && categories.length > 0) {
+      const foundCat = categories.find(c => 
+        String(c.id) === String(categoryId) || 
+        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(categoryId).trim().toLowerCase()
+      );
+      if (foundCat) {
+        targetId = foundCat.id;
+      }
+    }
+
+    if (targetId && lastFetchedSubCatIdRef.current === String(targetId) && subCategories.length > 0) {
+      return subCategories;
+    }
+
+    lastFetchedSubCatIdRef.current = String(targetId || '');
     setLoadingSubCategories(true);
     try {
-      let targetId = categoryId;
-      if (categoryId && categories.length > 0) {
-        const foundCat = categories.find(c => 
-          String(c.id) === String(categoryId) || 
-          String(c.name || c.category || c.title || '').trim().toLowerCase() === String(categoryId).trim().toLowerCase()
-        );
-        if (foundCat) {
-          targetId = foundCat.id;
-        }
-      }
       const res = await api.vdcategories.getSubCategories(targetId);
       const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       const subCats = rawSubCats.map(item => {
