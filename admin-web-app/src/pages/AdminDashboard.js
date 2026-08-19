@@ -834,7 +834,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     const catId = foundCat ? String(foundCat.id) : String(catRawId || catRawName);
 
-    const subCatRaw = video.sub_category || video.subcategory_id || video.sub_category_id || video.subcategory || video.subCategory || video.subcategory_name || '';
+    const subCatRaw = video.subcategory_id || video.sub_category_id || video.sub_category || video.subcategory || video.subCategory || video.subcategory_name || '';
     const langVal = String(video.language_id || video.languageId || video.language || (languages[0]?.id || ''));
     const rawVis = video.visibility_id || video.visibility || video.visibility_name || '';
     const foundVis = visibilities.find(v => 
@@ -861,12 +861,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         if (Array.isArray(subList) && subList.length > 0) {
           const target = String(subCatRaw).trim().toLowerCase();
           const foundSub = subList.find(s => {
-            const sId = String(s.id);
+            const sId = String(s.id || s.subcategory_id || s.sub_category_id || '');
             const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
             return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
           });
           if (foundSub) {
-            setUploadForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+            const subId = String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '');
+            setUploadForm(prev => ({ ...prev, subCategory: subId }));
           }
         }
       });
@@ -956,15 +957,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (subCategories.length > 0 && uploadForm.subCategory) {
       const target = String(uploadForm.subCategory).trim().toLowerCase();
       const foundSub = subCategories.find(s => {
-        const sId = String(s.id);
+        const sId = String(s.id || s.subcategory_id || s.sub_category_id || '');
         const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
         return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
       });
-      if (foundSub && String(uploadForm.subCategory) !== String(foundSub.id)) {
-        setUploadForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+      if (foundSub) {
+        const targetId = String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '');
+        if (targetId && String(uploadForm.subCategory) !== targetId) {
+          setUploadForm(prev => ({ ...prev, subCategory: targetId }));
+        }
       }
     }
-  }, [editingVideo, categories, visibilities]);
+  }, [editingVideo, categories, visibilities, subCategories]);
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -2971,7 +2975,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const encryptedVideoUrl = await encryptUrl(videoUrl);
       const encryptedThumbnailUrl = await encryptUrl(thumbnailUrl);
 
-      const videoNotifMsg = `"${uploadForm.title}" has been ${editingVideo ? 'updated' : 'uploaded'}. Watch it now!`;
+      let resolvedSubCatId = String(uploadForm.subCategory || '').trim();
+      if (subCategories.length > 0) {
+        const foundSub = subCategories.find(s => {
+          const sId = String(s.id || s.subcategory_id || s.sub_category_id || '').trim();
+          const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+          return sId === resolvedSubCatId.toLowerCase() || sName === resolvedSubCatId.toLowerCase() || (sName && resolvedSubCatId && sName.startsWith(resolvedSubCatId.slice(0, 8).toLowerCase()));
+        });
+        if (foundSub) {
+          resolvedSubCatId = String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '');
+        }
+      }
 
       const registerPayload = {
         title: uploadForm.title,
@@ -2980,10 +2994,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         notification_message: videoNotifMsg,
         notificationMessage: videoNotifMsg,
         category: uploadForm.category,
-        subCategory: uploadForm.subCategory,
-        subcategory_id: uploadForm.subCategory,
-        sub_category_id: uploadForm.subCategory,
-        sub_category: uploadForm.subCategory,
+        subcategory_id: resolvedSubCatId,
         language_id: uploadForm.languageId,
         tags: uploadForm.tags,
         visibility: uploadForm.visibility,
