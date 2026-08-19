@@ -495,6 +495,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     });
   };
 
+  const [editingVideo, setEditingVideo] = useState(null);
   const [visibilities, setVisibilities] = useState([]);
   const [levels, setLevels] = useState([]);
   const [uploadForm, setUploadForm] = useState({
@@ -798,6 +799,85 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setChapters([]);
     setCourseThumbnailUrl('');
     setCourseBannerUrl('');
+  };
+
+  const resetVideoFormToDefault = () => {
+    setEditingVideo(null);
+    setVideoFile(null);
+    setThumbnailFile(null);
+    setThumbPreviewUrl(null);
+    const defaultCatId = categories[0]?.id || '';
+    const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
+    setUploadForm({
+      title: '',
+      description: '',
+      category: defaultCatId,
+      subCategory: '',
+      tags: '',
+      visibility: visibilities[0]?.id || '',
+      planId: plans[0]?.id || '',
+      languageId: defaultLangId,
+      adminId: (isSuperAdmin && selectedAdminId) ? selectedAdminId : ''
+    });
+  };
+
+  const handleEditVideo = (video) => {
+    if (!video) return;
+    setEditingVideo(video);
+
+    const catRaw = video.category_id || video.cat_id || video.category || video.category_name || '';
+    const foundCat = categories.find(c => 
+      String(c.id) === String(catRaw) || 
+      String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
+    );
+    const catId = foundCat ? String(foundCat.id) : String(catRaw);
+
+    const subCatRaw = video.subcategory_id || video.sub_category_id || video.subcategory || video.subCategory || video.subcategory_name || '';
+    const langVal = String(video.language_id || video.languageId || video.language || (languages[0]?.id || ''));
+    const rawVis = video.visibility_id || video.visibility || video.visibility_name || '';
+    const foundVis = visibilities.find(v => 
+      String(v.id) === String(rawVis) || 
+      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
+    );
+    const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
+    const admVal = String((isSuperAdmin && selectedAdminId) ? selectedAdminId : (video.assigned_admin || video.admin_id || video.adminId || selectedAdminId || '')).trim();
+
+    setUploadForm({
+      title: video.title || video.video_title || '',
+      description: video.description || video.desc || '',
+      category: catId,
+      subCategory: String(subCatRaw),
+      tags: video.tags || '',
+      visibility: visVal,
+      planId: String(video.plan_id || video.planId || plans[0]?.id || ''),
+      languageId: langVal,
+      adminId: admVal
+    });
+
+    if (catId) {
+      fetchSubCategories(catId).then((subList) => {
+        if (Array.isArray(subList) && subList.length > 0) {
+          const target = String(subCatRaw).trim().toLowerCase();
+          const foundSub = subList.find(s => {
+            const sId = String(s.id);
+            const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+            return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
+          });
+          if (foundSub) {
+            setUploadForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+          }
+        }
+      });
+    }
+
+    const parsedThumb = video.thumbnail || video.thumbnail_image || video.thumbnail_url || video.thumbnailUrl || '';
+    if (parsedThumb) {
+      setThumbPreviewUrl(parsedThumb.startsWith('http') ? parsedThumb : `http://localhost:5000${parsedThumb}`);
+    } else {
+      setThumbPreviewUrl(null);
+    }
+
+    setActiveTab('video_upload');
   };
 
   // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
@@ -2752,18 +2832,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setUploadProgress('');
     setUploadSuccess('');
 
-    if (!videoFile) {
+    if (!editingVideo && !videoFile) {
       showError('Please select a video file to upload');
       return;
     }
 
-    if (!thumbnailFile) {
+    if (!editingVideo && !thumbnailFile && !thumbPreviewUrl) {
       showError('Thumbnail Image is required');
       return;
     }
 
-    if (await verifyFileContent(videoFile)) return;
-    if (await verifyFileContent(thumbnailFile)) return;
+    if (videoFile && await verifyFileContent(videoFile)) return;
+    if (thumbnailFile && await verifyFileContent(thumbnailFile)) return;
 
     const uploadFileInChunks = async (file, fileRoleLabel) => {
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -2795,17 +2875,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     };
 
     try {
-      // 1. Upload video file chunks
-      const videoUrl = await uploadFileInChunks(videoFile, 'Video');
+      let videoUrl = editingVideo ? (editingVideo.videoUrl || editingVideo.video_url || editingVideo.url || '') : '';
+      if (videoFile) {
+        videoUrl = await uploadFileInChunks(videoFile, 'Video');
+      }
 
-      // 2. Upload thumbnail file chunks (if selected)
-      let thumbnailUrl = '';
+      let thumbnailUrl = editingVideo ? (editingVideo.thumbnailUrl || editingVideo.thumbnail || editingVideo.thumbnail_image || '') : '';
       if (thumbnailFile) {
         thumbnailUrl = await uploadFileInChunks(thumbnailFile, 'Thumbnail');
       }
 
-      // 3. Register metadata and notify database via n8n webhook
-      setUploadProgress('Registering video metadata with database...');
+      setUploadProgress(editingVideo ? 'Updating video metadata...' : 'Registering video metadata with database...');
       
       const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
       const isPrivate = (selectedVisObj && (
@@ -2817,7 +2897,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const encryptedVideoUrl = await encryptUrl(videoUrl);
       const encryptedThumbnailUrl = await encryptUrl(thumbnailUrl);
 
-      const videoNotifMsg = `"${uploadForm.title}" has been uploaded. Watch it now!`;
+      const videoNotifMsg = `"${uploadForm.title}" has been ${editingVideo ? 'updated' : 'uploaded'}. Watch it now!`;
 
       const registerPayload = {
         title: uploadForm.title,
@@ -2846,45 +2926,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         registerPayload.plan_id = uploadForm.planId;
       }
 
+      if (editingVideo) {
+        registerPayload.id = editingVideo.id;
+        registerPayload.video_id = editingVideo.id;
+        registerPayload.formstep = "editVideo";
+      }
+
       await api.videos.registerVideo(registerPayload);
-      try {
-        await api.notifications.sendCampaign('all', 'New Video Added', `"${registerPayload.title || 'A new video'}" has been uploaded. Watch it now!`);
-      } catch (notifErr) {
-        console.warn("Video notification call warning:", notifErr);
+      if (!editingVideo) {
+        try {
+          await api.notifications.sendCampaign('all', 'New Video Added', `"${registerPayload.title || 'A new video'}" has been uploaded. Watch it now!`);
+        } catch (notifErr) {
+          console.warn("Video notification call warning:", notifErr);
+        }
       }
 
-      setUploadSuccess('Video uploaded and registered successfully!');
-      
-      // Reset form
-      const defaultCatId = categories[0]?.id || '';
-      const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
-      setUploadForm({
-        title: '',
-        description: '',
-        category: defaultCatId,
-        subCategory: '',
-        tags: '',
-        visibility: visibilities[0]?.id || '',
-        planId: '',
-        languageId: defaultLangId,
-        adminId: ''
-      });
-      if (defaultCatId) {
-        fetchSubCategories(defaultCatId);
-      }
-      setVideoFile(null);
-      setThumbnailFile(null);
-      
-      // Clear file inputs manually
-      document.getElementById('videoInput').value = '';
-      const thumbInput = document.getElementById('thumbInput');
-      if (thumbInput) thumbInput.value = '';
-
-      fetchVideos();
-      fetchDashboardData();
+      setUploadSuccess(editingVideo ? 'Video updated successfully!' : 'Video uploaded and registered successfully!');
+      resetVideoFormToDefault();
+      fetchDashboardData(activeTab);
+      fetchCourses(selectedAdminId);
     } catch (err) {
-      console.error(err);
-      setError(err.message || 'Failed to upload video');
+      console.error('Failed to register/upload video:', err);
+      showError(`Video ${editingVideo ? 'update' : 'upload'} failed: ${err.message || 'Server error'}`);
     } finally {
       setUploadProgress('');
     }
@@ -3194,6 +3257,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       onClick={() => {
                         if (item.id === 'course_upload') {
                           resetCourseFormToDefault();
+                        } else if (item.id === 'video_upload') {
+                          resetVideoFormToDefault();
                         }
                         setActiveTab(item.id);
                         setError('');
@@ -3767,7 +3832,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 
                 {/* LEFT COLUMN: Upload Video Form */}
                 <div className="glass-card" style={{ margin: 0 }}>
-                  <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>{t('admin.tabUpload')}</h2>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '20px', margin: 0 }}>{editingVideo ? 'Edit Video' : t('admin.tabUpload')}</h2>
+                    {editingVideo && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 14px', fontSize: '13px', borderRadius: '8px' }}
+                        onClick={() => resetVideoFormToDefault()}
+                      >
+                        ❌ Cancel Edit
+                      </button>
+                    )}
+                  </div>
                   <form onSubmit={handleVideoUpload}>
                     <div className="form-group">
                       <label className="form-label">{t('admin.uploadTitle')}</label>
@@ -4977,6 +5054,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           )}
                           <td onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={() => handleEditVideo(video)}
+                                className="btn btn-warning"
+                                style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                ✏️ Edit
+                              </button>
                               <button 
                                 onClick={() => setReviewVideo(video)}
                                 className="btn btn-secondary"
