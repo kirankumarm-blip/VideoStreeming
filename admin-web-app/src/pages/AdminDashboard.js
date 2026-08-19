@@ -2987,6 +2987,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
 
+      const videoNotifMsg = `"${uploadForm.title}" has been ${editingVideo ? 'updated' : 'uploaded'}. Watch it now!`;
+
       const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
