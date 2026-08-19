@@ -675,7 +675,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       String(v.id) === String(rawVis) || 
       String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
     );
-    const visVal = foundVis ? String(foundVis.id) : String(rawVis || visibilities[0]?.id || '');
+    const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
     const admVal = String(course.assigned_admin || course.admin_id || course.adminId || '').trim();
 
     setCourseForm({
@@ -695,10 +695,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (catId) {
       fetchSubCategories(catId).then((subList) => {
         if (Array.isArray(subList) && subList.length > 0) {
-          const foundSub = subList.find(s => 
-            String(s.id) === String(subCatRaw) || 
-            String(s.name || s.subcategory || s.title || '').trim().toLowerCase() === String(subCatRaw).trim().toLowerCase()
-          );
+          const target = String(subCatRaw).trim().toLowerCase();
+          const foundSub = subList.find(s => {
+            const sId = String(s.id);
+            const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+            return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
+          });
           if (foundSub) {
             setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
           }
@@ -804,29 +806,36 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         String(c.id) === String(courseForm.category) || 
         String(c.name || c.category || c.title || '').trim().toLowerCase() === String(courseForm.category).trim().toLowerCase()
       );
-      if (foundCat && String(courseForm.category) !== String(foundCat.id)) {
-        setCourseForm(prev => ({ ...prev, category: String(foundCat.id) }));
+      if (foundCat) {
+        if (String(courseForm.category) !== String(foundCat.id)) {
+          setCourseForm(prev => ({ ...prev, category: String(foundCat.id) }));
+        }
         fetchSubCategories(foundCat.id);
       }
     }
 
     if (subCategories.length > 0 && courseForm.subCategory) {
-      const foundSub = subCategories.find(s => 
-        String(s.id) === String(courseForm.subCategory) || 
-        String(s.name || s.subcategory || s.title || '').trim().toLowerCase() === String(courseForm.subCategory).trim().toLowerCase()
-      );
+      const target = String(courseForm.subCategory).trim().toLowerCase();
+      const foundSub = subCategories.find(s => {
+        const sId = String(s.id);
+        const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+        return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
+      });
       if (foundSub && String(courseForm.subCategory) !== String(foundSub.id)) {
         setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
       }
     }
 
-    if (visibilities.length > 0 && courseForm.visibility) {
+    if (visibilities.length > 0) {
+      const rawVis = courseForm.visibility;
       const foundVis = visibilities.find(v => 
-        String(v.id) === String(courseForm.visibility) || 
-        String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(courseForm.visibility).trim().toLowerCase()
+        String(v.id) === String(rawVis) || 
+        String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis || '').trim().toLowerCase()
       );
       if (foundVis && String(courseForm.visibility) !== String(foundVis.id)) {
         setCourseForm(prev => ({ ...prev, visibility: String(foundVis.id) }));
+      } else if (!courseForm.visibility && visibilities.length > 0) {
+        setCourseForm(prev => ({ ...prev, visibility: String(visibilities[0].id) }));
       }
     }
   }, [editingCourse, categories, subCategories, visibilities]);
