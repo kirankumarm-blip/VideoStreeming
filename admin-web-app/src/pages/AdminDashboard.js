@@ -2967,8 +2967,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       if (editingVideo) {
-        registerPayload.id = editingVideo.id;
-        registerPayload.video_id = editingVideo.id;
+        const vId = String(editingVideo.video_id || editingVideo.id || editingVideo.videoId || editingVideo._id || '');
+        registerPayload.id = vId;
+        registerPayload.video_id = vId;
+        registerPayload.videoId = vId;
         registerPayload.formstep = "editVideo";
       }
 
