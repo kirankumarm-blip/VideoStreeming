@@ -678,7 +678,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
     );
     const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
-    const admVal = String(course.assigned_admin || course.admin_id || course.adminId || '').trim();
+    const admVal = String((isSuperAdmin && selectedAdminId) ? selectedAdminId : (course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '')).trim();
 
     setCourseForm({
       title: course.course_title || course.title || '',
@@ -2339,7 +2339,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      const effectiveClientId = courseForm.adminId || selectedAdminId || '';
+      const effectiveClientId = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (courseForm.adminId || selectedAdminId || '');
       if (effectiveClientId) {
         payload.client_id = effectiveClientId;
         payload.clientId = effectiveClientId;
@@ -2834,7 +2834,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         videoUrl: encryptedVideoUrl,
         thumbnailUrl: encryptedThumbnailUrl
       };
-      const effectiveClientId = uploadForm.adminId || selectedAdminId || '';
+      const effectiveClientId = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (uploadForm.adminId || selectedAdminId || '');
       if (effectiveClientId) {
         registerPayload.client_id = effectiveClientId;
         registerPayload.clientId = effectiveClientId;
