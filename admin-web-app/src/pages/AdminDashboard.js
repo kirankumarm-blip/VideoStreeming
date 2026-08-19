@@ -842,7 +842,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
     );
     const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
-    const admVal = String(video.client_id || video.clientId || video.assigned_admin || video.admin_id || video.adminId || selectedAdminId || '').trim();
+    const rawClient = video.client_id || video.clientId || video.assigned_admin || video.admin_id || video.adminId || video.client || video.client_name || selectedAdminId || '';
+    const foundAdmin = adminsList.find(a => {
+      const aId = String(a.id || a.admin_id || a.alpha_id || '').trim();
+      const aName = String(a.name || a.username || a.client_name || a.company_name || a.title || '').trim().toLowerCase();
+      const targetStr = String(rawClient).trim().toLowerCase();
+      return aId === targetStr || aName === targetStr;
+    });
+    const admVal = foundAdmin 
+      ? String(foundAdmin.id || foundAdmin.admin_id || foundAdmin.alpha_id) 
+      : String(rawClient || selectedAdminId || '');
 
     setUploadForm({
       title: video.title || video.video_title || '',
@@ -1754,8 +1763,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setAdminsList(admList);
       if (admList.length > 0) {
         const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
-        setUploadForm(prev => ({ ...prev, adminId: firstAdmId }));
-        setCourseForm(prev => ({ ...prev, adminId: firstAdmId }));
+        setUploadForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
+        setCourseForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
       }
     } catch (e) {
       console.error('Failed to fetch admins list:', e);
