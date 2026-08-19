@@ -2110,7 +2110,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
 
     if (isSuperAdmin && isPrivateVis && !courseForm.adminId) {
-      showError('Admin assignment selection is required for Private courses');
+      showError('Client selection is required for Private courses');
       return;
     }
     if (!courseForm.instructor?.trim()) {
@@ -3861,12 +3861,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       })() && (
                         isSuperAdmin ? (
                           <div className="form-group">
-                            <label className="form-label">Admin *</label>
+                            <label className="form-label">Client *</label>
                             <PremiumSelect
                               options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                               value={uploadForm.adminId}
                               onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
-                              placeholder={loadingAdminsList ? 'Loading...' : 'Select Admin'}
+                              placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
                               disabled={loadingAdminsList}
                               icon="fa-solid fa-user-gear"
                             />
@@ -4365,12 +4365,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               return isPrivate;
                             })() && (
                               <div className="form-group" style={{ margin: 0 }}>
-                                <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Admin *</label>
+                                <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Client *</label>
                                 <PremiumSelect
                                   options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                                   value={courseForm.adminId}
                                   onChange={(e) => setCourseForm(prev => ({ ...prev, adminId: e.target.value }))}
-                                  placeholder={loadingAdminsList ? 'Loading...' : 'Select Admin'}
+                                  placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
                                   disabled={loadingAdminsList}
                                   icon="fa-solid fa-user-gear"
                                 />
