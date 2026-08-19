@@ -892,9 +892,18 @@ export const api = {
   },
   videos: {
     list: (params = {}) => {
-      return request('/adminVideos', {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const endpoint = isSuperAdmin ? '/vdSuperAdminVideos' : '/vdadminVideos';
+      const payload = { formStep: "getAllVideos", formstep: "getAllVideos" };
+      if (params && params.adminId) {
+        payload.client_id = params.adminId;
+        payload.admin_id = params.adminId;
+        payload.assigned_admin = params.adminId;
+      }
+      return request(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ formStep: "getAllVideos" }),
+        body: JSON.stringify(payload),
       });
     },
     getLevels: () => {

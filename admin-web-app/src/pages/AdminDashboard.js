@@ -984,12 +984,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
+    fetchCategories();
+    fetchVideos(selectedAdminId);
     if (!justContent) {
       fetchUsers();
-      fetchCategories();
-      fetchVideos();
     }
-  }, []);
+  }, [selectedAdminId]);
+
+  useEffect(() => {
+    if (activeTab === 'video_all' || activeTabOverride === 'video_all' || activeTabOverride === 'content_videos') {
+      fetchVideos(selectedAdminId);
+    }
+  }, [activeTab, activeTabOverride, selectedAdminId]);
 
   // Admin Reports state
   const [adminReportType, setAdminReportType] = useState('course_analytics');
@@ -1768,13 +1774,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchVideos = async () => {
+  const fetchVideos = async (adminId = selectedAdminId) => {
     try {
-      const data = await api.videos.list();
-      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const data = await api.videos.list({ adminId });
+      let rawList = [];
+      if (Array.isArray(data)) {
+        rawList = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.data)) {
+          rawList = data.data;
+        } else if (Array.isArray(data.videos)) {
+          rawList = data.videos;
+        } else {
+          const arrProp = Object.values(data).find(val => Array.isArray(val));
+          if (arrProp) rawList = arrProp;
+        }
+      }
       const validVideos = rawList
         .map(item => (item && item.json ? item.json : item))
-        .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
+        .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
       setMyVideos(validVideos);
     } catch (e) {
       console.error(e);
