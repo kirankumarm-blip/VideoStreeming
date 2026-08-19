@@ -984,12 +984,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchCategories();
     fetchVideos(selectedAdminId);
     if (!justContent) {
+      fetchCategories();
       fetchUsers();
     }
-  }, [selectedAdminId]);
+  }, [selectedAdminId, justContent]);
 
   useEffect(() => {
     if (activeTab === 'video_all' || activeTabOverride === 'video_all' || activeTabOverride === 'content_videos') {
