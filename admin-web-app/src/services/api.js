@@ -613,6 +613,16 @@ export const api = {
         expectArray: true
       });
     },
+    listAllSubCategories: () => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "subcategory",
+          formStep: "subcategory"
+        }),
+        expectArray: true
+      });
+    },
     getSubCategories: (categoryId = null) => {
       const payload = {
         formstep: "getSubCategory",

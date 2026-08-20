@@ -1183,8 +1183,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'categories') {
       fetchCategories();
     }
-    if (activeTab === 'sub_categories') {
-      fetchSubCategories();
+    if (activeTab === 'sub_categories' || activeTab === 'sub_category') {
+      fetchAllSubCategories();
       fetchCategories();
     }
     if (activeTab === 'author_admin') {
@@ -1609,6 +1609,40 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       console.error('Failed to fetch user genders', e);
       setGenders([]);
       return [];
+    }
+  };
+
+  const fetchAllSubCategories = async () => {
+    setLoadingSubCategories(true);
+    try {
+      const res = await api.vdcategories.listAllSubCategories();
+      const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+      const subCats = rawSubCats.map(item => {
+        let jsonObj = {};
+        if (item && item.json) {
+          try {
+            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+          } catch (err) {
+            jsonObj = {};
+          }
+        }
+        return {
+          ...item,
+          ...jsonObj,
+          id: String(item.id || jsonObj.id || item.sub_category_id || jsonObj.sub_category_id || ''),
+          name: item.name || jsonObj.name || item.sub_category_name || jsonObj.sub_category_name || '',
+          cat_id: String(item.cat_id || jsonObj.cat_id || item.category_id || jsonObj.category_id || item.catId || jsonObj.catId || ''),
+          description: item.description || jsonObj.description || item.desc || jsonObj.desc || item.details || jsonObj.details || item.sub_category_description || jsonObj.sub_category_description || ''
+        };
+      });
+      setSubCategories(subCats);
+      return subCats;
+    } catch (e) {
+      console.error('Failed to fetch all sub categories:', e);
+      setSubCategories([]);
+      return [];
+    } finally {
+      setLoadingSubCategories(false);
     }
   };
 
