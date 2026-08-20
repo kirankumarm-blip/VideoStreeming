@@ -498,6 +498,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [editingVideo, setEditingVideo] = useState(null);
   const [visibilities, setVisibilities] = useState([]);
   const [levels, setLevels] = useState([]);
+  const [videoSubTab, setVideoSubTab] = useState('assigned');
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
@@ -5129,83 +5130,153 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             })()}
 
             {/* VIDEO_ALL CONTENT VIEW */}
-            {activeTab === 'video_all' && (
-              <div className="animate-fade-in glass-card">
-                <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Uploaded Videos</h2>
-                <div className="table-container">
-                  <PaginatedTable
-                    headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
-                    data={myVideos || []}
-                    emptyMessage="No uploaded videos found"
-                    renderRow={(video, index) => {
-                      const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
-                      const thumbUrl = hasThumbnail 
-                        ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) 
-                        : 'https://placehold.co/180x101?text=No+Thumbnail';
-                      const isPublic = String(video.visibility || '').toLowerCase() === 'scheduler' || String(video.visibility || '').toLowerCase() === 'public';
-                      return (
-                        <tr key={video.id || index} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
-                          <td>
-                            <img 
-                              src={thumbUrl} 
-                              alt={video.title || 'Video'} 
-                              style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
-                            />
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{video.title || 'Untitled'}</td>
-                          <td>{video.category || 'Uncategorized'}</td>
-                          <td>{video.views || 0}</td>
-                          <td>
-                            <span className={`badge ${isPublic ? 'badge-active' : 'badge-disabled'}`}>
-                              {String(video.visibility || 'Public').toUpperCase()}
-                            </span>
-                          </td>
-                          {!hideAssignAdminColumn && (
-                            <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                              {getAssignedAdminName(video) || 'None'}
+            {activeTab === 'video_all' && (() => {
+              const currentUser = getCurrentUser();
+              const currentUserId = String(currentUser?.id || currentUser?.user_id || currentUser?.admin_id || currentUser?.client_id || '').trim();
+              const currentUsername = String(currentUser?.username || currentUser?.name || currentUser?.email || '').trim().toLowerCase();
+
+              const myUploadedVideos = (myVideos || []).filter(video => {
+                const creatorId = String(video.uploadedBy || video.created_by || video.admin_id || video.client_id || video.assigned_admin || '').trim();
+                const creatorName = String(video.uploaded_by_name || video.creator_name || video.author_name || '').trim().toLowerCase();
+                return (
+                  (currentUserId && creatorId === currentUserId) ||
+                  (currentUsername && creatorName === currentUsername) ||
+                  String(video.is_my_video) === 'true' ||
+                  String(video.isMyVideo) === 'true' ||
+                  creatorId === 'u-author' ||
+                  creatorId === 'author'
+                );
+              });
+
+              const activeTableData = videoSubTab === 'my_videos' 
+                ? (myUploadedVideos.length > 0 ? myUploadedVideos : myVideos) 
+                : (myVideos || []);
+
+              return (
+                <div className="animate-fade-in glass-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                    <h2 style={{ fontSize: '20px', margin: 0 }}>All Videos</h2>
+
+                    {/* SUB-TABS NAVIGATION */}
+                    <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setVideoSubTab('assigned')}
+                        style={{
+                          padding: '8px 18px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          border: 'none',
+                          backgroundColor: videoSubTab === 'assigned' ? 'var(--accent-color, #e50914)' : 'transparent',
+                          color: videoSubTab === 'assigned' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <i className="fa-solid fa-list-check" /> Assigned Videos ({myVideos?.length || 0})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoSubTab('my_videos')}
+                        style={{
+                          padding: '8px 18px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          border: 'none',
+                          backgroundColor: videoSubTab === 'my_videos' ? 'var(--accent-color, #e50914)' : 'transparent',
+                          color: videoSubTab === 'my_videos' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <i className="fa-solid fa-video" /> My Videos ({myUploadedVideos.length > 0 ? myUploadedVideos.length : (myVideos?.length || 0)})
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="table-container">
+                    <PaginatedTable
+                      headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
+                      data={activeTableData}
+                      emptyMessage={videoSubTab === 'my_videos' ? 'No personal uploaded videos found' : 'No assigned videos found'}
+                      renderRow={(video, index) => {
+                        const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
+                        const thumbUrl = hasThumbnail 
+                          ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) 
+                          : 'https://placehold.co/180x101?text=No+Thumbnail';
+                        const isPublic = String(video.visibility || '').toLowerCase() === 'scheduler' || String(video.visibility || '').toLowerCase() === 'public';
+                        return (
+                          <tr key={video.id || index} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
+                            <td>
+                              <img 
+                                src={thumbUrl} 
+                                alt={video.title || 'Video'} 
+                                style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                              />
                             </td>
-                          )}
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                onClick={() => handleEditVideo(video)}
-                                className="btn btn-warning"
-                                style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                              >
-                                ✏️ Edit
-                              </button>
-                              <button 
-                                onClick={() => setReviewVideo(video)}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                              >
-                                {t('admin.playReviewBtn')}
-                              </button>
-                              {!hideAssignAdminColumn && (
+                            <td style={{ fontWeight: 600 }}>{video.title || 'Untitled'}</td>
+                            <td>{video.category || 'Uncategorized'}</td>
+                            <td>{video.views || 0}</td>
+                            <td>
+                              <span className={`badge ${isPublic ? 'badge-active' : 'badge-disabled'}`}>
+                                {String(video.visibility || 'Public').toUpperCase()}
+                              </span>
+                            </td>
+                            {!hideAssignAdminColumn && (
+                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                                {getAssignedAdminName(video) || 'None'}
+                              </td>
+                            )}
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: '8px' }}>
                                 <button 
-                                  onClick={() => handleAssignButtonClick(video, 'video')}
-                                  className="btn btn-primary"
+                                  onClick={() => handleEditVideo(video)}
+                                  className="btn btn-warning"
+                                  style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button 
+                                  onClick={() => setReviewVideo(video)}
+                                  className="btn btn-secondary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
                                 >
-                                  Assign
+                                  {t('admin.playReviewBtn')}
                                 </button>
-                              )}
-                              <button 
-                                onClick={() => handleDeleteVideo(video.id)}
-                                className="btn"
-                                style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
-                              >
-                                {t('admin.deleteBtn')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }}
-                  />
+                                {!hideAssignAdminColumn && (
+                                  <button 
+                                    onClick={() => handleAssignButtonClick(video, 'video')}
+                                    className="btn btn-primary"
+                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  >
+                                    Assign
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => handleDeleteVideo(video.id)}
+                                  className="btn"
+                                  style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                                >
+                                  {t('admin.deleteBtn')}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* COURSE_ALL CONTENT VIEW */}
             {activeTab === 'course_all' && (
