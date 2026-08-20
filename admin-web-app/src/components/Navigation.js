@@ -23,8 +23,11 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const recentlyViewedRef = useRef(null);
 
   useEffect(() => {
-    if (user && user.role === 'user') {
-      fetchRecentlyViewedByFilter(activeFilter);
+    if (user) {
+      fetchNotifications();
+      if (user.role === 'user') {
+        fetchRecentlyViewedByFilter(activeFilter);
+      }
     }
   }, []);
 
@@ -378,10 +381,10 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           )}
         </button>
 
-        {/* Notifications (End Users only) */}
-        {user.role === 'user' && (
+        {/* Notifications (Users, Authors & Admins) */}
+        {user && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
-            <div onClick={() => setShowNotifDropdown(!showNotifDropdown)} className="notification-bell">
+            <div onClick={() => setShowNotifDropdown(!showNotifDropdown)} className="notification-bell" style={{ cursor: 'pointer' }}>
               <span style={{ fontSize: '20px' }}>🔔</span>
               {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
             </div>
@@ -396,15 +399,15 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                     No notifications yet
                   </div>
                 ) : (
-                  notifications.map(n => (
+                  notifications.map((n, idx) => (
                     <div 
-                      key={n.id} 
+                      key={n.id || n.notification_id || idx} 
                       onClick={() => handleNotificationClick(n)}
                       className={`notification-item ${n.read ? '' : 'unread'}`}
                     >
-                      <div className="notification-title">{n.title}</div>
-                      <div className="notification-msg">{n.message}</div>
-                      <div className="notification-date">{new Date(n.date).toLocaleString()}</div>
+                      <div className="notification-title">{n.title || n.heading || 'Notification'}</div>
+                      <div className="notification-msg">{n.message || n.msg || n.notificationMessage || n.notification_message || ''}</div>
+                      <div className="notification-date">{(n.date || n.created_at) ? new Date(n.date || n.created_at).toLocaleString() : ''}</div>
                     </div>
                   ))
                 )}

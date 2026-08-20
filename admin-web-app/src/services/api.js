@@ -1211,15 +1211,26 @@ export const api = {
     }
   },
   notifications: {
-    list: () => {
+    list: (params = {}) => {
       const token = getAccessToken();
+      const user = getCurrentUser();
+      const userIdVal = user ? (user.id || user.admin_id || user.adminId || user.user_id) : null;
+      const payload = {
+        token: token || '',
+        formstep: "getNotifications",
+        formStep: "getNotifications"
+      };
+      if (userIdVal) {
+        payload.user_id = userIdVal;
+        payload.admin_id = userIdVal;
+        payload.author_id = userIdVal;
+      }
+      if (params && typeof params === 'object') {
+        Object.assign(payload, params);
+      }
       return request('/vdnotifications', {
         method: 'POST',
-        body: JSON.stringify({
-          token: token || '',
-          formstep: "getNotifications",
-          formStep: "getNotifications"
-        }),
+        body: JSON.stringify(payload),
         expectArray: true
       });
     },
