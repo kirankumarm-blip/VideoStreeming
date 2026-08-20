@@ -1722,9 +1722,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (clientId = null) => {
     try {
-      const data = await api.vdcategories.getCategories();
+      const data = await api.vdcategories.getCategories(clientId);
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
       const normalizedList = rawList.map(item => {
         let jsonObj = {};
@@ -1744,10 +1744,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         };
       });
       setCategories(normalizedList);
-      if (normalizedList.length > 0) {
-        const firstCatId = normalizedList[0].id;
-        setUploadForm(prev => (prev.category ? prev : { ...prev, category: firstCatId }));
-      }
     } catch (e) {
       console.error(e);
       setCategories([]);
