@@ -424,15 +424,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (assignForm.itemType === 'course') {
         const payload = {
           formstep: 'assignCourse',
+          formStep: 'assignCourse',
           course_id: assignForm.itemId,
-          admin_id: assignForm.assignedAdminId
+          admin_id: assignForm.assignedAdminId,
+          message: 'course as assigned to you',
+          msg: 'course as assigned to you',
+          notificationMessage: 'course as assigned to you'
         };
         await api.vdadmins.assignCourse(payload);
       } else {
         const payload = {
           formstep: 'AssignVideo',
+          formStep: 'AssignVideo',
           video_id: assignForm.itemId,
-          admin_id: assignForm.assignedAdminId
+          admin_id: assignForm.assignedAdminId,
+          message: 'video as assigned to you',
+          msg: 'video as assigned to you',
+          notificationMessage: 'video as assigned to you'
         };
         await api.vdadmins.assignVideo(payload);
       }

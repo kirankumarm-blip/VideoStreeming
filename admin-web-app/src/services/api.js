@@ -788,6 +788,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "AssignVideo",
+          formStep: "AssignVideo",
+          message: "video as assigned to you",
+          msg: "video as assigned to you",
+          notificationMessage: "video as assigned to you",
           ...payload
         })
       });
@@ -798,6 +802,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ 
           formstep: "assignCourse",
+          formStep: "assignCourse",
+          message: "course as assigned to you",
+          msg: "course as assigned to you",
+          notificationMessage: "course as assigned to you",
           ...payload
         })
       });
