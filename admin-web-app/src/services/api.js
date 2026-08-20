@@ -266,7 +266,9 @@ async function request(endpoint, options = {}) {
       bodyObj.formstep === 'getAllVidoes' ||
       bodyObj.formstep === 'getCategories' ||
       bodyObj.formstep === 'getSubCategory' ||
+      bodyObj.formStep === 'getSubCategory' ||
       bodyObj.formstep === 'getSubCategories' ||
+      bodyObj.formStep === 'getSubCategories' ||
       bodyObj.formstep === 'subcategory' ||
       bodyObj.formStep === 'subcategory' ||
       bodyObj.formstep === 'analytics' ||
@@ -613,8 +615,8 @@ export const api = {
     },
     getSubCategories: (categoryId = null) => {
       const payload = {
-        formstep: "subcategory",
-        formStep: "subcategory"
+        formstep: "getSubCategory",
+        formStep: "getSubCategory"
       };
       if (categoryId) {
         payload.category_id = categoryId;
@@ -1035,10 +1037,13 @@ export const api = {
       return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify({
-          formStep: "subcategory",
-          formstep: "subcategory",
-          category_id: categoryId
-        })
+          formStep: "getSubCategory",
+          formstep: "getSubCategory",
+          category_id: categoryId,
+          cat_id: categoryId,
+          catId: categoryId
+        }),
+        expectArray: true
       });
     },
     getPlans: () => {
