@@ -402,7 +402,15 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         {/* Notifications (Users, Authors & Admins) */}
         {user && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
-            <div onClick={() => setShowNotifDropdown(!showNotifDropdown)} className="notification-bell" style={{ cursor: 'pointer' }}>
+            <div 
+              onClick={() => {
+                const nextShow = !showNotifDropdown;
+                setShowNotifDropdown(nextShow);
+                fetchNotifications();
+              }} 
+              className="notification-bell" 
+              style={{ cursor: 'pointer' }}
+            >
               <span style={{ fontSize: '20px' }}>🔔</span>
               {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
             </div>

@@ -1224,6 +1224,11 @@ export const api = {
         payload.user_id = userIdVal;
         payload.admin_id = userIdVal;
         payload.author_id = userIdVal;
+        payload.id = userIdVal;
+      }
+      if (user && user.role) {
+        payload.role = user.role;
+        payload.user_role = user.role;
       }
       if (params && typeof params === 'object') {
         Object.assign(payload, params);
