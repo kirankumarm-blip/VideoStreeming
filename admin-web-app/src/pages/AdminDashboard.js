@@ -2619,14 +2619,22 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      const effectiveClientId = String(courseForm.adminId || selectedAdminId || '').trim();
-      if (effectiveClientId) {
-        payload.client_id = effectiveClientId;
-        payload.clientId = effectiveClientId;
-        payload.admin_id = effectiveClientId;
-        payload.adminId = effectiveClientId;
-        payload.assigned_admin = effectiveClientId;
+      let effectiveClientId = '0';
+      if (isSuperAdmin) {
+        if (isPrivate) {
+          effectiveClientId = String(courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || '0').trim();
+        } else {
+          effectiveClientId = '0';
+        }
+      } else {
+        effectiveClientId = String(courseForm.adminId || selectedAdminId || '').trim();
       }
+
+      payload.client_id = effectiveClientId;
+      payload.clientId = effectiveClientId;
+      payload.admin_id = effectiveClientId;
+      payload.adminId = effectiveClientId;
+      payload.assigned_admin = effectiveClientId;
 
       if (editingCourse) {
         payload.id = editingCourse.id;
@@ -3142,14 +3150,22 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         formstep: editingVideo ? "editVideo" : "uploadVideo",
         formStep: editingVideo ? "editVideo" : "uploadVideo"
       };
-      const effectiveClientId = String(uploadForm.adminId || selectedAdminId || '').trim();
-      if (effectiveClientId) {
-        registerPayload.client_id = effectiveClientId;
-        registerPayload.clientId = effectiveClientId;
-        registerPayload.admin_id = effectiveClientId;
-        registerPayload.adminId = effectiveClientId;
-        registerPayload.assigned_admin = effectiveClientId;
+      let effectiveClientId = '0';
+      if (isSuperAdmin) {
+        if (isPrivate) {
+          effectiveClientId = String(uploadForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || '0').trim();
+        } else {
+          effectiveClientId = '0';
+        }
+      } else {
+        effectiveClientId = String(uploadForm.adminId || selectedAdminId || '').trim();
       }
+
+      registerPayload.client_id = effectiveClientId;
+      registerPayload.clientId = effectiveClientId;
+      registerPayload.admin_id = effectiveClientId;
+      registerPayload.adminId = effectiveClientId;
+      registerPayload.assigned_admin = effectiveClientId;
       if (isPrivate && !isSuperAdmin) {
         registerPayload.plan_id = uploadForm.planId;
       }
