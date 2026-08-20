@@ -4,6 +4,7 @@ const PremiumSelect = ({
   options = [],
   value,
   onChange,
+  onOpen,
   placeholder = "Select Option...",
   disabled = false,
   searchable = true,
@@ -75,7 +76,15 @@ const PremiumSelect = ({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!disabled) {
+            const nextState = !isOpen;
+            setIsOpen(nextState);
+            if (nextState && typeof onOpen === 'function') {
+              onOpen();
+            }
+          }
+        }}
         style={{
           width: '100%',
           display: 'flex',
