@@ -1849,6 +1849,34 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (isAuthorAdminUser) {
       fetchAssignedVideos(adminId);
       fetchMyPersonalVideos(adminId);
+    } else if (isSuperAdminView || isSuperAdmin) {
+      try {
+        const data = await api.videos.list({ adminId });
+        let rawList = [];
+        if (Array.isArray(data)) {
+          rawList = data;
+        } else if (data && typeof data === 'object') {
+          if (Array.isArray(data.data)) {
+            rawList = data.data;
+          } else if (Array.isArray(data.videos)) {
+            rawList = data.videos;
+          } else {
+            const arrProp = Object.values(data).find(val => Array.isArray(val));
+            if (arrProp) rawList = arrProp;
+          }
+        }
+        const validVideos = rawList
+          .map(item => {
+            if (!item) return null;
+            if (item.json && typeof item.json === 'object') return item.json;
+            return item;
+          })
+          .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
+        setMyVideos(validVideos);
+      } catch (e) {
+        console.error('Failed to fetch videos for super admin:', e);
+        setMyVideos([]);
+      }
     } else {
       try {
         const data = await api.videos.getMyVideos({ adminId });
@@ -1866,7 +1894,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           }
         }
         const validVideos = rawList
-          .map(item => (item && item.json ? item.json : item))
+          .map(item => {
+            if (!item) return null;
+            if (item.json && typeof item.json === 'object') return item.json;
+            return item;
+          })
           .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
         setMyVideos(validVideos);
       } catch (e) {
@@ -5306,7 +5338,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <PaginatedTable
                       headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
                       data={activeTableData}
-                      emptyMessage={videoSubTab === 'my_videos' ? 'No personal uploaded videos found' : 'No assigned videos found'}
+                      emptyMessage={isAuthorAdminUser ? (videoSubTab === 'my_videos' ? 'No personal uploaded videos found' : 'No assigned videos found') : 'No uploaded videos found'}
                       renderRow={(video, index) => {
                         const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
                         const thumbUrl = hasThumbnail 
