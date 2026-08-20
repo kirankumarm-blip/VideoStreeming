@@ -501,6 +501,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [videoSubTab, setVideoSubTab] = useState('assigned');
   const [assignedVideos, setAssignedVideos] = useState([]);
   const [myPersonalVideos, setMyPersonalVideos] = useState([]);
+  const [courseSubTab, setCourseSubTab] = useState('assigned');
+  const [assignedCourses, setAssignedCourses] = useState([]);
+  const [myPersonalCourses, setMyPersonalCourses] = useState([]);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
@@ -1873,15 +1876,48 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchCourses = async (adminId = selectedAdminId) => {
+  const fetchAssignedCourses = async (adminId = selectedAdminId) => {
     try {
-      const data = await api.videos.listCourses(adminId);
+      const data = await api.videos.getAssignedCourse({ adminId });
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
       const validCourses = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
-      setCourses(validCourses);
+      setAssignedCourses(validCourses);
+      return validCourses;
     } catch (e) {
-      console.error(e);
-      setCourses([]);
+      console.error('Failed to fetch assigned courses:', e);
+      setAssignedCourses([]);
+      return [];
+    }
+  };
+
+  const fetchMyPersonalCourses = async (adminId = selectedAdminId) => {
+    try {
+      const data = await api.videos.getMyCourse({ adminId });
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const validCourses = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+      setMyPersonalCourses(validCourses);
+      return validCourses;
+    } catch (e) {
+      console.error('Failed to fetch my courses:', e);
+      setMyPersonalCourses([]);
+      return [];
+    }
+  };
+
+  const fetchCourses = async (adminId = selectedAdminId) => {
+    if (isAuthorAdminUser) {
+      fetchAssignedCourses(adminId);
+      fetchMyPersonalCourses(adminId);
+    } else {
+      try {
+        const data = await api.videos.listCourses(adminId);
+        const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+        const validCourses = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+        setCourses(validCourses);
+      } catch (e) {
+        console.error(e);
+        setCourses([]);
+      }
     }
   };
 
@@ -5343,89 +5379,166 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             })()}
 
             {/* COURSE_ALL CONTENT VIEW */}
-            {activeTab === 'course_all' && (
-              <div className="animate-fade-in glass-card">
-                <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>All Courses</h2>
-                <div className="table-container">
-                  <PaginatedTable
-                    headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
-                    data={(Array.isArray(courses) ? courses : []).filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name))}
-                    emptyMessage="No data available"
-                    renderRow={(course, index) => {
-                      const displayTitle = course.course_title || course.title || 'Untitled Course';
-                      const courseBanner = course.banner || course.thumbnail || course.thumbnailUrl || '';
-                      
-                      // Safely resolve chapters count
-                      const chaptersCount = Array.isArray(course.chapters)
-                        ? course.chapters.length
-                        : (course.totalChapters || course.chapters || 0);
+            {activeTab === 'course_all' && (() => {
+              const currentUser = getCurrentUser();
+              const currentUserId = String(currentUser?.id || currentUser?.user_id || currentUser?.admin_id || currentUser?.client_id || '').trim();
+              const currentUsername = String(currentUser?.username || currentUser?.name || currentUser?.email || '').trim().toLowerCase();
 
-                      // Safely resolve lessons count
-                      const lessonsCount = course.totalLessons || course.lessons || 
-                        (Array.isArray(course.chapters)
-                          ? course.chapters.reduce((acc, ch) => acc + (Array.isArray(ch.videos) ? ch.videos.length : Array.isArray(ch.lessons) ? ch.lessons.length : 0), 0)
-                          : (course.videos || 0));
+              const assignedCourseList = (assignedCourses && assignedCourses.length > 0) ? assignedCourses : (Array.isArray(courses) ? courses : []);
+              const myCoursesList = (myPersonalCourses && myPersonalCourses.length > 0) ? myPersonalCourses : (
+                (Array.isArray(courses) ? courses : []).filter(course => {
+                  const creatorId = String(course.uploadedBy || course.created_by || course.admin_id || course.client_id || course.assigned_admin || '').trim();
+                  const creatorName = String(course.uploaded_by_name || course.creator_name || course.author_name || '').trim().toLowerCase();
+                  return (
+                    (currentUserId && creatorId === currentUserId) ||
+                    (currentUsername && creatorName === currentUsername) ||
+                    String(course.is_my_course) === 'true' ||
+                    String(course.isMyCourse) === 'true' ||
+                    creatorId === 'u-author' ||
+                    creatorId === 'author'
+                  );
+                })
+              );
 
-                      return (
-                        <tr key={course.id || displayTitle || index}>
-                          <td>
-                            {courseBanner ? (
-                              <img 
-                                src={courseBanner} 
-                                alt={displayTitle} 
-                                style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
-                              />
-                            ) : (
-                              <div style={{ width: '80px', height: '45px', borderRadius: '4px', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#a1a1aa' }}>
-                                🎬
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ fontWeight: 'bold' }}>{displayTitle}</td>
-                          <td>{course.instructor || 'N/A'}</td>
-                          <td>{course.category || 'N/A'}</td>
-                          <td>{chaptersCount}</td>
-                          <td>{lessonsCount}</td>
-                          <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
-                          {!hideAssignAdminColumn && (
-                            <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
-                              {getAssignedAdminName(course) || 'None'}
-                            </td>
-                          )}
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                className="btn btn-warning"
-                                style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                onClick={() => handleEditCourse(course)}
-                              >
-                                ✏️ Edit
-                              </button>
-                              <button 
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={() => handleEditCourse(course)}
-                              >
-                                View Details
-                              </button>
-                              {!hideAssignAdminColumn && (
-                                <button 
-                                  className="btn btn-primary"
-                                  style={{ padding: '6px 12px', fontSize: '12px' }}
-                                  onClick={() => handleAssignButtonClick(course, 'course')}
-                                >
-                                  Assign
-                                </button>
+              const activeCourseData = isAuthorAdminUser 
+                ? (courseSubTab === 'my_courses' ? (myCoursesList.length > 0 ? myCoursesList : (Array.isArray(courses) ? courses : [])) : assignedCourseList)
+                : (Array.isArray(courses) ? courses : []);
+
+              const validCourseData = activeCourseData.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+
+              return (
+                <div className="animate-fade-in glass-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                    <h2 style={{ fontSize: '20px', margin: 0 }}>All Courses</h2>
+
+                    {/* SUB-TABS NAVIGATION - ONLY FOR AUTHOR ADMIN */}
+                    {isAuthorAdminUser && (
+                      <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setCourseSubTab('assigned')}
+                          style={{
+                            padding: '8px 18px',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            border: 'none',
+                            backgroundColor: courseSubTab === 'assigned' ? 'var(--accent-color, #e50914)' : 'transparent',
+                            color: courseSubTab === 'assigned' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <i className="fa-solid fa-list-check" /> Assigned Courses ({assignedCourseList.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCourseSubTab('my_courses')}
+                          style={{
+                            padding: '8px 18px',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            border: 'none',
+                            backgroundColor: courseSubTab === 'my_courses' ? 'var(--accent-color, #e50914)' : 'transparent',
+                            color: courseSubTab === 'my_courses' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <i className="fa-solid fa-graduation-cap" /> My Courses ({myCoursesList.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="table-container">
+                    <PaginatedTable
+                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
+                      data={validCourseData}
+                      emptyMessage={isAuthorAdminUser ? (courseSubTab === 'my_courses' ? 'No personal courses found' : 'No assigned courses found') : 'No data available'}
+                      renderRow={(course, index) => {
+                        const displayTitle = course.course_title || course.title || 'Untitled Course';
+                        const courseBanner = course.banner || course.thumbnail || course.thumbnailUrl || '';
+                        
+                        // Safely resolve chapters count
+                        const chaptersCount = Array.isArray(course.chapters)
+                          ? course.chapters.length
+                          : (course.totalChapters || course.chapters || 0);
+
+                        // Safely resolve lessons count
+                        const lessonsCount = course.totalLessons || course.lessons || 
+                          (Array.isArray(course.chapters)
+                            ? course.chapters.reduce((acc, ch) => acc + (Array.isArray(ch.videos) ? ch.videos.length : Array.isArray(ch.lessons) ? ch.lessons.length : 0), 0)
+                            : (course.videos || 0));
+
+                        return (
+                          <tr key={course.id || displayTitle || index}>
+                            <td>
+                              {courseBanner ? (
+                                <img 
+                                  src={courseBanner} 
+                                  alt={displayTitle} 
+                                  style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                />
+                              ) : (
+                                <div style={{ width: '80px', height: '45px', borderRadius: '4px', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#a1a1aa' }}>
+                                  🎬
+                                </div>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }}
-                  />
+                            </td>
+                            <td style={{ fontWeight: 'bold' }}>{displayTitle}</td>
+                            <td>{course.instructor || 'N/A'}</td>
+                            <td>{course.category || 'N/A'}</td>
+                            <td>{chaptersCount}</td>
+                            <td>{lessonsCount}</td>
+                            <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
+                            {!hideAssignAdminColumn && (
+                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                                {getAssignedAdminName(course) || 'None'}
+                              </td>
+                            )}
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  className="btn btn-warning"
+                                  style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  onClick={() => handleEditCourse(course)}
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button 
+                                  className="btn btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '12px' }}
+                                  onClick={() => handleEditCourse(course)}
+                                >
+                                  View Details
+                                </button>
+                                {!hideAssignAdminColumn && (
+                                  <button 
+                                    className="btn btn-primary"
+                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                    onClick={() => handleAssignButtonClick(course, 'course')}
+                                  >
+                                    Assign
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* CATEGORIES VIEW */}
             {activeTab === 'categories' && !isAuthorAdminUser && (() => {
