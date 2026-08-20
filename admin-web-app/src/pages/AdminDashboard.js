@@ -499,6 +499,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [visibilities, setVisibilities] = useState([]);
   const [levels, setLevels] = useState([]);
   const [videoSubTab, setVideoSubTab] = useState('assigned');
+  const [assignedVideos, setAssignedVideos] = useState([]);
+  const [myPersonalVideos, setMyPersonalVideos] = useState([]);
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
@@ -1788,7 +1790,65 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
+  const fetchAssignedVideos = async (adminId = selectedAdminId) => {
+    try {
+      const data = await api.videos.getAssignedVideos({ adminId });
+      let rawList = [];
+      if (Array.isArray(data)) {
+        rawList = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.data)) {
+          rawList = data.data;
+        } else if (Array.isArray(data.videos)) {
+          rawList = data.videos;
+        } else {
+          const arrProp = Object.values(data).find(val => Array.isArray(val));
+          if (arrProp) rawList = arrProp;
+        }
+      }
+      const validVideos = rawList
+        .map(item => (item && item.json ? item.json : item))
+        .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
+      setAssignedVideos(validVideos);
+      return validVideos;
+    } catch (e) {
+      console.error('Failed to fetch assigned videos:', e);
+      setAssignedVideos([]);
+      return [];
+    }
+  };
+
+  const fetchMyPersonalVideos = async (adminId = selectedAdminId) => {
+    try {
+      const data = await api.videos.getMyVideos({ adminId });
+      let rawList = [];
+      if (Array.isArray(data)) {
+        rawList = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.data)) {
+          rawList = data.data;
+        } else if (Array.isArray(data.videos)) {
+          rawList = data.videos;
+        } else {
+          const arrProp = Object.values(data).find(val => Array.isArray(val));
+          if (arrProp) rawList = arrProp;
+        }
+      }
+      const validVideos = rawList
+        .map(item => (item && item.json ? item.json : item))
+        .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
+      setMyPersonalVideos(validVideos);
+      return validVideos;
+    } catch (e) {
+      console.error('Failed to fetch my videos:', e);
+      setMyPersonalVideos([]);
+      return [];
+    }
+  };
+
   const fetchVideos = async (adminId = selectedAdminId) => {
+    fetchAssignedVideos(adminId);
+    fetchMyPersonalVideos(adminId);
     try {
       const data = await api.videos.list({ adminId });
       let rawList = [];
@@ -5135,22 +5195,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               const currentUserId = String(currentUser?.id || currentUser?.user_id || currentUser?.admin_id || currentUser?.client_id || '').trim();
               const currentUsername = String(currentUser?.username || currentUser?.name || currentUser?.email || '').trim().toLowerCase();
 
-              const myUploadedVideos = (myVideos || []).filter(video => {
-                const creatorId = String(video.uploadedBy || video.created_by || video.admin_id || video.client_id || video.assigned_admin || '').trim();
-                const creatorName = String(video.uploaded_by_name || video.creator_name || video.author_name || '').trim().toLowerCase();
-                return (
-                  (currentUserId && creatorId === currentUserId) ||
-                  (currentUsername && creatorName === currentUsername) ||
-                  String(video.is_my_video) === 'true' ||
-                  String(video.isMyVideo) === 'true' ||
-                  creatorId === 'u-author' ||
-                  creatorId === 'author'
-                );
-              });
+              const assignedList = (assignedVideos && assignedVideos.length > 0) ? assignedVideos : (myVideos || []);
+              const myVideosList = (myPersonalVideos && myPersonalVideos.length > 0) ? myPersonalVideos : (
+                (myVideos || []).filter(video => {
+                  const creatorId = String(video.uploadedBy || video.created_by || video.admin_id || video.client_id || video.assigned_admin || '').trim();
+                  const creatorName = String(video.uploaded_by_name || video.creator_name || video.author_name || '').trim().toLowerCase();
+                  return (
+                    (currentUserId && creatorId === currentUserId) ||
+                    (currentUsername && creatorName === currentUsername) ||
+                    String(video.is_my_video) === 'true' ||
+                    String(video.isMyVideo) === 'true' ||
+                    creatorId === 'u-author' ||
+                    creatorId === 'author'
+                  );
+                })
+              );
 
               const activeTableData = videoSubTab === 'my_videos' 
-                ? (myUploadedVideos.length > 0 ? myUploadedVideos : myVideos) 
-                : (myVideos || []);
+                ? (myVideosList.length > 0 ? myVideosList : (myVideos || [])) 
+                : assignedList;
 
               return (
                 <div className="animate-fade-in glass-card">
@@ -5177,7 +5240,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           gap: '6px'
                         }}
                       >
-                        <i className="fa-solid fa-list-check" /> Assigned Videos ({myVideos?.length || 0})
+                        <i className="fa-solid fa-list-check" /> Assigned Videos ({assignedList.length})
                       </button>
                       <button
                         type="button"
@@ -5197,7 +5260,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           gap: '6px'
                         }}
                       >
-                        <i className="fa-solid fa-video" /> My Videos ({myUploadedVideos.length > 0 ? myUploadedVideos.length : (myVideos?.length || 0)})
+                        <i className="fa-solid fa-video" /> My Videos ({myVideosList.length})
                       </button>
                     </div>
                   </div>
