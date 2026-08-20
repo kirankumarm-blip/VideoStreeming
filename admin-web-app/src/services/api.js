@@ -267,6 +267,8 @@ async function request(endpoint, options = {}) {
       bodyObj.formstep === 'getCategories' ||
       bodyObj.formstep === 'getSubCategory' ||
       bodyObj.formstep === 'getSubCategories' ||
+      bodyObj.formstep === 'subcategory' ||
+      bodyObj.formStep === 'subcategory' ||
       bodyObj.formstep === 'analytics' ||
       bodyObj.formstep === 'levels' ||
       bodyObj.formstep === 'getGender' ||
@@ -611,8 +613,8 @@ export const api = {
     },
     getSubCategories: (categoryId = null) => {
       const payload = {
-        formstep: "getSubCategory",
-        formStep: "getSubCategory"
+        formstep: "subcategory",
+        formStep: "subcategory"
       };
       if (categoryId) {
         payload.category_id = categoryId;
@@ -1030,10 +1032,11 @@ export const api = {
       });
     },
     getSubCategories: (categoryId) => {
-      return request('/adminVideos', {
+      return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify({
-          formStep: "getSubCategory",
+          formStep: "subcategory",
+          formstep: "subcategory",
           category_id: categoryId
         })
       });
