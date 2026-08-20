@@ -1666,7 +1666,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async (categoryId = null) => {
+  const fetchSubCategories = async (categoryId = null, clientId = null) => {
     if (!categoryId) {
       setSubCategories([]);
       lastFetchedSubCatIdRef.current = null;
@@ -1683,14 +1683,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     }
 
-    if (targetId && lastFetchedSubCatIdRef.current === String(targetId) && subCategories.length > 0) {
+    const refKey = `${targetId}_${clientId || ''}`;
+    if (targetId && lastFetchedSubCatIdRef.current === refKey && subCategories.length > 0) {
       return subCategories;
     }
 
-    lastFetchedSubCatIdRef.current = String(targetId || '');
+    lastFetchedSubCatIdRef.current = refKey;
     setLoadingSubCategories(true);
     try {
-      const res = await api.vdcategories.getSubCategories(targetId);
+      const res = await api.vdcategories.getSubCategories(targetId, clientId);
       const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       const subCats = rawSubCats.map(item => {
         let jsonObj = {};
@@ -4159,7 +4160,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             setUploadForm(prev => ({ ...prev, category: val, subCategory: '' }));
                             lastFetchedSubCatIdRef.current = null;
                             if (val) {
-                              fetchSubCategories(val);
+                              const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+                              const isPrivate = (selectedVisObj && (
+                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                              )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+                              const clientId = (isSuperAdmin && isPrivate) ? (uploadForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                              fetchSubCategories(val, clientId);
                             } else {
                               setSubCategories([]);
                             }
@@ -4207,8 +4215,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                               (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                             )) || (val && val.toString().toLowerCase() === 'private');
-                            if (isPrivate && isSuperAdmin) {
-                              fetchAdminsList();
+                            if (isSuperAdmin) {
+                              if (isPrivate) {
+                                fetchAdminsList();
+                              }
+                              const clientId = isPrivate ? (uploadForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                              fetchCategories(clientId);
+                              if (uploadForm.category) {
+                                lastFetchedSubCatIdRef.current = null;
+                                fetchSubCategories(uploadForm.category, clientId);
+                              }
                             }
                           }}
                           placeholder="Select Visibility"
@@ -4231,7 +4247,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             <PremiumSelect
                               options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                               value={uploadForm.adminId}
-                              onChange={(e) => setUploadForm({ ...uploadForm, adminId: e.target.value })}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setUploadForm(prev => ({ ...prev, adminId: val }));
+                                if (isSuperAdmin) {
+                                  const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+                                  const isPrivate = (selectedVisObj && (
+                                    (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                    (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                    (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                                  )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+                                  const clientId = isPrivate ? (val || null) : null;
+                                  fetchCategories(clientId);
+                                  if (uploadForm.category) {
+                                    lastFetchedSubCatIdRef.current = null;
+                                    fetchSubCategories(uploadForm.category, clientId);
+                                  }
+                                }
+                              }}
                               placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
                               disabled={loadingAdminsList || !!editingVideo}
                               icon="fa-solid fa-user-gear"
@@ -4678,7 +4711,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               setCourseForm(prev => ({ ...prev, category: val, subCategory: '' }));
                               lastFetchedSubCatIdRef.current = null;
                               if (val) {
-                                fetchSubCategories(val);
+                                const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                                const isPrivate = (selectedVisObj && (
+                                  (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                  (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                  (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                                )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                                const clientId = (isSuperAdmin && isPrivate) ? (courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                                fetchSubCategories(val, clientId);
                               } else {
                                 setSubCategories([]);
                               }
@@ -4728,8 +4768,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                                     (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                                   )) || (val && val.toString().toLowerCase() === 'private');
-                                  if (isPrivate && isSuperAdmin) {
-                                    fetchAdminsList();
+                                  if (isSuperAdmin) {
+                                    if (isPrivate) {
+                                      fetchAdminsList();
+                                    }
+                                    const clientId = isPrivate ? (courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                                    fetchCategories(clientId);
+                                    if (courseForm.category) {
+                                      lastFetchedSubCatIdRef.current = null;
+                                      fetchSubCategories(courseForm.category, clientId);
+                                    }
                                   }
                                 }}
                                 placeholder="Select Visibility"
@@ -4750,7 +4798,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <PremiumSelect
                                   options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                                   value={courseForm.adminId}
-                                  onChange={(e) => setCourseForm(prev => ({ ...prev, adminId: e.target.value }))}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setCourseForm(prev => ({ ...prev, adminId: val }));
+                                    if (isSuperAdmin) {
+                                      const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                                      const isPrivate = (selectedVisObj && (
+                                        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+                                        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+                                        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
+                                      )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                                      const clientId = isPrivate ? (val || null) : null;
+                                      fetchCategories(clientId);
+                                      if (courseForm.category) {
+                                        lastFetchedSubCatIdRef.current = null;
+                                        fetchSubCategories(courseForm.category, clientId);
+                                      }
+                                    }
+                                  }}
                                   placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
                                   disabled={loadingAdminsList}
                                   icon="fa-solid fa-user-gear"

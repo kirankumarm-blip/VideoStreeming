@@ -528,10 +528,17 @@ export const api = {
     },
   },
   categories: {
-    list: () => {
+    list: (clientId = null) => {
+      const payload = { formstep: "getCategories", formStep: "getCategories" };
+      if (clientId && clientId !== '0' && clientId !== 0) {
+        payload.client_id = clientId;
+        payload.admin_id = clientId;
+        payload.clientId = clientId;
+        payload.adminId = clientId;
+      }
       return request('/vdcategories', {
         method: 'POST',
-        body: JSON.stringify({ formstep: "getCategories" }),
+        body: JSON.stringify(payload),
         expectArray: true
       });
     },
@@ -569,10 +576,17 @@ export const api = {
     }
   },
   vdcategories: {
-    getCategories: () => {
+    getCategories: (clientId = null) => {
+      const payload = { formstep: "getCategories", formStep: "getCategories" };
+      if (clientId && clientId !== '0' && clientId !== 0) {
+        payload.client_id = clientId;
+        payload.admin_id = clientId;
+        payload.clientId = clientId;
+        payload.adminId = clientId;
+      }
       return request('/vdcategories', {
         method: 'POST',
-        body: JSON.stringify({ formstep: "getCategories" }),
+        body: JSON.stringify(payload),
         expectArray: true
       });
     },
@@ -623,7 +637,7 @@ export const api = {
         expectArray: true
       });
     },
-    getSubCategories: (categoryId = null) => {
+    getSubCategories: (categoryId = null, clientId = null) => {
       const payload = {
         formstep: "getSubCategory",
         formStep: "getSubCategory"
@@ -632,6 +646,12 @@ export const api = {
         payload.category_id = categoryId;
         payload.cat_id = categoryId;
         payload.catId = categoryId;
+      }
+      if (clientId && clientId !== '0' && clientId !== 0) {
+        payload.client_id = clientId;
+        payload.admin_id = clientId;
+        payload.clientId = clientId;
+        payload.adminId = clientId;
       }
       return request('/vdcategories', {
         method: 'POST',
