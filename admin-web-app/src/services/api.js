@@ -530,7 +530,7 @@ export const api = {
   categories: {
     list: (clientId = null) => {
       const payload = { formstep: "getCategories", formStep: "getCategories" };
-      if (clientId && clientId !== '0' && clientId !== 0) {
+      if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
         payload.admin_id = clientId;
         payload.clientId = clientId;
@@ -578,7 +578,7 @@ export const api = {
   vdcategories: {
     getCategories: (clientId = null) => {
       const payload = { formstep: "getCategories", formStep: "getCategories" };
-      if (clientId && clientId !== '0' && clientId !== 0) {
+      if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
         payload.admin_id = clientId;
         payload.clientId = clientId;
@@ -647,7 +647,7 @@ export const api = {
         payload.cat_id = categoryId;
         payload.catId = categoryId;
       }
-      if (clientId && clientId !== '0' && clientId !== 0) {
+      if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
         payload.admin_id = clientId;
         payload.clientId = clientId;

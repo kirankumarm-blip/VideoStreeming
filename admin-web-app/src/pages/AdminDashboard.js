@@ -4162,7 +4162,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                               (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                             )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
-                            const clientId = (isSuperAdmin && isPrivate) ? (uploadForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                            const clientId = (isSuperAdmin && isPrivate) ? String(uploadForm.adminId || selectedAdminId || '0').trim() : null;
                             fetchCategories(clientId);
                           }}
                           onChange={(e) => {
@@ -4175,7 +4175,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                               (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                             )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
-                            const clientId = (isSuperAdmin && isPrivate) ? (uploadForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                            const clientId = (isSuperAdmin && isPrivate) ? String(uploadForm.adminId || selectedAdminId || '0').trim() : null;
                             fetchCategories(clientId);
                             if (val) {
                               fetchSubCategories(val, clientId);
@@ -4230,7 +4230,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               if (isPrivate) {
                                 fetchAdminsList();
                               }
-                              const clientId = isPrivate ? (uploadForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                              const clientId = isPrivate ? String(uploadForm.adminId || selectedAdminId || '0').trim() : null;
                               fetchCategories(clientId);
                               if (uploadForm.category) {
                                 lastFetchedSubCatIdRef.current = null;
@@ -4724,7 +4724,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                                 (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                               )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
-                              const clientId = (isSuperAdmin && isPrivate) ? (courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                              const clientId = (isSuperAdmin && isPrivate) ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
                               fetchCategories(clientId);
                             }}
                             onChange={(e) => {
@@ -4737,7 +4737,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                                 (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                               )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
-                              const clientId = (isSuperAdmin && isPrivate) ? (courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                              const clientId = (isSuperAdmin && isPrivate) ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
                               fetchCategories(clientId);
                               if (val) {
                                 fetchSubCategories(val, clientId);
@@ -4794,7 +4794,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     if (isPrivate) {
                                       fetchAdminsList();
                                     }
-                                    const clientId = isPrivate ? (courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || null) : null;
+                                    const clientId = isPrivate ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
                                     fetchCategories(clientId);
                                     if (courseForm.category) {
                                       lastFetchedSubCatIdRef.current = null;
