@@ -1000,18 +1000,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchVideos(selectedAdminId);
+    if (activeTab === 'video_all' || activeTabOverride === 'video_all' || activeTabOverride === 'content_videos') {
+      fetchVideos(selectedAdminId);
+    }
     if (!justContent) {
       fetchCategories();
       fetchUsers();
     }
-  }, [selectedAdminId, justContent]);
-
-  useEffect(() => {
-    if (activeTab === 'video_all' || activeTabOverride === 'video_all' || activeTabOverride === 'content_videos') {
-      fetchVideos(selectedAdminId);
-    }
-  }, [activeTab, activeTabOverride, selectedAdminId]);
+  }, [activeTab, activeTabOverride, selectedAdminId, justContent]);
 
   // Admin Reports state
   const [adminReportType, setAdminReportType] = useState('course_analytics');
@@ -1849,29 +1845,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchVideos = async (adminId = selectedAdminId) => {
     fetchAssignedVideos(adminId);
     fetchMyPersonalVideos(adminId);
-    try {
-      const data = await api.videos.list({ adminId });
-      let rawList = [];
-      if (Array.isArray(data)) {
-        rawList = data;
-      } else if (data && typeof data === 'object') {
-        if (Array.isArray(data.data)) {
-          rawList = data.data;
-        } else if (Array.isArray(data.videos)) {
-          rawList = data.videos;
-        } else {
-          const arrProp = Object.values(data).find(val => Array.isArray(val));
-          if (arrProp) rawList = arrProp;
-        }
-      }
-      const validVideos = rawList
-        .map(item => (item && item.json ? item.json : item))
-        .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
-      setMyVideos(validVideos);
-    } catch (e) {
-      console.error(e);
-      setMyVideos([]);
-    }
   };
 
   const fetchCourses = async (adminId = selectedAdminId) => {
