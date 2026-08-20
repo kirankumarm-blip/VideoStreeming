@@ -5211,58 +5211,60 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 })
               );
 
-              const activeTableData = videoSubTab === 'my_videos' 
-                ? (myVideosList.length > 0 ? myVideosList : (myVideos || [])) 
-                : assignedList;
+              const activeTableData = isAuthorAdminUser 
+                ? (videoSubTab === 'my_videos' ? (myVideosList.length > 0 ? myVideosList : (myVideos || [])) : assignedList)
+                : (myVideos || []);
 
               return (
                 <div className="animate-fade-in glass-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <h2 style={{ fontSize: '20px', margin: 0 }}>All Videos</h2>
+                    <h2 style={{ fontSize: '20px', margin: 0 }}>Uploaded Videos</h2>
 
-                    {/* SUB-TABS NAVIGATION */}
-                    <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setVideoSubTab('assigned')}
-                        style={{
-                          padding: '8px 18px',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          border: 'none',
-                          backgroundColor: videoSubTab === 'assigned' ? 'var(--accent-color, #e50914)' : 'transparent',
-                          color: videoSubTab === 'assigned' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-                          transition: 'all 0.2s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <i className="fa-solid fa-list-check" /> Assigned Videos ({assignedList.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVideoSubTab('my_videos')}
-                        style={{
-                          padding: '8px 18px',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          border: 'none',
-                          backgroundColor: videoSubTab === 'my_videos' ? 'var(--accent-color, #e50914)' : 'transparent',
-                          color: videoSubTab === 'my_videos' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-                          transition: 'all 0.2s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <i className="fa-solid fa-video" /> My Videos ({myVideosList.length})
-                      </button>
-                    </div>
+                    {/* SUB-TABS NAVIGATION - ONLY FOR AUTHOR ADMIN */}
+                    {isAuthorAdminUser && (
+                      <div style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setVideoSubTab('assigned')}
+                          style={{
+                            padding: '8px 18px',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            border: 'none',
+                            backgroundColor: videoSubTab === 'assigned' ? 'var(--accent-color, #e50914)' : 'transparent',
+                            color: videoSubTab === 'assigned' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <i className="fa-solid fa-list-check" /> Assigned Videos ({assignedList.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVideoSubTab('my_videos')}
+                          style={{
+                            padding: '8px 18px',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            border: 'none',
+                            backgroundColor: videoSubTab === 'my_videos' ? 'var(--accent-color, #e50914)' : 'transparent',
+                            color: videoSubTab === 'my_videos' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <i className="fa-solid fa-video" /> My Videos ({myVideosList.length})
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="table-container">
