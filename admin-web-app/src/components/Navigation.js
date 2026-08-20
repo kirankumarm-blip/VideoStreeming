@@ -51,9 +51,25 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const fetchNotifications = async () => {
     try {
       const data = await api.notifications.list();
-      setNotifications(data);
+      let rawList = [];
+      if (Array.isArray(data)) {
+        rawList = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.data)) {
+          rawList = data.data;
+        } else if (Array.isArray(data.notifications)) {
+          rawList = data.notifications;
+        } else if (Array.isArray(data.result)) {
+          rawList = data.result;
+        } else {
+          const arrProp = Object.values(data).find(val => Array.isArray(val));
+          if (arrProp) rawList = arrProp;
+        }
+      }
+      setNotifications(rawList);
     } catch (e) {
       console.error("Failed to load notifications", e);
+      setNotifications([]);
     }
   };
 
@@ -102,11 +118,13 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   };
 
   const handleNotificationClick = async (notif) => {
-    if (!notif.read) {
+    if (notif && !notif.read && !notif.is_read) {
       try {
-        await api.notifications.markAsRead(notif.id);
+        if (notif.id || notif.notification_id) {
+          await api.notifications.markAsRead(notif.id || notif.notification_id);
+        }
         // Update local state
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+        setNotifications(prev => (Array.isArray(prev) ? prev.map(n => (n.id === notif.id ? { ...n, read: true } : n)) : []));
       } catch (e) {
         console.error(e);
       }
@@ -125,7 +143,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     navigate('/login');
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = Array.isArray(notifications) ? notifications.filter(n => n && !n.read && !n.is_read).length : 0;
 
   if (!user) return null;
 
@@ -394,20 +412,20 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                 <div style={{ fontWeight: 700, paddingBottom: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '8px' }}>
                   Notifications
                 </div>
-                {notifications.length === 0 ? (
+                {!Array.isArray(notifications) || notifications.length === 0 ? (
                   <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '16px 0', textAlign: 'center' }}>
                     No notifications yet
                   </div>
                 ) : (
                   notifications.map((n, idx) => (
                     <div 
-                      key={n.id || n.notification_id || idx} 
+                      key={n?.id || n?.notification_id || idx} 
                       onClick={() => handleNotificationClick(n)}
-                      className={`notification-item ${n.read ? '' : 'unread'}`}
+                      className={`notification-item ${n?.read || n?.is_read ? '' : 'unread'}`}
                     >
-                      <div className="notification-title">{n.title || n.heading || 'Notification'}</div>
-                      <div className="notification-msg">{n.message || n.msg || n.notificationMessage || n.notification_message || ''}</div>
-                      <div className="notification-date">{(n.date || n.created_at) ? new Date(n.date || n.created_at).toLocaleString() : ''}</div>
+                      <div className="notification-title">{n?.title || n?.heading || 'Notification'}</div>
+                      <div className="notification-msg">{n?.message || n?.msg || n?.notificationMessage || n?.notification_message || ''}</div>
+                      <div className="notification-date">{(n?.date || n?.created_at) ? new Date(n.date || n.created_at).toLocaleString() : ''}</div>
                     </div>
                   ))
                 )}
