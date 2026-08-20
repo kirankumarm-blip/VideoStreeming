@@ -1172,13 +1172,33 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
       fetchUsers();
     }
-    if (activeTab === 'video_upload' || activeTab === 'course_upload') {
+    if (activeTab === 'video_upload') {
       fetchCategories();
       fetchVisibilities();
       fetchLevels();
       fetchPlans();
       fetchLanguages();
       fetchAdminsList();
+      if (uploadForm.category) {
+        fetchSubCategories(uploadForm.category);
+      } else {
+        setSubCategories([]);
+        lastFetchedSubCatIdRef.current = null;
+      }
+    }
+    if (activeTab === 'course_upload') {
+      fetchCategories();
+      fetchVisibilities();
+      fetchLevels();
+      fetchPlans();
+      fetchLanguages();
+      fetchAdminsList();
+      if (courseForm.category) {
+        fetchSubCategories(courseForm.category);
+      } else {
+        setSubCategories([]);
+        lastFetchedSubCatIdRef.current = null;
+      }
     }
     if (activeTab === 'categories') {
       fetchCategories();
@@ -1647,6 +1667,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchSubCategories = async (categoryId = null) => {
+    if (!categoryId) {
+      setSubCategories([]);
+      lastFetchedSubCatIdRef.current = null;
+      return [];
+    }
     let targetId = categoryId;
     if (categoryId && categories.length > 0) {
       const foundCat = categories.find(c => 
@@ -4159,8 +4184,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           value={uploadForm.category}
                           onChange={(e) => {
                             const val = e.target.value;
-                            setUploadForm(prev => ({ ...prev, category: val }));
-                            fetchSubCategories(val);
+                            setUploadForm(prev => ({ ...prev, category: val, subCategory: '' }));
+                            lastFetchedSubCatIdRef.current = null;
+                            if (val) {
+                              fetchSubCategories(val);
+                            } else {
+                              setSubCategories([]);
+                            }
                           }}
                           placeholder="Select Category"
                           icon="fa-solid fa-folder"
@@ -4172,9 +4202,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <PremiumSelect
                           options={subCategories.map(sc => ({ id: String(sc.id || sc.sub_category_id || sc.subcategory_id || ''), name: sc.name || sc.sub_category_name || sc.title || sc.id }))}
                           value={uploadForm.subCategory}
-                          onChange={(e) => setUploadForm({ ...uploadForm, subCategory: e.target.value })}
-                          placeholder={loadingSubCategories ? 'Loading...' : 'Select Sub Category'}
-                          disabled={loadingSubCategories}
+                          onChange={(e) => setUploadForm(prev => ({ ...prev, subCategory: e.target.value }))}
+                          placeholder={loadingSubCategories ? 'Loading...' : (uploadForm.category ? 'Select Sub Category' : 'Select Category First')}
+                          disabled={loadingSubCategories || !uploadForm.category}
                           icon="fa-solid fa-layer-group"
                         />
                       </div>
@@ -4673,8 +4703,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             value={courseForm.category}
                             onChange={(e) => {
                               const val = e.target.value;
-                              setCourseForm(prev => ({ ...prev, category: val }));
-                              fetchSubCategories(val);
+                              setCourseForm(prev => ({ ...prev, category: val, subCategory: '' }));
+                              lastFetchedSubCatIdRef.current = null;
+                              if (val) {
+                                fetchSubCategories(val);
+                              } else {
+                                setSubCategories([]);
+                              }
                             }}
                             placeholder="Select Category"
                             icon="fa-solid fa-folder"
@@ -4689,8 +4724,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             options={subCategories.map(sc => ({ id: String(sc.id || sc.sub_category_id || sc.subcategory_id || ''), name: sc.name || sc.sub_category_name || sc.title || sc.id }))}
                             value={courseForm.subCategory}
                             onChange={(e) => setCourseForm(prev => ({ ...prev, subCategory: e.target.value }))}
-                            placeholder={loadingSubCategories ? 'Loading...' : 'Select Sub Category'}
-                            disabled={loadingSubCategories}
+                            placeholder={loadingSubCategories ? 'Loading...' : (courseForm.category ? 'Select Sub Category' : 'Select Category First')}
+                            disabled={loadingSubCategories || !courseForm.category}
                             icon="fa-solid fa-layer-group"
                           />
                         </div>
