@@ -242,7 +242,24 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     );
     const resolvedGender = matchedGender ? String(matchedGender.id) : String(rawGender);
 
-    const initialClientId = String(rawRecord.client_id || rawRecord.clientId || (selectedClientId !== '0' ? selectedClientId : ''));
+    const initialClientId = String(rawRecord.client_id || rawRecord.clientId || rawRecord.client || (selectedClientId !== '0' ? selectedClientId : ''));
+    
+    let fetchedClientAdmins = [];
+    if (initialClientId) {
+      fetchedClientAdmins = await fetchClientAdmins(initialClientId);
+    } else {
+      setClientAdminsList([]);
+    }
+
+    const rawAdmin = String(rawRecord.admin_id || rawRecord.adminId || rawRecord.admin || rawRecord.admin_name || rawRecord.assigned_admin_id || rawRecord.assigned_admin || '').trim();
+    const matchedAdmin = (fetchedClientAdmins || []).find(a => 
+      String(a.id) === rawAdmin || 
+      String(a.name).toLowerCase() === rawAdmin.toLowerCase() ||
+      (a.name && rawAdmin && rawAdmin.toLowerCase().includes(String(a.name).toLowerCase())) ||
+      (a.name && rawAdmin && String(a.name).toLowerCase().includes(rawAdmin.toLowerCase()))
+    );
+    const resolvedAdminId = matchedAdmin ? String(matchedAdmin.id) : rawAdmin;
+
     setAuthorAdminForm({
       firstName: rawRecord.first_name || '',
       lastName: rawRecord.last_name || '',
@@ -257,16 +274,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       city_id: resolvedCityId,
       zipcode: rawRecord.zipcode || '',
       client_id: initialClientId,
-      admin_id: String(rawRecord.admin_id || rawRecord.adminId || '')
+      admin_id: resolvedAdminId
     });
 
     setShowAuthorAdminModal(true);
     fetchDropdownClients();
-    if (initialClientId) {
-      fetchClientAdmins(initialClientId);
-    } else {
-      setClientAdminsList([]);
-    }
   };
 
   const fetchClientAdmins = async (clientId = selectedClientId) => {
@@ -4013,6 +4025,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     value={authorAdminForm.client_id}
                     placeholder="Select Client"
                     icon="fa-solid fa-building"
+                    disabled={Boolean(editingAuthorAdmin)}
                     onChange={(e) => {
                       const newClientId = e.target.value;
                       setAuthorAdminForm(prev => ({
@@ -4039,7 +4052,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     options={clientAdminsList.map(a => ({ id: a.id, name: a.name }))}
                     value={authorAdminForm.admin_id}
                     placeholder={loadingClientAdmins ? "Loading Admins..." : (clientAdminsList.length === 0 ? "No admins found for selected client" : "Select Admin")}
-                    disabled={loadingClientAdmins || clientAdminsList.length === 0}
+                    disabled={Boolean(editingAuthorAdmin) || loadingClientAdmins || clientAdminsList.length === 0}
                     icon="fa-solid fa-user-shield"
                     onChange={(e) => {
                       const newAdminId = e.target.value;
