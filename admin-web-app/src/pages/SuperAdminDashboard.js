@@ -1463,7 +1463,16 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         fetchClients();
         showSuccess('Client deleted successfully!');
       } catch (err) {
-        showError(err.message || 'Failed to delete client');
+        let msg = err?.message || 'Failed to delete client';
+        if (
+          err?.status === 421 || 
+          err?.statusCode === 421 || 
+          String(msg).includes('421') || 
+          String(err).includes('421')
+        ) {
+          msg = 'Unable to delete client: Active users are currently online.';
+        }
+        showError(msg);
       }
     });
   };

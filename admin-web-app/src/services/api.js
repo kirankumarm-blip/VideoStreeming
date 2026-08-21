@@ -197,9 +197,13 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const errMsg = errorData.message || `Request failed with status ${response.status}`;
+    let errMsg = errorData.message || errorData.error || `Request failed with status ${response.status}`;
+    if (response.status === 421 || response.status === '421') {
+      errMsg = 'Unable to delete client: Active users are currently online.';
+    }
     const error = new Error(errMsg);
     error.status = response.status;
+    error.statusCode = response.status;
     throw error;
   }
 
