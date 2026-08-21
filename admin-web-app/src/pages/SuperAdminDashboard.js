@@ -349,6 +349,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please fill out email address');
       return;
     }
+    if (!authorAdminForm.client_id) {
+      showError('Please select client');
+      return;
+    }
+    if (!authorAdminForm.admin_id) {
+      showError('Please select admin');
+      return;
+    }
     if (!authorAdminForm.mobile || !authorAdminForm.mobile.trim()) {
       showError('Please fill out phone number');
       return;
