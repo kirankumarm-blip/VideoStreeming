@@ -6586,9 +6586,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     type="email" 
                     className="form-input" 
                     placeholder="Enter email address"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    style={{ background: editingAuthorAdmin ? '#e9ecef' : '#f5f5f5', color: editingAuthorAdmin ? '#6c757d' : '#333333', border: '1px solid #dddddd', cursor: editingAuthorAdmin ? 'not-allowed' : 'text' }}
                     value={authorAdminForm.email} 
-                    onChange={e => setAuthorAdminForm({...authorAdminForm, email: e.target.value.trim()})} 
+                    onChange={e => {
+                      if (!editingAuthorAdmin) {
+                        setAuthorAdminForm({...authorAdminForm, email: e.target.value.trim()});
+                      }
+                    }} 
+                    readOnly={Boolean(editingAuthorAdmin)}
                     onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -6601,12 +6606,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     type="tel" 
                     className="form-input" 
                     placeholder="Enter phone number"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    style={{ background: editingAuthorAdmin ? '#e9ecef' : '#f5f5f5', color: editingAuthorAdmin ? '#6c757d' : '#333333', border: '1px solid #dddddd', cursor: editingAuthorAdmin ? 'not-allowed' : 'text' }}
                     value={authorAdminForm.mobile} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setAuthorAdminForm({...authorAdminForm, mobile: value});
+                      if (!editingAuthorAdmin) {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setAuthorAdminForm({...authorAdminForm, mobile: value});
+                      }
                     }} 
+                    readOnly={Boolean(editingAuthorAdmin)} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 

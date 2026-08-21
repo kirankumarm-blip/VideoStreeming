@@ -3988,9 +3988,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     type="email" 
                     className="form-input" 
                     placeholder="Enter email address"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    style={{ background: editingAuthorAdmin ? '#e9ecef' : '#f5f5f5', color: editingAuthorAdmin ? '#6c757d' : '#333333', border: '1px solid #dddddd', cursor: editingAuthorAdmin ? 'not-allowed' : 'text' }}
                     value={authorAdminForm.email} 
-                    onChange={e => setAuthorAdminForm({...authorAdminForm, email: e.target.value.trim()})} 
+                    onChange={e => {
+                      if (!editingAuthorAdmin) {
+                        setAuthorAdminForm({...authorAdminForm, email: e.target.value.trim()});
+                      }
+                    }} 
+                    readOnly={Boolean(editingAuthorAdmin)}
                     onInvalid={e => e.target.setCustomValidity('Please fill out email address')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
@@ -4028,7 +4033,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                     <i className="fa-solid fa-user-shield" style={{ color: '#6366f1', fontSize: '13px' }}></i>
-                    Admin
+                    Admin *
                   </label>
                   <PremiumSelect
                     options={clientAdminsList.map(a => ({ id: a.id, name: a.name }))}
@@ -4052,12 +4057,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     type="tel" 
                     className="form-input" 
                     placeholder="Enter phone number"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
+                    style={{ background: editingAuthorAdmin ? '#e9ecef' : '#f5f5f5', color: editingAuthorAdmin ? '#6c757d' : '#333333', border: '1px solid #dddddd', cursor: editingAuthorAdmin ? 'not-allowed' : 'text' }}
                     value={authorAdminForm.mobile} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setAuthorAdminForm({...authorAdminForm, mobile: value});
+                      if (!editingAuthorAdmin) {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setAuthorAdminForm({...authorAdminForm, mobile: value});
+                      }
                     }} 
+                    readOnly={Boolean(editingAuthorAdmin)} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
                     onInput={e => e.target.setCustomValidity('')}
                     required 
