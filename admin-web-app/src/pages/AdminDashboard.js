@@ -1511,7 +1511,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchAuthorAdmins();
     } catch (err) {
       console.error('Failed to submit author admin:', err);
-      showError(err?.message || 'Failed to save author admin');
+      const status = err?.status || err?.statusCode || err?.response?.status;
+      const errMsg = String(err?.message || err || '');
+      if (status === 422 || status === '422' || errMsg.includes('422')) {
+        showError('Phone number already exist');
+      } else if (status === 433 || status === '433' || errMsg.includes('433')) {
+        showError('Email Already exist');
+      } else {
+        showError(err?.message || 'Failed to save author admin');
+      }
     } finally {
       setAuthorAdminFormLoading(false);
     }
