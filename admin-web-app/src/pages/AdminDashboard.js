@@ -562,9 +562,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const [myVideos, setMyVideos] = useState([]);
 
-  const [authorAdminsList, setAuthorAdminsList] = useState([]);
-  const [loadingAuthorAdmins, setLoadingAuthorAdmins] = useState(false);
-
   const [courseForm, setCourseForm] = useState({
     title: '',
     description: '',
