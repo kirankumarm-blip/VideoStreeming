@@ -1178,6 +1178,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchDashboardData('overview');
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
+      setUsers([]);
       fetchUsers();
     }
     if (activeTab === 'video_upload') {
@@ -1643,6 +1644,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchUsers = async () => {
+    setUsers([]);
     try {
       let data;
       if (activeTab === 'users_blocked') {

@@ -696,6 +696,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchReportData(selectedReportType, selectedClientId);
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
+      setUsers([]);
       fetchUsers();
     }
     if (activeTab === 'content_videos') {
@@ -986,6 +987,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   const fetchUsers = async () => {
+    setUsers([]);
     if (activeTab === 'users_all' || activeTab === 'users_blocked' || activeTab === 'users_logs') {
       fetchDashboardData(activeTab, selectedAdminId);
     } else {
