@@ -1016,7 +1016,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (!justContent) {
       fetchCategories();
-      fetchUsers();
     }
   }, [activeTab, activeTabOverride, selectedAdminId, justContent]);
 
