@@ -281,6 +281,44 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     fetchDropdownClients();
   };
 
+  const handleToggleAuthorAdminStatus = async (admin) => {
+    const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
+    const nextStatus = !isAdminActive;
+    const resolvedClientId = admin.client_id || admin.clientId || selectedClientId || null;
+    try {
+      await api.vdadmins.toggleAuthorAdminStatus(admin.id || admin.user_id, nextStatus, resolvedClientId);
+      fetchAuthorAdmins();
+      showSuccess(`Author Admin ${nextStatus ? 'activated' : 'deactivated'} successfully!`);
+    } catch (err) {
+      console.error(err);
+      showError(err.message || 'Failed to update author admin status');
+    }
+  };
+
+  const handleDeleteAuthorAdmin = (admin) => {
+    showConfirmDelete('Are you sure you want to delete this author admin?', async () => {
+      try {
+        const resolvedClientId = admin.client_id || admin.clientId || selectedClientId || null;
+        await api.vdadmins.deleteAuthorAdmin(admin.id || admin.user_id, resolvedClientId);
+        fetchAuthorAdmins();
+        showSuccess('Author admin deleted successfully!');
+      } catch (err) {
+        console.error('Failed to delete author admin:', err);
+        let msg = err?.message || 'Failed to delete author admin';
+        const status = err?.status || err?.statusCode || err?.response?.status;
+        if (
+          status === 310 || 
+          status === '310' || 
+          String(msg).includes('310') || 
+          String(err).includes('310')
+        ) {
+          msg = 'Unable to delete, Active users are online!';
+        }
+        showError(msg);
+      }
+    });
+  };
+
   const fetchClientAdmins = async (clientId = selectedClientId) => {
     setLoadingClientAdmins(true);
     try {
@@ -2589,11 +2627,38 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             <TableStatusBadge status={isAdminActive} />
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                               <TableActionButton
                                 icon="fa-solid fa-pen"
                                 title="Edit Author Admin"
                                 onClick={() => handleEditAuthorAdminClick(admin)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleToggleAuthorAdminStatus(admin)}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  backgroundColor: isAdminActive ? '#fee2e2' : '#dcfce7',
+                                  color: isAdminActive ? '#dc2626' : '#16a34a',
+                                  transition: 'all 0.2s ease',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title={isAdminActive ? "Deactivate Author Admin" : "Activate Author Admin"}
+                              >
+                                {isAdminActive ? 'InActive' : 'Active'}
+                              </button>
+                              <TableActionButton
+                                icon="fa-solid fa-trash-can"
+                                type="delete"
+                                title="Delete Author Admin"
+                                onClick={() => handleDeleteAuthorAdmin(admin)}
                               />
                             </div>
                           </td>

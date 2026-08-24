@@ -849,6 +849,33 @@ export const api = {
           admin_id: clientId
         })
       });
+    },
+    deleteAuthorAdmin: (userId, clientId = null) => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "deleteAuthorAdmin",
+          formStep: "deleteAuthorAdmin",
+          user_id: userId,
+          id: userId,
+          client_id: clientId,
+          admin_id: clientId
+        })
+      });
+    },
+    toggleAuthorAdminStatus: (userId, nextStatus, clientId = null) => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "activeStatusAuthor",
+          formStep: "activeStatusAuthor",
+          status: nextStatus,
+          user_id: userId,
+          id: userId,
+          client_id: clientId,
+          admin_id: clientId
+        })
+      });
     }
   },
   users: {
