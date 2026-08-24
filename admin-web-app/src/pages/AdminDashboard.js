@@ -562,6 +562,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const [myVideos, setMyVideos] = useState([]);
 
+  const [courses, setCourses] = useState([]);
+  const [editingCourse, setEditingCourse] = useState(null);
+
   const [courseForm, setCourseForm] = useState({
     title: '',
     description: '',
