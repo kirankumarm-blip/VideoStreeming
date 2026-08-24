@@ -3806,12 +3806,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           </div>
         )}
 
-        {uploadSuccess && (
-          <div style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid #10b981', color: '#10b981', padding: '12px', borderRadius: '8px', marginBottom: '24px' }}>
-            {uploadSuccess}
-          </div>
-        )}
-
         {loading ? (
           <ThreeDLoader text="Loading telemetry data..." />
         ) : (
