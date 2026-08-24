@@ -310,6 +310,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [showAlreadyAssignedModal, setShowAlreadyAssignedModal] = useState(false);
   const [alreadyAssignedAdminName, setAlreadyAssignedAdminName] = useState('');
   const [alreadyAssignedItemType, setAlreadyAssignedItemType] = useState('video');
+  const [pendingAssignItem, setPendingAssignItem] = useState(null);
 
   const getAssignedAdminName = (item) => {
     if (!item || typeof item !== 'object') return '';
@@ -353,6 +354,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const handleAssignButtonClick = (item, itemType = 'video') => {
+    const currentAdminName = getAssignedAdminName(item);
+    if (currentAdminName && currentAdminName !== 'None') {
+      setPendingAssignItem({ item, itemType });
+      setAlreadyAssignedAdminName(currentAdminName);
+      setAlreadyAssignedItemType(itemType);
+      setShowAlreadyAssignedModal(true);
+      return;
+    }
     handleOpenAssignModal(item, itemType);
   };
 
@@ -7431,7 +7440,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         </div>
       )}
 
-      {/* --- VIDEO ALREADY ASSIGNED ALERT MODAL --- */}
+      {/* --- VIDEO / COURSE ALREADY ASSIGNED ALERT MODAL --- */}
       {showAlreadyAssignedModal && (
         <div style={{
           position: 'fixed',
@@ -7449,7 +7458,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }}>
           <div className="glass-card animate-fade-in" style={{
             width: '100%',
-            maxWidth: '420px',
+            maxWidth: '440px',
             padding: '28px 32px',
             borderRadius: '16px',
             background: 'var(--bg-secondary)',
@@ -7461,29 +7470,48 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               width: '56px',
               height: '56px',
               borderRadius: '50%',
-              background: 'rgba(239, 68, 68, 0.12)',
-              color: '#ef4444',
+              background: 'rgba(245, 158, 11, 0.12)',
+              color: '#f59e0b',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '24px',
               margin: '0 auto 16px auto'
             }}>
-              <i className="fa-solid fa-circle-exclamation"></i>
+              <i className="fa-solid fa-user-shield"></i>
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              {alreadyAssignedItemType === 'course' ? 'Course Already Assigned' : 'Video Already Assigned'}
+              {alreadyAssignedItemType === 'course' ? 'Course Currently Assigned' : 'Video Currently Assigned'}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>
-              This {alreadyAssignedItemType === 'course' ? 'course' : 'video'} is already assigned to <strong style={{ color: 'var(--accent-primary)' }}>{alreadyAssignedAdminName}</strong>.
+              This {alreadyAssignedItemType === 'course' ? 'course' : 'video'}{pendingAssignItem?.item?.title || pendingAssignItem?.item?.course_title ? ` ("${pendingAssignItem.item.title || pendingAssignItem.item.course_title}")` : ''} is currently assigned to <strong style={{ color: 'var(--accent-primary)' }}>{alreadyAssignedAdminName}</strong>.
             </p>
-            <button 
-              onClick={() => setShowAlreadyAssignedModal(false)}
-              className="btn btn-primary"
-              style={{ padding: '10px 28px', fontSize: '13px', fontWeight: 600, width: '100%' }}
-            >
-              OK, Got it
-            </button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => {
+                  setShowAlreadyAssignedModal(false);
+                  setPendingAssignItem(null);
+                }}
+                className="btn btn-secondary"
+                style={{ padding: '9px 20px', fontSize: '13px', borderRadius: '8px' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const pending = pendingAssignItem;
+                  setShowAlreadyAssignedModal(false);
+                  setPendingAssignItem(null);
+                  if (pending) {
+                    handleOpenAssignModal(pending.item, pending.itemType);
+                  }
+                }}
+                className="btn btn-primary"
+                style={{ padding: '9px 20px', fontSize: '13px', fontWeight: 600, borderRadius: '8px' }}
+              >
+                Proceed to Re-Assign
+              </button>
+            </div>
           </div>
         </div>
       )}
