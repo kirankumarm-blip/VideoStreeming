@@ -196,9 +196,13 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const errMsg = errorData.message || `Request failed with status ${response.status}`;
+    let errMsg = errorData.message || errorData.error || `Request failed with status ${response.status}`;
+    if (response.status === 430 || response.status === '430') {
+      errMsg = 'Your account has been deactivated. Please contact your administrator for assistance.';
+    }
     const error = new Error(errMsg);
     error.status = response.status;
+    error.statusCode = response.status;
     throw error;
   }
 

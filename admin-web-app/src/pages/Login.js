@@ -222,14 +222,18 @@ const Login = () => {
         setTimerActive(true);
       });
     } catch (err) {
-      if (err.status === 401 || err.statusCode === 401) {
+      const status = err?.status || err?.statusCode || err?.response?.status;
+      const errMsg = String(err?.message || err || '');
+      if (status === 401 || status === '401') {
         showError('Invalid Credentials');
-      } else if (err.status === 404 || err.statusCode === 404 || String(err.status) === '404' || (err.message && err.message.includes('404'))) {
+      } else if (status === 404 || status === '404' || errMsg.includes('404')) {
         showError('User does not exist');
+      } else if (status === 430 || status === '430' || errMsg.includes('430')) {
+        showError('Your account has been deactivated. Please contact your administrator for assistance.');
       } else {
-        showError(err.message || 'Login failed. Please check your credentials.');
+        showError(err?.message || 'Login failed. Please check your credentials.');
       }
-      setError(err.message || 'Login failed. Please check your credentials.');
+      setError(err?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
