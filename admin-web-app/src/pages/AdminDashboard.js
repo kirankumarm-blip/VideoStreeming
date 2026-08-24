@@ -535,6 +535,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
+  const [previewTab, setPreviewTab] = useState('video'); // 'video' | 'thumbnail'
 
   useEffect(() => {
     if (thumbnailFile) {
@@ -4528,6 +4529,63 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     </span>
                   </div>
 
+                  {/* Preview Mode Switcher Tabs (Video vs Thumbnail) */}
+                  {videoPreviewUrl && thumbPreviewUrl && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '6px',
+                      background: 'var(--bg-tertiary, rgba(0,0,0,0.06))',
+                      padding: '4px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewTab('video')}
+                        style={{
+                          flex: 1,
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: previewTab === 'video' ? 'var(--accent-color, #7c3aed)' : 'transparent',
+                          color: previewTab === 'video' ? '#ffffff' : 'var(--text-secondary)',
+                          transition: 'all 0.2s ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <i className="fa-solid fa-play"></i> Video Player
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewTab('thumbnail')}
+                        style={{
+                          flex: 1,
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: previewTab === 'thumbnail' ? 'var(--accent-color, #7c3aed)' : 'transparent',
+                          color: previewTab === 'thumbnail' ? '#ffffff' : 'var(--text-secondary)',
+                          transition: 'all 0.2s ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <i className="fa-solid fa-image"></i> Thumbnail Poster
+                      </button>
+                    </div>
+                  )}
+
                   {/* Media Screen Box */}
                   <div style={{
                     width: '100%',
@@ -4542,8 +4600,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    {videoPreviewUrl ? (
-                      <video src={videoPreviewUrl} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {videoPreviewUrl && (previewTab === 'video' || !thumbPreviewUrl) ? (
+                      <video 
+                        src={videoPreviewUrl} 
+                        poster={thumbPreviewUrl || undefined}
+                        controls 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      />
                     ) : thumbPreviewUrl ? (
                       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                         <img src={thumbPreviewUrl} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -4553,7 +4616,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          background: 'rgba(0,0,0,0.35)',
+                          background: 'rgba(0,0,0,0.3)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -4571,6 +4634,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             <i className="fa-solid fa-play" style={{ color: '#ffffff', fontSize: '20px', marginLeft: '3px' }}></i>
                           </div>
                         </div>
+                        <span style={{
+                          position: 'absolute',
+                          bottom: '10px',
+                          right: '10px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          background: 'rgba(0,0,0,0.7)',
+                          color: '#ffffff'
+                        }}>
+                          Poster Image
+                        </span>
                       </div>
                     ) : (
                       <div style={{ textAlign: 'center', padding: '20px' }}>
@@ -4738,8 +4814,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         )}
                         {thumbnailFile && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <i className="fa-solid fa-file-image" style={{ color: '#3b82f6' }}></i>
+                            <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {thumbPreviewUrl ? (
+                                <img 
+                                  src={thumbPreviewUrl} 
+                                  alt="Thumbnail preview" 
+                                  style={{ width: '32px', height: '20px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }} 
+                                />
+                              ) : (
+                                <i className="fa-solid fa-file-image" style={{ color: '#3b82f6' }}></i>
+                              )}
                               Thumbnail:
                             </span>
                             <span style={{ fontWeight: 600, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
