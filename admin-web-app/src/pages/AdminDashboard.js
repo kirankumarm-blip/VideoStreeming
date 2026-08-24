@@ -675,6 +675,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (!course) return;
     lastFetchedSubCatIdRef.current = null;
     setEditingCourse(course);
+    fetchAuthorAdminsList();
+    fetchAdminsList();
 
     // 1. Match Category (by ID or name)
     const catRaw = course.category_id || course.cat_id || course.category || course.category_name || '';
@@ -687,7 +689,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     // 2. Subcategory raw value (by ID or name)
     const subCatRaw = course.subcategory_id || course.sub_category_id || course.subcategory || course.subCategory || course.subcategory_name || '';
 
-    // 3. Language, Level, Visibility, Admin
+    // 3. Language, Level, Visibility, Admin, Author
     const langVal = String(course.language_id || course.languageId || course.language || (languages[0]?.id || ''));
     const lvlVal = String(course.level_id || course.level || '1');
     const rawVis = course.visibility_id || course.visibility || course.visibility_name || '';
@@ -697,6 +699,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
     const admVal = String((isSuperAdmin && selectedAdminId) ? selectedAdminId : (course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '')).trim();
+    const authorIdVal = String(course.assigned_admin || course.author_id || course.instructor_id || course.admin_id || course.author || course.instructor || '').trim();
 
     setCourseForm({
       title: course.course_title || course.title || '',
@@ -704,7 +707,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       category: catId,
       subCategory: String(subCatRaw),
       languageId: langVal,
-      instructor: course.instructor || '',
+      instructor: course.instructor || authorIdVal || '',
+      author_id: authorIdVal,
       level: lvlVal || '1',
       tags: course.tags || '',
       totalChapters: String(course.totalChapters || (Array.isArray(course.chapters) ? course.chapters.length : 1)),
@@ -2819,7 +2823,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           console.warn("Course notification call warning:", notifErr);
         }
       }
-      setUploadSuccess(editingCourse ? 'Course updated successfully!' : 'Course created successfully!');
+      const courseSuccMsg = editingCourse ? 'Course updated successfully!' : 'Course created successfully!';
+      setUploadSuccess(courseSuccMsg);
+      showSuccess(courseSuccMsg);
       setUploadProgress('');
       setEditingCourse(null);
       
