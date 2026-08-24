@@ -349,26 +349,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const idVal = String(item.assigned_admin_id || item.assignedAdminId).trim();
       if (idVal && idVal !== '0' && idVal !== 'null' && idVal !== 'undefined') return `Admin ${idVal}`;
     }
-
     return '';
   };
 
   const handleAssignButtonClick = (item, itemType = 'video') => {
-    const currentAdminName = getAssignedAdminName(item);
-    if (currentAdminName && currentAdminName !== 'None') {
-      setAlreadyAssignedAdminName(currentAdminName);
-      setAlreadyAssignedItemType(itemType);
-      setShowAlreadyAssignedModal(true);
-      return;
-    }
     handleOpenAssignModal(item, itemType);
   };
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
     const videoId = String(item?.id || item?.video_id || item?.videoId || item?.id_video || item?._id || item?.course_id || item?.courseId || '');
     let initialAdminId = '';
-    if (item?.assignedAdminId || item?.assigned_admin_id || item?.admin_id) {
-      initialAdminId = String(item.assignedAdminId || item.assigned_admin_id || item.admin_id);
+    if (item?.assigned_admin || item?.admin_id || item?.assignedAdminId || item?.assigned_admin_id) {
+      initialAdminId = String(item.assigned_admin || item.admin_id || item.assignedAdminId || item.assigned_admin_id);
     } else if (Array.isArray(item?.assignedAdmins) && item.assignedAdmins.length > 0) {
       initialAdminId = String(item.assignedAdmins[0]);
     }
@@ -5856,15 +5848,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 >
                                   {t('admin.playReviewBtn')}
                                 </button>
-                                {!hideAssignAdminColumn && (
-                                  <button 
-                                    onClick={() => handleAssignButtonClick(video, 'video')}
-                                    className="btn btn-primary"
-                                    style={{ padding: '6px 12px', fontSize: '12px' }}
-                                  >
-                                    Assign
-                                  </button>
-                                )}
+                                {!hideAssignAdminColumn && (() => {
+                                  const isAssigned = Boolean(getAssignedAdminName(video) || video.assigned_admin || video.admin_id || video.client_id || video.assigned_admin_name);
+                                  return (
+                                    <button 
+                                      onClick={() => handleAssignButtonClick(video, 'video')}
+                                      className="btn btn-primary"
+                                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                                    >
+                                      {isAssigned ? 'Re-Assign' : 'Assign'}
+                                    </button>
+                                  );
+                                })()}
                                 <button 
                                   onClick={() => handleDeleteVideo(video.id)}
                                   className="btn"
@@ -6025,15 +6020,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 >
                                   View Details
                                 </button>
-                                {!hideAssignAdminColumn && (
-                                  <button 
-                                    className="btn btn-primary"
-                                    style={{ padding: '6px 12px', fontSize: '12px' }}
-                                    onClick={() => handleAssignButtonClick(course, 'course')}
-                                  >
-                                    Assign
-                                  </button>
-                                )}
+                                {!hideAssignAdminColumn && (() => {
+                                  const isAssigned = Boolean(getAssignedAdminName(course) || course.assigned_admin || course.admin_id || course.client_id || course.assigned_admin_name);
+                                  return (
+                                    <button 
+                                      className="btn btn-primary"
+                                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                                      onClick={() => handleAssignButtonClick(course, 'course')}
+                                    >
+                                      {isAssigned ? 'Re-Assign' : 'Assign'}
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             </td>
                           </tr>
@@ -7288,26 +7286,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
             <form onSubmit={handleAssignSubmit}>
               {/* Search input for quick filtering */}
-              {authorAdminsList.length > 3 && (
-                <div style={{ marginBottom: '14px', position: 'relative' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Search admin by name..."
-                    value={assignSearchQuery}
-                    onChange={e => setAssignSearchQuery(e.target.value)}
-                    className="form-input"
-                    style={{
-                      width: '100%',
-                      padding: '8px 14px',
-                      fontSize: '13px',
-                      borderRadius: '8px',
-                      background: 'var(--bg-primary)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                </div>
-              )}
+              <div style={{ marginBottom: '14px', position: 'relative' }}>
+                <input 
+                  type="text" 
+                  placeholder="🔍 Search admin by name..."
+                  value={assignSearchQuery}
+                  onChange={e => setAssignSearchQuery(e.target.value)}
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    padding: '8px 14px',
+                    fontSize: '13px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+              </div>
 
               {/* Admin Cards List Container */}
               <div style={{
@@ -7319,20 +7315,38 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 padding: '4px',
                 marginBottom: '24px'
               }}>
-                {loadingAuthorAdmins ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 0', gap: '10px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                    <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '24px', color: 'var(--accent-primary)' }}></i>
-                    <span>Fetching Author Admins...</span>
-                  </div>
-                ) : authorAdminsList.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '36px 16px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px dashed var(--border-color)' }}>
-                    <i className="fa-solid fa-users-slash" style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5, display: 'block' }}></i>
-                    No Author Admins found.
-                  </div>
-                ) : (
-                  authorAdminsList
-                    .filter(admin => !assignSearchQuery || admin.name.toLowerCase().includes(assignSearchQuery.toLowerCase()))
-                    .map(admin => {
+                {(() => {
+                  const assignableList = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                    id: String(a.id || a.admin_id || a.user_id || ''),
+                    name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || ''),
+                    email: a.email || ''
+                  }))).filter(a => a.id && a.name);
+
+                  const filteredList = assignableList.filter(admin => 
+                    !assignSearchQuery || 
+                    admin.name.toLowerCase().includes(assignSearchQuery.toLowerCase()) || 
+                    (admin.email && admin.email.toLowerCase().includes(assignSearchQuery.toLowerCase()))
+                  );
+
+                  if (loadingAuthorAdmins || loadingAdminsList) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 0', gap: '10px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                        <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '24px', color: 'var(--accent-primary)' }}></i>
+                        <span>Fetching Author Admins...</span>
+                      </div>
+                    );
+                  }
+
+                  if (filteredList.length === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: '36px 16px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px dashed var(--border-color)' }}>
+                        <i className="fa-solid fa-users-slash" style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5, display: 'block' }}></i>
+                        No Author Admins found matching "{assignSearchQuery}".
+                      </div>
+                    );
+                  }
+
+                  return filteredList.map(admin => {
                       const isSelected = String(assignForm.assignedAdminId) === String(admin.id);
                       return (
                         <div 
@@ -7394,8 +7408,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           />
                         </div>
                       );
-                    })
-                )}
+                    });
+                })()}
               </div>
 
               {/* Modal Footer */}
