@@ -39,6 +39,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     )
   );
   const hideAssignAdminColumn = Boolean(isSuperAdminView || isAuthorAdminUser);
+  const isRegularAdmin = !isSuperAdminView && !isAuthorAdminUser;
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
@@ -5147,29 +5148,41 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
-                          <PremiumSelect
-                            options={(authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
-                              id: String(a.id || a.admin_id || a.user_id || ''),
-                              name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
-                            }))).filter(a => a.id && a.name)}
-                            value={courseForm.author_id}
-                            onChange={(e) => {
-                              const selectedId = e.target.value;
-                              const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                          {isRegularAdmin ? (
+                            <PremiumSelect
+                              options={(authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
                                 id: String(a.id || a.admin_id || a.user_id || ''),
                                 name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
-                              }))).filter(a => a.id && a.name);
-                              const foundAuthor = availableOpts.find(a => String(a.id) === String(selectedId));
-                              setCourseForm(prev => ({
-                                ...prev,
-                                author_id: selectedId,
-                                instructor: foundAuthor ? foundAuthor.name : selectedId
-                              }));
-                            }}
-                            placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
-                            disabled={loadingAuthorAdmins && loadingAdminsList}
-                            icon="fa-solid fa-user-tie"
-                          />
+                              }))).filter(a => a.id && a.name)}
+                              value={courseForm.author_id}
+                              onChange={(e) => {
+                                const selectedId = e.target.value;
+                                const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                                  id: String(a.id || a.admin_id || a.user_id || ''),
+                                  name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
+                                }))).filter(a => a.id && a.name);
+                                const foundAuthor = availableOpts.find(a => String(a.id) === String(selectedId));
+                                setCourseForm(prev => ({
+                                  ...prev,
+                                  author_id: selectedId,
+                                  instructor: foundAuthor ? foundAuthor.name : selectedId
+                                }));
+                              }}
+                              placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
+                              disabled={loadingAuthorAdmins && loadingAdminsList}
+                              icon="fa-solid fa-user-tie"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              placeholder="e.g. John Doe"
+                              value={courseForm.instructor}
+                              onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
+                              required
+                            />
+                          )}
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Level *</label>
