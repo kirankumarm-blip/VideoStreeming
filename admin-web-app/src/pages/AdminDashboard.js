@@ -1795,6 +1795,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       console.error(e);
       setCategories([]);
     }
+  };
+
   const fetchAuthorAdminsList = async () => {
     setLoadingAuthorAdmins(true);
     try {
