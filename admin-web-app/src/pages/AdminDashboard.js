@@ -367,9 +367,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
     const videoId = String(item?.id || item?.video_id || item?.videoId || item?.id_video || item?._id || item?.course_id || item?.courseId || '');
+    const assignedAdminName = getAssignedAdminName(item);
     let initialAdminId = '';
-    if (item?.assigned_admin || item?.admin_id || item?.assignedAdminId || item?.assigned_admin_id) {
-      initialAdminId = String(item.assigned_admin || item.admin_id || item.assignedAdminId || item.assigned_admin_id);
+    if (item?.assigned_admin || item?.admin_id || item?.assignedAdminId || item?.assigned_admin_id || item?.assigned_admin_name || item?.assignedAdminName || assignedAdminName) {
+      initialAdminId = String(item.assigned_admin || item.admin_id || item.assignedAdminId || item.assigned_admin_id || item.assigned_admin_name || item.assignedAdminName || assignedAdminName).trim();
     } else if (Array.isArray(item?.assignedAdmins) && item.assignedAdmins.length > 0) {
       initialAdminId = String(item.assignedAdmins[0]);
     }
@@ -7356,7 +7357,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   }
 
                   return filteredList.map(admin => {
-                      const isSelected = String(assignForm.assignedAdminId) === String(admin.id);
+                      const isSelected = Boolean(
+                        assignForm.assignedAdminId && (
+                          String(assignForm.assignedAdminId).trim().toLowerCase() === String(admin.id).trim().toLowerCase() ||
+                          String(assignForm.assignedAdminId).trim().toLowerCase() === String(admin.name || '').trim().toLowerCase() ||
+                          String(assignForm.assignedAdminId).trim().toLowerCase() === String(admin.username || '').trim().toLowerCase() ||
+                          String(assignForm.assignedAdminId).trim().toLowerCase() === String(admin.email || '').trim().toLowerCase()
+                        )
+                      );
                       return (
                         <div 
                           key={admin.id}
