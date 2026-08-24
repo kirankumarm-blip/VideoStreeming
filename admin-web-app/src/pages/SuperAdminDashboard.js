@@ -1122,7 +1122,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setActiveTab('admins_all'); // Redirect upon creation
     } catch (err) {
       if (err.status === 422) {
-        showError('Phone Number Already exist');
+        showError('Phone number already exist');
       } else if (err.status === 433) {
         showError('Email Already exist');
       } else {

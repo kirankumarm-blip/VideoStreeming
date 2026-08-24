@@ -2865,7 +2865,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchDashboardData();
     } catch (err) {
       if (err.status === 422) {
-        showError('Phone Number Already exist');
+        showError('Phone number already exist');
       } else if (err.status === 433) {
         showError('Email Already exist');
       } else {
