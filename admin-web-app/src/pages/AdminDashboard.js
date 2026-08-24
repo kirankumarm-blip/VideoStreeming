@@ -1010,14 +1010,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [settings, setSettings] = useState({});
   const [transactions, setTransactions] = useState([]);
 
-  useEffect(() => {
-    if (activeTab === 'video_all' || activeTabOverride === 'video_all' || activeTabOverride === 'content_videos') {
-      fetchVideos(selectedAdminId);
-    }
-    if (!justContent) {
-      fetchCategories();
-    }
-  }, [activeTab, activeTabOverride, selectedAdminId, justContent]);
+
 
   // Admin Reports state
   const [adminReportType, setAdminReportType] = useState('course_analytics');
@@ -1218,8 +1211,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'author_admin') {
       fetchAuthorAdmins();
     }
-    if (activeTab === 'video_all') {
-      fetchVideos();
+    if (activeTab === 'video_all' || activeTabOverride === 'video_all' || activeTabOverride === 'content_videos') {
+      fetchVideos(selectedAdminId);
     }
     if (activeTab === 'course_all') {
       fetchCourses(selectedAdminId);
