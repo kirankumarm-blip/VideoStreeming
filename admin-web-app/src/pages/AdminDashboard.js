@@ -6058,7 +6058,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   <div className="table-container">
                     <PaginatedTable
-                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Price', 'Assigned Admin', 'Actions']}
+                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Assigned Admin', 'Actions']}
                       data={validCourseData}
                       emptyMessage={isAuthorAdminUser ? (courseSubTab === 'my_courses' ? 'No personal courses found' : 'No assigned courses found') : 'No data available'}
                       renderRow={(course, index) => {
@@ -6096,7 +6096,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             <td>{course.category || 'N/A'}</td>
                             <td>{chaptersCount}</td>
                             <td>{lessonsCount}</td>
-                            <td>{course.price && course.price !== '0' ? `$${course.price}` : 'Free'}</td>
                             {!hideAssignAdminColumn && (
                               <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
                                 {getAssignedAdminName(course) || 'None'}
