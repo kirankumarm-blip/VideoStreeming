@@ -1240,6 +1240,20 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const handleDeleteAdmin = (admin) => {
+    showConfirmDelete('Are you sure you want to delete this admin?', async () => {
+      try {
+        const resolvedClientId = admin.client_id || admin.clientId || selectedClientId || null;
+        await api.vdadmins.deleteAdmin(admin.id || admin.user_id, resolvedClientId);
+        fetchAdmins();
+        showSuccess('Admin deleted successfully!');
+      } catch (err) {
+        console.error('Failed to delete admin:', err);
+        showError(err?.message || 'Failed to delete admin');
+      }
+    });
+  };
+
   // --- Category CRUD Handlers ---
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
@@ -2383,17 +2397,38 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             <TableRoleBadge role={roleName} />
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                               <TableActionButton
                                 icon="fa-solid fa-pen"
                                 title="Edit Admin"
                                 onClick={() => handleEditClick(admin)}
                               />
-                              <TableActionButton
-                                icon={isAdminActive ? "fa-solid fa-trash-can" : "fa-solid fa-user-check"}
-                                type={isAdminActive ? "delete" : "secondary"}
-                                title={isAdminActive ? "Disable Admin" : "Enable Admin"}
+                              <button
+                                type="button"
                                 onClick={() => handleToggleAdminStatus(admin)}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  backgroundColor: isAdminActive ? '#fee2e2' : '#dcfce7',
+                                  color: isAdminActive ? '#dc2626' : '#16a34a',
+                                  transition: 'all 0.2s ease',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title={isAdminActive ? "Deactivate Admin" : "Activate Admin"}
+                              >
+                                {isAdminActive ? 'InActive' : 'Active'}
+                              </button>
+                              <TableActionButton
+                                icon="fa-solid fa-trash-can"
+                                type="delete"
+                                title="Delete Admin"
+                                onClick={() => handleDeleteAdmin(admin)}
                               />
                             </div>
                           </td>

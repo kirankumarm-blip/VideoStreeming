@@ -832,6 +832,19 @@ export const api = {
           ...payload
         })
       });
+    },
+    deleteAdmin: (userId, clientId = null) => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "deleteAdmin",
+          formStep: "deleteAdmin",
+          user_id: userId,
+          id: userId,
+          client_id: clientId,
+          admin_id: clientId
+        })
+      });
     }
   },
   users: {
@@ -938,6 +951,32 @@ export const api = {
           user_id: userId,
           id: userId,
           status: nextStatus,
+          client_id: clientId,
+          admin_id: clientId
+        }),
+      });
+    },
+    deleteAdmin: (userId, clientId = null) => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "deleteAdmin",
+          formStep: "deleteAdmin",
+          user_id: userId,
+          id: userId,
+          client_id: clientId,
+          admin_id: clientId
+        }),
+      });
+    },
+    delete: (userId, clientId = null) => {
+      return request('/vdadmins', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          formstep: "deleteAdmin",
+          formStep: "deleteAdmin",
+          user_id: userId,
+          id: userId,
           client_id: clientId,
           admin_id: clientId
         }),
