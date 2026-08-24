@@ -1804,19 +1804,35 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setLoadingAuthorAdmins(true);
     try {
       const res = await api.vdadminVideos.getAthorAdmins();
+      console.log('Fetched author admins response:', res);
       let list = [];
-      if (Array.isArray(res)) list = res;
-      else if (res && Array.isArray(res.data)) list = res.data;
-      else if (res && typeof res === 'object') {
+      if (Array.isArray(res)) {
+        list = res;
+      } else if (res && Array.isArray(res.data)) {
+        list = res.data;
+      } else if (res && Array.isArray(res.result)) {
+        list = res.result;
+      } else if (res && typeof res === 'object') {
         const arrKey = Object.keys(res).find(k => Array.isArray(res[k]));
         if (arrKey) list = res[arrKey];
       }
+
       const mapped = list.map(item => {
-        const obj = item.json || item;
-        const idVal = String(obj.id || obj.user_id || obj.admin_id || item.id || item.user_id || item.admin_id || '');
-        const nameVal = obj.name || (obj.first_name ? `${obj.first_name} ${obj.last_name || ''}`.trim() : '') || item.name || item.author_name || `Author ${idVal}`;
+        let jsonObj = {};
+        if (item && item.json) {
+          try {
+            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+          } catch (err) {
+            jsonObj = {};
+          }
+        }
+        const combined = { ...item, ...jsonObj };
+        const idVal = String(combined.id || combined.user_id || combined.admin_id || item.id || item.user_id || item.admin_id || '');
+        const nameVal = combined.name || (combined.first_name ? `${combined.first_name} ${combined.last_name || ''}`.trim() : '') || item.name || item.author_name || combined.author_name || `Author ${idVal}`;
         return { id: idVal, name: nameVal };
-      }).filter(a => a.id);
+      }).filter(a => a.id && a.name);
+
+      console.log('Mapped authorAdminsList:', mapped);
       setAuthorAdminsList(mapped);
     } catch (err) {
       console.error('Failed to fetch author admins list via getAthorAdmins API:', err);
