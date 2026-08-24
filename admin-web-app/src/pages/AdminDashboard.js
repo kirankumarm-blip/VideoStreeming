@@ -5599,7 +5599,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   <div className="table-container">
                     <PaginatedTable
-                      headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', t('admin.tableActions')]}
+                      headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Uploaded By', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', 'Uploaded By', t('admin.tableActions')]}
                       data={activeTableData}
                       emptyMessage={isAuthorAdminUser ? (videoSubTab === 'my_videos' ? 'No personal uploaded videos found' : 'No assigned videos found') : 'No uploaded videos found'}
                       renderRow={(video, index) => {
@@ -5608,6 +5608,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) 
                           : 'https://placehold.co/180x101?text=No+Thumbnail';
                         const isPublic = String(video.visibility || '').toLowerCase() === 'scheduler' || String(video.visibility || '').toLowerCase() === 'public';
+                        const uploadedByVal = video.uploaded_by || video.uploaded_by_name || video.uploadedBy || video.author_name || video.creator_name || video.author || video.created_by || '-';
                         return (
                           <tr key={video.id || index} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
                             <td>
@@ -5630,6 +5631,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 {getAssignedAdminName(video) || 'None'}
                               </td>
                             )}
+                            <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                              {uploadedByVal}
+                            </td>
                             <td onClick={(e) => e.stopPropagation()}>
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button 
