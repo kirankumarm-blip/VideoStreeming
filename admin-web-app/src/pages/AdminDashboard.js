@@ -82,7 +82,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const showError = (message) => {
     setCustomAlert({
       show: true,
-      title: 'Oooops!',
+      title: 'Oops!',
       message,
       type: 'error',
       buttonText: 'Try Again'

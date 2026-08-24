@@ -531,7 +531,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     setCustomAlert({
       show: true,
       type: 'error',
-      title: 'Oooops!',
+      title: 'Oops!',
       message,
       buttonText: 'Try Again',
       onConfirm

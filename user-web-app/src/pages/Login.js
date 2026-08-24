@@ -167,7 +167,7 @@ const Login = ({ initialAuthMode }) => {
     setCustomAlert({
       show: true,
       type: 'error',
-      title: 'Oooops!',
+      title: 'Oops!',
       message,
       buttonText: 'Try Again',
       onConfirm
