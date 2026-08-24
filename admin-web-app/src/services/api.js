@@ -1106,6 +1106,20 @@ export const api = {
         expectArray: true
       });
     },
+    getAthorAdmins: (params = {}) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "getAthorAdmins",
+          formStep: "getAthorAdmins",
+          ...params
+        }),
+        expectArray: true
+      });
+    },
     getLevels: () => {
       return request('/adminVideos', {
         method: 'POST',

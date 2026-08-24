@@ -562,8 +562,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const [myVideos, setMyVideos] = useState([]);
 
-  const [courses, setCourses] = useState([]);
-  const [editingCourse, setEditingCourse] = useState(null);
+  const [authorAdminsList, setAuthorAdminsList] = useState([]);
+  const [loadingAuthorAdmins, setLoadingAuthorAdmins] = useState(false);
+
   const [courseForm, setCourseForm] = useState({
     title: '',
     description: '',
@@ -571,6 +572,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     subCategory: '',
     languageId: '',
     instructor: '',
+    author_id: '',
     level: 'Beginner',
     tags: '',
     totalChapters: '',
@@ -1195,6 +1197,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchPlans();
       fetchLanguages();
       fetchAdminsList();
+      fetchAuthorAdminsList();
       if (courseForm.category) {
         fetchSubCategories(courseForm.category);
       } else {
@@ -1794,6 +1797,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     } catch (e) {
       console.error(e);
       setCategories([]);
+    }
+  const fetchAuthorAdminsList = async () => {
+    setLoadingAuthorAdmins(true);
+    try {
+      const res = await api.vdadminVideos.getAthorAdmins();
+      let list = [];
+      if (Array.isArray(res)) list = res;
+      else if (res && Array.isArray(res.data)) list = res.data;
+      else if (res && typeof res === 'object') {
+        const arrKey = Object.keys(res).find(k => Array.isArray(res[k]));
+        if (arrKey) list = res[arrKey];
+      }
+      const mapped = list.map(item => {
+        const obj = item.json || item;
+        const idVal = String(obj.id || obj.user_id || obj.admin_id || item.id || item.user_id || item.admin_id || '');
+        const nameVal = obj.name || (obj.first_name ? `${obj.first_name} ${obj.last_name || ''}`.trim() : '') || item.name || item.author_name || `Author ${idVal}`;
+        return { id: idVal, name: nameVal };
+      }).filter(a => a.id);
+      setAuthorAdminsList(mapped);
+    } catch (err) {
+      console.error('Failed to fetch author admins list via getAthorAdmins API:', err);
+      setAuthorAdminsList([]);
+    } finally {
+      setLoadingAuthorAdmins(false);
     }
   };
 
@@ -2468,8 +2495,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Client selection is required for Private courses');
       return;
     }
-    if (!courseForm.instructor?.trim()) {
-      showError('Instructor / Author is required');
+    if (!courseForm.author_id && !courseForm.instructor?.trim()) {
+      showError('Please select Instructor / Author');
       return;
     }
     if (!courseForm.level?.toString().trim()) {
@@ -2491,7 +2518,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return;
     }
 
-    // 3. Total Chapters Count Mismatch Validation
+    // 3. Chapter Order Validations
+    if (chapters && chapters.length > 0) {
+      const firstOrder = parseInt(chapters[0].order, 10);
+      if (isNaN(firstOrder) || firstOrder !== 1) {
+        showError('First chapter order must start from 1');
+        return;
+      }
+
+      const seenOrders = new Set();
+      for (let i = 0; i < chapters.length; i++) {
+        const orderVal = parseInt(chapters[i].order, 10);
+        if (isNaN(orderVal) || orderVal < 1) {
+          showError(`Chapter ${i + 1}: Chapter order must be a valid positive number starting from 1`);
+          return;
+        }
+        if (seenOrders.has(orderVal)) {
+          showError(`Duplicate chapter order found for Chapter ${i + 1}: Order ${orderVal} is already assigned. Chapter orders must be unique.`);
+          return;
+        }
+        seenOrders.add(orderVal);
+      }
+    }
+
+    // 4. Total Chapters Count Mismatch Validation
     const expectedChaptersCount = parseInt(courseForm.totalChapters, 10);
     if (!isNaN(expectedChaptersCount) && expectedChaptersCount > 0 && chapters.length < expectedChaptersCount) {
       showError(`Please add all ${expectedChaptersCount} chapters specified in Total Chapters field (Current added: ${chapters.length})`);
@@ -2683,7 +2733,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         visibility_id: rootVisId,
         visibility: rootVisId,
         language_id: courseForm.languageId,
-        instructor: courseForm.instructor,
+        author_id: courseForm.author_id || courseForm.instructor,
+        instructor_id: courseForm.author_id || courseForm.instructor,
+        instructor: courseForm.instructor || courseForm.author_id,
         level: courseForm.level,
         tags: courseForm.tags,
         totalChapters: courseForm.totalChapters || chapters.length.toString(),
@@ -5047,14 +5099,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                            placeholder="e.g. John Doe"
-                            value={courseForm.instructor}
-                            onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
-                            required
+                          <PremiumSelect
+                            options={authorAdminsList.map(a => ({ id: a.id, name: a.name }))}
+                            value={courseForm.author_id}
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              const foundAuthor = authorAdminsList.find(a => String(a.id) === String(selectedId));
+                              setCourseForm(prev => ({
+                                ...prev,
+                                author_id: selectedId,
+                                instructor: foundAuthor ? foundAuthor.name : selectedId
+                              }));
+                            }}
+                            placeholder={loadingAuthorAdmins ? 'Loading...' : 'Select Instructor / Author'}
+                            disabled={loadingAuthorAdmins}
+                            icon="fa-solid fa-user-tie"
                           />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
@@ -5239,10 +5298,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Chapter Order</label>
                                 <input
                                   type="number"
+                                  min="1"
                                   className="form-input"
                                   style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                                   value={ch.order}
-                                  onChange={(e) => updateChapterProp(ch.id, 'order', parseInt(e.target.value) || 1)}
+                                  onChange={(e) => {
+                                    const rawVal = e.target.value;
+                                    const parsed = parseInt(rawVal, 10);
+                                    if (chIdx === 0 && !isNaN(parsed) && parsed !== 1) {
+                                      showError('First chapter order must start from 1');
+                                    }
+                                    updateChapterProp(ch.id, 'order', isNaN(parsed) ? '' : parsed);
+                                  }}
                                 />
                               </div>
                               <div className="form-group" style={{ margin: 0 }}>
