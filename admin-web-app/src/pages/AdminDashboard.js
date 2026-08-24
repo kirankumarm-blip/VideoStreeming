@@ -2978,14 +2978,47 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setShowUserModal(true);
   };
 
-  const handleToggleUserStatus = async (user, statusVal, isBlock = false) => {
-    try {
-      await api.users.changeStatus(user.id, statusVal, isBlock);
-      fetchUsers();
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Failed to update user status');
+  const handleToggleUserStatus = (user, statusVal, isBlock = false) => {
+    let actionType = 'disable';
+    let confirmMsg = 'Are you sure you want to disable this user?';
+    let confirmTitle = 'Confirm Disable';
+    let confirmBtn = 'Disable';
+    let btnColor = '#ef4444';
+    let successMsg = 'User disabled successfully!';
+
+    if (isBlock) {
+      actionType = 'block';
+      confirmMsg = 'Are you sure you want to block this user?';
+      confirmTitle = 'Confirm Block';
+      confirmBtn = 'Block';
+      btnColor = '#f59e0b';
+      successMsg = 'User blocked successfully!';
+    } else if (statusVal) {
+      actionType = 'enable';
+      confirmMsg = 'Are you sure you want to enable this user?';
+      confirmTitle = 'Confirm Enable';
+      confirmBtn = 'Enable';
+      btnColor = '#10b981';
+      successMsg = 'User enabled successfully!';
     }
+
+    setConfirmModal({
+      show: true,
+      title: confirmTitle,
+      message: confirmMsg,
+      confirmText: confirmBtn,
+      buttonColor: btnColor,
+      onConfirm: async () => {
+        try {
+          await api.users.changeStatus(user.id, statusVal, isBlock);
+          fetchUsers();
+          showSuccess(successMsg);
+        } catch (err) {
+          console.error(err);
+          showError(err.message || `Failed to ${actionType} user`);
+        }
+      }
+    });
   };
 
   // --- Category CRUD Handlers ---
@@ -3103,14 +3136,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     });
   };
 
-  const handleUnblockUser = async (user) => {
-    try {
-      await api.users.unblock(user.id);
-      fetchUsers();
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Failed to unblock user');
-    }
+  const handleUnblockUser = (user) => {
+    setConfirmModal({
+      show: true,
+      title: 'Confirm Unblock',
+      message: 'Are you sure you want to unblock this user?',
+      confirmText: 'Unblock',
+      buttonColor: '#10b981',
+      onConfirm: async () => {
+        try {
+          await api.users.unblock(user.id);
+          fetchUsers();
+          showSuccess('User unblocked successfully!');
+        } catch (err) {
+          console.error(err);
+          showError(err.message || 'Failed to unblock user');
+        }
+      }
+    });
   };
 
   // --- Video Upload Handler ---
@@ -7344,7 +7387,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   if (cb) cb();
                 }} 
                 className="btn" 
-                style={{ padding: '8px 20px', fontSize: '13px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '8px 20px', fontSize: '13px', background: confirmModal.buttonColor || '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
               >
                 {confirmModal.confirmText || 'Delete'}
               </button>
