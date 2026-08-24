@@ -1249,7 +1249,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         showSuccess('Admin deleted successfully!');
       } catch (err) {
         console.error('Failed to delete admin:', err);
-        showError(err?.message || 'Failed to delete admin');
+        let msg = err?.message || 'Failed to delete admin';
+        const status = err?.status || err?.statusCode || err?.response?.status;
+        if (
+          status === 310 || 
+          status === '310' || 
+          String(msg).includes('310') || 
+          String(err).includes('310')
+        ) {
+          msg = 'Unable to delete, Active users are online!';
+        }
+        showError(msg);
       }
     });
   };
@@ -1506,9 +1516,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         showSuccess('Client deleted successfully!');
       } catch (err) {
         let msg = err?.message || 'Failed to delete client';
+        const status = err?.status || err?.statusCode || err?.response?.status;
         if (
-          err?.status === 421 || 
-          err?.statusCode === 421 || 
+          status === 310 || 
+          status === '310' || 
+          String(msg).includes('310') || 
+          String(err).includes('310')
+        ) {
+          msg = 'Unable to delete, Active users are online!';
+        } else if (
+          status === 421 || 
+          status === '421' || 
           String(msg).includes('421') || 
           String(err).includes('421')
         ) {

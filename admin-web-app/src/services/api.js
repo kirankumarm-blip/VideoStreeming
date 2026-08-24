@@ -198,7 +198,9 @@ async function request(endpoint, options = {}) {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     let errMsg = errorData.message || errorData.error || `Request failed with status ${response.status}`;
-    if (response.status === 421 || response.status === '421') {
+    if (response.status === 310 || response.status === '310') {
+      errMsg = 'Unable to delete, Active users are online!';
+    } else if (response.status === 421 || response.status === '421') {
       errMsg = 'Unable to delete client: Active users are currently online.';
     } else if (response.status === 430 || response.status === '430') {
       errMsg = 'Your account has been deactivated. Please contact your administrator for assistance.';
