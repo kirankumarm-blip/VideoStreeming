@@ -1803,18 +1803,31 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchAuthorAdminsList = async () => {
     setLoadingAuthorAdmins(true);
     try {
-      const res = await api.vdadminVideos.getAthorAdmins();
-      console.log('Fetched author admins response:', res);
+      let res = await api.videos.getAdmins();
+      console.log('Fetched author admins response from getAdmins:', res);
       let list = [];
       if (Array.isArray(res)) {
         list = res;
-      } else if (res && Array.isArray(res.data)) {
-        list = res.data;
-      } else if (res && Array.isArray(res.result)) {
-        list = res.result;
       } else if (res && typeof res === 'object') {
-        const arrKey = Object.keys(res).find(k => Array.isArray(res[k]));
-        if (arrKey) list = res[arrKey];
+        if (Array.isArray(res.admins)) list = res.admins;
+        else if (Array.isArray(res.data)) list = res.data;
+        else if (Array.isArray(res.result)) list = res.result;
+        else if (res.id || res.alpha_id || res.name) list = [res];
+      }
+
+      if (!list || list.length === 0) {
+        res = await api.vdadminVideos.getAthorAdmins();
+        console.log('Fetched author admins response from getAthorAdmins:', res);
+        if (Array.isArray(res)) {
+          list = res;
+        } else if (res && Array.isArray(res.data)) {
+          list = res.data;
+        } else if (res && Array.isArray(res.result)) {
+          list = res.result;
+        } else if (res && typeof res === 'object') {
+          const arrKey = Object.keys(res).find(k => Array.isArray(res[k]));
+          if (arrKey) list = res[arrKey];
+        }
       }
 
       const mapped = list.map(item => {
@@ -1835,7 +1848,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       console.log('Mapped authorAdminsList:', mapped);
       setAuthorAdminsList(mapped);
     } catch (err) {
-      console.error('Failed to fetch author admins list via getAthorAdmins API:', err);
+      console.error('Failed to fetch author admins list:', err);
       setAuthorAdminsList([]);
     } finally {
       setLoadingAuthorAdmins(false);
@@ -5118,19 +5131,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
                           <PremiumSelect
-                            options={authorAdminsList.map(a => ({ id: a.id, name: a.name }))}
+                            options={(authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                              id: String(a.id || a.admin_id || a.user_id || ''),
+                              name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
+                            }))).filter(a => a.id && a.name)}
                             value={courseForm.author_id}
                             onChange={(e) => {
                               const selectedId = e.target.value;
-                              const foundAuthor = authorAdminsList.find(a => String(a.id) === String(selectedId));
+                              const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                                id: String(a.id || a.admin_id || a.user_id || ''),
+                                name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
+                              }))).filter(a => a.id && a.name);
+                              const foundAuthor = availableOpts.find(a => String(a.id) === String(selectedId));
                               setCourseForm(prev => ({
                                 ...prev,
                                 author_id: selectedId,
                                 instructor: foundAuthor ? foundAuthor.name : selectedId
                               }));
                             }}
-                            placeholder={loadingAuthorAdmins ? 'Loading...' : 'Select Instructor / Author'}
-                            disabled={loadingAuthorAdmins}
+                            placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
+                            disabled={loadingAuthorAdmins && loadingAdminsList}
                             icon="fa-solid fa-user-tie"
                           />
                         </div>
