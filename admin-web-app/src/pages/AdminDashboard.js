@@ -2087,6 +2087,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const addChapter = () => {
+    const expectedChaptersCount = parseInt(courseForm.totalChapters, 10);
+    if (!isNaN(expectedChaptersCount) && expectedChaptersCount > 0 && chapters.length >= expectedChaptersCount) {
+      showError(`Total chapters specified is ${expectedChaptersCount}. Cannot add more than ${expectedChaptersCount} chapters.`);
+      return;
+    }
     setChapters(prev => {
       const newId = prev.length > 0 ? Math.max(...prev.map(c => typeof c.id === 'number' ? c.id : 0)) + 1 : 1;
       const defaultVisibility = visibilities[0]?.id || '';
@@ -2574,9 +2579,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     // 4. Total Chapters Count Mismatch Validation
     const expectedChaptersCount = parseInt(courseForm.totalChapters, 10);
-    if (!isNaN(expectedChaptersCount) && expectedChaptersCount > 0 && chapters.length < expectedChaptersCount) {
-      showError(`Please add all ${expectedChaptersCount} chapters specified in Total Chapters field (Current added: ${chapters.length})`);
-      return;
+    if (!isNaN(expectedChaptersCount) && expectedChaptersCount > 0) {
+      if (chapters.length < expectedChaptersCount) {
+        showError(`Please add all ${expectedChaptersCount} chapters specified in Total Chapters field (Currently added: ${chapters.length})`);
+        return;
+      }
+      if (chapters.length > expectedChaptersCount) {
+        showError(`Total chapters specified is ${expectedChaptersCount}, but ${chapters.length} chapters have been added. Please match Total Chapters count or remove extra chapters.`);
+        return;
+      }
     }
 
     // 4. Chapter Mandatory Fields Validation
