@@ -567,6 +567,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const [courses, setCourses] = useState([]);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [isCourseViewOnly, setIsCourseViewOnly] = useState(false);
 
   const [courseForm, setCourseForm] = useState({
     title: '',
@@ -674,9 +675,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     };
   };
 
-  const handleEditCourse = (course) => {
+  const handleViewCourseDetails = (course) => {
+    handleEditCourse(course, true);
+  };
+
+  const handleEditCourse = (course, isViewOnly = false) => {
     if (!course) return;
     lastFetchedSubCatIdRef.current = null;
+    setIsCourseViewOnly(isViewOnly);
     setEditingCourse(course);
     fetchAuthorAdminsList();
     fetchAdminsList();
@@ -805,6 +811,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const resetCourseFormToDefault = () => {
     lastFetchedSubCatIdRef.current = null;
     setEditingCourse(null);
+    setIsCourseViewOnly(false);
     const defaultCatId = categories[0]?.id || '';
     const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
     setCourseForm({
@@ -4952,22 +4959,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>
-                        {editingCourse ? 'Edit Course' : 'Upload Course'}
+                        {isCourseViewOnly ? 'Course Details' : (editingCourse ? 'Edit Course' : 'Upload Course')}
                       </h1>
                       <p style={{ color: subtitleColor, fontSize: '14px', marginTop: '4px' }}>
-                        {editingCourse ? 'Update details, chapters, and videos for this course.' : 'Add course details, chapters and multiple videos.'}
+                        {isCourseViewOnly ? 'View course details, chapters, and videos.' : (editingCourse ? 'Update details, chapters, and videos for this course.' : 'Add course details, chapters and multiple videos.')}
                       </p>
                     </div>
-                    {editingCourse && (
+                    {(editingCourse || isCourseViewOnly) && (
                       <button
                         type="button"
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px' }}
                         onClick={() => {
                           resetCourseFormToDefault();
+                          setIsCourseViewOnly(false);
+                          setActiveTab('course_all');
                         }}
                       >
-                        ❌ Cancel Edit
+                        {isCourseViewOnly ? '← Back to All Courses' : '❌ Cancel Edit'}
                       </button>
                     )}
                   </div>
@@ -4990,6 +4999,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             placeholder="e.g. Complete Python Programming"
                             value={courseForm.title}
                             onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                            disabled={isCourseViewOnly}
+                            readOnly={isCourseViewOnly}
                             required
                           />
                         </div>
@@ -5002,6 +5013,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             placeholder="Provide a detailed description of this course..."
                             value={courseForm.description}
                             onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                            disabled={isCourseViewOnly}
+                            readOnly={isCourseViewOnly}
                             required
                           />
                         </div>
@@ -5010,6 +5023,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <PremiumSelect
                             options={categories.map(c => ({ id: c.id, name: c.name }))}
                             value={courseForm.category}
+                            disabled={isCourseViewOnly}
                             onOpen={() => {
                               const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
                               const isPrivate = (selectedVisObj && (
@@ -5052,7 +5066,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             value={courseForm.subCategory}
                             onChange={(e) => setCourseForm(prev => ({ ...prev, subCategory: e.target.value }))}
                             placeholder={loadingSubCategories ? 'Loading...' : (courseForm.category ? 'Select Sub Category' : 'Select Category First')}
-                            disabled={loadingSubCategories || !courseForm.category}
+                            disabled={isCourseViewOnly || loadingSubCategories || !courseForm.category}
                             icon="fa-solid fa-layer-group"
                           />
                         </div>
@@ -5063,7 +5077,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             value={courseForm.languageId}
                             onChange={(e) => setCourseForm(prev => ({ ...prev, languageId: e.target.value }))}
                             placeholder={loadingLanguages ? 'Loading...' : 'Select Language'}
-                            disabled={loadingLanguages}
+                            disabled={isCourseViewOnly || loadingLanguages}
                             icon="fa-solid fa-globe"
                           />
                         </div>
@@ -5074,6 +5088,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <PremiumSelect
                                 options={visibilities.map(vis => ({ id: vis.id, name: vis.name || vis.visibility || vis.title || vis.id }))}
                                 value={courseForm.visibility}
+                                disabled={isCourseViewOnly}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   setCourseForm(prev => ({ ...prev, visibility: val }));
@@ -5113,6 +5128,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <PremiumSelect
                                   options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
                                   value={courseForm.adminId}
+                                  disabled={isCourseViewOnly || loadingAdminsList}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     setCourseForm(prev => ({ ...prev, adminId: val }));
@@ -5132,7 +5148,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     }
                                   }}
                                   placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
-                                  disabled={loadingAdminsList}
                                   icon="fa-solid fa-user-gear"
                                 />
                               </div>
@@ -5151,6 +5166,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
                               }))).filter(a => a.id && a.name)}
                               value={courseForm.author_id}
+                              disabled={isCourseViewOnly || (loadingAuthorAdmins && loadingAdminsList)}
                               onChange={(e) => {
                                 const selectedId = e.target.value;
                                 const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
@@ -5165,7 +5181,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 }));
                               }}
                               placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
-                              disabled={loadingAuthorAdmins && loadingAdminsList}
                               icon="fa-solid fa-user-tie"
                             />
                           ) : (
@@ -5176,6 +5191,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               placeholder="e.g. John Doe"
                               value={courseForm.instructor}
                               onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
+                              disabled={isCourseViewOnly}
+                              readOnly={isCourseViewOnly}
                               required
                             />
                           )}
@@ -5187,6 +5204,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             value={courseForm.level}
                             onChange={(e) => setCourseForm(prev => ({ ...prev, level: e.target.value }))}
                             placeholder="Select Level"
+                            disabled={isCourseViewOnly}
                             icon="fa-solid fa-signal"
                           />
                         </div>
@@ -5199,6 +5217,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             placeholder="e.g. programming, python, tutorial"
                             value={courseForm.tags}
                             onChange={(e) => setCourseForm({ ...courseForm, tags: e.target.value })}
+                            disabled={isCourseViewOnly}
+                            readOnly={isCourseViewOnly}
                           />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
@@ -5207,9 +5227,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg }}>
                               <img src={courseThumbnailUrl} alt="Course Thumbnail" style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label htmlFor="course-thumbnail-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  ✏️ Edit Image
-                                </label>
+                                {!isCourseViewOnly && (
+                                  <label htmlFor="course-thumbnail-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    ✏️ Edit Image
+                                  </label>
+                                )}
                                 <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Loaded</span>
                               </div>
                               <input
@@ -5217,6 +5239,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 type="file"
                                 accept="image/*"
                                 style={{ display: 'none' }}
+                                disabled={isCourseViewOnly}
                                 onChange={async (e) => {
                                   const file = e.target.files[0];
                                   if (file && await verifyFileContent(file)) {
@@ -5233,6 +5256,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               accept="image/*"
                               className="form-input"
                               style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              disabled={isCourseViewOnly}
                               onChange={async (e) => {
                                 const file = e.target.files[0];
                                 if (file && await verifyFileContent(file)) {
@@ -5254,9 +5278,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg }}>
                               <img src={courseBannerUrl} alt="Course Banner" style={{ width: '100px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label htmlFor="course-banner-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  ✏️ Edit Image
-                                </label>
+                                {!isCourseViewOnly && (
+                                  <label htmlFor="course-banner-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    ✏️ Edit Image
+                                  </label>
+                                )}
                                 <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Loaded</span>
                               </div>
                               <input
@@ -5264,6 +5290,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 type="file"
                                 accept="image/*"
                                 style={{ display: 'none' }}
+                                disabled={isCourseViewOnly}
                                 onChange={async (e) => {
                                   const file = e.target.files[0];
                                   if (file && await verifyFileContent(file)) {
@@ -5280,6 +5307,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               accept="image/*"
                               className="form-input"
                               style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                              disabled={isCourseViewOnly}
                               onChange={async (e) => {
                                 const file = e.target.files[0];
                                 if (file && await verifyFileContent(file)) {
@@ -5301,6 +5329,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             placeholder="e.g. 10"
                             value={courseForm.totalChapters}
                             onChange={(e) => setCourseForm({ ...courseForm, totalChapters: e.target.value })}
+                            disabled={isCourseViewOnly}
+                            readOnly={isCourseViewOnly}
                             required
                           />
                         </div>
@@ -5314,9 +5344,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#e50914', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold' }}>2</div>
                           <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: textColor }}>Chapters & Videos</h2>
                         </div>
-                        <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '8px' }} onClick={addChapter}>
-                          + Add Chapter
-                        </button>
+                        {!isCourseViewOnly && (
+                          <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '8px' }} onClick={addChapter}>
+                            + Add Chapter
+                          </button>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isLight ? '#f4f4f5' : 'rgba(255,255,255,0.04)', border: `1px solid ${borderColor}`, padding: '12px 16px', borderRadius: '8px', marginBottom: '24px', fontSize: '13px', color: subtitleColor }}>
@@ -5339,11 +5371,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   style={{ width: '200px', padding: '6px 12px', fontSize: '13px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                                   value={ch.title}
                                   onChange={(e) => updateChapterProp(ch.id, 'title', e.target.value)}
+                                  disabled={isCourseViewOnly}
+                                  readOnly={isCourseViewOnly}
                                 />
                               </div>
-                              <button type="button" style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', cursor: 'pointer' }} onClick={() => removeChapter(ch.id)}>
-                                🗑️ Remove Chapter
-                              </button>
+                              {!isCourseViewOnly && (
+                                <button type="button" style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '13px', cursor: 'pointer' }} onClick={() => removeChapter(ch.id)}>
+                                  🗑️ Remove Chapter
+                                </button>
+                              )}
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '16px' }}>
@@ -5356,6 +5392,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   placeholder="e.g. This chapter covers the basics..."
                                   value={ch.description}
                                   onChange={(e) => updateChapterProp(ch.id, 'description', e.target.value)}
+                                  disabled={isCourseViewOnly}
+                                  readOnly={isCourseViewOnly}
                                 />
                               </div>
                               <div className="form-group" style={{ margin: 0 }}>
@@ -5366,6 +5404,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   className="form-input"
                                   style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                                   value={ch.order}
+                                  disabled={isCourseViewOnly}
+                                  readOnly={isCourseViewOnly}
                                   onChange={(e) => {
                                     const rawVal = e.target.value;
                                     const parsed = parseInt(rawVal, 10);
@@ -5383,6 +5423,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px', padding: '8px 12px', height: '38px', fontSize: '13px' }}
                                   value={ch.visibility || ''}
                                   onChange={(e) => updateChapterProp(ch.id, 'visibility', e.target.value)}
+                                  disabled={isCourseViewOnly}
                                   required
                                 >
                                   {visibilities.map(vis => (
@@ -5394,10 +5435,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
                               <span style={{ fontSize: '12px', color: textColor, fontWeight: 'bold' }}>Videos in this chapter</span>
-                              <div style={{ display: 'flex', gap: '10px' }}>
-                                <button type="button" className="btn" style={{ padding: '6px 12px', fontSize: '12px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '6px' }}>Upload Multiple Videos</button>
-                                <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '6px' }} onClick={() => addVideoToChapter(ch.id)}>+ Add Video</button>
-                              </div>
+                              {!isCourseViewOnly && (
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  <button type="button" className="btn" style={{ padding: '6px 12px', fontSize: '12px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '6px' }}>Upload Multiple Videos</button>
+                                  <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '6px' }} onClick={() => addVideoToChapter(ch.id)}>+ Add Video</button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Videos Table */}
@@ -5432,6 +5475,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px' }}
                                             value={vid.title}
                                             onChange={(e) => updateVideoProp(ch.id, vid.id, 'title', e.target.value)}
+                                            disabled={isCourseViewOnly}
+                                            readOnly={isCourseViewOnly}
                                           />
                                         </td>
                                         <td style={{ padding: '10px' }}>
@@ -5441,14 +5486,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                 <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                                   🎬 Video Loaded
                                                 </span>
-                                                <label htmlFor={`vid-file-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
-                                                  Change
-                                                </label>
+                                                {!isCourseViewOnly && (
+                                                  <label htmlFor={`vid-file-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
+                                                    Change
+                                                  </label>
+                                                )}
                                                 <input
                                                   id={`vid-file-${ch.id}-${vid.id}`}
                                                   type="file"
                                                   accept="video/*"
                                                   style={{ display: 'none' }}
+                                                  disabled={isCourseViewOnly}
                                                   onChange={async (e) => {
                                                     const file = e.target.files[0];
                                                     if (file) {
@@ -5471,6 +5519,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                 type="file"
                                                 accept="video/*"
                                                 style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
+                                                disabled={isCourseViewOnly}
                                                 onChange={async (e) => {
                                                   const file = e.target.files[0];
                                                   if (file) {
@@ -5504,14 +5553,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             {(vid.thumbnailUrl || vid.thumbnail) ? (
                                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <img src={vid.thumbnailUrl || vid.thumbnail} alt="Lesson Thumb" style={{ width: '36px', height: '22px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
-                                                <label htmlFor={`vid-thumb-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
-                                                  Change
-                                                </label>
+                                                {!isCourseViewOnly && (
+                                                  <label htmlFor={`vid-thumb-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
+                                                    Change
+                                                  </label>
+                                                )}
                                                 <input
                                                   id={`vid-thumb-${ch.id}-${vid.id}`}
                                                   type="file"
                                                   accept="image/*"
                                                   style={{ display: 'none' }}
+                                                  disabled={isCourseViewOnly}
                                                   onChange={async (e) => {
                                                     const file = e.target.files[0];
                                                     if (file && await verifyFileContent(file)) {
@@ -5527,6 +5579,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                 type="file"
                                                 accept="image/*"
                                                 style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
+                                                disabled={isCourseViewOnly}
                                                 onChange={async (e) => {
                                                   const file = e.target.files[0];
                                                   if (file && await verifyFileContent(file)) {
@@ -5555,19 +5608,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             style={{ padding: '4px 8px', fontSize: '12px', textAlign: 'center', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px' }}
                                             value={vid.duration}
                                             onChange={(e) => updateVideoProp(ch.id, vid.id, 'duration', e.target.value)}
+                                            disabled={isCourseViewOnly}
+                                            readOnly={isCourseViewOnly}
                                           />
                                         </td>
                                         <td style={{ textAlign: 'center', padding: '10px' }}>
                                           <input
                                             type="checkbox"
                                             checked={vid.isPreview}
+                                            disabled={isCourseViewOnly}
                                             onChange={(e) => updateVideoProp(ch.id, vid.id, 'isPreview', e.target.checked)}
                                           />
                                         </td>
                                         <td style={{ textAlign: 'center', padding: '10px' }}>
-                                          <button type="button" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }} onClick={() => removeVideoFromChapter(ch.id, vid.id)}>
-                                            🗑️
-                                          </button>
+                                          {!isCourseViewOnly && (
+                                            <button type="button" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }} onClick={() => removeVideoFromChapter(ch.id, vid.id)}>
+                                              🗑️
+                                            </button>
+                                          )}
                                         </td>
                                       </tr>
                                     ))
@@ -5577,13 +5635,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             </div>
 
                             {/* Drag and Drop zone */}
-                            <div style={{ border: `2px dashed ${borderColor}`, borderRadius: '8px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', backgroundColor: dragBg }}>
-                              <span style={{ fontSize: '28px' }}>☁️</span>
-                              <span style={{ fontSize: '13px', color: subtitleColor }}>
-                                Drag & drop videos here or <span style={{ color: '#e50914', textDecoration: 'underline' }}>click to browse</span>
-                              </span>
-                              <span style={{ fontSize: '11px', color: subtitleColor }}>You can upload multiple videos at once</span>
-                            </div>
+                            {!isCourseViewOnly && (
+                              <div style={{ border: `2px dashed ${borderColor}`, borderRadius: '8px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', backgroundColor: dragBg }}>
+                                <span style={{ fontSize: '28px' }}>☁️</span>
+                                <span style={{ fontSize: '13px', color: subtitleColor }}>
+                                  Drag & drop videos here or <span style={{ color: '#e50914', textDecoration: 'underline' }}>click to browse</span>
+                                </span>
+                                <span style={{ fontSize: '11px', color: subtitleColor }}>You can upload multiple videos at once</span>
+                              </div>
+                            )}
 
                             {/* Chapter Quiz Section (Optional) */}
                             <div style={{ marginTop: '20px', borderTop: `1px dashed ${borderColor}`, paddingTop: '16px' }}>
@@ -5596,23 +5656,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     </span>
                                   )}
                                 </div>
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  style={{
-                                    padding: '6px 14px',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    borderRadius: '6px',
-                                    backgroundColor: ch.quiz ? 'rgba(239, 68, 68, 0.1)' : 'rgba(229, 9, 20, 0.1)',
-                                    color: ch.quiz ? '#ef4444' : '#e50914',
-                                    border: `1px solid ${ch.quiz ? '#ef4444' : '#e50914'}`,
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={() => toggleChapterQuiz(ch.id)}
-                                >
-                                  {ch.quiz ? '🗑️ Remove Quiz' : '➕ Add Quiz to Chapter'}
-                                </button>
+                                {!isCourseViewOnly && (
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    style={{
+                                      padding: '6px 14px',
+                                      fontSize: '12px',
+                                      fontWeight: 600,
+                                      borderRadius: '6px',
+                                      backgroundColor: ch.quiz ? 'rgba(239, 68, 68, 0.1)' : 'rgba(229, 9, 20, 0.1)',
+                                      color: ch.quiz ? '#ef4444' : '#e50914',
+                                      border: `1px solid ${ch.quiz ? '#ef4444' : '#e50914'}`,
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => toggleChapterQuiz(ch.id)}
+                                  >
+                                    {ch.quiz ? '🗑️ Remove Quiz' : '➕ Add Quiz to Chapter'}
+                                  </button>
+                                )}
                               </div>
 
                               {ch.quiz && (
@@ -5627,6 +5689,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                       placeholder="e.g. Chapter 1 Knowledge Assessment"
                                       value={ch.quiz.title || ''}
                                       onChange={(e) => updateQuizTitle(ch.id, e.target.value)}
+                                      disabled={isCourseViewOnly}
+                                      readOnly={isCourseViewOnly}
                                     />
                                   </div>
 
@@ -5636,7 +5700,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                       <div key={q.id || qIdx} style={{ backgroundColor: containerBg, border: `1px solid ${borderColor}`, padding: '14px', borderRadius: '8px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                           <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e50914' }}>Question {qIdx + 1}</span>
-                                          {(ch.quiz.questions || []).length > 1 && (
+                                          {!isCourseViewOnly && (ch.quiz.questions || []).length > 1 && (
                                             <button
                                               type="button"
                                               style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}
@@ -5657,6 +5721,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             placeholder="Enter question text..."
                                             value={q.question || ''}
                                             onChange={(e) => updateQuestionText(ch.id, q.id, e.target.value)}
+                                            disabled={isCourseViewOnly}
+                                            readOnly={isCourseViewOnly}
                                           />
                                         </div>
 
@@ -5670,6 +5736,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                   type="radio"
                                                   name={`correct_ans_${ch.id}_${q.id}`}
                                                   checked={q.correctAnswer === optIdx}
+                                                  disabled={isCourseViewOnly}
                                                   onChange={() => updateQuestionCorrectAnswer(ch.id, q.id, optIdx)}
                                                   style={{ accentColor: '#10b981', cursor: 'pointer' }}
                                                   title="Mark as correct answer"
@@ -5682,6 +5749,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                   placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
                                                   value={typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : (opt || '')}
                                                   onChange={(e) => updateQuestionOption(ch.id, q.id, optIdx, e.target.value)}
+                                                  disabled={isCourseViewOnly}
+                                                  readOnly={isCourseViewOnly}
                                                 />
                                               </div>
                                             ))}
@@ -5690,14 +5759,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                       </div>
                                     ))}
 
-                                    <button
-                                      type="button"
-                                      className="btn"
-                                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '6px', alignSelf: 'flex-start', cursor: 'pointer' }}
-                                      onClick={() => addQuizQuestion(ch.id)}
-                                    >
-                                      ➕ Add Question
-                                    </button>
+                                    {!isCourseViewOnly && (
+                                      <button
+                                        type="button"
+                                        className="btn"
+                                        style={{ padding: '8px 14px', fontSize: '12px', fontWeight: 600, border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '6px', alignSelf: 'flex-start', cursor: 'pointer' }}
+                                        onClick={() => addQuizQuestion(ch.id)}
+                                      >
+                                        ➕ Add Question
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               )}
@@ -5715,12 +5786,29 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '24px' }}>
-                      <button type="button" className="btn" style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }} onClick={() => alert('Draft Saved!')}>
-                        Save as Draft
-                      </button>
-                      <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
-                        {editingCourse ? 'Update Course' : 'Submit Course'}
-                      </button>
+                      {isCourseViewOnly ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: '600' }}
+                          onClick={() => {
+                            resetCourseFormToDefault();
+                            setIsCourseViewOnly(false);
+                            setActiveTab('course_all');
+                          }}
+                        >
+                          ← Back to All Courses
+                        </button>
+                      ) : (
+                        <>
+                          <button type="button" className="btn" style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }} onClick={() => alert('Draft Saved!')}>
+                            Save as Draft
+                          </button>
+                          <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
+                            {editingCourse ? 'Update Course' : 'Submit Course'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </form>
                 </div>
@@ -6026,7 +6114,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <button 
                                   className="btn btn-secondary"
                                   style={{ padding: '6px 12px', fontSize: '12px' }}
-                                  onClick={() => handleEditCourse(course)}
+                                  onClick={() => handleViewCourseDetails(course)}
                                 >
                                   View Details
                                 </button>
