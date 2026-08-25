@@ -717,13 +717,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     handleEditCourse(course, true);
   };
 
-  const handleEditCourse = (course, isViewOnly = false) => {
+  const handleEditCourse = async (course, isViewOnly = false) => {
     if (!course) return;
     lastFetchedSubCatIdRef.current = null;
     setIsCourseViewOnly(isViewOnly);
     setEditingCourse(course);
-    fetchAuthorAdminsList();
-    fetchAdminsList();
+
+    const [authorsArr, adminsArr] = await Promise.all([
+      fetchAuthorAdminsList(),
+      fetchAdminsList()
+    ]);
+    const combinedAdmins = [...(authorsArr || []), ...(adminsArr || []), ...authorAdminsList, ...adminsList];
 
     // 1. Match Category (by ID or name)
     const catRaw = course.category_id || course.cat_id || course.category || course.category_name || '';
@@ -760,16 +764,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
 
-    // 6. Admin & Author
-    const admVal = String((isSuperAdmin && selectedAdminId) ? selectedAdminId : (course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '')).trim();
+    // 6. Admin & Author ID Resolution
     const rawAuthor = course.author_id || course.instructor_id || course.assigned_admin || course.admin_id || course.author || course.instructor || '';
-    const allAdminsList = authorAdminsList.length > 0 ? authorAdminsList : adminsList;
-    const foundAuthor = allAdminsList.find(a =>
+    const foundAuthor = combinedAdmins.find(a =>
       String(a.id || a.admin_id || a.user_id) === String(rawAuthor) ||
       String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawAuthor).trim().toLowerCase()
     );
     const authorIdVal = foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawAuthor);
     const instructorName = foundAuthor ? foundAuthor.name : (course.instructor || course.assigned_admin || rawAuthor);
+
+    const rawClient = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '');
+    const foundClient = combinedAdmins.find(a =>
+      String(a.id || a.admin_id || a.user_id) === String(rawClient) ||
+      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient).trim().toLowerCase()
+    );
+    const admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : String(rawClient);
 
     setCourseForm({
       title: course.course_title || course.title || '',
@@ -1923,9 +1932,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       console.log('Mapped authorAdminsList:', mapped);
       setAuthorAdminsList(mapped);
+      return mapped;
     } catch (err) {
       console.error('Failed to fetch author admins list:', err);
       setAuthorAdminsList([]);
+      return [];
     } finally {
       setLoadingAuthorAdmins(false);
     }
@@ -2058,9 +2069,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         setUploadForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
         setCourseForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
       }
+      return admList;
     } catch (e) {
       console.error('Failed to fetch admins list:', e);
       setAdminsList([]);
+      return [];
     } finally {
       setLoadingAdminsList(false);
     }

@@ -45,14 +45,16 @@ const PremiumSelect = ({
   // Format options normalized: { id, label, icon }
   const normalizedOptions = options.map(opt => {
     if (typeof opt === 'object' && opt !== null) {
+      const rawId = opt.id !== undefined && opt.id !== null ? opt.id : (opt.value !== undefined && opt.value !== null ? opt.value : (opt.code !== undefined && opt.code !== null ? opt.code : opt.name));
+      const rawLabel = opt.name !== undefined && opt.name !== null ? opt.name : (opt.title !== undefined && opt.title !== null ? opt.title : (opt.label !== undefined && opt.label !== null ? opt.label : String(rawId)));
       return {
-        id: opt.id ?? opt.value ?? opt.name ?? opt.code ?? opt,
-        label: opt.name ?? opt.title ?? opt.label ?? opt.language_name ?? opt.plan_name ?? opt.id ?? String(opt),
+        id: String(rawId !== undefined && rawId !== null ? rawId : ''),
+        label: String(rawLabel),
         icon: opt.icon || opt.iconClass || null,
         subLabel: opt.description || opt.subLabel || null
       };
     }
-    return { id: opt, label: String(opt), icon: null };
+    return { id: String(opt), label: String(opt), icon: null };
   });
 
   const selectedOption = normalizedOptions.find(opt => 
