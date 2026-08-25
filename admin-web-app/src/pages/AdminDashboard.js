@@ -658,12 +658,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         optionsArray = optionsArray.slice(0, 4);
       }
 
+      const rawQType = String(q.type || q.question_type || q.questionType || 'mcq').toLowerCase();
+      let typeVal = 'mcq';
+      if (rawQType.includes('true') || rawQType.includes('tf') || rawQType.includes('false')) {
+        typeVal = 'true_false';
+      } else if (rawQType.includes('blank') || rawQType.includes('fill')) {
+        typeVal = 'fill_blank';
+      }
+
+      const tfVal = String(q.tfAnswer || q.tf_answer || q.correct_answer || q.answer || (correctIdx === 0 ? 'true' : 'false')).toLowerCase().includes('false') ? 'false' : 'true';
+      const firstOptText = optionsArray[0] ? (typeof optionsArray[0] === 'object' ? optionsArray[0].text : optionsArray[0]) : '';
+      const blankVal = String(q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || firstOptText || '');
+
       return {
         id: qId,
         existingId: q.question_id || q.id || null,
+        type: typeVal,
         question: qText,
         options: optionsArray,
-        correctAnswer: correctIdx
+        correctAnswer: correctIdx,
+        tfAnswer: tfVal,
+        blankAnswer: blankVal
       };
     });
 
@@ -2179,10 +2194,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             title: `${ch.title || 'Chapter'} Quiz`,
             questions: [
               {
-                id: 1,
+                id: 'q-' + Date.now(),
+                type: 'mcq',
                 question: '',
                 options: ['', '', '', ''],
-                correctAnswer: 0
+                correctAnswer: 0,
+                tfAnswer: 'true',
+                blankAnswer: ''
               }
             ]
           }
@@ -2212,9 +2230,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         id: 'new-q-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         isNew: true,
         existingId: null,
+        type: 'mcq',
         question: '',
         options: ['', '', '', ''],
-        correctAnswer: 0
+        correctAnswer: 0,
+        tfAnswer: 'true',
+        blankAnswer: ''
       };
       return {
         ...ch,
@@ -2236,6 +2257,55 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         quiz: {
           ...ch.quiz,
           questions: updatedQuestions
+        }
+      };
+    }));
+  };
+
+  const updateQuestionType = (chapterId, questionId, type) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: ch.quiz.questions.map(q => {
+            if (q.id !== questionId) return q;
+            return {
+              ...q,
+              type,
+              options: q.options || ['', '', '', ''],
+              correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : 0,
+              tfAnswer: q.tfAnswer || 'true',
+              blankAnswer: q.blankAnswer || ''
+            };
+          })
+        }
+      };
+    }));
+  };
+
+  const updateQuestionTFAnswer = (chapterId, questionId, tfVal) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: ch.quiz.questions.map(q => q.id === questionId ? { ...q, tfAnswer: tfVal } : q)
+        }
+      };
+    }));
+  };
+
+  const updateQuestionBlankAnswer = (chapterId, questionId, val) => {
+    setChapters(chapters.map(ch => {
+      if (ch.id !== chapterId || !ch.quiz) return ch;
+      return {
+        ...ch,
+        quiz: {
+          ...ch.quiz,
+          questions: ch.quiz.questions.map(q => q.id === questionId ? { ...q, blankAnswer: val } : q)
         }
       };
     }));
@@ -2650,14 +2720,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Question statement is required`);
             return;
           }
-          const getOptText = (opt) => typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : String(opt || '');
-          if (!q.options || q.options.length < 2 || q.options.some(opt => !getOptText(opt).trim())) {
-            showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): All option choices must be filled`);
-            return;
-          }
-          if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
-            showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Correct answer selection is required`);
-            return;
+          const qType = q.type || q.questionType || 'mcq';
+          if (qType === 'mcq') {
+            const getOptText = (opt) => typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : String(opt || '');
+            if (!q.options || q.options.length < 2 || q.options.some(opt => !getOptText(opt).trim())) {
+              showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): All option choices must be filled`);
+              return;
+            }
+            if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
+              showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Correct answer selection is required`);
+              return;
+            }
+          } else if (qType === 'fill_blank') {
+            const blankAns = q.blankAnswer || q.correct_answer || q.answer || '';
+            if (!blankAns.trim()) {
+              showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Fill in the blank correct answer is required`);
+              return;
+            }
           }
         }
       }
@@ -2726,9 +2805,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             title: ch.quiz.title || `${ch.title || 'Chapter'} Quiz`,
             questions: ch.quiz.questions.map((q, idx) => {
               const targetQId = (!q.isNew && q.existingId) ? q.existingId : null;
-              const qObj = {
-                question: q.question,
-                options: (q.options || []).slice(0, 4).map((optItem, optIdx) => {
+              const qType = q.type || q.questionType || 'mcq';
+              let options = [];
+              let correctAnswer = q.correctAnswer;
+              let answerText = '';
+
+              if (qType === 'true_false') {
+                const isTrue = (q.tfAnswer || q.correct_answer || 'true').toLowerCase() === 'true';
+                options = [
+                  { option_order: 1, option_text: 'True', is_correct: isTrue },
+                  { option_order: 2, option_text: 'False', is_correct: !isTrue }
+                ];
+                correctAnswer = isTrue ? 0 : 1;
+                answerText = isTrue ? 'True' : 'False';
+              } else if (qType === 'fill_blank') {
+                answerText = q.blankAnswer || q.correct_answer || q.answer || '';
+                options = [
+                  { option_order: 1, option_text: answerText, is_correct: true }
+                ];
+                correctAnswer = 0;
+              } else {
+                // Default MCQ
+                options = (q.options || []).slice(0, 4).map((optItem, optIdx) => {
                   const isObj = typeof optItem === 'object' && optItem !== null;
                   const optText = isObj ? (optItem.text || optItem.option_text || '') : String(optItem || '');
                   const optId = (!q.isNew && isObj) ? (optItem.option_id || optItem.id || null) : null;
@@ -2742,17 +2840,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     optPayload.id = optId;
                   }
                   return optPayload;
-                }).filter(opt => (opt.option_text && opt.option_text.trim() !== '') || opt.option_id),
-                correctAnswer: q.correctAnswer,
-                answer: typeof (q.options || [])[q.correctAnswer] === 'object' 
+                }).filter(opt => (opt.option_text && opt.option_text.trim() !== '') || opt.option_id);
+                answerText = typeof (q.options || [])[q.correctAnswer] === 'object' 
                   ? ((q.options || [])[q.correctAnswer]?.text || (q.options || [])[q.correctAnswer]?.option_text || '') 
-                  : String((q.options || [])[q.correctAnswer] || '')
+                  : String((q.options || [])[q.correctAnswer] || '');
+              }
+
+              const qObj = {
+                type: qType,
+                question: q.question,
+                options,
+                correctAnswer,
+                answer: answerText
               };
 
               if (targetQId) {
                 qObj.id = targetQId;
                 qObj.question_id = targetQId;
               }
+
+              return qObj;
+            })
+          };
 
               return qObj;
             })
@@ -5696,68 +5805,139 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                                   {/* Questions List */}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {(ch.quiz.questions || []).map((q, qIdx) => (
-                                      <div key={q.id || qIdx} style={{ backgroundColor: containerBg, border: `1px solid ${borderColor}`, padding: '14px', borderRadius: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e50914' }}>Question {qIdx + 1}</span>
-                                          {!isCourseViewOnly && (ch.quiz.questions || []).length > 1 && (
-                                            <button
-                                              type="button"
-                                              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}
-                                              onClick={() => removeQuizQuestion(ch.id, q.id)}
+                                    {(ch.quiz.questions || []).map((q, qIdx) => {
+                                      const currentQType = q.type || q.questionType || 'mcq';
+                                      return (
+                                        <div key={q.id || qIdx} style={{ backgroundColor: containerBg, border: `1px solid ${borderColor}`, padding: '16px', borderRadius: '10px' }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e50914' }}>Question {qIdx + 1}</span>
+                                            {!isCourseViewOnly && (ch.quiz.questions || []).length > 1 && (
+                                              <button
+                                                type="button"
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer', fontWeight: 500 }}
+                                                onClick={() => removeQuizQuestion(ch.id, q.id)}
+                                              >
+                                                🗑️ Remove Question
+                                              </button>
+                                            )}
+                                          </div>
+
+                                          {/* Question Type Selector */}
+                                          <div className="form-group" style={{ marginBottom: '14px' }}>
+                                            <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Question Type *</label>
+                                            <select
+                                              className="form-input"
+                                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px', padding: '8px 12px', width: '100%' }}
+                                              value={currentQType}
+                                              disabled={isCourseViewOnly}
+                                              onChange={(e) => updateQuestionType(ch.id, q.id, e.target.value)}
                                             >
-                                              🗑️ Remove Question
-                                            </button>
+                                              <option value="mcq">Multiple Choice (MCQ)</option>
+                                              <option value="true_false">True or False</option>
+                                              <option value="fill_blank">Fill in the Blank</option>
+                                            </select>
+                                          </div>
+
+                                          {/* Question Statement */}
+                                          <div className="form-group" style={{ marginBottom: '14px' }}>
+                                            <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>
+                                              {currentQType === 'fill_blank' ? 'Question Statement (Use ___ for blank) *' : 'Question Statement *'}
+                                            </label>
+                                            <input
+                                              type="text"
+                                              className="form-input"
+                                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px' }}
+                                              placeholder={currentQType === 'fill_blank' ? 'e.g. Python was created by ___ in 1991.' : 'Enter question text...'}
+                                              value={q.question || ''}
+                                              onChange={(e) => updateQuestionText(ch.id, q.id, e.target.value)}
+                                              disabled={isCourseViewOnly}
+                                              readOnly={isCourseViewOnly}
+                                            />
+                                          </div>
+
+                                          {/* True or False Fields */}
+                                          {currentQType === 'true_false' && (
+                                            <div style={{ marginBottom: '10px' }}>
+                                              <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor, marginBottom: '8px', display: 'block' }}>Correct Answer *</label>
+                                              <div style={{ display: 'flex', gap: '16px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px 18px', borderRadius: '8px', border: `1px solid ${(q.tfAnswer || 'true').toLowerCase() === 'true' ? '#10b981' : inputBorder}`, backgroundColor: (q.tfAnswer || 'true').toLowerCase() === 'true' ? 'rgba(16, 185, 129, 0.12)' : inputBg, color: textColor, fontWeight: 600, fontSize: '13px' }}>
+                                                  <input
+                                                    type="radio"
+                                                    name={`tf_ans_${ch.id}_${q.id}`}
+                                                    checked={(q.tfAnswer || 'true').toLowerCase() === 'true'}
+                                                    disabled={isCourseViewOnly}
+                                                    onChange={() => updateQuestionTFAnswer(ch.id, q.id, 'true')}
+                                                    style={{ accentColor: '#10b981', cursor: 'pointer' }}
+                                                  />
+                                                  True
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '8px 18px', borderRadius: '8px', border: `1px solid ${(q.tfAnswer || '').toLowerCase() === 'false' ? '#ef4444' : inputBorder}`, backgroundColor: (q.tfAnswer || '').toLowerCase() === 'false' ? 'rgba(239, 68, 68, 0.12)' : inputBg, color: textColor, fontWeight: 600, fontSize: '13px' }}>
+                                                  <input
+                                                    type="radio"
+                                                    name={`tf_ans_${ch.id}_${q.id}`}
+                                                    checked={(q.tfAnswer || '').toLowerCase() === 'false'}
+                                                    disabled={isCourseViewOnly}
+                                                    onChange={() => updateQuestionTFAnswer(ch.id, q.id, 'false')}
+                                                    style={{ accentColor: '#ef4444', cursor: 'pointer' }}
+                                                  />
+                                                  False
+                                                </label>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Fill in the Blank Fields */}
+                                          {currentQType === 'fill_blank' && (
+                                            <div className="form-group" style={{ marginBottom: '10px' }}>
+                                              <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Correct Answer (Free Text) *</label>
+                                              <input
+                                                type="text"
+                                                className="form-input"
+                                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px' }}
+                                                placeholder="e.g. Guido van Rossum"
+                                                value={q.blankAnswer || ''}
+                                                disabled={isCourseViewOnly}
+                                                readOnly={isCourseViewOnly}
+                                                onChange={(e) => updateQuestionBlankAnswer(ch.id, q.id, e.target.value)}
+                                              />
+                                            </div>
+                                          )}
+
+                                          {/* Multiple Choice Fields (MCQ) */}
+                                          {currentQType === 'mcq' && (
+                                            <div style={{ marginBottom: '10px' }}>
+                                              <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor, marginBottom: '6px', display: 'block' }}>Options & Mark Correct Answer *</label>
+                                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                                                {(q.options || ['', '', '', '']).map((opt, optIdx) => (
+                                                  <div key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: q.correctAnswer === optIdx ? 'rgba(16, 185, 129, 0.1)' : 'transparent', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${q.correctAnswer === optIdx ? '#10b981' : inputBorder}` }}>
+                                                    <input
+                                                      type="radio"
+                                                      name={`correct_ans_${ch.id}_${q.id}`}
+                                                      checked={q.correctAnswer === optIdx}
+                                                      disabled={isCourseViewOnly}
+                                                      onChange={() => updateQuestionCorrectAnswer(ch.id, q.id, optIdx)}
+                                                      style={{ accentColor: '#10b981', cursor: 'pointer' }}
+                                                      title="Mark as correct answer"
+                                                    />
+                                                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: q.correctAnswer === optIdx ? '#10b981' : textColor }}>{String.fromCharCode(65 + optIdx)}.</span>
+                                                    <input
+                                                      type="text"
+                                                      className="form-input"
+                                                      style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '4px', fontSize: '12px', flex: 1, padding: '4px 8px' }}
+                                                      placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                                                      value={typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : (opt || '')}
+                                                      onChange={(e) => updateQuestionOption(ch.id, q.id, optIdx, e.target.value)}
+                                                      disabled={isCourseViewOnly}
+                                                      readOnly={isCourseViewOnly}
+                                                    />
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
-
-                                        {/* Question Statement */}
-                                        <div className="form-group" style={{ marginBottom: '12px' }}>
-                                          <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Question Statement *</label>
-                                          <input
-                                            type="text"
-                                            className="form-input"
-                                            style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px' }}
-                                            placeholder="Enter question text..."
-                                            value={q.question || ''}
-                                            onChange={(e) => updateQuestionText(ch.id, q.id, e.target.value)}
-                                            disabled={isCourseViewOnly}
-                                            readOnly={isCourseViewOnly}
-                                          />
-                                        </div>
-
-                                        {/* Options list with correct answer selection */}
-                                        <div style={{ marginBottom: '10px' }}>
-                                          <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor, marginBottom: '6px', display: 'block' }}>Options & Mark Correct Answer *</label>
-                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-                                            {(q.options || ['', '', '', '']).map((opt, optIdx) => (
-                                              <div key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: q.correctAnswer === optIdx ? 'rgba(16, 185, 129, 0.1)' : 'transparent', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${q.correctAnswer === optIdx ? '#10b981' : inputBorder}` }}>
-                                                <input
-                                                  type="radio"
-                                                  name={`correct_ans_${ch.id}_${q.id}`}
-                                                  checked={q.correctAnswer === optIdx}
-                                                  disabled={isCourseViewOnly}
-                                                  onChange={() => updateQuestionCorrectAnswer(ch.id, q.id, optIdx)}
-                                                  style={{ accentColor: '#10b981', cursor: 'pointer' }}
-                                                  title="Mark as correct answer"
-                                                />
-                                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: q.correctAnswer === optIdx ? '#10b981' : textColor }}>{String.fromCharCode(65 + optIdx)}.</span>
-                                                <input
-                                                  type="text"
-                                                  className="form-input"
-                                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '4px', fontSize: '12px', flex: 1, padding: '4px 8px' }}
-                                                  placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
-                                                  value={typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : (opt || '')}
-                                                  onChange={(e) => updateQuestionOption(ch.id, q.id, optIdx, e.target.value)}
-                                                  disabled={isCourseViewOnly}
-                                                  readOnly={isCourseViewOnly}
-                                                />
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
 
                                     {!isCourseViewOnly && (
                                       <button
