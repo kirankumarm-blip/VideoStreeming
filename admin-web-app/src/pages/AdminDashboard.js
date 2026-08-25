@@ -6169,9 +6169,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         </button>
                       ) : (
                         <>
-                          <button type="button" className="btn" style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }} onClick={() => alert('Draft Saved!')}>
-                            Save as Draft
-                          </button>
+                          {!editingCourse && (
+                            <button type="button" className="btn" style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }} onClick={() => alert('Draft Saved!')}>
+                              Save as Draft
+                            </button>
+                          )}
                           <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
                             {editingCourse ? 'Update Course' : 'Submit Course'}
                           </button>
