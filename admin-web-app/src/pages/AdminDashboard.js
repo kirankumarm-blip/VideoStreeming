@@ -778,7 +778,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       String(a.id || a.admin_id || a.user_id) === String(rawClient) ||
       String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient).trim().toLowerCase()
     );
-    const admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : String(rawClient);
+    let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : (foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawClient));
+    if (isNaN(parseInt(admVal, 10)) && authorIdVal && !isNaN(parseInt(authorIdVal, 10))) {
+      admVal = authorIdVal;
+    }
 
     setCourseForm({
       title: course.course_title || course.title || '',
@@ -3067,15 +3070,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      let effectiveClientId = '0';
-      if (isSuperAdmin) {
-        if (isPrivate) {
-          effectiveClientId = String(courseForm.adminId || (selectedAdminId !== '0' ? selectedAdminId : '') || '0').trim();
+      let rawClientInput = String(courseForm.adminId || courseForm.assigned_admin || (selectedAdminId !== '0' ? selectedAdminId : '') || '').trim();
+      let foundClientObj = (authorAdminsList.concat(adminsList)).find(a =>
+        String(a.id || a.admin_id || a.user_id) === rawClientInput ||
+        String(a.name || a.username || a.email || '').trim().toLowerCase() === rawClientInput.toLowerCase()
+      );
+
+      let effectiveClientId = foundClientObj ? String(foundClientObj.id || foundClientObj.admin_id || foundClientObj.user_id) : rawClientInput;
+      if (isNaN(parseInt(effectiveClientId, 10)) || !effectiveClientId) {
+        if (finalAuthorId && !isNaN(parseInt(finalAuthorId, 10))) {
+          effectiveClientId = String(finalAuthorId);
         } else {
           effectiveClientId = '0';
         }
-      } else {
-        effectiveClientId = String(courseForm.adminId || selectedAdminId || '').trim();
+      }
+
+      if (isSuperAdmin && !isPrivate) {
+        effectiveClientId = '0';
       }
 
       payload.client_id = effectiveClientId;
