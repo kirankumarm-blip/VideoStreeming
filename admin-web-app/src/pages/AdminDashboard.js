@@ -5523,18 +5523,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               </div>
                               <div className="form-group" style={{ margin: 0 }}>
                                 <label className="form-label" style={{ fontSize: '12px', color: textColor, fontWeight: '600' }}>Visibility *</label>
-                                <select 
-                                  className="form-input"
-                                  style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px', padding: '8px 12px', height: '38px', fontSize: '13px' }}
+                                <PremiumSelect 
+                                  options={visibilities.map(vis => ({ id: String(vis.id), name: vis.name || vis.visibility || vis.title || vis.id }))}
                                   value={ch.visibility || ''}
                                   onChange={(e) => updateChapterProp(ch.id, 'visibility', e.target.value)}
                                   disabled={isCourseViewOnly}
-                                  required
-                                >
-                                  {visibilities.map(vis => (
-                                    <option key={vis.id} value={vis.id}>{vis.name || vis.visibility || vis.title || vis.id}</option>
-                                  ))}
-                                </select>
+                                  placeholder="Select Visibility"
+                                  icon="fa-solid fa-eye"
+                                />
                               </div>
                             </div>
 
@@ -5821,17 +5817,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                           {/* Question Type Selector */}
                                           <div className="form-group" style={{ marginBottom: '14px' }}>
                                             <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Question Type *</label>
-                                            <select
-                                              className="form-input"
-                                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px', padding: '8px 12px', width: '100%' }}
+                                            <PremiumSelect
+                                              options={[
+                                                { id: 'mcq', name: 'Multiple Choice (MCQ)' },
+                                                { id: 'true_false', name: 'True or False' },
+                                                { id: 'fill_blank', name: 'Fill in the Blank' }
+                                              ]}
                                               value={currentQType}
-                                              disabled={isCourseViewOnly}
                                               onChange={(e) => updateQuestionType(ch.id, q.id, e.target.value)}
-                                            >
-                                              <option value="mcq">Multiple Choice (MCQ)</option>
-                                              <option value="true_false">True or False</option>
-                                              <option value="fill_blank">Fill in the Blank</option>
-                                            </select>
+                                              disabled={isCourseViewOnly}
+                                              placeholder="Select Question Type"
+                                              icon="fa-solid fa-list-check"
+                                            />
                                           </div>
 
                                           {/* Question Statement */}
