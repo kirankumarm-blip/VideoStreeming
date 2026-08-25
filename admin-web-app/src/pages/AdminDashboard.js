@@ -664,13 +664,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         optionsArray = optionsArray.slice(0, 4);
       }
 
-      const rawQType = String(q.type || q.question_type || q.questionType || '1').toLowerCase().trim();
+      const rawQType = String(
+        q.question_type !== undefined && q.question_type !== null && String(q.question_type).trim() !== ''
+          ? q.question_type
+          : (q.type !== undefined && q.type !== null && String(q.type).trim() !== ''
+              ? q.type
+              : (q.questionType !== undefined && q.questionType !== null && String(q.questionType).trim() !== ''
+                  ? q.questionType
+                  : (q.question_type_name || '1')))
+      ).toLowerCase().trim();
+
       let typeVal = '1';
       if (rawQType === '2' || rawQType.includes('true') || rawQType.includes('tf') || rawQType.includes('false')) {
         typeVal = '2';
       } else if (rawQType === '3' || rawQType.includes('blank') || rawQType.includes('fill')) {
         typeVal = '3';
+      } else if (rawQType === '1' || rawQType.includes('mcq') || rawQType.includes('choice')) {
+        typeVal = '1';
+      } else if (!isNaN(parseInt(rawQType, 10)) && parseInt(rawQType, 10) > 0) {
+        typeVal = String(parseInt(rawQType, 10));
       }
+
+      const qTypeName = q.question_type_name || (typeVal === '1' ? 'Multiple Choice(MCQ)' : (typeVal === '2' ? 'True or False' : 'Fill in the Blank'));
 
       const tfVal = String(q.tfAnswer || q.tf_answer || q.correct_answer || q.answer || (correctIdx === 0 ? 'true' : 'false')).toLowerCase().includes('false') ? 'false' : 'true';
       const firstOptText = optionsArray[0] ? (typeof optionsArray[0] === 'object' ? optionsArray[0].text : optionsArray[0]) : '';
@@ -680,6 +695,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         id: qId,
         existingId: q.question_id || q.id || null,
         type: typeVal,
+        question_type: typeVal,
+        question_type_name: qTypeName,
         question: qText,
         options: optionsArray,
         correctAnswer: correctIdx,
