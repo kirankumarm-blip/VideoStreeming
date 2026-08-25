@@ -2937,17 +2937,43 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               if (isTF) {
                 const isTrue = (q.tfAnswer || q.correct_answer || 'true').toLowerCase() === 'true';
-                options = [
-                  { option_order: 1, option_text: 'True', is_correct: isTrue },
-                  { option_order: 2, option_text: 'False', is_correct: !isTrue }
-                ];
+                
+                const existingOptTrue = Array.isArray(q.options) ? q.options.find(opt => typeof opt === 'object' && opt !== null && String(opt.text || opt.option_text || '').toLowerCase() === 'true') : null;
+                const existingOptFalse = Array.isArray(q.options) ? q.options.find(opt => typeof opt === 'object' && opt !== null && String(opt.text || opt.option_text || '').toLowerCase() === 'false') : null;
+
+                const trueOptId = (!q.isNew && existingOptTrue) ? (existingOptTrue.option_id || existingOptTrue.id || null) : null;
+                const falseOptId = (!q.isNew && existingOptFalse) ? (existingOptFalse.option_id || existingOptFalse.id || null) : null;
+
+                const opt0Id = (!q.isNew && Array.isArray(q.options) && typeof q.options[0] === 'object' && q.options[0] !== null) ? (q.options[0].option_id || q.options[0].id || null) : null;
+                const opt1Id = (!q.isNew && Array.isArray(q.options) && typeof q.options[1] === 'object' && q.options[1] !== null) ? (q.options[1].option_id || q.options[1].id || null) : null;
+
+                const finalTrueId = trueOptId || opt0Id;
+                const finalFalseId = falseOptId || opt1Id;
+
+                const truePayload = { option_order: 1, option_text: 'True', is_correct: isTrue };
+                if (finalTrueId) {
+                  truePayload.option_id = finalTrueId;
+                  truePayload.id = finalTrueId;
+                }
+
+                const falsePayload = { option_order: 2, option_text: 'False', is_correct: !isTrue };
+                if (finalFalseId) {
+                  falsePayload.option_id = finalFalseId;
+                  falsePayload.id = finalFalseId;
+                }
+
+                options = [truePayload, falsePayload];
                 correctAnswer = isTrue ? 0 : 1;
                 answerText = isTrue ? 'True' : 'False';
               } else if (isBlank) {
                 answerText = q.blankAnswer || q.correct_answer || q.answer || '';
-                options = [
-                  { option_order: 1, option_text: answerText, is_correct: true }
-                ];
+                const existingOptBlank = (!q.isNew && Array.isArray(q.options) && typeof q.options[0] === 'object' && q.options[0] !== null) ? (q.options[0].option_id || q.options[0].id || null) : null;
+                const blankPayload = { option_order: 1, option_text: answerText, is_correct: true };
+                if (existingOptBlank) {
+                  blankPayload.option_id = existingOptBlank;
+                  blankPayload.id = existingOptBlank;
+                }
+                options = [blankPayload];
                 correctAnswer = 0;
               } else {
                 // Default MCQ (id 1)
