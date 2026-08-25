@@ -717,17 +717,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     handleEditCourse(course, true);
   };
 
-  const handleEditCourse = async (course, isViewOnly = false) => {
+  const handleEditCourse = (course, isViewOnly = false) => {
     if (!course) return;
     lastFetchedSubCatIdRef.current = null;
     setIsCourseViewOnly(isViewOnly);
     setEditingCourse(course);
 
-    const [authorsArr, adminsArr] = await Promise.all([
-      fetchAuthorAdminsList(),
-      fetchAdminsList()
-    ]);
-    const combinedAdmins = [...(authorsArr || []), ...(adminsArr || []), ...authorAdminsList, ...adminsList];
+    if (authorAdminsList.length === 0) fetchAuthorAdminsList();
+    if (adminsList.length === 0) fetchAdminsList();
+
+    const combinedAdmins = [...authorAdminsList, ...adminsList];
 
     // 1. Match Category (by ID or name)
     const catRaw = course.category_id || course.cat_id || course.category || course.category_name || '';
@@ -1308,6 +1307,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'course_all') {
       fetchCourses(selectedAdminId);
+      fetchCategories();
+      fetchVisibilities();
+      fetchLevels();
+      fetchLanguages();
+      fetchAdminsList();
+      fetchAuthorAdminsList();
     }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
       fetchDashboardData('analytics');
