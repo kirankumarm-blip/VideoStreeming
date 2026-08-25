@@ -736,27 +736,50 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     // 2. Subcategory raw value (by ID or name)
     const subCatRaw = course.subcategory_id || course.sub_category_id || course.subcategory || course.subCategory || course.subcategory_name || '';
 
-    // 3. Language, Level, Visibility, Admin, Author
-    const langVal = String(course.language_id || course.languageId || course.language || (languages[0]?.id || ''));
-    const lvlVal = String(course.level_id || course.level || '1');
+    // 3. Language
+    const rawLang = course.language_id || course.languageId || course.language || '';
+    const foundLang = languages.find(l =>
+      String(l.id || l.language_id) === String(rawLang) ||
+      String(l.name || l.title || l.language_name || '').trim().toLowerCase() === String(rawLang).trim().toLowerCase()
+    );
+    const langVal = foundLang ? String(foundLang.id || foundLang.language_id) : (rawLang ? String(rawLang) : (languages[0]?.id || '1'));
+
+    // 4. Level
+    const rawLevel = course.level_id || course.level || course.level_name || '';
+    const foundLevel = levels.find(l =>
+      String(l.id || l.level) === String(rawLevel) ||
+      String(l.level || l.level_name || l.name || '').trim().toLowerCase() === String(rawLevel).trim().toLowerCase()
+    );
+    const lvlVal = foundLevel ? String(foundLevel.id || foundLevel.level) : (rawLevel ? String(rawLevel) : '1');
+
+    // 5. Visibility
     const rawVis = course.visibility_id || course.visibility || course.visibility_name || '';
     const foundVis = visibilities.find(v => 
       String(v.id) === String(rawVis) || 
       String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
     );
     const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
+
+    // 6. Admin & Author
     const admVal = String((isSuperAdmin && selectedAdminId) ? selectedAdminId : (course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '')).trim();
-    const authorIdVal = String(course.assigned_admin || course.author_id || course.instructor_id || course.admin_id || course.author || course.instructor || '').trim();
+    const rawAuthor = course.author_id || course.instructor_id || course.assigned_admin || course.admin_id || course.author || course.instructor || '';
+    const allAdminsList = authorAdminsList.length > 0 ? authorAdminsList : adminsList;
+    const foundAuthor = allAdminsList.find(a =>
+      String(a.id || a.admin_id || a.user_id) === String(rawAuthor) ||
+      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawAuthor).trim().toLowerCase()
+    );
+    const authorIdVal = foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawAuthor);
+    const instructorName = foundAuthor ? foundAuthor.name : (course.instructor || course.assigned_admin || rawAuthor);
 
     setCourseForm({
       title: course.course_title || course.title || '',
       description: course.description || course.desc || '',
       category: catId,
       subCategory: String(subCatRaw),
-      languageId: langVal,
-      instructor: course.instructor || authorIdVal || '',
+      languageId: String(langVal),
+      instructor: instructorName,
       author_id: authorIdVal,
-      level: lvlVal || '1',
+      level: String(lvlVal),
       tags: course.tags || '',
       totalChapters: String(course.totalChapters || (Array.isArray(course.chapters) ? course.chapters.length : 1)),
       visibility: visVal,
@@ -2969,22 +2992,59 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       );
       const rootVisId = foundRootVisObj ? String(foundRootVisObj.id) : String(courseForm.visibility || visibilities[0]?.id || '1');
 
+      // Resolve Category ID
+      const foundCatObj = categories.find(c =>
+        String(c.id) === String(courseForm.category) ||
+        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(courseForm.category).trim().toLowerCase()
+      );
+      const finalCatId = foundCatObj ? String(foundCatObj.id) : String(courseForm.category || '1');
+
+      // Resolve Subcategory ID
+      const foundSubCatObj = subCategories.find(sc =>
+        String(sc.id) === String(courseForm.subCategory) ||
+        String(sc.name || sc.sub_category_name || '').trim().toLowerCase() === String(courseForm.subCategory).trim().toLowerCase()
+      );
+      const finalSubCatId = foundSubCatObj ? String(foundSubCatObj.id) : String(courseForm.subCategory || '1');
+
+      // Resolve Language ID
+      const foundLangObj = languages.find(l =>
+        String(l.id || l.language_id) === String(courseForm.languageId) ||
+        String(l.name || l.title || l.language_name || '').trim().toLowerCase() === String(courseForm.languageId).trim().toLowerCase()
+      );
+      const finalLangId = foundLangObj ? String(foundLangObj.id || foundLangObj.language_id) : String(courseForm.languageId || '1');
+
+      // Resolve Level ID
+      const foundLevelObj = levels.find(l =>
+        String(l.id || l.level) === String(courseForm.level) ||
+        String(l.level || l.level_name || l.name || '').trim().toLowerCase() === String(courseForm.level).trim().toLowerCase()
+      );
+      const finalLevelId = foundLevelObj ? String(foundLevelObj.id || foundLevelObj.level) : String(courseForm.level || '1');
+
+      // Resolve Author / Admin ID
+      const allAdminsCombined = authorAdminsList.length > 0 ? authorAdminsList : adminsList;
+      const foundAuthorObj = allAdminsCombined.find(a =>
+        String(a.id || a.admin_id || a.user_id) === String(courseForm.author_id) ||
+        String(a.name || a.username || a.email || '').trim().toLowerCase() === String(courseForm.instructor || courseForm.author_id).trim().toLowerCase()
+      );
+      const finalAuthorId = foundAuthorObj ? String(foundAuthorObj.id || foundAuthorObj.admin_id || foundAuthorObj.user_id) : String(courseForm.author_id || courseForm.instructor || '1');
+      const finalInstructorName = foundAuthorObj ? foundAuthorObj.name : (courseForm.instructor || finalAuthorId);
+
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
         message: courseNotifMsg,
         notification_message: courseNotifMsg,
         notificationMessage: courseNotifMsg,
-        category: courseForm.category,
-        subCategory: courseForm.subCategory,
-        subcategory_id: courseForm.subCategory,
+        category: finalCatId,
+        subCategory: finalSubCatId,
+        subcategory_id: finalSubCatId,
         visibility_id: rootVisId,
         visibility: rootVisId,
-        language_id: courseForm.languageId,
-        author_id: courseForm.author_id || courseForm.instructor,
-        instructor_id: courseForm.author_id || courseForm.instructor,
-        instructor: courseForm.instructor || courseForm.author_id,
-        level: courseForm.level,
+        language_id: finalLangId,
+        author_id: finalAuthorId,
+        instructor_id: finalAuthorId,
+        instructor: finalInstructorName,
+        level: finalLevelId,
         tags: courseForm.tags,
         totalChapters: courseForm.totalChapters || chapters.length.toString(),
         totalLessons: calculatedLessons.toString(),
