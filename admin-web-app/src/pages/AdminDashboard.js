@@ -2863,10 +2863,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             })
           };
 
-              return qObj;
-            })
-          };
-
           const qzId = ch.quiz.existingId || ch.quiz.id || ch.quiz.quiz_id;
           if (qzId) {
             quizPayloadObj.id = qzId;
