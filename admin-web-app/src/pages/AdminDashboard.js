@@ -311,6 +311,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [alreadyAssignedAdminName, setAlreadyAssignedAdminName] = useState('');
   const [alreadyAssignedItemType, setAlreadyAssignedItemType] = useState('video');
   const [pendingAssignItem, setPendingAssignItem] = useState(null);
+  const [quizTypesList, setQuizTypesList] = useState([
+    { id: 'mcq', name: 'Multiple Choice (MCQ)' },
+    { id: 'true_false', name: 'True or False' },
+    { id: 'fill_blank', name: 'Fill in the Blank' }
+  ]);
+  const [loadingQuizTypes, setLoadingQuizTypes] = useState(false);
 
   const getAssignedAdminName = (item) => {
     if (!item || typeof item !== 'object') return '';
@@ -1227,6 +1233,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchLanguages();
       fetchAdminsList();
       fetchAuthorAdminsList();
+      fetchQuizTypesList();
       if (courseForm.category) {
         fetchSubCategories(courseForm.category);
       } else {
@@ -1881,6 +1888,59 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setAuthorAdminsList([]);
     } finally {
       setLoadingAuthorAdmins(false);
+    }
+  };
+
+  const fetchQuizTypesList = async () => {
+    setLoadingQuizTypes(true);
+    try {
+      let res = await api.vdcategories.getQuizTypes();
+      console.log('Fetched quiz types response from getQuizTypes:', res);
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res.flat ? res.flat(Infinity) : res.reduce((acc, val) => acc.concat(Array.isArray(val) ? val : [val]), []);
+      } else if (res && typeof res === 'object') {
+        if (Array.isArray(res.quiz_types)) list = res.quiz_types;
+        else if (Array.isArray(res.data)) list = res.data;
+        else if (Array.isArray(res.types)) list = res.types;
+        else if (Array.isArray(res.categories)) list = res.categories;
+        else if (res.json) {
+          try {
+            const parsed = typeof res.json === 'string' ? JSON.parse(res.json) : res.json;
+            if (Array.isArray(parsed)) list = parsed;
+            else if (parsed && typeof parsed === 'object') {
+              list = parsed.data || parsed.quiz_types || parsed.types || [];
+            }
+          } catch(e) {}
+        }
+      }
+
+      const formatted = list.map(item => {
+        if (typeof item === 'string') return { id: item, name: item };
+        const idVal = String(item.id || item.type_id || item.typeId || item.value || item.name || '').trim();
+        const nameVal = String(item.name || item.type_name || item.typeName || item.label || item.title || idVal).trim();
+        return { id: idVal, name: nameVal };
+      }).filter(item => item.id && item.name);
+
+      if (formatted.length > 0) {
+        console.log('Mapped quizTypesList from API:', formatted);
+        setQuizTypesList(formatted);
+      } else {
+        setQuizTypesList([
+          { id: 'mcq', name: 'Multiple Choice (MCQ)' },
+          { id: 'true_false', name: 'True or False' },
+          { id: 'fill_blank', name: 'Fill in the Blank' }
+        ]);
+      }
+    } catch (err) {
+      console.warn('Error fetching quiz types list from API, using fallback:', err);
+      setQuizTypesList([
+        { id: 'mcq', name: 'Multiple Choice (MCQ)' },
+        { id: 'true_false', name: 'True or False' },
+        { id: 'fill_blank', name: 'Fill in the Blank' }
+      ]);
+    } finally {
+      setLoadingQuizTypes(false);
     }
   };
 
@@ -5818,15 +5878,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                           <div className="form-group" style={{ marginBottom: '14px' }}>
                                             <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Question Type *</label>
                                             <PremiumSelect
-                                              options={[
-                                                { id: 'mcq', name: 'Multiple Choice (MCQ)' },
-                                                { id: 'true_false', name: 'True or False' },
-                                                { id: 'fill_blank', name: 'Fill in the Blank' }
-                                              ]}
+                                              options={quizTypesList.map(qt => ({ id: String(qt.id), name: qt.name }))}
                                               value={currentQType}
                                               onChange={(e) => updateQuestionType(ch.id, q.id, e.target.value)}
-                                              disabled={isCourseViewOnly}
-                                              placeholder="Select Question Type"
+                                              disabled={isCourseViewOnly || loadingQuizTypes}
+                                              placeholder={loadingQuizTypes ? 'Loading Question Types...' : 'Select Question Type'}
                                               icon="fa-solid fa-list-check"
                                             />
                                           </div>

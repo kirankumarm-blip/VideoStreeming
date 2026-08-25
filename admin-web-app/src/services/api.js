@@ -639,6 +639,16 @@ export const api = {
         expectArray: true
       });
     },
+    getQuizTypes: () => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "getQuizTypes",
+          formStep: "getQuizTypes"
+        }),
+        expectArray: true
+      });
+    },
     listAllSubCategories: () => {
       return request('/vdcategories', {
         method: 'POST',
