@@ -312,9 +312,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [alreadyAssignedItemType, setAlreadyAssignedItemType] = useState('video');
   const [pendingAssignItem, setPendingAssignItem] = useState(null);
   const [quizTypesList, setQuizTypesList] = useState([
-    { id: 'mcq', name: 'Multiple Choice (MCQ)' },
-    { id: 'true_false', name: 'True or False' },
-    { id: 'fill_blank', name: 'Fill in the Blank' }
+    { id: '1', name: 'Multiple Choice(MCQ)' },
+    { id: '2', name: 'True or False' },
+    { id: '3', name: 'Fill in the Blank' }
   ]);
   const [loadingQuizTypes, setLoadingQuizTypes] = useState(false);
 
@@ -664,12 +664,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         optionsArray = optionsArray.slice(0, 4);
       }
 
-      const rawQType = String(q.type || q.question_type || q.questionType || 'mcq').toLowerCase();
-      let typeVal = 'mcq';
-      if (rawQType.includes('true') || rawQType.includes('tf') || rawQType.includes('false')) {
-        typeVal = 'true_false';
-      } else if (rawQType.includes('blank') || rawQType.includes('fill')) {
-        typeVal = 'fill_blank';
+      const rawQType = String(q.type || q.question_type || q.questionType || '1').toLowerCase().trim();
+      let typeVal = '1';
+      if (rawQType === '2' || rawQType.includes('true') || rawQType.includes('tf') || rawQType.includes('false')) {
+        typeVal = '2';
+      } else if (rawQType === '3' || rawQType.includes('blank') || rawQType.includes('fill')) {
+        typeVal = '3';
       }
 
       const tfVal = String(q.tfAnswer || q.tf_answer || q.correct_answer || q.answer || (correctIdx === 0 ? 'true' : 'false')).toLowerCase().includes('false') ? 'false' : 'true';
@@ -1927,17 +1927,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         setQuizTypesList(formatted);
       } else {
         setQuizTypesList([
-          { id: 'mcq', name: 'Multiple Choice (MCQ)' },
-          { id: 'true_false', name: 'True or False' },
-          { id: 'fill_blank', name: 'Fill in the Blank' }
+          { id: '1', name: 'Multiple Choice(MCQ)' },
+          { id: '2', name: 'True or False' },
+          { id: '3', name: 'Fill in the Blank' }
         ]);
       }
     } catch (err) {
       console.warn('Error fetching quiz types list from API, using fallback:', err);
       setQuizTypesList([
-        { id: 'mcq', name: 'Multiple Choice (MCQ)' },
-        { id: 'true_false', name: 'True or False' },
-        { id: 'fill_blank', name: 'Fill in the Blank' }
+        { id: '1', name: 'Multiple Choice(MCQ)' },
+        { id: '2', name: 'True or False' },
+        { id: '3', name: 'Fill in the Blank' }
       ]);
     } finally {
       setLoadingQuizTypes(false);
@@ -2255,7 +2255,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             questions: [
               {
                 id: 'q-' + Date.now(),
-                type: 'mcq',
+                type: '1',
                 question: '',
                 options: ['', '', '', ''],
                 correctAnswer: 0,
@@ -2290,7 +2290,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         id: 'new-q-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         isNew: true,
         existingId: null,
-        type: 'mcq',
+        type: '1',
         question: '',
         options: ['', '', '', ''],
         correctAnswer: 0,
@@ -2780,8 +2780,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Question statement is required`);
             return;
           }
-          const qType = q.type || q.questionType || 'mcq';
-          if (qType === 'mcq') {
+          const qTypeStr = String(q.type || q.questionType || '1').toLowerCase().trim();
+          const isTF = qTypeStr === '2' || qTypeStr.includes('true') || qTypeStr.includes('tf');
+          const isBlank = qTypeStr === '3' || qTypeStr.includes('blank') || qTypeStr.includes('fill');
+          const isMCQ = !isTF && !isBlank;
+
+          if (isMCQ) {
             const getOptText = (opt) => typeof opt === 'object' && opt !== null ? (opt.text || opt.option_text || '') : String(opt || '');
             if (!q.options || q.options.length < 2 || q.options.some(opt => !getOptText(opt).trim())) {
               showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): All option choices must be filled`);
@@ -2791,7 +2795,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Correct answer selection is required`);
               return;
             }
-          } else if (qType === 'fill_blank') {
+          } else if (isBlank) {
             const blankAns = q.blankAnswer || q.correct_answer || q.answer || '';
             if (!blankAns.trim()) {
               showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Fill in the blank correct answer is required`);
@@ -2865,12 +2869,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             title: ch.quiz.title || `${ch.title || 'Chapter'} Quiz`,
             questions: ch.quiz.questions.map((q, idx) => {
               const targetQId = (!q.isNew && q.existingId) ? q.existingId : null;
-              const qType = q.type || q.questionType || 'mcq';
+              const qTypeRaw = String(q.type || q.questionType || '1').toLowerCase().trim();
+              const isTF = qTypeRaw === '2' || qTypeRaw.includes('true') || qTypeRaw.includes('tf');
+              const isBlank = qTypeRaw === '3' || qTypeRaw.includes('blank') || qTypeRaw.includes('fill');
+              
+              const finalTypeId = q.type || (isTF ? '2' : (isBlank ? '3' : '1'));
+
               let options = [];
               let correctAnswer = q.correctAnswer;
               let answerText = '';
 
-              if (qType === 'true_false') {
+              if (isTF) {
                 const isTrue = (q.tfAnswer || q.correct_answer || 'true').toLowerCase() === 'true';
                 options = [
                   { option_order: 1, option_text: 'True', is_correct: isTrue },
@@ -2878,14 +2887,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 ];
                 correctAnswer = isTrue ? 0 : 1;
                 answerText = isTrue ? 'True' : 'False';
-              } else if (qType === 'fill_blank') {
+              } else if (isBlank) {
                 answerText = q.blankAnswer || q.correct_answer || q.answer || '';
                 options = [
                   { option_order: 1, option_text: answerText, is_correct: true }
                 ];
                 correctAnswer = 0;
               } else {
-                // Default MCQ
+                // Default MCQ (id 1)
                 options = (q.options || []).slice(0, 4).map((optItem, optIdx) => {
                   const isObj = typeof optItem === 'object' && optItem !== null;
                   const optText = isObj ? (optItem.text || optItem.option_text || '') : String(optItem || '');
@@ -2907,7 +2916,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               }
 
               const qObj = {
-                type: qType,
+                type: finalTypeId,
+                question_type: finalTypeId,
                 question: q.question,
                 options,
                 correctAnswer,
@@ -5858,7 +5868,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   {/* Questions List */}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     {(ch.quiz.questions || []).map((q, qIdx) => {
-                                      const currentQType = q.type || q.questionType || 'mcq';
+                                      const currentQType = String(q.type || q.questionType || '1').trim();
+                                      const isTF = currentQType === '2' || currentQType.toLowerCase().includes('true') || currentQType.toLowerCase().includes('tf');
+                                      const isBlank = currentQType === '3' || currentQType.toLowerCase().includes('blank') || currentQType.toLowerCase().includes('fill');
+                                      const isMCQ = !isTF && !isBlank;
                                       return (
                                         <div key={q.id || qIdx} style={{ backgroundColor: containerBg, border: `1px solid ${borderColor}`, padding: '16px', borderRadius: '10px' }}>
                                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -5890,13 +5903,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                           {/* Question Statement */}
                                           <div className="form-group" style={{ marginBottom: '14px' }}>
                                             <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>
-                                              {currentQType === 'fill_blank' ? 'Question Statement (Use ___ for blank) *' : 'Question Statement *'}
+                                              {isBlank ? 'Question Statement (Use ___ for blank) *' : 'Question Statement *'}
                                             </label>
                                             <input
                                               type="text"
                                               className="form-input"
                                               style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px', fontSize: '13px' }}
-                                              placeholder={currentQType === 'fill_blank' ? 'e.g. Python was created by ___ in 1991.' : 'Enter question text...'}
+                                              placeholder={isBlank ? 'e.g. Python was created by ___ in 1991.' : 'Enter question text...'}
                                               value={q.question || ''}
                                               onChange={(e) => updateQuestionText(ch.id, q.id, e.target.value)}
                                               disabled={isCourseViewOnly}
@@ -5905,7 +5918,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                           </div>
 
                                           {/* True or False Fields */}
-                                          {currentQType === 'true_false' && (
+                                          {isTF && (
                                             <div style={{ marginBottom: '10px' }}>
                                               <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor, marginBottom: '8px', display: 'block' }}>Correct Answer *</label>
                                               <div style={{ display: 'flex', gap: '16px' }}>
@@ -5936,7 +5949,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                           )}
 
                                           {/* Fill in the Blank Fields */}
-                                          {currentQType === 'fill_blank' && (
+                                          {isBlank && (
                                             <div className="form-group" style={{ marginBottom: '10px' }}>
                                               <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor }}>Correct Answer (Free Text) *</label>
                                               <input
@@ -5953,7 +5966,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                           )}
 
                                           {/* Multiple Choice Fields (MCQ) */}
-                                          {currentQType === 'mcq' && (
+                                          {isMCQ && (
                                             <div style={{ marginBottom: '10px' }}>
                                               <label className="form-label" style={{ fontSize: '12px', fontWeight: '600', color: textColor, marginBottom: '6px', display: 'block' }}>Options & Mark Correct Answer *</label>
                                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
