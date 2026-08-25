@@ -643,8 +643,7 @@ export const api = {
       return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify({
-          formstep: "getQuizTypes",
-          formStep: "getQuizTypes"
+          formstep: "getQuizTypes"
         }),
         expectArray: true
       });
