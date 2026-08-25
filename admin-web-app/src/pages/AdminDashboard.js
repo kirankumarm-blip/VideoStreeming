@@ -2691,7 +2691,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const handleCourseSubmit = async (e) => {
+  const handleCourseSubmit = async (e, isDraft = false) => {
     if (e && e.preventDefault) e.preventDefault();
 
     // 1. Basic Course Info Validations
@@ -3120,21 +3120,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       payload.adminId = effectiveClientId;
       payload.assigned_admin = effectiveClientId;
 
-      if (editingCourse) {
+      if (isDraft) {
+        payload.formstep = "saveDraft";
+        payload.formStep = "saveDraft";
+      } else if (editingCourse) {
         payload.id = editingCourse.id;
         payload.course_id = editingCourse.id;
         payload.formstep = "editCourse";
       }
 
       await api.videos.uploadCourse(payload);
-      if (!editingCourse) {
+      if (!editingCourse && !isDraft) {
         try {
           await api.notifications.sendCampaign('all', 'New Course Published', `"${payload.title || 'A new course'}" has been published. Check it out now!`);
         } catch (notifErr) {
           console.warn("Course notification call warning:", notifErr);
         }
       }
-      const courseSuccMsg = editingCourse ? 'Course updated successfully!' : 'Course created successfully!';
+      const courseSuccMsg = isDraft ? 'Course saved as draft!' : (editingCourse ? 'Course updated successfully!' : 'Course created successfully!');
       setUploadSuccess(courseSuccMsg);
       showSuccess(courseSuccMsg);
       setUploadProgress('');
@@ -6170,7 +6173,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       ) : (
                         <>
                           {!editingCourse && (
-                            <button type="button" className="btn" style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }} onClick={() => alert('Draft Saved!')}>
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ padding: '10px 24px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg, color: textColor, borderRadius: '8px', fontWeight: '600' }}
+                              onClick={(e) => handleCourseSubmit(e, true)}
+                              disabled={!!uploadProgress}
+                            >
                               Save as Draft
                             </button>
                           )}
