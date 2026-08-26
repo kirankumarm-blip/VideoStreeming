@@ -359,6 +359,12 @@ const handleVdDrafts = (req, res) => {
     writeDB(db);
     return res.json({ message: "Draft saved successfully", draft: newDraft });
   }
+  if (formstep === 'deleteDraft' || formstep === 'deleteCourseDraft') {
+    const draftId = String(req.body.id);
+    db.course_drafts = db.course_drafts.filter(d => String(d.id) !== draftId);
+    writeDB(db);
+    return res.json({ message: "Draft deleted successfully" });
+  }
   return res.json(db.course_drafts);
 };
 

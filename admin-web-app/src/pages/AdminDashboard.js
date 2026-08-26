@@ -2363,6 +2363,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (bnr) setCourseBannerUrl(decryptUrl(bnr));
   };
 
+  const handleDeleteCourseDraft = async (draft) => {
+    if (!draft || !draft.id) return;
+    if (window.confirm(`Are you sure you want to delete draft "${draft.course_title || draft.title || 'Course Draft'}"?`)) {
+      try {
+        const deleteFn = api.drafts?.deleteCourseDraft || api.videos?.deleteCourseDraft;
+        await deleteFn(draft.id);
+        showSuccess && showSuccess('Draft deleted successfully');
+        fetchCourseDrafts(selectedAdminId);
+      } catch (e) {
+        console.error('Failed to delete draft:', e);
+        showError && showError('Failed to delete draft');
+      }
+    }
+  };
+
   const addChapter = () => {
     const expectedChaptersCount = parseInt(courseForm.totalChapters, 10);
     if (!isNaN(expectedChaptersCount) && expectedChaptersCount > 0 && chapters.length >= expectedChaptersCount) {
@@ -6675,6 +6690,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <PaginatedTable
                       headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Assigned Admin', 'Actions']}
                       data={validDraftData}
+                      showStatusFilter={false}
                       emptyMessage="No draft courses found"
                       renderRow={(draft, index) => {
                         const displayTitle = draft.course_title || draft.title || 'Untitled Draft';
@@ -6715,13 +6731,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               </td>
                             )}
                             <td>
-                              <div style={{ display: 'flex', gap: '8px' }}>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <button 
                                   className="btn btn-primary"
                                   style={{ padding: '6px 14px', fontSize: '12px', backgroundColor: '#e50914', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}
                                   onClick={() => handleUploadDraft(draft)}
                                 >
                                   <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '11px' }} /> Upload
+                                </button>
+                                <button 
+                                  className="btn"
+                                  style={{ padding: '6px 10px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  onClick={() => handleDeleteCourseDraft(draft)}
+                                  title="Delete Draft"
+                                >
+                                  <i className="fa-solid fa-trash-can" style={{ fontSize: '12px' }} />
                                 </button>
                               </div>
                             </td>

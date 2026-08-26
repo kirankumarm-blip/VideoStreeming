@@ -1486,6 +1486,13 @@ export const api = {
         body: JSON.stringify(payload),
         expectArray: true
       });
+    },
+    deleteCourseDraft: (id) => {
+      const payload = { formstep: "deleteDraft", formStep: "deleteDraft", id: String(id) };
+      return request('/vd_drafts', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
     }
   }
 };
