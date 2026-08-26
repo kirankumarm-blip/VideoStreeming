@@ -3722,100 +3722,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             });
           });
 
-          if (dataErrors.length > 0) {
-            return resolve({ missingHeaders: [], dataErrors, normalizedFile: file });
-          }
-
-          // If validation passes, construct a clean normalized Excel File with standard Title Case headers
-          let normalizedFile = file;
-          try {
-            const CANONICAL_HEADERS = [
-              'First Name',
-              'Last Name',
-              'Email Address',
-              'Phone Number',
-              'Gender',
-              'Date Of Birth',
-              'Address',
-              'State',
-              'City',
-              'Zipcode',
-              'Password'
-            ];
-
-            const KEY_ORDER = [
-              'firstName',
-              'lastName',
-              'email',
-              'phone',
-              'gender',
-              'dob',
-              'address',
-              'state',
-              'city',
-              'zipcode',
-              'password'
-            ];
-
-            const normalizedRows = [CANONICAL_HEADERS];
-
-            dataRows.forEach((rowArr) => {
-              const isRowEmpty = rowArr.every(cell => String(cell || '').trim() === '');
-              if (isRowEmpty) return;
-
-              const newRow = KEY_ORDER.map(key => {
-                const idx = colIndices[key];
-                const rawVal = rowArr[idx];
-                let valStr = String(rawVal || '').trim();
-
-                if (key === 'dob') {
-                  if (rawVal instanceof Date) {
-                    const d = String(rawVal.getDate()).padStart(2, '0');
-                    const m = String(rawVal.getMonth() + 1).padStart(2, '0');
-                    const y = rawVal.getFullYear();
-                    valStr = `${d}/${m}/${y}`;
-                  } else if (typeof rawVal === 'number' && XLSX.SSF && XLSX.SSF.parse_date_code) {
-                    const dateObj = XLSX.SSF.parse_date_code(rawVal);
-                    if (dateObj) {
-                      const d = String(dateObj.d).padStart(2, '0');
-                      const m = String(dateObj.m).padStart(2, '0');
-                      const y = dateObj.y;
-                      valStr = `${d}/${m}/${y}`;
-                    }
-                  } else if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(valStr)) {
-                    const parts = valStr.split(/[\/\-]/);
-                    valStr = `${String(parts[2]).padStart(2, '0')}/${String(parts[1]).padStart(2, '0')}/${parts[0]}`;
-                  } else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2}$/.test(valStr)) {
-                    const parts = valStr.split(/[\/\-]/);
-                    let yy = parseInt(parts[2], 10);
-                    const y = yy <= 30 ? (2000 + yy) : (1900 + yy);
-                    valStr = `${String(parts[0]).padStart(2, '0')}/${String(parts[1]).padStart(2, '0')}/${y}`;
-                  }
-                }
-
-                return valStr;
-              });
-
-              normalizedRows.push(newRow);
-            });
-
-            const ws = XLSX.utils.aoa_to_sheet(normalizedRows);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Users');
-            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            normalizedFile = new File([blob], file.name || 'bulk_upload.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          } catch (normErr) {
-            console.error('Error normalizing Excel headers:', normErr);
-          }
-
-          resolve({ missingHeaders: [], dataErrors, normalizedFile });
+          resolve({ missingHeaders: [], dataErrors });
         } catch (err) {
           console.error('Error parsing Excel file:', err);
-          resolve({ missingHeaders: [], dataErrors: [], normalizedFile: file });
+          resolve({ missingHeaders: [], dataErrors: [] });
         }
       };
-      reader.onerror = (err) => resolve({ missingHeaders: [], dataErrors: [], normalizedFile: file });
+      reader.onerror = (err) => resolve({ missingHeaders: [], dataErrors: [] });
       reader.readAsArrayBuffer(file);
     });
   };
@@ -3849,7 +3762,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     try {
       // Validate columns and row data first
-      const { missingHeaders, dataErrors, normalizedFile } = await parseAndValidateExcelFile(bulkFile);
+      const { missingHeaders, dataErrors } = await parseAndValidateExcelFile(bulkFile);
       
       if (missingHeaders && missingHeaders.length > 0) {
         setMissingColumnsList(missingHeaders);
@@ -3865,12 +3778,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         return;
       }
 
-      const fileToSend = normalizedFile || bulkFile;
       const formData = new FormData();
       formData.append('formstep', 'bulk_upload');
       formData.append('formStep', 'bulk_upload');
-      formData.append('file', fileToSend);
-      formData.append('excel_file', fileToSend);
+      formData.append('file', bulkFile);
+      formData.append('excel_file', bulkFile);
 
       const bulkFn = api.users?.bulkUploadUsers || api.users?.bulkUpload || api.bulkUploadUsers;
       const res = await bulkFn(formData);
