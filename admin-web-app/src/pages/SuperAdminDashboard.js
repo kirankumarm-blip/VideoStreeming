@@ -924,7 +924,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const handleClientChange = (e) => {
     const value = e.target.value;
     setSelectedClientId(value);
-    if (!['video_upload', 'course_upload', 'course_all'].includes(activeTab)) {
+    if (!['video_upload', 'course_upload', 'course_all', 'course_draft'].includes(activeTab)) {
       fetchDashboardData(activeTab, value);
     }
     if (activeTab === 'admins_all') {
@@ -2104,6 +2104,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 if (activeTab === 'course_upload') return 'Upload Course';
                 if (activeTab === 'content_videos') return 'All Videos';
                 if (activeTab === 'course_all') return 'All Courses';
+                if (activeTab === 'course_draft') return 'Course Draft';
                 if (activeTab === 'admins_all') return 'All Admins';
                 if (activeTab === 'users_all') return 'All Users';
                 if (activeTab === 'categories') return 'Categories';
@@ -2161,8 +2162,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <ThreeDLoader text="Loading telemetry core..." />
         ) : (
           <>
-            {/* Embed Video Upload / Course Upload / All Courses / Video All / Categories / Sub Categories from AdminDashboard */}
-            {['video_upload', 'course_upload', 'course_all', 'video_all', 'content_videos', 'categories', 'sub_categories'].includes(activeTab) && (
+            {/* Embed Video Upload / Course Upload / All Courses / Course Draft / Video All / Categories / Sub Categories from AdminDashboard */}
+            {['video_upload', 'course_upload', 'course_all', 'course_draft', 'video_all', 'content_videos', 'categories', 'sub_categories'].includes(activeTab) && (
               <AdminDashboard justContent={true} activeTabOverride={activeTab === 'content_videos' ? 'video_all' : activeTab} selectedAdminId={selectedAdminId} theme={theme} />
             )}
 
