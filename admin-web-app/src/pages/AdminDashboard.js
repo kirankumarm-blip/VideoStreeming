@@ -295,6 +295,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [bulkUploading, setBulkUploading] = useState(false);
   const [missingColumnsList, setMissingColumnsList] = useState([]);
   const [showMissingColumnsModal, setShowMissingColumnsModal] = useState(false);
+  const [excelDataErrorsList, setExcelDataErrorsList] = useState([]);
+  const [showExcelValidationErrorModal, setShowExcelValidationErrorModal] = useState(false);
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [genders, setGenders] = useState([]);
   const [statesList, setStatesList] = useState([]);
@@ -3566,52 +3568,137 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const REQUIRED_EXCEL_COLUMNS = [
-    { label: 'First Name', keys: ['firstname', 'first name', 'first_name'] },
-    { label: 'Last Name', keys: ['lastname', 'last name', 'last_name'] },
-    { label: 'Email Address', keys: ['emailaddress', 'email address', 'email_address', 'email'] },
-    { label: 'Phone Number', keys: ['phonenumber', 'phone number', 'phone_number', 'mobile', 'mobilenumber', 'mobile number', 'mobile_number', 'phone'] },
-    { label: 'Gender', keys: ['gender'] },
-    { label: 'Date Of Birth', keys: ['dateofbirth', 'date of birth', 'date_of_birth', 'dob'] },
-    { label: 'Address', keys: ['address', 'streetaddress', 'street address'] },
-    { label: 'State', keys: ['state'] },
-    { label: 'City', keys: ['city'] },
-    { label: 'Zipcode', keys: ['zipcode', 'zip code', 'zip_code', 'zip', 'postalcode', 'postal code', 'pincode'] }
+    { key: 'firstName', label: 'First Name', keys: ['firstname', 'first name', 'first_name'] },
+    { key: 'lastName', label: 'Last Name', keys: ['lastname', 'last name', 'last_name'] },
+    { key: 'email', label: 'Email Address', keys: ['emailaddress', 'email address', 'email_address', 'email'] },
+    { key: 'phone', label: 'Phone Number', keys: ['phonenumber', 'phone number', 'phone_number', 'mobile', 'mobilenumber', 'mobile number', 'mobile_number', 'phone'] },
+    { key: 'gender', label: 'Gender', keys: ['gender'] },
+    { key: 'dob', label: 'Date Of Birth', keys: ['dateofbirth', 'date of birth', 'date_of_birth', 'dob'] },
+    { key: 'address', label: 'Address', keys: ['address', 'streetaddress', 'street address'] },
+    { key: 'state', label: 'State', keys: ['state'] },
+    { key: 'city', label: 'City', keys: ['city'] },
+    { key: 'zipcode', label: 'Zipcode', keys: ['zipcode', 'zip code', 'zip_code', 'zip', 'postalcode', 'postal code', 'pincode'] }
   ];
 
-  const parseAndValidateExcelHeaders = (file) => {
-    return new Promise((resolve, reject) => {
+  const parseAndValidateExcelFile = (file) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-            return resolve(['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode']);
+            return resolve({
+              missingHeaders: ['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode'],
+              dataErrors: []
+            });
           }
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-          const rawHeaders = (json && json.length > 0 && Array.isArray(json[0])) ? json[0].map(h => String(h || '').trim()) : [];
-          
+          const jsonRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' });
+
+          if (!jsonRows || jsonRows.length === 0) {
+            return resolve({
+              missingHeaders: ['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode'],
+              dataErrors: []
+            });
+          }
+
+          const rawHeaders = jsonRows[0].map(h => String(h || '').trim());
           const normalizedHeaders = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-          const missing = [];
+          
+          const missingHeaders = [];
+          const colIndices = {};
 
           REQUIRED_EXCEL_COLUMNS.forEach(col => {
-            const found = col.keys.some(k => {
+            let foundIdx = -1;
+            col.keys.forEach(k => {
+              if (foundIdx !== -1) return;
               const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return normalizedHeaders.includes(normK);
+              foundIdx = normalizedHeaders.indexOf(normK);
             });
-            if (!found) {
-              missing.push(col.label);
+
+            if (foundIdx === -1) {
+              missingHeaders.push(col.label);
+            } else {
+              colIndices[col.key] = foundIdx;
             }
           });
 
-          resolve(missing);
+          if (missingHeaders.length > 0) {
+            return resolve({ missingHeaders, dataErrors: [] });
+          }
+
+          // If headers are valid, validate data rows
+          const dataErrors = [];
+          const dataRows = jsonRows.slice(1);
+
+          dataRows.forEach((rowArr, rIdx) => {
+            const excelRowNumber = rIdx + 2; // Row 1 is header
+            
+            // Check if entire row is empty
+            const isRowEmpty = rowArr.every(cell => String(cell || '').trim() === '');
+            if (isRowEmpty) return;
+
+            REQUIRED_EXCEL_COLUMNS.forEach(col => {
+              const cellIdx = colIndices[col.key];
+              const rawCellVal = rowArr[cellIdx];
+              let cellStr = String(rawCellVal || '').trim();
+
+              // Requirement 4: No cell needs to be empty
+              if (!cellStr) {
+                dataErrors.push(`Row ${excelRowNumber}: '${col.label}' cell is empty.`);
+                return;
+              }
+
+              // Requirement 5: Email validation
+              if (col.key === 'email') {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(cellStr)) {
+                  dataErrors.push(`Row ${excelRowNumber}: Invalid Email Address '${cellStr}'.`);
+                }
+              }
+
+              // Requirement 1: Phone number 10 digits
+              if (col.key === 'phone') {
+                const phoneClean = cellStr.replace(/[\s\-\(\)\+]/g, '');
+                if (!/^\d{10}$/.test(phoneClean)) {
+                  dataErrors.push(`Row ${excelRowNumber}: Phone Number must be exactly 10 digits (Found: '${cellStr}').`);
+                }
+              }
+
+              // Requirement 2: Date of Birth DD/MM/YYYY
+              if (col.key === 'dob') {
+                let formattedDob = cellStr;
+                if (/^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(cellStr)) {
+                  const parts = cellStr.split(/[\/\-]/);
+                  formattedDob = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                } else if (/^\d{2}\-\d{2}\-\d{4}$/.test(cellStr)) {
+                  formattedDob = cellStr.replace(/\-/g, '/');
+                }
+
+                const dobRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+                if (!dobRegex.test(formattedDob)) {
+                  dataErrors.push(`Row ${excelRowNumber}: Date of Birth must be in DD/MM/YYYY format (e.g. 12/12/1997). Found: '${cellStr}'.`);
+                }
+              }
+
+              // Requirement 3: Zipcode 6 digits
+              if (col.key === 'zipcode') {
+                const zipClean = cellStr.replace(/\s/g, '');
+                if (!/^\d{6}$/.test(zipClean)) {
+                  dataErrors.push(`Row ${excelRowNumber}: Zipcode must be exactly 6 digits (Found: '${cellStr}').`);
+                }
+              }
+            });
+          });
+
+          resolve({ missingHeaders: [], dataErrors });
         } catch (err) {
-          console.error('Error parsing Excel file headers:', err);
-          resolve([]);
+          console.error('Error parsing Excel file:', err);
+          resolve({ missingHeaders: [], dataErrors: [] });
         }
       };
-      reader.onerror = (err) => reject(err);
+      reader.onerror = (err) => resolve({ missingHeaders: [], dataErrors: [] });
       reader.readAsArrayBuffer(file);
     });
   };
@@ -3626,11 +3713,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setBulkUploading(true);
 
     try {
-      // Validate columns first
-      const missingCols = await parseAndValidateExcelHeaders(bulkFile);
-      if (missingCols && missingCols.length > 0) {
-        setMissingColumnsList(missingCols);
+      // Validate columns and row data first
+      const { missingHeaders, dataErrors } = await parseAndValidateExcelFile(bulkFile);
+      
+      if (missingHeaders && missingHeaders.length > 0) {
+        setMissingColumnsList(missingHeaders);
         setShowMissingColumnsModal(true);
+        setBulkUploading(false);
+        return;
+      }
+
+      if (dataErrors && dataErrors.length > 0) {
+        setExcelDataErrorsList(dataErrors);
+        setShowExcelValidationErrorModal(true);
         setBulkUploading(false);
         return;
       }
@@ -8601,6 +8696,38 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <button
                 type="button"
                 onClick={() => setShowMissingColumnsModal(false)}
+                className="btn btn-primary"
+                style={{ padding: '10px 28px', backgroundColor: '#ef4444', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- EXCEL DATA VALIDATION ERROR MODAL --- */}
+      {showExcelValidationErrorModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2300 }}>
+          <div className="animate-fade-in glass-card" style={{ width: '90%', maxWidth: '540px', padding: '32px', borderRadius: '16px', background: 'var(--bg-secondary, #ffffff)', color: 'var(--text-primary)', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', fontSize: '28px' }}>
+              <i className="fa-solid fa-triangle-exclamation" />
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>Excel Validation Errors</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+              Please correct the following data formatting issues in your Excel spreadsheet:
+            </p>
+            <div style={{ maxHeight: '220px', overflowY: 'auto', padding: '12px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '10px', border: '1px dashed rgba(239, 68, 68, 0.3)', marginBottom: '20px', textAlign: 'left' }}>
+              {excelDataErrorsList.map((errItem, idx) => (
+                <div key={idx} style={{ padding: '6px 10px', marginBottom: '6px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>❌</span> <span>{errItem}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowExcelValidationErrorModal(false)}
                 className="btn btn-primary"
                 style={{ padding: '10px 28px', backgroundColor: '#ef4444', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
               >
