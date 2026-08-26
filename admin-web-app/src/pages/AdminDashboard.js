@@ -2369,19 +2369,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (bnr) setCourseBannerUrl(decryptUrl(bnr));
   };
 
-  const handleDeleteCourseDraft = async (draft) => {
+  const handleDeleteCourseDraft = (draft) => {
     if (!draft || !draft.id) return;
-    if (window.confirm(`Are you sure you want to delete draft "${draft.course_title || draft.title || 'Course Draft'}"?`)) {
+    const draftName = draft.course_title || draft.title || 'Course Draft';
+    showConfirmDelete(`Are you sure you want to delete draft "${draftName}"?`, async () => {
       try {
         const deleteFn = api.drafts?.deleteCourseDraft || api.videos?.deleteCourseDraft;
         await deleteFn(draft.id);
-        showSuccess && showSuccess('Draft deleted successfully');
+        if (typeof showSuccess === 'function') showSuccess('Draft deleted successfully');
         fetchCourseDrafts(selectedAdminId);
       } catch (e) {
         console.error('Failed to delete draft:', e);
-        showError && showError('Failed to delete draft');
+        if (typeof showError === 'function') showError('Failed to delete draft');
       }
-    }
+    });
   };
 
   const addChapter = () => {
