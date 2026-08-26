@@ -2885,7 +2885,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Client selection is required for Private courses');
       return;
     }
-    if (!courseForm.author_id && !courseForm.instructor?.trim()) {
+    if (!isAuthorAdminUser && !courseForm.author_id && !courseForm.instructor?.trim()) {
       showError('Please select Instructor / Author');
       return;
     }
@@ -3222,8 +3222,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         String(a.id || a.admin_id || a.user_id) === String(courseForm.author_id) ||
         String(a.name || a.username || a.email || '').trim().toLowerCase() === String(courseForm.instructor || courseForm.author_id).trim().toLowerCase()
       );
-      const finalAuthorId = foundAuthorObj ? String(foundAuthorObj.id || foundAuthorObj.admin_id || foundAuthorObj.user_id) : String(courseForm.author_id || courseForm.instructor || '1');
-      const finalInstructorName = foundAuthorObj ? foundAuthorObj.name : (courseForm.instructor || finalAuthorId);
+      const finalAuthorId = isAuthorAdminUser 
+        ? String(currentUser?.id || currentUser?.user_id || currentUser?.admin_id || '1')
+        : (foundAuthorObj ? String(foundAuthorObj.id || foundAuthorObj.admin_id || foundAuthorObj.user_id) : String(courseForm.author_id || courseForm.instructor || '1'));
+      const finalInstructorName = isAuthorAdminUser 
+        ? (currentUser?.name || currentUser?.username || currentUser?.email || 'Author')
+        : (foundAuthorObj ? foundAuthorObj.name : (courseForm.instructor || finalAuthorId));
 
       const payload = {
         title: courseForm.title,
@@ -5625,46 +5629,48 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
-                          {isRegularAdmin ? (
-                            <PremiumSelect
-                              options={(authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
-                                id: String(a.id || a.admin_id || a.user_id || ''),
-                                name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
-                              }))).filter(a => a.id && a.name)}
-                              value={courseForm.author_id}
-                              disabled={isCourseViewOnly || (loadingAuthorAdmins && loadingAdminsList)}
-                              onChange={(e) => {
-                                const selectedId = e.target.value;
-                                const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                        {!isAuthorAdminUser && (
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
+                            {isRegularAdmin ? (
+                              <PremiumSelect
+                                options={(authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
                                   id: String(a.id || a.admin_id || a.user_id || ''),
                                   name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
-                                }))).filter(a => a.id && a.name);
-                                const foundAuthor = availableOpts.find(a => String(a.id) === String(selectedId));
-                                setCourseForm(prev => ({
-                                  ...prev,
-                                  author_id: selectedId,
-                                  instructor: foundAuthor ? foundAuthor.name : selectedId
-                                }));
-                              }}
-                              placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
-                              icon="fa-solid fa-user-tie"
-                            />
-                          ) : (
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
-                              placeholder="e.g. John Doe"
-                              value={courseForm.instructor}
-                              onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
-                              disabled={isCourseViewOnly}
-                              readOnly={isCourseViewOnly}
-                              required
-                            />
-                          )}
-                        </div>
+                                }))).filter(a => a.id && a.name)}
+                                value={courseForm.author_id}
+                                disabled={isCourseViewOnly || (loadingAuthorAdmins && loadingAdminsList)}
+                                onChange={(e) => {
+                                  const selectedId = e.target.value;
+                                  const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                                    id: String(a.id || a.admin_id || a.user_id || ''),
+                                    name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
+                                  }))).filter(a => a.id && a.name);
+                                  const foundAuthor = availableOpts.find(a => String(a.id) === String(selectedId));
+                                  setCourseForm(prev => ({
+                                    ...prev,
+                                    author_id: selectedId,
+                                    instructor: foundAuthor ? foundAuthor.name : selectedId
+                                  }));
+                                }}
+                                placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
+                                icon="fa-solid fa-user-tie"
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                className="form-input"
+                                style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
+                                placeholder="e.g. John Doe"
+                                value={courseForm.instructor}
+                                onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
+                                disabled={isCourseViewOnly}
+                                readOnly={isCourseViewOnly}
+                                required
+                              />
+                            )}
+                          </div>
+                        )}
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Level *</label>
                           <PremiumSelect
