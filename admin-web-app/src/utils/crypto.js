@@ -25,3 +25,15 @@ export function encryptUrl(url) {
   const encrypted = rc4(key, utf8Plaintext);
   return btoa(encrypted);
 }
+
+export function decryptUrl(ciphertextBase64) {
+  if (!ciphertextBase64) return "";
+  try {
+    const key = "LurnAxSecretEncryptionKey2026";
+    const decodedBytes = atob(ciphertextBase64);
+    const decryptedBytes = rc4(key, decodedBytes);
+    return decodeURIComponent(escape(decryptedBytes));
+  } catch (e) {
+    return ciphertextBase64;
+  }
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api, getCurrentUser } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
-import { encryptUrl } from '../utils/crypto';
+import { encryptUrl, decryptUrl } from '../utils/crypto';
 import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActionButton } from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
