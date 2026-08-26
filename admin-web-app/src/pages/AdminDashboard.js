@@ -2238,7 +2238,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchCourseDrafts = async (adminId = selectedAdminId) => {
     setLoadingCourseDrafts(true);
     try {
-      const data = await api.drafts.getCourseDrafts(adminId);
+      const getDraftsFn = api.drafts?.getCourseDrafts || api.videos?.getCourseDrafts;
+      const data = await getDraftsFn(adminId);
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
       const validDrafts = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
       setCourseDrafts(validDrafts);

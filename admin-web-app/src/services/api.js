@@ -1473,5 +1473,19 @@ export const api = {
         body: JSON.stringify(settingsData)
       });
     }
+  },
+  drafts: {
+    getCourseDrafts: (adminId = null) => {
+      const payload = { formstep: "getCourseDraft", formStep: "getCourseDraft" };
+      if (adminId && adminId !== '0') {
+        payload.admin_id = adminId;
+        payload.adminId = adminId;
+      }
+      return request('/vd_drafts', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        expectArray: true
+      });
+    }
   }
 };
