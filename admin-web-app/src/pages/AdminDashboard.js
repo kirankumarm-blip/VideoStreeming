@@ -2885,7 +2885,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Client selection is required for Private courses');
       return;
     }
-    if (!isAuthorAdminUser && !courseForm.author_id && !courseForm.instructor?.trim()) {
+    if (!isAuthorAdminUser && !isSuperAdminView && !courseForm.author_id && !courseForm.instructor?.trim()) {
       showError('Please select Instructor / Author');
       return;
     }
@@ -3222,11 +3222,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         String(a.id || a.admin_id || a.user_id) === String(courseForm.author_id) ||
         String(a.name || a.username || a.email || '').trim().toLowerCase() === String(courseForm.instructor || courseForm.author_id).trim().toLowerCase()
       );
-      const finalAuthorId = isAuthorAdminUser 
-        ? String(currentUser?.id || currentUser?.user_id || currentUser?.admin_id || '1')
+      const finalAuthorId = (isAuthorAdminUser || isSuperAdminView) 
+        ? String(courseForm.author_id || currentUser?.id || currentUser?.user_id || currentUser?.admin_id || '1')
         : (foundAuthorObj ? String(foundAuthorObj.id || foundAuthorObj.admin_id || foundAuthorObj.user_id) : String(courseForm.author_id || courseForm.instructor || '1'));
-      const finalInstructorName = isAuthorAdminUser 
-        ? (currentUser?.name || currentUser?.username || currentUser?.email || 'Author')
+      const finalInstructorName = (isAuthorAdminUser || isSuperAdminView) 
+        ? (courseForm.instructor || currentUser?.name || currentUser?.username || currentUser?.email || 'Admin')
         : (foundAuthorObj ? foundAuthorObj.name : (courseForm.instructor || finalAuthorId));
 
       const payload = {
@@ -5629,7 +5629,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-                        {!isAuthorAdminUser && (
+                        {!isAuthorAdminUser && !isSuperAdminView && (
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
                             {isRegularAdmin ? (
