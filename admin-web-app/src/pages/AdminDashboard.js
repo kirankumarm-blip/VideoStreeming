@@ -297,6 +297,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [showMissingColumnsModal, setShowMissingColumnsModal] = useState(false);
   const [excelDataErrorsList, setExcelDataErrorsList] = useState([]);
   const [showExcelValidationErrorModal, setShowExcelValidationErrorModal] = useState(false);
+  const [duplicateConflictModal, setDuplicateConflictModal] = useState({ show: false, type: '', title: '', message: '', items: [] });
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [genders, setGenders] = useState([]);
   const [statesList, setStatesList] = useState([]);
@@ -3731,6 +3732,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     });
   };
 
+  const extractConflictItems = (data, keys = []) => {
+    let targetObj = data;
+    if (Array.isArray(data) && data.length > 0) {
+      targetObj = data[0];
+    }
+    if (!targetObj || typeof targetObj !== 'object') return [];
+
+    for (const k of keys) {
+      if (Array.isArray(targetObj[k]) && targetObj[k].length > 0) {
+        return targetObj[k];
+      }
+      if (typeof targetObj[k] === 'string' && targetObj[k].trim()) {
+        return [targetObj[k].trim()];
+      }
+    }
+    return [];
+  };
+
   const handleBulkUserSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!bulkFile) {
@@ -3777,6 +3796,33 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchUsers();
     } catch (err) {
       console.error('Failed to upload bulk users:', err);
+      const statusCode = err.status || err.statusCode || err.response?.status;
+      const errorPayload = err.data || err.response?.data;
+
+      if (statusCode === 410 || statusCode === '410') {
+        const emails = extractConflictItems(errorPayload, ['emails', 'email', 'existing_emails', 'duplicate_emails']);
+        setDuplicateConflictModal({
+          show: true,
+          type: 'email',
+          title: 'Duplicate Email Addresses Found',
+          message: 'Some of the provided email addresses already exist in the system.',
+          items: emails
+        });
+        return;
+      }
+
+      if (statusCode === 420 || statusCode === '420') {
+        const phones = extractConflictItems(errorPayload, ['phone_numbers', 'phone_number', 'phones', 'phone', 'mobile_numbers', 'mobiles', 'duplicate_phones']);
+        setDuplicateConflictModal({
+          show: true,
+          type: 'phone',
+          title: 'Duplicate Phone Numbers Found',
+          message: 'Some of the provided Phone Numbers already exist in the system.',
+          items: phones
+        });
+        return;
+      }
+
       if (typeof showError === 'function') {
         showError(err.message || 'Failed to upload bulk users');
       } else {
@@ -8758,6 +8804,49 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 onClick={() => setShowExcelValidationErrorModal(false)}
                 className="btn btn-primary"
                 style={{ padding: '10px 28px', backgroundColor: '#ef4444', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- DUPLICATE EMAIL / PHONE CONFLICT CUSTOM ALERT MODAL --- */}
+      {duplicateConflictModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2400 }}>
+          <div className="animate-fade-in glass-card" style={{ width: '90%', maxWidth: '500px', padding: '32px', borderRadius: '16px', background: 'var(--bg-secondary, #ffffff)', color: 'var(--text-primary)', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', fontSize: '28px' }}>
+              <i className="fa-solid fa-triangle-exclamation" />
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px', color: 'var(--text-primary)' }}>
+              {duplicateConflictModal.title}
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+              {duplicateConflictModal.message}
+            </p>
+
+            <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '12px', background: 'rgba(245, 158, 11, 0.06)', borderRadius: '10px', border: '1px dashed rgba(245, 158, 11, 0.35)', marginBottom: '24px', textAlign: 'left' }}>
+              {duplicateConflictModal.items && duplicateConflictModal.items.length > 0 ? (
+                duplicateConflictModal.items.map((item, idx) => (
+                  <div key={idx} style={{ padding: '8px 12px', marginBottom: '6px', borderRadius: '6px', fontSize: '13px', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.16)', color: '#b45309', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <i className={duplicateConflictModal.type === 'email' ? 'fa-solid fa-envelope' : 'fa-solid fa-phone'} style={{ fontSize: '14px' }} />
+                    <span>{item}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                  Conflicting records detected by system.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setDuplicateConflictModal({ show: false, type: '', title: '', message: '', items: [] })}
+                className="btn btn-primary"
+                style={{ padding: '10px 28px', backgroundColor: '#f59e0b', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
               >
                 Got It
               </button>

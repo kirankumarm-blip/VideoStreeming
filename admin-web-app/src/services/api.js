@@ -208,6 +208,7 @@ async function request(endpoint, options = {}) {
     const error = new Error(errMsg);
     error.status = response.status;
     error.statusCode = response.status;
+    error.data = errorData;
     throw error;
   }
 

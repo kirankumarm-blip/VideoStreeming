@@ -378,6 +378,21 @@ app.post('/webhook/vdDrafts', handleVdDrafts);
 // ================= BULK UPLOAD MODULE =================
 const handleVdBulkUpload = (req, res) => {
   const formstep = req.body?.formstep || req.body?.formStep || 'bulk_upload';
+  const testStatus = req.headers['x-test-status'] || req.query?.testStatus;
+
+  if (testStatus === '410') {
+    return res.status(410).json([{
+      count: "1",
+      emails: ["deepa@stream.com"]
+    }]);
+  }
+  if (testStatus === '420') {
+    return res.status(420).json([{
+      count: "1",
+      phone_numbers: ["9876543210"]
+    }]);
+  }
+
   return res.json({
     message: "Bulk users uploaded successfully!",
     formstep,
