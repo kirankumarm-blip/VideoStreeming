@@ -3669,11 +3669,39 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               // Requirement 2: Date of Birth DD/MM/YYYY
               if (col.key === 'dob') {
                 let formattedDob = cellStr;
-                if (/^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(cellStr)) {
+
+                if (rawCellVal instanceof Date) {
+                  const d = String(rawCellVal.getDate()).padStart(2, '0');
+                  const m = String(rawCellVal.getMonth() + 1).padStart(2, '0');
+                  const y = rawCellVal.getFullYear();
+                  formattedDob = `${d}/${m}/${y}`;
+                } else if (typeof rawCellVal === 'number' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+                  const dateObj = XLSX.SSF.parse_date_code(rawCellVal);
+                  if (dateObj) {
+                    const d = String(dateObj.d).padStart(2, '0');
+                    const m = String(dateObj.m).padStart(2, '0');
+                    const y = dateObj.y;
+                    formattedDob = `${d}/${m}/${y}`;
+                  }
+                } else if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(cellStr)) {
                   const parts = cellStr.split(/[\/\-]/);
-                  formattedDob = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                } else if (/^\d{2}\-\d{2}\-\d{4}$/.test(cellStr)) {
-                  formattedDob = cellStr.replace(/\-/g, '/');
+                  const y = parts[0];
+                  const m = String(parts[1]).padStart(2, '0');
+                  const d = String(parts[2]).padStart(2, '0');
+                  formattedDob = `${d}/${m}/${y}`;
+                } else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(cellStr)) {
+                  const parts = cellStr.split(/[\/\-]/);
+                  const d = String(parts[0]).padStart(2, '0');
+                  const m = String(parts[1]).padStart(2, '0');
+                  const y = parts[2];
+                  formattedDob = `${d}/${m}/${y}`;
+                } else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2}$/.test(cellStr)) {
+                  const parts = cellStr.split(/[\/\-]/);
+                  const d = String(parts[0]).padStart(2, '0');
+                  const m = String(parts[1]).padStart(2, '0');
+                  let yy = parseInt(parts[2], 10);
+                  const y = yy <= 30 ? (2000 + yy) : (1900 + yy);
+                  formattedDob = `${d}/${m}/${y}`;
                 }
 
                 const dobRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
