@@ -19,7 +19,7 @@ const getFormattedSeconds = (sec) => {
 
 const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId }) => {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState('overview'); // overview, users_all, video_upload, etc.
+  const [activeTab, setActiveTab] = useState(activeTabOverride || 'overview'); // overview, users_all, video_upload, etc.
 
   const currentUser = getCurrentUser();
   const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
@@ -1257,7 +1257,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   useEffect(() => {
-    if (activeTab === 'overview') {
+    if (activeTabOverride && activeTabOverride !== activeTab) {
+      setActiveTab(activeTabOverride);
+    }
+  }, [activeTabOverride]);
+
+  useEffect(() => {
+    if (activeTab === 'overview' && !justContent) {
       fetchDashboardData('overview');
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
