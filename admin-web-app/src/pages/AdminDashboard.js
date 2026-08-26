@@ -572,6 +572,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [myVideos, setMyVideos] = useState([]);
 
   const [courses, setCourses] = useState([]);
+  const [courseDrafts, setCourseDrafts] = useState([]);
+  const [loadingCourseDrafts, setLoadingCourseDrafts] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [isCourseViewOnly, setIsCourseViewOnly] = useState(false);
 
@@ -1307,6 +1309,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'course_all') {
       fetchCourses(selectedAdminId);
+    }
+    if (activeTab === 'course_draft') {
+      fetchCourseDrafts(selectedAdminId);
+      fetchCategories();
+      fetchVisibilities();
+      fetchLevels();
+      fetchLanguages();
+      fetchAdminsList();
+      fetchAuthorAdminsList();
     }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
       fetchDashboardData('analytics');
@@ -2228,6 +2239,133 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         setCourses([]);
       }
     }
+  };
+
+  const fetchCourseDrafts = async (adminId = selectedAdminId) => {
+    setLoadingCourseDrafts(true);
+    try {
+      const data = await api.drafts.getCourseDrafts(adminId);
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const validDrafts = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+      setCourseDrafts(validDrafts);
+    } catch (e) {
+      console.error('Failed to fetch course drafts:', e);
+      setCourseDrafts([]);
+    } finally {
+      setLoadingCourseDrafts(false);
+    }
+  };
+
+  const handleUploadDraft = (draft) => {
+    if (!draft) return;
+    setIsCourseViewOnly(false);
+    setEditingCourse(null);
+    setActiveTab('course_upload');
+
+    const catRaw = draft.category_id || draft.cat_id || draft.category || draft.category_name || '';
+    const foundCat = categories.find(c => 
+      String(c.id) === String(catRaw) || 
+      String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
+    );
+    const catId = foundCat ? String(foundCat.id) : String(catRaw);
+
+    const subCatRaw = draft.subcategory_id || draft.sub_category_id || draft.subcategory || draft.subCategory || draft.subcategory_name || '';
+
+    const rawLang = draft.language_id || draft.languageId || draft.language || '';
+    const foundLang = languages.find(l =>
+      String(l.id || l.language_id) === String(rawLang) ||
+      String(l.name || l.title || l.language_name || '').trim().toLowerCase() === String(rawLang).trim().toLowerCase()
+    );
+    const langVal = foundLang ? String(foundLang.id || foundLang.language_id) : (rawLang ? String(rawLang) : (languages[0]?.id || '1'));
+
+    const rawLevel = draft.level_id || draft.level || draft.level_name || '';
+    const foundLevel = levels.find(l =>
+      String(l.id || l.level) === String(rawLevel) ||
+      String(l.level || l.level_name || l.name || '').trim().toLowerCase() === String(rawLevel).trim().toLowerCase()
+    );
+    const lvlVal = foundLevel ? String(foundLevel.id || foundLevel.level) : (rawLevel ? String(rawLevel) : '1');
+
+    const rawVis = draft.visibility_id || draft.visibility || draft.visibility_name || '';
+    const foundVis = visibilities.find(v => 
+      String(v.id) === String(rawVis) || 
+      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
+    );
+    const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
+
+    const combinedAdmins = [...authorAdminsList, ...adminsList];
+    const rawAuthor = draft.author_id || draft.instructor_id || draft.assigned_admin || draft.admin_id || draft.author || draft.instructor || '';
+    const foundAuthor = combinedAdmins.find(a =>
+      String(a.id || a.admin_id || a.user_id) === String(rawAuthor) ||
+      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawAuthor).trim().toLowerCase()
+    );
+    const authorIdVal = foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawAuthor);
+    const instructorName = foundAuthor ? foundAuthor.name : (draft.instructor || draft.assigned_admin || rawAuthor);
+
+    const rawClient = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (draft.assigned_admin || draft.admin_id || draft.adminId || selectedAdminId || '');
+    const foundClient = combinedAdmins.find(a =>
+      String(a.id || a.admin_id || a.user_id) === String(rawClient) ||
+      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient).trim().toLowerCase()
+    );
+    let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : (foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawClient));
+
+    setCourseForm({
+      title: draft.course_title || draft.title || '',
+      description: draft.description || draft.desc || '',
+      category: catId,
+      subCategory: String(subCatRaw),
+      languageId: String(langVal),
+      instructor: instructorName,
+      author_id: authorIdVal,
+      level: String(lvlVal),
+      tags: draft.tags || '',
+      totalChapters: String(draft.totalChapters || (Array.isArray(draft.chapters) ? draft.chapters.length : 1)),
+      visibility: visVal,
+      adminId: admVal
+    });
+
+    if (catId) {
+      fetchSubCategories(catId).then((subList) => {
+        if (Array.isArray(subList) && subList.length > 0) {
+          const target = String(subCatRaw).trim().toLowerCase();
+          const foundSub = subList.find(s => {
+            const sId = String(s.id);
+            const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+            return sId === target || sName === target;
+          });
+          if (foundSub) {
+            setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(draft.chapters)) {
+      setChapters(draft.chapters.map((ch, idx) => ({
+        id: idx + 1,
+        isNew: true,
+        title: ch.title || `Chapter ${idx + 1}`,
+        description: ch.description || '',
+        visibility: ch.visibility_id || ch.visibility || visVal,
+        order: ch.order || idx + 1,
+        videos: (ch.videos || []).map((v, vIdx) => ({
+          id: vIdx + 1,
+          isNew: true,
+          title: v.title || `Lesson ${vIdx + 1}`,
+          fileName: v.fileName || 'video.mp4',
+          videoUrl: decryptUrl(v.videoUrl || v.url || ''),
+          thumbName: v.thumbName || 'thumb.png',
+          thumbnailUrl: decryptUrl(v.thumbnailUrl || v.thumbnail || ''),
+          duration: v.duration || '05:00',
+          isPreview: !!v.isPreview
+        })),
+        quiz: ch.quiz ? parseQuizFromApi(ch.quiz) : null
+      })));
+    }
+
+    const thumb = draft.thumbnail_image || draft.thumbnail_url || draft.thumbnailUrl || draft.thumbnail || '';
+    if (thumb) setCourseThumbnailUrl(decryptUrl(thumb));
+    const bnr = draft.banner_image || draft.banner_url || draft.bannerUrl || draft.banner || '';
+    if (bnr) setCourseBannerUrl(decryptUrl(bnr));
   };
 
   const addChapter = () => {
@@ -3786,20 +3924,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
         { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
         { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
-        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
+        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' },
+        { id: 'course_draft', label: 'Course Draft', iconClass: 'fa-solid fa-file-pen' }
       ] : (
         isAuthorAdminUser ? [
           { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
           { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
           { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
-          { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' }
+          { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
+          { id: 'course_draft', label: 'Course Draft', iconClass: 'fa-solid fa-file-pen' }
         ] : [
           { id: 'video_upload', label: 'Upload Video', iconClass: 'fa-solid fa-cloud-arrow-up' },
           { id: 'course_upload', label: 'Upload Course', iconClass: 'fa-solid fa-folder-plus' },
           { id: 'video_all', label: 'All Videos', iconClass: 'fa-solid fa-video' },
           { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
           { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
-          { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
+          { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' },
+          { id: 'course_draft', label: 'Course Draft', iconClass: 'fa-solid fa-file-pen' }
         ]
       )
     },
@@ -6514,6 +6655,79 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     </button>
                                   );
                                 })()}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* COURSE_DRAFT CONTENT VIEW */}
+            {activeTab === 'course_draft' && (() => {
+              const validDraftData = (Array.isArray(courseDrafts) ? courseDrafts : []).filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+
+              return (
+                <div className="animate-fade-in glass-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                    <h2 style={{ fontSize: '20px', margin: 0 }}>Course Drafts</h2>
+                  </div>
+
+                  <div className="table-container">
+                    <PaginatedTable
+                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Assigned Admin', 'Actions']}
+                      data={validDraftData}
+                      emptyMessage="No draft courses found"
+                      renderRow={(draft, index) => {
+                        const displayTitle = draft.course_title || draft.title || 'Untitled Draft';
+                        const courseBanner = draft.banner || draft.banner_image || draft.thumbnail || draft.thumbnailUrl || '';
+                        
+                        const chaptersCount = Array.isArray(draft.chapters)
+                          ? draft.chapters.length
+                          : (draft.totalChapters || draft.chapters || 0);
+
+                        const lessonsCount = draft.totalLessons || draft.lessons || 
+                          (Array.isArray(draft.chapters)
+                            ? draft.chapters.reduce((acc, ch) => acc + (Array.isArray(ch.videos) ? ch.videos.length : Array.isArray(ch.lessons) ? ch.lessons.length : 0), 0)
+                            : (draft.videos || 0));
+
+                        return (
+                          <tr key={draft.id || displayTitle || index}>
+                            <td>
+                              {courseBanner ? (
+                                <img 
+                                  src={courseBanner} 
+                                  alt={displayTitle} 
+                                  style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                />
+                              ) : (
+                                <div style={{ width: '80px', height: '45px', borderRadius: '4px', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#a1a1aa' }}>
+                                  📝
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ fontWeight: 'bold' }}>{displayTitle}</td>
+                            <td>{draft.instructor || 'N/A'}</td>
+                            <td>{draft.category || draft.category_name || 'N/A'}</td>
+                            <td>{chaptersCount}</td>
+                            <td>{lessonsCount}</td>
+                            {!hideAssignAdminColumn && (
+                              <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
+                                {getAssignedAdminName(draft) || 'None'}
+                              </td>
+                            )}
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button 
+                                  className="btn btn-primary"
+                                  style={{ padding: '6px 14px', fontSize: '12px', backgroundColor: '#e50914', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}
+                                  onClick={() => handleUploadDraft(draft)}
+                                >
+                                  <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '11px' }} /> Upload
+                                </button>
                               </div>
                             </td>
                           </tr>

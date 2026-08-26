@@ -338,6 +338,37 @@ app.post('/vdcategories', handleVdCategories);
 app.post('/api/vdcategories', handleVdCategories);
 app.post('/webhook/vdcategories', handleVdCategories);
 
+// ================= DRAFTS MODULE =================
+const handleVdDrafts = (req, res) => {
+  const db = readDB();
+  if (!db.course_drafts) {
+    db.course_drafts = [];
+    writeDB(db);
+  }
+  const formstep = req.body.formstep || req.body.formStep;
+  if (formstep === 'getCourseDraft' || formstep === 'getDrafts' || !formstep) {
+    return res.json(db.course_drafts);
+  }
+  if (formstep === 'saveDraft' || formstep === 'addCourseDraft') {
+    const newDraft = {
+      ...req.body,
+      id: String(req.body.id || (db.course_drafts.length + 1)),
+      created_at: new Date().toISOString()
+    };
+    db.course_drafts.push(newDraft);
+    writeDB(db);
+    return res.json({ message: "Draft saved successfully", draft: newDraft });
+  }
+  return res.json(db.course_drafts);
+};
+
+app.post('/vd_drafts', handleVdDrafts);
+app.post('/api/vd_drafts', handleVdDrafts);
+app.post('/webhook/vd_drafts', handleVdDrafts);
+app.post('/vdDrafts', handleVdDrafts);
+app.post('/api/vdDrafts', handleVdDrafts);
+app.post('/webhook/vdDrafts', handleVdDrafts);
+
 // ================= CLIENTS MODULE =================
 const handleVdClients = (req, res) => {
   const db = readDB();

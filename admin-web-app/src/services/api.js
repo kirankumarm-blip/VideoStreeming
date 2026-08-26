@@ -230,6 +230,10 @@ async function request(endpoint, options = {}) {
       urlPath.includes('/vdadminUsers') ||
       urlPath.endsWith('/adminVideos') ||
       urlPath.includes('/vdadminVideos') ||
+      urlPath.includes('/vd_drafts') ||
+      urlPath.includes('/vdDrafts') ||
+      bodyObj.formstep === 'getCourseDraft' ||
+      bodyObj.formStep === 'getCourseDraft' ||
       urlPath.endsWith('/categories') ||
       urlPath.endsWith('/videos') ||
       urlPath.endsWith('/notifications') ||
@@ -1270,6 +1274,19 @@ export const api = {
       return request('/adminVideos', {
         method: 'POST',
         body: JSON.stringify({ formStep: "getAllCourses" }),
+      });
+    },
+
+    getCourseDrafts: (adminId = null) => {
+      const payload = { formstep: "getCourseDraft", formStep: "getCourseDraft" };
+      if (adminId && adminId !== '0') {
+        payload.admin_id = adminId;
+        payload.adminId = adminId;
+      }
+      return request('/vd_drafts', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        expectArray: true
       });
     },
 

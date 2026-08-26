@@ -1799,7 +1799,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         { id: 'content_videos', label: 'All Videos', iconClass: 'fa-solid fa-video' },
         { id: 'course_all', label: 'All Courses', iconClass: 'fa-solid fa-layer-group' },
         { id: 'categories', label: 'Categories', iconClass: 'fa-solid fa-list-check' },
-        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' }
+        { id: 'sub_categories', label: 'Sub Category', iconClass: 'fa-solid fa-sitemap' },
+        { id: 'course_draft', label: 'Course Draft', iconClass: 'fa-solid fa-file-pen' }
       ]
     },
     {
