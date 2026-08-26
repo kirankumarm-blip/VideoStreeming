@@ -2342,17 +2342,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         description: ch.description || '',
         visibility: ch.visibility_id || ch.visibility || visVal,
         order: ch.order || idx + 1,
-        videos: (ch.videos || []).map((v, vIdx) => ({
-          id: vIdx + 1,
-          isNew: true,
-          title: v.title || `Lesson ${vIdx + 1}`,
-          fileName: v.fileName || 'video.mp4',
-          videoUrl: decryptUrl(v.videoUrl || v.url || ''),
-          thumbName: v.thumbName || 'thumb.png',
-          thumbnailUrl: decryptUrl(v.thumbnailUrl || v.thumbnail || ''),
-          duration: v.duration || '05:00',
-          isPreview: !!v.isPreview
-        })),
+        videos: (ch.videos || []).map((v, vIdx) => {
+          const rawVidUrl = v.video_url || v.videoUrl || v.url || '';
+          const rawThumbUrl = v.thumbnail || v.thumbnailUrl || v.thumbnail_image || v.thumbnail_url || '';
+          const parsedVidUrl = decryptUrl(rawVidUrl);
+          const parsedThumbUrl = decryptUrl(rawThumbUrl);
+          return {
+            id: v.id || vIdx + 1,
+            isNew: true,
+            title: v.title || `Lesson ${vIdx + 1}`,
+            fileName: v.fileName || v.video_name || v.name || v.title || (parsedVidUrl ? parsedVidUrl.split('/').pop() : 'video.mp4'),
+            videoUrl: parsedVidUrl,
+            thumbName: v.thumbName || 'thumb.png',
+            thumbnailUrl: parsedThumbUrl,
+            duration: v.duration || '05:00',
+            isPreview: !!v.isPreview
+          };
+        }),
         quiz: ch.quiz ? parseQuizFromApi(ch.quiz) : null
       })));
     }
