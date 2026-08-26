@@ -3578,7 +3578,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     { key: 'address', label: 'Address', keys: ['address', 'streetaddress', 'street address'] },
     { key: 'state', label: 'State', keys: ['state'] },
     { key: 'city', label: 'City', keys: ['city'] },
-    { key: 'zipcode', label: 'Zipcode', keys: ['zipcode', 'zip code', 'zip_code', 'zip', 'postalcode', 'postal code', 'pincode'] }
+    { key: 'zipcode', label: 'Zipcode', keys: ['zipcode', 'zip code', 'zip_code', 'zip', 'postalcode', 'postal code', 'pincode'] },
+    { key: 'password', label: 'Password', keys: ['password', 'pass', 'userpassword', 'user_password'] }
   ];
 
   const parseAndValidateExcelFile = (file) => {
@@ -3590,7 +3591,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
           if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
             return resolve({
-              missingHeaders: ['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode'],
+              missingHeaders: ['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode', 'Password'],
               dataErrors: []
             });
           }
@@ -3599,7 +3600,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
           if (!jsonRows || jsonRows.length === 0) {
             return resolve({
-              missingHeaders: ['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode'],
+              missingHeaders: ['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode', 'Password'],
               dataErrors: []
             });
           }
@@ -8764,7 +8765,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               ))}
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.4' }}>
-              Required columns: <strong>First Name, Last Name, Email Address, Phone Number, Gender, Date Of Birth, Address, State, City, Zipcode</strong>.
+              Required columns: <strong>First Name, Last Name, Email Address, Phone Number, Gender, Date Of Birth, Address, State, City, Zipcode, Password</strong>.
             </p>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button
