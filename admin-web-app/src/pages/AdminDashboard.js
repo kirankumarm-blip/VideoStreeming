@@ -3127,6 +3127,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         payload.id = editingCourse.id;
         payload.course_id = editingCourse.id;
         payload.formstep = "editCourse";
+        payload.formStep = "editCourse";
+      } else {
+        const currentUserObj = getCurrentUser();
+        const defaultStep = (currentUserObj && currentUserObj.role === 'super_admin') ? "uploadCourse" : "UploadCouse";
+        payload.formstep = defaultStep;
+        payload.formStep = defaultStep;
       }
 
       await api.videos.uploadCourse(payload);

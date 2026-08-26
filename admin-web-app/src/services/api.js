@@ -1245,9 +1245,8 @@ export const api = {
       const endpoint = isSuperAdmin ? '/SuperAdminVideos' : '/adminVideos';
       const bodyObj = { ...payload };
       const step = bodyObj.formstep || bodyObj.formStep || (isSuperAdmin ? "uploadCourse" : "UploadCouse");
-      delete bodyObj.formstep;
-      delete bodyObj.formStep;
       bodyObj.formstep = step;
+      bodyObj.formStep = step;
       return request(endpoint, {
         method: 'POST',
         body: JSON.stringify(bodyObj)
