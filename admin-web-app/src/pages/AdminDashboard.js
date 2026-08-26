@@ -3,6 +3,7 @@ import { api, getCurrentUser } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 import { encryptUrl, decryptUrl } from '../utils/crypto';
+import * as XLSX from 'xlsx';
 import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActionButton } from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
@@ -292,6 +293,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [bulkFile, setBulkFile] = useState(null);
   const [bulkFileError, setBulkFileError] = useState('');
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [missingColumnsList, setMissingColumnsList] = useState([]);
+  const [showMissingColumnsModal, setShowMissingColumnsModal] = useState(false);
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [genders, setGenders] = useState([]);
   const [statesList, setStatesList] = useState([]);
@@ -3562,6 +3565,57 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setShowUserModal(true);
   };
 
+  const REQUIRED_EXCEL_COLUMNS = [
+    { label: 'First Name', keys: ['firstname', 'first name', 'first_name'] },
+    { label: 'Last Name', keys: ['lastname', 'last name', 'last_name'] },
+    { label: 'Email Address', keys: ['emailaddress', 'email address', 'email_address', 'email'] },
+    { label: 'Phone Number', keys: ['phonenumber', 'phone number', 'phone_number', 'mobile', 'mobilenumber', 'mobile number', 'mobile_number', 'phone'] },
+    { label: 'Gender', keys: ['gender'] },
+    { label: 'Date Of Birth', keys: ['dateofbirth', 'date of birth', 'date_of_birth', 'dob'] },
+    { label: 'Address', keys: ['address', 'streetaddress', 'street address'] },
+    { label: 'State', keys: ['state'] },
+    { label: 'City', keys: ['city'] },
+    { label: 'Zipcode', keys: ['zipcode', 'zip code', 'zip_code', 'zip', 'postalcode', 'postal code', 'pincode'] }
+  ];
+
+  const parseAndValidateExcelHeaders = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            return resolve(['First Name', 'Last Name', 'Email Address', 'Phone Number', 'Gender', 'Date Of Birth', 'Address', 'State', 'City', 'Zipcode']);
+          }
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+          const rawHeaders = (json && json.length > 0 && Array.isArray(json[0])) ? json[0].map(h => String(h || '').trim()) : [];
+          
+          const normalizedHeaders = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+          const missing = [];
+
+          REQUIRED_EXCEL_COLUMNS.forEach(col => {
+            const found = col.keys.some(k => {
+              const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return normalizedHeaders.includes(normK);
+            });
+            if (!found) {
+              missing.push(col.label);
+            }
+          });
+
+          resolve(missing);
+        } catch (err) {
+          console.error('Error parsing Excel file headers:', err);
+          resolve([]);
+        }
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
   const handleBulkUserSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!bulkFile) {
@@ -3572,6 +3626,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setBulkUploading(true);
 
     try {
+      // Validate columns first
+      const missingCols = await parseAndValidateExcelHeaders(bulkFile);
+      if (missingCols && missingCols.length > 0) {
+        setMissingColumnsList(missingCols);
+        setShowMissingColumnsModal(true);
+        setBulkUploading(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('formstep', 'bulk_upload');
       formData.append('formStep', 'bulk_upload');
@@ -8509,6 +8572,41 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MISSING COLUMNS CUSTOM ALERT MODAL --- */}
+      {showMissingColumnsModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2200 }}>
+          <div className="animate-fade-in glass-card" style={{ width: '90%', maxWidth: '500px', padding: '32px', borderRadius: '16px', background: 'var(--bg-secondary, #ffffff)', color: 'var(--text-primary)', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', fontSize: '28px' }}>
+              <i className="fa-solid fa-triangle-exclamation" />
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px', color: 'var(--text-primary)' }}>Missing Excel Columns</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
+              The uploaded file is missing mandatory required column(s):
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginBottom: '20px', padding: '12px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '10px', border: '1px dashed rgba(239, 68, 68, 0.3)' }}>
+              {missingColumnsList.map((col, idx) => (
+                <span key={idx} style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#dc2626' }}>
+                  ❌ {col}
+                </span>
+              ))}
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.4' }}>
+              Required columns: <strong>First Name, Last Name, Email Address, Phone Number, Gender, Date Of Birth, Address, State, City, Zipcode</strong>.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowMissingColumnsModal(false)}
+                className="btn btn-primary"
+                style={{ padding: '10px 28px', backgroundColor: '#ef4444', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+              >
+                Got It
+              </button>
+            </div>
           </div>
         </div>
       )}
