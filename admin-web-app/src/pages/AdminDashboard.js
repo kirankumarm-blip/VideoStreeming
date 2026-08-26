@@ -1312,12 +1312,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'course_draft') {
       fetchCourseDrafts(selectedAdminId);
-      fetchCategories();
-      fetchVisibilities();
-      fetchLevels();
-      fetchLanguages();
-      fetchAdminsList();
-      fetchAuthorAdminsList();
     }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
       fetchDashboardData('analytics');
