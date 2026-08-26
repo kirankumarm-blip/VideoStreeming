@@ -375,6 +375,20 @@ app.post('/vdDrafts', handleVdDrafts);
 app.post('/api/vdDrafts', handleVdDrafts);
 app.post('/webhook/vdDrafts', handleVdDrafts);
 
+// ================= BULK UPLOAD MODULE =================
+const handleVdBulkUpload = (req, res) => {
+  const formstep = req.body?.formstep || req.body?.formStep || 'bulk_upload';
+  return res.json({
+    message: "Bulk users uploaded successfully!",
+    formstep,
+    uploaded_count: 5
+  });
+};
+
+app.post('/vd_bulk_upload', upload.single('file'), handleVdBulkUpload);
+app.post('/api/vd_bulk_upload', upload.single('file'), handleVdBulkUpload);
+app.post('/webhook/vd_bulk_upload', upload.single('file'), handleVdBulkUpload);
+
 // ================= CLIENTS MODULE =================
 const handleVdClients = (req, res) => {
   const db = readDB();

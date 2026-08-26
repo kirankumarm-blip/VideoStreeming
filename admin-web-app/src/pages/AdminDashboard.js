@@ -288,6 +288,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   });
   const [editingUser, setEditingUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showBulkUserModal, setShowBulkUserModal] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkFileError, setBulkFileError] = useState('');
+  const [bulkUploading, setBulkUploading] = useState(false);
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [genders, setGenders] = useState([]);
   const [statesList, setStatesList] = useState([]);
@@ -3558,6 +3562,45 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setShowUserModal(true);
   };
 
+  const handleBulkUserSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!bulkFile) {
+      setBulkFileError('Please select an Excel file to upload');
+      return;
+    }
+    setBulkFileError('');
+    setBulkUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('formstep', 'bulk_upload');
+      formData.append('formStep', 'bulk_upload');
+      formData.append('file', bulkFile);
+      formData.append('excel_file', bulkFile);
+
+      const bulkFn = api.users?.bulkUploadUsers || api.users?.bulkUpload || api.bulkUploadUsers;
+      const res = await bulkFn(formData);
+      
+      if (typeof showSuccess === 'function') {
+        showSuccess(res?.message || 'Bulk users uploaded successfully!');
+      } else {
+        alert(res?.message || 'Bulk users uploaded successfully!');
+      }
+      setShowBulkUserModal(false);
+      setBulkFile(null);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to upload bulk users:', err);
+      if (typeof showError === 'function') {
+        showError(err.message || 'Failed to upload bulk users');
+      } else {
+        alert(err.message || 'Failed to upload bulk users');
+      }
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
   const handleToggleUserStatus = (user, statusVal, isBlock = false) => {
     let actionType = 'disable';
     let confirmMsg = 'Are you sure you want to disable this user?';
@@ -4705,28 +4748,41 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       style={{ width: '135px', minWidth: '135px' }}
                     />
                     {!isAuthorAdminUser && (
-                      <button 
-                        onClick={() => {
-                          setEditingUser(null);
-                          setUserForm({
-                            firstName: '',
-                            lastName: '',
-                            email: '',
-                            mobile: '',
-                            gender: '',
-                            dob: '',
-                            city: '',
-                            state: '',
-                            zipcode: '',
-                            address: ''
-                          });
-                          setShowUserModal(true);
-                        }}
-                        className="btn btn-primary"
-                        style={{ padding: '8px 16px', fontSize: '13px' }}
-                      >
-                        {t('admin.addUser')}
-                      </button>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => {
+                            setEditingUser(null);
+                            setUserForm({
+                              firstName: '',
+                              lastName: '',
+                              email: '',
+                              mobile: '',
+                              gender: '',
+                              dob: '',
+                              city: '',
+                              state: '',
+                              zipcode: '',
+                              address: ''
+                            });
+                            setShowUserModal(true);
+                          }}
+                          className="btn btn-primary"
+                          style={{ padding: '8px 16px', fontSize: '13px' }}
+                        >
+                          {t('admin.addUser')}
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setBulkFile(null);
+                            setBulkFileError('');
+                            setShowBulkUserModal(true);
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
+                        >
+                          <i className="fa-solid fa-file-excel" style={{ fontSize: '14px' }} /> Bulk User
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -8343,6 +8399,114 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
                 <button type="button" onClick={() => setShowSubCategoryModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Submit</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- BULK UPLOAD USERS MODAL --- */}
+      {showBulkUserModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2100 }}>
+          <div className="animate-fade-in glass-card" style={{ width: '90%', maxWidth: '520px', padding: '32px', borderRadius: '16px', background: 'var(--bg-secondary, #ffffff)', color: 'var(--text-primary)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                  <i className="fa-solid fa-file-excel" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Bulk Upload Users</h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>Upload Excel spreadsheet to import users</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkUserModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '20px', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkUserSubmit}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-primary)' }}>
+                  Select Excel File (.xlsx, .xls, .csv) *
+                </label>
+                <div 
+                  style={{ 
+                    border: `2px dashed ${bulkFile ? '#10b981' : (bulkFileError ? '#ef4444' : 'var(--border-color, #cbd5e1)')}`, 
+                    borderRadius: '12px', 
+                    padding: '24px', 
+                    textAlign: 'center', 
+                    backgroundColor: bulkFile ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-tertiary, #f8fafc)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => document.getElementById('bulkUserFileInput')?.click()}
+                >
+                  <input
+                    type="file"
+                    id="bulkUserFileInput"
+                    accept=".xlsx, .xls, .csv"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setBulkFile(file);
+                        setBulkFileError('');
+                      }
+                    }}
+                  />
+                  {bulkFile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <i className="fa-solid fa-file-circle-check" style={{ fontSize: '32px', color: '#10b981' }} />
+                      <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{bulkFile.name}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>({(bulkFile.size / 1024).toFixed(1)} KB)</span>
+                      <span style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'underline', marginTop: '4px' }}>Click to choose a different file</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <i className="fa-solid fa-cloud-arrow-up" style={{ fontSize: '32px', color: '#64748b' }} />
+                      <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>Click to browse Excel file</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Supports .xlsx, .xls, .csv files</span>
+                    </div>
+                  )}
+                </div>
+                {bulkFileError && (
+                  <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '8px', fontWeight: 600 }}>
+                    {bulkFileError}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkUserModal(false)}
+                  className="btn btn-secondary"
+                  style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600 }}
+                  disabled={bulkUploading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ padding: '10px 24px', backgroundColor: '#10b981', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  disabled={bulkUploading}
+                >
+                  {bulkUploading ? (
+                    <>
+                      <span className="spinner" style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s infinite linear' }} />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-upload" /> Upload Users
+                    </>
+                  )}
+                </button>
               </div>
             </form>
           </div>

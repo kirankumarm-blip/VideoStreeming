@@ -914,6 +914,38 @@ export const api = {
         body: JSON.stringify({ formStep: "AddUser", ...data }),
       });
     },
+    bulkUpload: (formDataOrPayload) => {
+      const isFormData = typeof FormData !== 'undefined' && formDataOrPayload instanceof FormData;
+      if (isFormData) {
+        if (!formDataOrPayload.has('formstep')) formDataOrPayload.append('formstep', 'bulk_upload');
+        if (!formDataOrPayload.has('formStep')) formDataOrPayload.append('formStep', 'bulk_upload');
+        return request('/vd_bulk_upload', {
+          method: 'POST',
+          body: formDataOrPayload
+        });
+      }
+      const bodyObj = { ...formDataOrPayload, formstep: 'bulk_upload', formStep: 'bulk_upload' };
+      return request('/vd_bulk_upload', {
+        method: 'POST',
+        body: JSON.stringify(bodyObj)
+      });
+    },
+    bulkUploadUsers: (formDataOrPayload) => {
+      const isFormData = typeof FormData !== 'undefined' && formDataOrPayload instanceof FormData;
+      if (isFormData) {
+        if (!formDataOrPayload.has('formstep')) formDataOrPayload.append('formstep', 'bulk_upload');
+        if (!formDataOrPayload.has('formStep')) formDataOrPayload.append('formStep', 'bulk_upload');
+        return request('/vd_bulk_upload', {
+          method: 'POST',
+          body: formDataOrPayload
+        });
+      }
+      const bodyObj = { ...formDataOrPayload, formstep: 'bulk_upload', formStep: 'bulk_upload' };
+      return request('/vd_bulk_upload', {
+        method: 'POST',
+        body: JSON.stringify(bodyObj)
+      });
+    },
     update: (userId, data) => {
       return request('/adminUsers', {
         method: 'POST',
