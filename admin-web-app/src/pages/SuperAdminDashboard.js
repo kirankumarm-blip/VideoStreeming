@@ -646,23 +646,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
-    // Initial fetch based on current activeTab (defaults to overview)
-    if (activeTab === 'overview') {
-      fetchDashboardData('overview');
-      fetchCategories();
-      fetchVideos();
-      fetchUsers();
-      fetchGenders();
-    } else if (activeTab === 'analytics') {
-      fetchDashboardData('analytics');
-    } else if (activeTab === 'admins_all') {
-      fetchAdmins();
-    }
-    fetchDropdownClients();
-  }, []);
-
-  useEffect(() => {
-    if (['categories', 'sub_categories'].includes(activeTab)) {
+    if (['categories', 'sub_categories', 'video_upload', 'course_upload', 'course_draft', 'course_all'].includes(activeTab)) {
       return;
     }
     fetchDropdownClients(activeTab);
