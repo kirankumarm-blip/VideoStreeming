@@ -686,9 +686,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setUsers([]);
       fetchUsers();
     }
-    if (activeTab === 'content_videos') {
-      fetchVideos();
-    }
     if (activeTab === 'client_management') {
       fetchClients();
     }

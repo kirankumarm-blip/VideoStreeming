@@ -615,6 +615,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   });
   const lastFetchedSubCatIdRef = useRef(null);
   const lastFetchedVideosRef = useRef(null);
+  const isFetchingVideosRef = useRef(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -2281,42 +2282,48 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchVideos = async (adminId = selectedAdminId) => {
     const fetchKey = String(adminId || '0');
+    if (isFetchingVideosRef.current) return;
     if (lastFetchedVideosRef.current === fetchKey && myVideos && myVideos.length > 0) {
       return;
     }
+    isFetchingVideosRef.current = true;
     lastFetchedVideosRef.current = fetchKey;
 
-    if (isAuthorAdminUser) {
-      fetchAssignedVideos(adminId);
-      fetchMyPersonalVideos(adminId);
-    } else {
-      try {
-        const data = await api.videos.list({ adminId });
-        let rawList = [];
-        if (Array.isArray(data)) {
-          rawList = data;
-        } else if (data && typeof data === 'object') {
-          if (Array.isArray(data.data)) {
-            rawList = data.data;
-          } else if (Array.isArray(data.videos)) {
-            rawList = data.videos;
-          } else {
-            const arrProp = Object.values(data).find(val => Array.isArray(val));
-            if (arrProp) rawList = arrProp;
+    try {
+      if (isAuthorAdminUser) {
+        fetchAssignedVideos(adminId);
+        fetchMyPersonalVideos(adminId);
+      } else {
+        try {
+          const data = await api.videos.list({ adminId });
+          let rawList = [];
+          if (Array.isArray(data)) {
+            rawList = data;
+          } else if (data && typeof data === 'object') {
+            if (Array.isArray(data.data)) {
+              rawList = data.data;
+            } else if (Array.isArray(data.videos)) {
+              rawList = data.videos;
+            } else {
+              const arrProp = Object.values(data).find(val => Array.isArray(val));
+              if (arrProp) rawList = arrProp;
+            }
           }
+          const validVideos = rawList
+            .map(item => {
+              if (!item) return null;
+              if (item.json && typeof item.json === 'object') return item.json;
+              return item;
+            })
+            .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
+          setMyVideos(validVideos);
+        } catch (e) {
+          console.error('Failed to fetch videos:', e);
+          setMyVideos([]);
         }
-        const validVideos = rawList
-          .map(item => {
-            if (!item) return null;
-            if (item.json && typeof item.json === 'object') return item.json;
-            return item;
-          })
-          .filter(v => v && typeof v === 'object' && Object.keys(v).length > 0 && (v.id || v.video_id || v.title || v.video_title || v.videoUrl || v.video_url || v.fileName || v.name));
-        setMyVideos(validVideos);
-      } catch (e) {
-        console.error('Failed to fetch videos:', e);
-        setMyVideos([]);
       }
+    } finally {
+      isFetchingVideosRef.current = false;
     }
   };
 
