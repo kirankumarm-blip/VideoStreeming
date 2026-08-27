@@ -3447,7 +3447,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setChapters([]);
       setCourseThumbnailUrl('');
       setCourseBannerUrl('');
-      fetchCourses();
+      fetchCourses(selectedAdminId);
+
+      // Automatically navigate to All Courses / Drafts tab
+      if (isDraft) {
+        setActiveTab('course_draft');
+      } else {
+        setActiveTab('course_all');
+      }
       setActiveTab('course_all');
     } catch (e) {
       console.error(e);
@@ -5269,17 +5276,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     position: 'fixed',
                     top: 0,
                     left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'transparent',
+                    width: '100vw',
+                    height: '100vh',
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    backdropFilter: 'blur(2px)',
+                    WebkitBackdropFilter: 'blur(2px)',
                     display: 'flex',
-                    flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    zIndex: 9999,
+                    zIndex: 999999,
                     pointerEvents: 'all'
                   }}>
-                    <ThreeDLoader text={uploadProgress} />
+                    <div className="glass-card animate-fade-in" style={{ padding: '36px 52px', borderRadius: '16px', backgroundColor: theme === 'dark' ? '#181824' : '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', border: '1px solid var(--accent-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <ThreeDLoader text={uploadProgress} />
+                    </div>
                   </div>
                 )}
                 
@@ -5910,17 +5920,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       position: 'fixed',
                       top: 0,
                       left: 0,
-                      right: 0,
-                      bottom: 0,
-                      backgroundColor: 'transparent',
+                      width: '100vw',
+                      height: '100vh',
+                      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                      backdropFilter: 'blur(2px)',
+                      WebkitBackdropFilter: 'blur(2px)',
                       display: 'flex',
-                      flexDirection: 'column',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      zIndex: 9999,
+                      zIndex: 999999,
                       pointerEvents: 'all'
                     }}>
-                      <ThreeDLoader text={uploadProgress} />
+                      <div className="glass-card animate-fade-in" style={{ padding: '36px 52px', borderRadius: '16px', backgroundColor: containerBg, boxShadow: '0 25px 60px rgba(0,0,0,0.3)', border: '1px solid var(--accent-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <ThreeDLoader text={uploadProgress} />
+                      </div>
                     </div>
                   )}
                   <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
