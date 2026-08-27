@@ -516,6 +516,18 @@ const VideoWatch = () => {
     }));
   };
 
+  const handleTextAnswer = (textVal) => {
+    const q = quizModal.questions[quizModal.currentIdx];
+    if (!q) return;
+    setQuizModal(prev => ({
+      ...prev,
+      userAnswers: {
+        ...prev.userAnswers,
+        [q.id]: textVal
+      }
+    }));
+  };
+
   const handleNextQuizQuestion = () => {
     if (quizModal.currentIdx < quizModal.questions.length - 1) {
       setQuizModal(prev => ({
@@ -569,15 +581,47 @@ const VideoWatch = () => {
     setQuizModal(prev => ({ ...prev, isSubmitting: true }));
     let correctCount = 0;
     const answerBreakdown = quizModal.questions.map(q => {
-      const selected = quizModal.userAnswers[q.id];
-      const isCorrect = selected === q.correctAnswer;
+      const qType = String(q.question_type || q.questionType || 1);
+      const userAns = quizModal.userAnswers[q.id];
+      let isCorrect = false;
+      let selectedDisplay = userAns;
+      let correctDisplay = q.correctAnswer;
+
+      if (qType === '3') { // Fill in the blanks
+        const expectedAns = q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || (Array.isArray(q.options) ? q.options[0] : '') || '';
+        isCorrect = String(userAns || '').trim().toLowerCase() === String(expectedAns || '').trim().toLowerCase();
+        selectedDisplay = String(userAns || '').trim();
+        correctDisplay = String(expectedAns || '').trim();
+      } else { // MCQ (1) or True/False (2)
+        const selectedIdx = typeof userAns === 'number' ? userAns : parseInt(userAns, 10);
+        const correctIdx = typeof q.correctAnswer === 'number' ? q.correctAnswer : parseInt(q.correctAnswer, 10);
+        isCorrect = selectedIdx === correctIdx;
+
+        const effectiveOptions = (qType === '2' && (!q.options || q.options.length < 2))
+          ? ["True", "False"]
+          : (q.options || []);
+
+        selectedDisplay = (Array.isArray(effectiveOptions) && selectedIdx >= 0 && selectedIdx < effectiveOptions.length)
+          ? effectiveOptions[selectedIdx]
+          : selectedIdx;
+
+        correctDisplay = (Array.isArray(effectiveOptions) && correctIdx >= 0 && correctIdx < effectiveOptions.length)
+          ? effectiveOptions[correctIdx]
+          : correctIdx;
+      }
+
       if (isCorrect) correctCount++;
+
       return {
         question_id: q.id,
         question: q.question,
-        options: q.options,
-        selected_option: selected,
+        question_type: qType,
+        options: q.options || [],
+        selected_option: userAns,
+        selected_text: selectedDisplay,
+        user_answer: userAns,
         correct_option: q.correctAnswer,
+        correct_text: correctDisplay,
         is_correct: isCorrect
       };
     });
@@ -588,6 +632,7 @@ const VideoWatch = () => {
 
     const payload = {
       formstep: 'submitQuiz',
+      formStep: 'submitQuiz',
       course_id: quizModal.courseId,
       chapter_id: quizModal.chapterId,
       quiz_id: quizModal.quizId,
@@ -599,7 +644,10 @@ const VideoWatch = () => {
       status: isPassedBool ? 'Passed' : 'Failed',
       answers: answerBreakdown.map(a => ({
         question_id: a.question_id,
+        question_type: a.question_type,
         selected_option: a.selected_option,
+        user_answer: a.user_answer,
+        selected_text: a.selected_text,
         is_correct: a.is_correct
       }))
     };
@@ -2049,6 +2097,7 @@ const VideoWatch = () => {
                 const currentQ = quizModal.questions[quizModal.currentIdx];
                 if (!currentQ) return null;
                 const selectedOpt = quizModal.userAnswers[currentQ.id];
+                const qType = String(currentQ.question_type || currentQ.questionType || 1);
 
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -2063,61 +2112,98 @@ const VideoWatch = () => {
                       {currentQ.question}
                     </h4>
 
-                    {/* Options Cards */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {(currentQ.options || []).map((opt, optIdx) => {
-                        const isSelected = selectedOpt === optIdx;
+                    {/* Question Input / Options based on question_type */}
+                    {qType === '3' ? (
+                      /* Question Type 3: Fill in the Blanks Input */
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary, #a1a1aa)' }}>
+                          ✏️ Type your answer below:
+                        </label>
+                        <input
+                          type="text"
+                          value={selectedOpt || ''}
+                          onChange={(e) => handleTextAnswer(e.target.value)}
+                          placeholder="Enter your answer here..."
+                          style={{
+                            width: '100%',
+                            padding: '16px 20px',
+                            borderRadius: '12px',
+                            backgroundColor: 'var(--bg-primary, #12121a)',
+                            border: `1.5px solid ${String(selectedOpt || '').trim() ? '#e50914' : 'var(--border-color, #2e2e3e)'}`,
+                            color: 'var(--text-primary, #ffffff)',
+                            fontSize: '15px',
+                            fontWeight: 500,
+                            outline: 'none',
+                            transition: 'all 0.2s ease',
+                            boxShadow: String(selectedOpt || '').trim() ? '0 4px 14px rgba(229, 9, 20, 0.15)' : 'none'
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      /* Question Types 1 (MCQ) & 2 (True / False) Options */
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {(() => {
+                          const tfDefaults = ["True", "False"];
+                          const optionsToRender = (qType === '2' && (!currentQ.options || currentQ.options.length < 2))
+                            ? tfDefaults
+                            : (currentQ.options || []);
 
-                        return (
-                          <div
-                            key={optIdx}
-                            onClick={() => handleSelectOption(optIdx)}
-                            style={{
-                              padding: '14px 18px',
-                              borderRadius: '12px',
-                              backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.14)' : 'var(--bg-primary, #12121a)',
-                              border: `1.5px solid ${isSelected ? '#e50914' : 'var(--border-color, #2e2e3e)'}`,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '14px',
-                              transition: 'all 0.2s ease',
-                              boxShadow: isSelected ? '0 4px 14px rgba(229, 9, 20, 0.25)' : 'none'
-                            }}
-                          >
-                            {/* Option Radio Circle */}
-                            <div style={{
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '50%',
-                              border: `2px solid ${isSelected ? '#e50914' : '#666'}`,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0
-                            }}>
-                              {isSelected && <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#e50914' }} />}
-                            </div>
+                          return optionsToRender.map((opt, optIdx) => {
+                            const isSelected = selectedOpt === optIdx;
+                            const optText = typeof opt === 'object' ? (opt.text || opt.option_text || JSON.stringify(opt)) : String(opt);
 
-                            <span style={{
-                              fontSize: '13px',
-                              fontWeight: 700,
-                              color: isSelected ? '#e50914' : 'var(--text-secondary, #a1a1aa)'
-                            }}>
-                              {String.fromCharCode(65 + optIdx)}.
-                            </span>
+                            return (
+                              <div
+                                key={optIdx}
+                                onClick={() => handleSelectOption(optIdx)}
+                                style={{
+                                  padding: '14px 18px',
+                                  borderRadius: '12px',
+                                  backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.14)' : 'var(--bg-primary, #12121a)',
+                                  border: `1.5px solid ${isSelected ? '#e50914' : 'var(--border-color, #2e2e3e)'}`,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '14px',
+                                  transition: 'all 0.2s ease',
+                                  boxShadow: isSelected ? '0 4px 14px rgba(229, 9, 20, 0.25)' : 'none'
+                                }}
+                              >
+                                {/* Option Radio Circle */}
+                                <div style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  border: `2px solid ${isSelected ? '#e50914' : '#666'}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  {isSelected && <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#e50914' }} />}
+                                </div>
 
-                            <span style={{
-                              fontSize: '14px',
-                              color: isSelected ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #d1d5db)',
-                              fontWeight: isSelected ? 600 : 400
-                            }}>
-                              {opt}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                                <span style={{
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  color: isSelected ? '#e50914' : 'var(--text-secondary, #a1a1aa)'
+                                }}>
+                                  {String.fromCharCode(65 + optIdx)}.
+                                </span>
+
+                                <span style={{
+                                  fontSize: '14px',
+                                  color: isSelected ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #d1d5db)',
+                                  fontWeight: isSelected ? 600 : 400
+                                }}>
+                                  {optText}
+                                </span>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
                   </div>
                 );
               })() : (
@@ -2174,44 +2260,60 @@ const VideoWatch = () => {
                           </span>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
-                          {ans.options.map((opt, oIdx) => {
-                            const isUserChoice = ans.selected_option === oIdx;
-                            const isCorrectChoice = ans.correct_option === oIdx;
-
-                            let bg = 'transparent';
-                            let color = 'var(--text-secondary, #a1a1aa)';
-                            let border = '1px transparent solid';
-
-                            if (isCorrectChoice) {
-                              bg = 'rgba(16, 185, 129, 0.2)';
-                              color = '#10b981';
-                              border = '1px solid #10b981';
-                            } else if (isUserChoice && !ans.is_correct) {
-                              bg = 'rgba(239, 68, 68, 0.2)';
-                              color = '#ef4444';
-                              border = '1px solid #ef4444';
-                            }
-
-                            return (
-                              <div key={oIdx} style={{
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                backgroundColor: bg,
-                                color: color,
-                                border: border,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                fontWeight: (isUserChoice || isCorrectChoice) ? 600 : 400
-                              }}>
-                                <span>{String.fromCharCode(65 + oIdx)}. {opt}</span>
-                                {isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981' }}>[Correct Answer]</span>}
-                                {isUserChoice && !isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>[Your Choice]</span>}
+                        {ans.question_type === '3' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                            <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: ans.is_correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', border: `1px solid ${ans.is_correct ? '#10b981' : '#ef4444'}` }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Your Answer: </span>
+                              <strong style={{ color: ans.is_correct ? '#10b981' : '#ef4444' }}>{ans.user_answer || '(No answer provided)'}</strong>
+                            </div>
+                            {!ans.is_correct && (
+                              <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Correct Answer: </span>
+                                <strong style={{ color: '#10b981' }}>{ans.correct_text}</strong>
                               </div>
-                            );
-                          })}
-                        </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                            {(ans.options || []).map((opt, oIdx) => {
+                              const isUserChoice = ans.selected_option === oIdx;
+                              const isCorrectChoice = ans.correct_option === oIdx;
+                              const optText = typeof opt === 'object' ? (opt.text || opt.option_text || JSON.stringify(opt)) : String(opt);
+
+                              let bg = 'transparent';
+                              let color = 'var(--text-secondary, #a1a1aa)';
+                              let border = '1px transparent solid';
+
+                              if (isCorrectChoice) {
+                                bg = 'rgba(16, 185, 129, 0.2)';
+                                color = '#10b981';
+                                border = '1px solid #10b981';
+                              } else if (isUserChoice && !ans.is_correct) {
+                                bg = 'rgba(239, 68, 68, 0.2)';
+                                color = '#ef4444';
+                                border = '1px solid #ef4444';
+                              }
+
+                              return (
+                                <div key={oIdx} style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  backgroundColor: bg,
+                                  color: color,
+                                  border: border,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  fontWeight: (isUserChoice || isCorrectChoice) ? 600 : 400
+                                }}>
+                                  <span>{String.fromCharCode(65 + oIdx)}. {optText}</span>
+                                  {isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981' }}>[Correct Answer]</span>}
+                                  {isUserChoice && !isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>[Your Choice]</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
