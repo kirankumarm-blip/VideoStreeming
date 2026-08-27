@@ -2102,6 +2102,23 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {!['video_upload', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'client_management'].includes(activeTab) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Client:</span>
+                <PremiumSelect
+                  options={dropdownClients.map(client => ({
+                    id: String(client.id ?? client.client_id ?? '0'),
+                    name: client.name || client.client_name || client.username || client.email || 'Super Admin'
+                  }))}
+                  value={String(selectedClientId)}
+                  onChange={handleClientChange}
+                  searchable={dropdownClients.length > 5}
+                  icon="fa-solid fa-building-user"
+                  placeholder="Select Client"
+                  style={{ minWidth: '170px', height: '38px', borderRadius: '8px' }}
+                />
+              </div>
+            )}
             {activeTab === 'rep_export' && (
               <>
                 <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
