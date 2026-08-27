@@ -847,15 +847,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const authorIdVal = foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawAuthor);
     const instructorName = foundAuthor ? foundAuthor.name : (course.instructor || course.assigned_admin || rawAuthor);
 
-    // 6. Client Resolution
-    const rawClient = course.client_id || course.client_name || course.assigned_admin || course.admin_id || course.adminId || (isSuperAdmin ? selectedAdminId : '');
+    // 6. Client Resolution (Super Admin top header dropdown OR course properties)
+    const isSuperAdminMode = isSuperAdmin || isSuperAdminView || (currentUser && currentUser.role === 'super_admin');
+    const rawClient = (isSuperAdminMode && selectedAdminId && selectedAdminId !== '0')
+      ? selectedAdminId
+      : (course.client_id || course.client_name || course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '');
+
     const foundClient = combinedAdmins.find(a =>
       String(a.id || a.admin_id || a.user_id) === String(rawClient) ||
       String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient || '').trim().toLowerCase()
     );
     let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : String(rawClient || '');
-    if (isNaN(parseInt(admVal, 10)) && authorIdVal && !isNaN(parseInt(authorIdVal, 10))) {
-      admVal = authorIdVal;
+    if ((!admVal || admVal === '0' || isNaN(parseInt(admVal, 10))) && (selectedAdminId && selectedAdminId !== '0')) {
+      admVal = String(selectedAdminId);
     }
 
     // 7. Visibility Resolution (Super Admin specific rule: if client_id exists, visibility must be Private!)
@@ -866,7 +870,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     let visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
 
-    const isSuperAdminMode = isSuperAdmin || isSuperAdminView || (currentUser && currentUser.role === 'super_admin');
     const hasClientId = Boolean(
       (course.client_id && String(course.client_id) !== '0') ||
       (course.client_name && String(course.client_name).trim() !== '') ||
@@ -901,21 +904,29 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       adminId: admVal
     });
 
-    if (catId) {
-      fetchSubCategories(catId).then((subList) => {
-        if (Array.isArray(subList) && subList.length > 0) {
-          const target = String(subCatRaw).trim().toLowerCase();
-          const foundSub = subList.find(s => {
-            const sId = String(s.id);
-            const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
-            return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
-          });
-          if (foundSub) {
-            setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
-          }
-        }
-      });
-    }
+    const targetClientId = (isSuperAdminMode && admVal && admVal !== '0') ? admVal : (selectedAdminId !== '0' ? selectedAdminId : null);
+
+    fetchCategories(targetClientId).then((fetchedCats) => {
+      const catList = (Array.isArray(fetchedCats) && fetchedCats.length > 0) ? fetchedCats : categories;
+      const foundCat = catList.find(c => 
+        String(c.id) === String(catRaw) || 
+        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
+      );
+      const resolvedCatId = foundCat ? String(foundCat.id) : String(catRaw);
+      
+      setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
+
+      if (resolvedCatId) {
+        fetchSubCategories(resolvedCatId, targetClientId).then((subList) => {
+          const foundSub = (subList || []).find(s =>
+            String(s.id) === String(subCatRaw) ||
+            String(s.name || s.sub_category_name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase() === String(subCatRaw).trim().toLowerCase()
+          );
+          const resolvedSubId = foundSub ? String(foundSub.id) : String(subCatRaw);
+          setCourseForm(prev => ({ ...prev, subCategory: resolvedSubId }));
+        });
+      }
+    });
 
     const parsedThumb = course.thumbnail_image || course.thumbnail_url || course.thumbnailUrl || course.thumbnail || course.image || '';
     if (parsedThumb) {
@@ -6099,7 +6110,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <div className="form-group" style={{ margin: 0 }}>
                                 <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Client *</label>
                                 <PremiumSelect
-                                  options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
+                                  options={[...adminsList, ...authorAdminsList].reduce((acc, item) => {
+                                     const itemId = String(item.id || item.admin_id || item.user_id || '');
+                                     if (!itemId || acc.some(x => x.id === itemId)) return acc;
+                                     acc.push({
+                                       id: itemId,
+                                       name: item.name || item.username || item.email || item.label || `Client ${itemId}`
+                                     });
+                                     return acc;
+                                   }, [])}
                                   value={courseForm.adminId}
                                   disabled={isCourseViewOnly || loadingAdminsList}
                                   onChange={(e) => {
