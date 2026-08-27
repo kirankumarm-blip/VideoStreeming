@@ -614,6 +614,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     adminId: ''
   });
   const lastFetchedSubCatIdRef = useRef(null);
+  const lastFetchedVideosRef = useRef(null);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -2279,6 +2280,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchVideos = async (adminId = selectedAdminId) => {
+    const fetchKey = String(adminId || '0');
+    if (lastFetchedVideosRef.current === fetchKey && myVideos && myVideos.length > 0) {
+      return;
+    }
+    lastFetchedVideosRef.current = fetchKey;
+
     if (isAuthorAdminUser) {
       fetchAssignedVideos(adminId);
       fetchMyPersonalVideos(adminId);
@@ -4396,6 +4403,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       resetVideoFormToDefault();
       fetchDashboardData(activeTab);
       fetchCourses(selectedAdminId);
+      lastFetchedVideosRef.current = null;
       fetchVideos(selectedAdminId);
       setActiveTab('video_all');
     } catch (err) {
@@ -4411,6 +4419,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (window.confirm('Are you sure you want to delete this video?')) {
       try {
         await api.videos.delete(id);
+        lastFetchedVideosRef.current = null;
         fetchVideos();
         fetchDashboardData();
       } catch (err) {
