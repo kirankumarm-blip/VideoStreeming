@@ -2552,6 +2552,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   // Chapter Quiz Helpers
   const toggleChapterQuiz = (chapterId) => {
+    const targetChapter = (chapters || []).find(ch => ch.id === chapterId);
+    if (editingCourse && targetChapter && targetChapter.quiz) {
+      setCustomAlert({
+        show: true,
+        title: 'Coming Soon!',
+        message: 'Coming soon!',
+        type: 'info',
+        buttonText: 'OK'
+      });
+      return;
+    }
     setChapters(chapters.map(ch => {
       if (ch.id !== chapterId) return ch;
       if (ch.quiz) {
@@ -2618,6 +2629,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const removeQuizQuestion = (chapterId, questionId) => {
+    if (editingCourse) {
+      setCustomAlert({
+        show: true,
+        title: 'Coming Soon!',
+        message: 'Coming soon!',
+        type: 'info',
+        buttonText: 'OK'
+      });
+      return;
+    }
     setChapters(chapters.map(ch => {
       if (ch.id !== chapterId || !ch.quiz) return ch;
       const updatedQuestions = ch.quiz.questions.filter(q => q.id !== questionId);
