@@ -1275,6 +1275,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   useEffect(() => {
     if (activeTab === 'overview' && !justContent) {
       fetchDashboardData('overview');
+    } else {
+      setLoading(false);
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
       setUsers([]);

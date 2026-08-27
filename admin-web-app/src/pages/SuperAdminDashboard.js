@@ -647,6 +647,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   useEffect(() => {
     if (['categories', 'sub_categories', 'video_upload', 'course_upload', 'course_draft', 'course_all'].includes(activeTab)) {
+      setLoading(false);
       return;
     }
     fetchDropdownClients(activeTab);
