@@ -5241,17 +5241,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             )}
             
             {/* VIDEO_UPLOAD CONTENT VIEW */}
-            {activeTab === 'video_upload' && (() => {
-              if (uploadProgress) {
-                return (
-                  <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '350px' }}>
+            {activeTab === 'video_upload' && (
+              <div className="animate-fade-in" style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
+                {uploadProgress && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 100,
+                    borderRadius: '12px'
+                  }}>
                     <ThreeDLoader text={uploadProgress} />
                   </div>
-                );
-              }
-
-              return (
-                <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
+                )}
                 
                 {/* LEFT COLUMN: Upload Video Form */}
                 <div className="glass-card" style={{ margin: 0 }}>
@@ -5861,17 +5871,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   </div>
                 </div>
               </div>
-            );
-          })()}
+            )}
             {activeTab === 'course_upload' && (() => {
-              if (uploadProgress) {
-                return (
-                  <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '350px' }}>
-                    <ThreeDLoader text={uploadProgress} />
-                  </div>
-                );
-              }
-
               const isLight = theme === 'light';
               const containerBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
               const textColor = isLight ? '#18181b' : 'var(--text-primary)';
@@ -5883,7 +5884,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               const tableHeaderBg = isLight ? '#f4f4f5' : 'rgba(255,255,255,0.03)';
 
               return (
-                <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
+                <div className="animate-fade-in glass-card" style={{ position: 'relative', maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
+                  {uploadProgress && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+                      backdropFilter: 'blur(4px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      zIndex: 100,
+                      borderRadius: '12px'
+                    }}>
+                      <ThreeDLoader text={uploadProgress} />
+                    </div>
+                  )}
                   <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>
