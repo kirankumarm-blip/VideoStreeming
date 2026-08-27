@@ -87,7 +87,19 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           read: readVal
         };
       });
-      setNotifications(normalized);
+      const validNotifications = normalized.filter(n => {
+        if (!n) return false;
+        const msgStr = String(n.message || '').trim();
+        const titleStr = String(n.title || '').trim();
+
+        // If notification has no message and title is default fallback or empty, ignore empty object
+        if (!msgStr && (!titleStr || titleStr === 'New Video Uploaded' || titleStr === 'New Course Published' || titleStr === 'Notification')) {
+          return false;
+        }
+        return msgStr.length > 0 || titleStr.length > 0;
+      });
+
+      setNotifications(validNotifications);
     } catch (e) {
       console.error("Failed to load notifications", e);
     }

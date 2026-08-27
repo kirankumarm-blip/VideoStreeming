@@ -66,7 +66,28 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           if (arrProp) rawList = arrProp;
         }
       }
-      setNotifications(rawList);
+      const normalized = rawList.map((item, idx) => {
+        const jsonObj = (item && item.json) ? item.json : (item || {});
+        const titleVal = item.title || jsonObj.title || item.heading || jsonObj.heading || '';
+        const msgVal = item.message || jsonObj.message || item.msg || jsonObj.msg || item.notificationMessage || jsonObj.notificationMessage || item.notification_message || jsonObj.notification_message || '';
+        const dateVal = item.date || jsonObj.date || item.created_at || jsonObj.created_at || '';
+        const readVal = item.read !== undefined ? Boolean(item.read) : (jsonObj.read !== undefined ? Boolean(jsonObj.read) : false);
+
+        return {
+          id: String(item.id || jsonObj.id || (item.pairedItem ? item.pairedItem.item : idx)),
+          title: titleVal,
+          message: msgVal,
+          date: dateVal,
+          read: readVal
+        };
+      }).filter(n => {
+        if (!n) return false;
+        const tStr = String(n.title || '').trim();
+        const mStr = String(n.message || '').trim();
+        return tStr.length > 0 || mStr.length > 0;
+      });
+
+      setNotifications(normalized);
     } catch (e) {
       console.error("Failed to load notifications", e);
       setNotifications([]);
