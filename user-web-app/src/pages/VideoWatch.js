@@ -587,9 +587,73 @@ const VideoWatch = () => {
       let selectedDisplay = userAns;
       let correctDisplay = q.correctAnswer;
 
-      if (qType === '3') { // Fill in the blanks
-        const expectedAns = q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || (Array.isArray(q.options) ? q.options[0] : '') || '';
-        isCorrect = String(userAns || '').trim().toLowerCase() === String(expectedAns || '').trim().toLowerCase();
+      if (qType === '3') { // Fill in the blanks / Free text
+        let expectedAns = q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || '';
+        if (!expectedAns && Array.isArray(q.options) && q.options.length > 0) {
+          const cIdx = (typeof q.correctAnswer === 'number' && q.options[q.correctAnswer]) ? q.correctAnswer : 0;
+          expectedAns = q.options[cIdx];
+        }
+
+        const isFuzzyMatch = (userStr, targetStr) => {
+          if (!userStr || !targetStr) return false;
+          const uClean = String(userStr).trim().toLowerCase();
+          const tClean = String(targetStr).trim().toLowerCase();
+          if (!uClean || !tClean) return false;
+
+          // Direct exact match
+          if (uClean === tClean) return true;
+
+          // Substring match
+          if (uClean.length >= 4 && tClean.length >= 4) {
+            if (tClean.includes(uClean) || uClean.includes(tClean)) return true;
+          }
+
+          const stopwords = new Set([
+            'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+            'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'about', 'against',
+            'between', 'into', 'through', 'during', 'before', 'after', 'above',
+            'below', 'from', 'up', 'down', 'in', 'out', 'off', 'over', 'under',
+            'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where',
+            'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most',
+            'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same',
+            'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'and', 'or', 'if', 'as'
+          ]);
+
+          const tokenize = (str) => {
+            return str
+              .replace(/[^\w\s]/gi, ' ')
+              .toLowerCase()
+              .split(/\s+/)
+              .filter(w => w.length > 1 && !stopwords.has(w));
+          };
+
+          const uTokens = tokenize(uClean);
+          const tTokens = tokenize(tClean);
+
+          if (tTokens.length === 0) return uClean === tClean;
+          if (uTokens.length === 0) return false;
+
+          let matchCount = 0;
+          tTokens.forEach(tWord => {
+            if (uTokens.some(uWord => uWord === tWord || (tWord.length >= 4 && uWord.length >= 4 && (uWord.startsWith(tWord.slice(0, 4)) || tWord.startsWith(uWord.slice(0, 4)))))) {
+              matchCount++;
+            }
+          });
+
+          const tRatio = matchCount / tTokens.length;
+
+          let uMatchCount = 0;
+          uTokens.forEach(uWord => {
+            if (tTokens.some(tWord => uWord === tWord || (tWord.length >= 4 && uWord.length >= 4 && (uWord.startsWith(tWord.slice(0, 4)) || tWord.startsWith(uWord.slice(0, 4)))))) {
+              uMatchCount++;
+            }
+          });
+          const uRatio = uMatchCount / uTokens.length;
+
+          return tRatio >= 0.35 || uRatio >= 0.6 || (tTokens.length <= 3 && matchCount >= 1) || matchCount >= 2;
+        };
+
+        isCorrect = isFuzzyMatch(userAns, expectedAns);
         selectedDisplay = String(userAns || '').trim();
         correctDisplay = String(expectedAns || '').trim();
       } else { // MCQ (1) or True/False (2)
