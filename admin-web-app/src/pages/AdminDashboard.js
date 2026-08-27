@@ -3735,6 +3735,71 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     });
   };
 
+  const createNormalizedExcelFile = (originalFile, colIndices) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            return resolve(originalFile);
+          }
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' });
+
+          if (!jsonRows || jsonRows.length <= 1) {
+            return resolve(originalFile);
+          }
+
+          // Standard canonical Title Case headers (First Name, Last Name, Email Address, Phone Number, etc.)
+          const canonicalHeaders = REQUIRED_EXCEL_COLUMNS.map(col => col.label);
+          const normalizedRows = [canonicalHeaders];
+
+          const dataRows = jsonRows.slice(1);
+          dataRows.forEach(rowArr => {
+            const isRowEmpty = rowArr.every(cell => String(cell || '').trim() === '');
+            if (isRowEmpty) return;
+
+            const newRow = REQUIRED_EXCEL_COLUMNS.map(col => {
+              const cellIdx = colIndices[col.key];
+              let cellVal = cellIdx !== undefined ? rowArr[cellIdx] : '';
+              return cellVal !== undefined ? cellVal : '';
+            });
+            normalizedRows.push(newRow);
+          });
+
+          const newWorksheet = XLSX.utils.aoa_to_sheet(normalizedRows);
+          const newWorkbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'Users');
+
+          const fileNameLower = (originalFile.name || '').toLowerCase();
+          const isCsv = fileNameLower.endsWith('.csv');
+
+          let blob;
+          if (isCsv) {
+            const csvOutput = XLSX.write(newWorkbook, { bookType: 'csv', type: 'string' });
+            blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+          } else {
+            const wbout = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
+            blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          }
+
+          const file = new File([blob], originalFile.name || (isCsv ? 'bulk_users.csv' : 'bulk_users.xlsx'), {
+            type: isCsv ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          });
+
+          resolve(file);
+        } catch (err) {
+          console.error('Error creating normalized Excel file:', err);
+          resolve(originalFile);
+        }
+      };
+      reader.onerror = () => resolve(originalFile);
+      reader.readAsArrayBuffer(originalFile);
+    });
+  };
+
   const extractConflictItems = (data, keys = []) => {
     let targetObj = data;
     if (Array.isArray(data) && data.length > 0) {
@@ -3780,11 +3845,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         return;
       }
 
+      // Normalize headers to canonical Title Case (First Name, Last Name, Email Address, etc.) while preserving file type (CSV / XLSX)
+      const fileToUpload = await createNormalizedExcelFile(bulkFile, colIndices);
+
       const formData = new FormData();
       formData.append('formstep', 'bulk_upload');
       formData.append('formStep', 'bulk_upload');
-      formData.append('file', bulkFile);
-      formData.append('excel_file', bulkFile);
+      formData.append('file', fileToUpload);
+      formData.append('excel_file', fileToUpload);
 
       const bulkFn = api.users?.bulkUploadUsers || api.users?.bulkUpload || api.bulkUploadUsers;
       const res = await bulkFn(formData);
