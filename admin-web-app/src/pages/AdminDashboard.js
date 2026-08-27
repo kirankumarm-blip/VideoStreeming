@@ -2499,6 +2499,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const removeChapter = (id) => {
+    if (editingCourse) {
+      setCustomAlert({
+        show: true,
+        title: 'Coming Soon!',
+        message: 'Coming soon!',
+        type: 'info',
+        buttonText: 'OK'
+      });
+      return;
+    }
     setChapters(prev => prev.filter(c => c.id !== id));
   };
 
