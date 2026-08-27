@@ -650,7 +650,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       setLoading(false);
       return;
     }
-    fetchDropdownClients(activeTab);
+    if (dropdownClients.length === 0) {
+      fetchDropdownClients(activeTab);
+    }
     if (activeTab === 'overview') {
       fetchDashboardData('overview', selectedClientId);
     }
@@ -895,14 +897,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       const finalDropdownList = [defaultOption, ...filteredList];
 
       setDropdownClients(finalDropdownList);
-      
-      // Auto-select default Super Admin (id = 0) if none selected
-      if (!selectedClientId) {
-        setSelectedClientId('0');
-      }
+      return finalDropdownList;
     } catch (err) {
       console.error('Failed to fetch dropdown clients', err);
       setDropdownClients([{ id: '0', name: 'Super Admin' }]);
+      return [{ id: '0', name: 'Super Admin' }];
     }
   };
 
