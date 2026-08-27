@@ -5241,8 +5241,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             )}
             
             {/* VIDEO_UPLOAD CONTENT VIEW */}
-            {activeTab === 'video_upload' && (
-              <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
+            {activeTab === 'video_upload' && (() => {
+              if (uploadProgress) {
+                return (
+                  <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '350px' }}>
+                    <ThreeDLoader text={uploadProgress} />
+                  </div>
+                );
+              }
+
+              return (
+                <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
                 
                 {/* LEFT COLUMN: Upload Video Form */}
                 <div className="glass-card" style={{ margin: 0 }}>
@@ -5500,13 +5509,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         )}
                       </div>
                     </div>
-
-                    {uploadProgress && (
-                      <div style={{ margin: '20px 0', fontSize: '13px', color: 'var(--accent-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="spinner" style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid var(--accent-secondary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s infinite linear' }} />
-                        {uploadProgress}
-                      </div>
-                    )}
 
                     <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} disabled={!!uploadProgress}>
                       {editingVideo ? 'Update Video' : t('admin.tabUpload')}
@@ -5859,9 +5861,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   </div>
                 </div>
 
-              </div>
-            )}
+              );
+            })()}
             {activeTab === 'course_upload' && (() => {
+              if (uploadProgress) {
+                return (
+                  <div className="animate-fade-in glass-card" style={{ maxWidth: '1200px', margin: '0 auto', padding: '80px 24px', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '350px' }}>
+                    <ThreeDLoader text={uploadProgress} />
+                  </div>
+                );
+              }
+
               const isLight = theme === 'light';
               const containerBg = isLight ? '#ffffff' : 'var(--bg-secondary)';
               const textColor = isLight ? '#18181b' : 'var(--text-primary)';
@@ -6764,13 +6774,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         ))
                       )}
                     </div>
-
-                    {uploadProgress && (
-                      <div style={{ margin: '20px 0', fontSize: '13px', color: '#e50914', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="spinner" style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #e50914', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s infinite linear' }} />
-                        {uploadProgress}
-                      </div>
-                    )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '24px' }}>
                       {isCourseViewOnly ? (
