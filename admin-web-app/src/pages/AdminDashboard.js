@@ -838,15 +838,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     );
     const lvlVal = foundLevel ? String(foundLevel.id || foundLevel.level) : (rawLevel ? String(rawLevel) : '1');
 
-    // 5. Visibility
-    const rawVis = course.visibility_id || course.visibility || course.visibility_name || '';
-    const foundVis = visibilities.find(v => 
-      String(v.id) === String(rawVis) || 
-      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
-    );
-    const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
-
-    // 6. Admin & Author ID Resolution
+    // 5. Admin & Author ID Resolution
     const rawAuthor = course.author_id || course.instructor_id || course.assigned_admin || course.admin_id || course.author || course.instructor || '';
     const foundAuthor = combinedAdmins.find(a =>
       String(a.id || a.admin_id || a.user_id) === String(rawAuthor) ||
@@ -855,14 +847,43 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const authorIdVal = foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawAuthor);
     const instructorName = foundAuthor ? foundAuthor.name : (course.instructor || course.assigned_admin || rawAuthor);
 
-    const rawClient = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (course.assigned_admin || course.admin_id || course.adminId || selectedAdminId || '');
+    // 6. Client Resolution
+    const rawClient = course.client_id || course.client_name || course.assigned_admin || course.admin_id || course.adminId || (isSuperAdmin ? selectedAdminId : '');
     const foundClient = combinedAdmins.find(a =>
       String(a.id || a.admin_id || a.user_id) === String(rawClient) ||
-      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient).trim().toLowerCase()
+      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient || '').trim().toLowerCase()
     );
-    let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : (foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawClient));
+    let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : String(rawClient || '');
     if (isNaN(parseInt(admVal, 10)) && authorIdVal && !isNaN(parseInt(authorIdVal, 10))) {
       admVal = authorIdVal;
+    }
+
+    // 7. Visibility Resolution (Super Admin specific rule: if client_id exists, visibility must be Private!)
+    const rawVis = course.visibility_id || course.visibility || course.visibility_name || '';
+    let foundVis = visibilities.find(v => 
+      String(v.id) === String(rawVis) || 
+      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
+    );
+    let visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
+
+    const isSuperAdminMode = isSuperAdmin || isSuperAdminView || (currentUser && currentUser.role === 'super_admin');
+    const hasClientId = Boolean(
+      (course.client_id && String(course.client_id) !== '0') ||
+      (course.client_name && String(course.client_name).trim() !== '') ||
+      (course.assigned_admin && String(course.assigned_admin) !== '0') ||
+      (course.admin_id && String(course.admin_id) !== '0') ||
+      (course.adminId && String(course.adminId) !== '0') ||
+      (admVal && String(admVal) !== '0')
+    );
+
+    if (isSuperAdminMode && hasClientId) {
+      const privateVisObj = visibilities.find(v =>
+        String(v.name || v.visibility || v.title || '').toLowerCase() === 'private' ||
+        String(v.id).toLowerCase() === 'private'
+      );
+      if (privateVisObj) {
+        visVal = String(privateVisObj.id);
+      }
     }
 
     setCourseForm({
