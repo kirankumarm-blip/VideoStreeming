@@ -2007,9 +2007,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         };
       });
       setCategories(normalizedList);
+      return normalizedList;
     } catch (e) {
       console.error(e);
       setCategories([]);
+      return [];
     }
   };
 
