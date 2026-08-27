@@ -440,6 +440,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
     try {
+      const targetAdmin = (authorAdminsList || []).find(a => String(a.id) === String(assignForm.assignedAdminId)) ||
+                          (adminsList || []).find(a => String(a.id) === String(assignForm.assignedAdminId));
+      const targetAdminName = targetAdmin ? (targetAdmin.name || targetAdmin.username || targetAdmin.label) : '';
+
       if (assignForm.itemType === 'course') {
         const payload = {
           formstep: 'assignCourse',
@@ -451,6 +455,51 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           notificationMessage: 'course as assigned to you'
         };
         await api.vdadmins.assignCourse(payload);
+
+        // Optimistically update assigned admin name in all course states
+        if (targetAdminName) {
+          setCourses(prev => prev.map(c => {
+            if (String(c.id || c.course_id) === String(assignForm.itemId)) {
+              return {
+                ...c,
+                assigned_admin: targetAdminName,
+                assigned_admin_name: targetAdminName,
+                assignedAdmin: targetAdminName,
+                assignedAdminName: targetAdminName,
+                instructor: targetAdminName
+              };
+            }
+            return c;
+          }));
+
+          setAssignedCourses(prev => prev.map(c => {
+            if (String(c.id || c.course_id) === String(assignForm.itemId)) {
+              return {
+                ...c,
+                assigned_admin: targetAdminName,
+                assigned_admin_name: targetAdminName,
+                assignedAdmin: targetAdminName,
+                assignedAdminName: targetAdminName,
+                instructor: targetAdminName
+              };
+            }
+            return c;
+          }));
+
+          setMyPersonalCourses(prev => prev.map(c => {
+            if (String(c.id || c.course_id) === String(assignForm.itemId)) {
+              return {
+                ...c,
+                assigned_admin: targetAdminName,
+                assigned_admin_name: targetAdminName,
+                assignedAdmin: targetAdminName,
+                assignedAdminName: targetAdminName,
+                instructor: targetAdminName
+              };
+            }
+            return c;
+          }));
+        }
       } else {
         const payload = {
           formstep: 'AssignVideo',
@@ -462,14 +511,36 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           notificationMessage: 'video as assigned to you'
         };
         await api.vdadmins.assignVideo(payload);
+
+        if (targetAdminName) {
+          setMyVideos(prev => prev.map(v => {
+            if (String(v.id || v.video_id) === String(assignForm.itemId)) {
+              return {
+                ...v,
+                assigned_admin: targetAdminName,
+                assigned_admin_name: targetAdminName,
+                assignedAdmin: targetAdminName,
+                assignedAdminName: targetAdminName
+              };
+            }
+            return v;
+          }));
+        }
       }
+
       setShowAssignModal(false);
       if (typeof showSuccess === 'function') {
         showSuccess(`Assigned successfully for ${assignForm.title}`);
       } else {
         alert(`Assigned successfully for ${assignForm.title}`);
       }
-      fetchDashboardData(activeTab);
+
+      // Refresh list data from server
+      fetchCourses(selectedAdminId);
+      fetchVideos(selectedAdminId);
+      if (typeof fetchDashboardData === 'function') {
+        fetchDashboardData(activeTab);
+      }
     } catch (err) {
       if (typeof showError === 'function') {
         showError(err.message || 'Failed to assign admins');
