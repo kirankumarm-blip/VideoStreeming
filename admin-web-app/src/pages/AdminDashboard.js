@@ -9190,6 +9190,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               {customAlert.buttonText}
             </button>
           </div>
+        </div>
+      )}
+
       {/* GLOBAL FULL-SCREEN VIEWPORT LOADING MODAL */}
       {uploadProgress && (
         <div style={{
