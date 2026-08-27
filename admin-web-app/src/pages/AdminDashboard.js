@@ -6855,7 +6855,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             </button>
                           )}
                           <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
-                            {editingCourse ? 'Update Course' : 'Submit Course'}
+                            {uploadProgress ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                <i className="fa-solid fa-circle-notch fa-spin"></i> {uploadProgress}
+                              </span>
+                            ) : (
+                              editingCourse ? 'Update Course' : 'Submit Course'
+                            )}
                           </button>
                         </>
                       )}
@@ -9183,6 +9189,35 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             >
               {customAlert.buttonText}
             </button>
+          </div>
+      {/* GLOBAL FULL-SCREEN VIEWPORT LOADING MODAL */}
+      {uploadProgress && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.45)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999999,
+          pointerEvents: 'all'
+        }}>
+          <div className="glass-card animate-fade-in" style={{
+            padding: '36px 52px',
+            borderRadius: '16px',
+            backgroundColor: theme === 'dark' ? '#181824' : '#ffffff',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+            border: '1px solid var(--accent-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <ThreeDLoader text={uploadProgress} />
           </div>
         </div>
       )}
