@@ -3374,22 +3374,34 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         chapters: encryptedChapters
       };
 
-      let rawClientInput = String(courseForm.adminId || courseForm.assigned_admin || (selectedAdminId !== '0' ? selectedAdminId : '') || '').trim();
+      let rawClientInput = String(
+        courseForm.adminId || 
+        courseForm.assigned_admin || 
+        (editingCourse ? (editingCourse.client_id || editingCourse.assigned_admin || editingCourse.admin_id || editingCourse.adminId) : '') ||
+        (selectedAdminId !== '0' ? selectedAdminId : '') || 
+        ''
+      ).trim();
+
       let foundClientObj = (authorAdminsList.concat(adminsList)).find(a =>
         String(a.id || a.admin_id || a.user_id) === rawClientInput ||
         String(a.name || a.username || a.email || '').trim().toLowerCase() === rawClientInput.toLowerCase()
       );
 
       let effectiveClientId = foundClientObj ? String(foundClientObj.id || foundClientObj.admin_id || foundClientObj.user_id) : rawClientInput;
-      if (isNaN(parseInt(effectiveClientId, 10)) || !effectiveClientId) {
-        if (finalAuthorId && !isNaN(parseInt(finalAuthorId, 10))) {
+
+      if (!effectiveClientId || effectiveClientId === '0' || isNaN(parseInt(effectiveClientId, 10))) {
+        if (editingCourse) {
+          const rawEdClient = String(editingCourse.client_id || editingCourse.admin_id || editingCourse.assigned_admin || editingCourse.adminId || '').trim();
+          if (rawEdClient && rawEdClient !== '0') {
+            effectiveClientId = rawEdClient;
+          }
+        }
+        if ((!effectiveClientId || effectiveClientId === '0') && finalAuthorId && !isNaN(parseInt(finalAuthorId, 10))) {
           effectiveClientId = String(finalAuthorId);
-        } else {
-          effectiveClientId = '0';
         }
       }
 
-      if (isSuperAdmin && !isPrivate) {
+      if (isSuperAdmin && !isPrivate && !editingCourse && selectedAdminId === '0') {
         effectiveClientId = '0';
       }
 
