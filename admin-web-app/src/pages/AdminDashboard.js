@@ -4350,6 +4350,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       resetVideoFormToDefault();
       fetchDashboardData(activeTab);
       fetchCourses(selectedAdminId);
+      fetchVideos(selectedAdminId);
+      setActiveTab('video_all');
     } catch (err) {
       console.error('Failed to register/upload video:', err);
       showError(`Video ${editingVideo ? 'update' : 'upload'} failed: ${err.message || 'Server error'}`);
@@ -5271,27 +5273,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             {/* VIDEO_UPLOAD CONTENT VIEW */}
             {activeTab === 'video_upload' && (
               <div className="animate-fade-in" style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
-                {uploadProgress && (
-                  <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    backdropFilter: 'blur(2px)',
-                    WebkitBackdropFilter: 'blur(2px)',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 999999,
-                    pointerEvents: 'all'
-                  }}>
-                    <div className="glass-card animate-fade-in" style={{ padding: '36px 52px', borderRadius: '16px', backgroundColor: theme === 'dark' ? '#181824' : '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', border: '1px solid var(--accent-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <ThreeDLoader text={uploadProgress} />
-                    </div>
-                  </div>
-                )}
                 
                 {/* LEFT COLUMN: Upload Video Form */}
                 <div className="glass-card" style={{ margin: 0 }}>
@@ -5915,27 +5896,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               return (
                 <div className="animate-fade-in glass-card" style={{ position: 'relative', maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
-                  {uploadProgress && (
-                    <div style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      width: '100vw',
-                      height: '100vh',
-                      backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                      backdropFilter: 'blur(2px)',
-                      WebkitBackdropFilter: 'blur(2px)',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      zIndex: 999999,
-                      pointerEvents: 'all'
-                    }}>
-                      <div className="glass-card animate-fade-in" style={{ padding: '36px 52px', borderRadius: '16px', backgroundColor: containerBg, boxShadow: '0 25px 60px rgba(0,0,0,0.3)', border: '1px solid var(--accent-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <ThreeDLoader text={uploadProgress} />
-                      </div>
-                    </div>
-                  )}
                   <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: textColor }}>
