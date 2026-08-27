@@ -5860,9 +5860,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   </div>
                 </div>
-
-              );
-            })()}
+              </div>
+            );
+          })()}
             {activeTab === 'course_upload' && (() => {
               if (uploadProgress) {
                 return (
