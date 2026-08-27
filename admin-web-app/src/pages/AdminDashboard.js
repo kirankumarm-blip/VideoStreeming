@@ -5245,19 +5245,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <div className="animate-fade-in" style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
                 {uploadProgress && (
                   <div style={{
-                    position: 'absolute',
+                    position: 'fixed',
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
                     backgroundColor: 'rgba(0, 0, 0, 0.45)',
-                    backdropFilter: 'blur(4px)',
+                    backdropFilter: 'blur(5px)',
+                    WebkitBackdropFilter: 'blur(5px)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    zIndex: 100,
-                    borderRadius: '12px'
+                    zIndex: 9999
                   }}>
                     <ThreeDLoader text={uploadProgress} />
                   </div>
@@ -5887,19 +5887,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 <div className="animate-fade-in glass-card" style={{ position: 'relative', maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: containerBg, color: textColor, border: `1px solid ${borderColor}`, borderRadius: '12px' }}>
                   {uploadProgress && (
                     <div style={{
-                      position: 'absolute',
+                      position: 'fixed',
                       top: 0,
                       left: 0,
                       right: 0,
                       bottom: 0,
                       backgroundColor: 'rgba(0, 0, 0, 0.45)',
-                      backdropFilter: 'blur(4px)',
+                      backdropFilter: 'blur(5px)',
+                      WebkitBackdropFilter: 'blur(5px)',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      zIndex: 100,
-                      borderRadius: '12px'
+                      zIndex: 9999
                     }}>
                       <ThreeDLoader text={uploadProgress} />
                     </div>
