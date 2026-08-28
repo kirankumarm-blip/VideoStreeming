@@ -5481,16 +5481,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
                               (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                             )) || (val && val.toString().toLowerCase() === 'private');
-                            if (isSuperAdmin) {
-                              if (isPrivate) {
-                                fetchAdminsList();
-                              }
-                              const clientId = isPrivate ? String(uploadForm.adminId || selectedAdminId || '0').trim() : null;
-                              fetchCategories(clientId);
-                              if (uploadForm.category) {
-                                lastFetchedSubCatIdRef.current = null;
-                                fetchSubCategories(uploadForm.category, clientId);
-                              }
+                            if (isPrivate) {
+                              fetchAdminsList();
                             }
                           }}
                           placeholder="Select Visibility"
@@ -5516,19 +5508,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               onChange={(e) => {
                                 const val = e.target.value;
                                 setUploadForm(prev => ({ ...prev, adminId: val }));
-                                if (isSuperAdmin) {
-                                  const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
-                                  const isPrivate = (selectedVisObj && (
-                                    (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                    (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                    (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                                  )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
-                                  const clientId = isPrivate ? (val || null) : null;
-                                  fetchCategories(clientId);
-                                  if (uploadForm.category) {
-                                    lastFetchedSubCatIdRef.current = null;
-                                    fetchSubCategories(uploadForm.category, clientId);
-                                  }
+                                if (val) {
+                                  fetchCategories(val);
                                 }
                               }}
                               placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
