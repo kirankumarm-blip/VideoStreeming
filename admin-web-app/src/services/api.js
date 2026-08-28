@@ -1274,7 +1274,11 @@ export const api = {
       const bodyObj = { ...payload };
       const step = bodyObj.formstep || bodyObj.formStep || 'uploadVideo';
       bodyObj.formstep = step;
-      bodyObj.formStep = step;
+      delete bodyObj.formStep;
+      delete bodyObj.adminId;
+      delete bodyObj.admin_id;
+      delete bodyObj.assigned_admin;
+      delete bodyObj.clientId;
       if (token) {
         bodyObj.token = token;
       }

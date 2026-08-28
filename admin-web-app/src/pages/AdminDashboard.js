@@ -4410,6 +4410,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       const videoNotifMsg = `"${uploadForm.title}" has been ${editingVideo ? 'updated' : 'uploaded'}. Watch it now!`;
 
+      const foundVis = visibilities.find(v => 
+        String(v.id).toLowerCase() === String(uploadForm.visibility || '').toLowerCase() ||
+        String(v.name || v.visibility).toLowerCase() === String(uploadForm.visibility || '').toLowerCase()
+      );
+      const visibilityId = foundVis ? String(foundVis.id) : String(uploadForm.visibility || '1');
+
       const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
@@ -4420,11 +4426,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         subcategory_id: resolvedSubCatId,
         language_id: uploadForm.languageId,
         tags: uploadForm.tags,
-        visibility: uploadForm.visibility,
+        visibility: visibilityId,
         videoUrl: encryptedVideoUrl,
         thumbnailUrl: encryptedThumbnailUrl,
-        formstep: editingVideo ? "editVideo" : "uploadVideo",
-        formStep: editingVideo ? "editVideo" : "uploadVideo"
+        formstep: editingVideo ? "editVideo" : "uploadVideo"
       };
       let effectiveClientId = '0';
       if (isSuperAdmin) {
@@ -4438,10 +4443,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       registerPayload.client_id = effectiveClientId;
-      registerPayload.clientId = effectiveClientId;
-      registerPayload.admin_id = effectiveClientId;
-      registerPayload.adminId = effectiveClientId;
-      registerPayload.assigned_admin = effectiveClientId;
       if (isPrivate && !isSuperAdmin) {
         registerPayload.plan_id = uploadForm.planId;
       }
