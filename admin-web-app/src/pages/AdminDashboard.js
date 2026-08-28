@@ -1358,11 +1358,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'video_upload') {
       if (!editingVideo) {
         resetVideoFormToDefault();
-      }
-      isFetchingDropdownDataRef.current = false;
-      fetchDropdownDataWithClient(null);
-      if (String(uploadForm.visibility || '').toLowerCase() === 'private') {
-        fetchAdminsList();
+        isFetchingDropdownDataRef.current = false;
+        fetchDropdownDataWithClient(null);
       }
     }
     if (activeTab === 'course_upload') {
