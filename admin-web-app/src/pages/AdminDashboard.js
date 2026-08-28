@@ -1397,6 +1397,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchUsers();
     }
     if (activeTab === 'video_upload') {
+      if (!editingVideo) {
+        resetVideoFormToDefault();
+      }
+      isFetchingDropdownDataRef.current = false;
       fetchDropdownDataWithClient(null);
       if (String(uploadForm.visibility || '').toLowerCase() === 'private') {
         fetchAdminsList();
