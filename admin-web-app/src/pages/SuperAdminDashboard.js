@@ -644,6 +644,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [selectedReportType, setSelectedReportType] = useState('user_activity');
   const [reportData, setReportData] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
+  const isFetchingDashboardRef = useRef(false);
+  const lastFetchedDashboardRef = useRef(null);
 
   useEffect(() => {
     if (['categories', 'sub_categories', 'video_upload', 'course_upload', 'course_draft', 'course_all'].includes(activeTab)) {
@@ -822,6 +824,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   const fetchDashboardData = async (formStep = 'overview', clientId = selectedClientId) => {
+    const key = `${formStep}_${clientId || '0'}`;
+    if (isFetchingDashboardRef.current) return;
+    if (lastFetchedDashboardRef.current === key && formStep === 'overview' && stats) return;
+
+    isFetchingDashboardRef.current = true;
+    lastFetchedDashboardRef.current = key;
+
     setLoading(true);
     try {
       const payload = {};
@@ -876,6 +885,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     } catch (err) {
       setError('Failed to load dashboard data');
     } finally {
+      isFetchingDashboardRef.current = false;
       setLoading(false);
     }
   };
@@ -905,6 +915,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const handleClientChange = (e) => {
     const value = e.target.value;
     setSelectedClientId(value);
+    lastFetchedDashboardRef.current = null;
     if (!['video_upload', 'course_upload', 'course_all', 'course_draft'].includes(activeTab)) {
       fetchDashboardData(activeTab, value);
     }

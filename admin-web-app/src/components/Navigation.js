@@ -22,8 +22,10 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const profileRef = useRef(null);
   const recentlyViewedRef = useRef(null);
 
+  const isSuperAdminUser = user && user.role === 'super_admin';
+
   useEffect(() => {
-    if (user) {
+    if (user && !isSuperAdminUser) {
       fetchNotifications();
       if (user.role === 'user') {
         fetchRecentlyViewedByFilter(activeFilter);
@@ -49,6 +51,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   }, []);
 
   const fetchNotifications = async () => {
+    if (isSuperAdminUser) return;
     try {
       const data = await api.notifications.list();
       let rawList = [];
@@ -421,7 +424,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         </button>
 
         {/* Notifications (Users, Authors & Admins) */}
-        {user && (
+        {user && user.role !== 'super_admin' && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
             <div 
               onClick={() => {
