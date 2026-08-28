@@ -1090,7 +1090,36 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     changeTab('video_edit');
 
     isFetchingDropdownDataRef.current = false;
-    fetchDropdownDataWithClient(clientVal);
+    fetchDropdownDataWithClient(clientVal).then(() => {
+      const targetCatStr = String(catRawId).trim().toLowerCase();
+      let resolvedCatId = catRawId;
+      if (categories && categories.length > 0) {
+        const foundCat = categories.find(c =>
+          String(c.id).toLowerCase() === targetCatStr ||
+          String(c.name || c.category_name || '').trim().toLowerCase() === targetCatStr
+        );
+        if (foundCat) {
+          resolvedCatId = String(foundCat.id);
+          setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
+        }
+      }
+      if (resolvedCatId) {
+        fetchSubCategories(resolvedCatId, clientVal).then((subList) => {
+          if (Array.isArray(subList) && subList.length > 0) {
+            const targetSubStr = String(subCatRaw).trim().toLowerCase();
+            const foundSub = subList.find(s => {
+              const sId = String(s.id || s.subcategory_id || s.sub_category_id || '').toLowerCase();
+              const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+              return sId === targetSubStr || sName === targetSubStr;
+            });
+            if (foundSub) {
+              const resolvedSubId = String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '');
+              setUploadForm(prev => ({ ...prev, subCategory: resolvedSubId }));
+            }
+          }
+        });
+      }
+    });
   };
 
   // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
