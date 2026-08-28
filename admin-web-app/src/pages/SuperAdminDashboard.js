@@ -918,17 +918,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleClientChange = (e) => {
     const value = e.target.value;
-    setSelectedClientId(value);
     lastFetchedDashboardRef.current = null;
-    if (!['video_upload', 'course_upload', 'course_all', 'course_draft'].includes(activeTab)) {
-      fetchDashboardData(activeTab, value);
-    }
-    if (activeTab === 'admins_all') {
-      fetchAdmins(value);
-    }
-    if (activeTab === 'author_admin') {
-      fetchAuthorAdmins(value);
-    }
+    setSelectedClientId(value);
   };
 
   const fetchAdmins = async (clientId = selectedClientId) => {
