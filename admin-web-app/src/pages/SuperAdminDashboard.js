@@ -685,7 +685,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchSettingsData();
     }
     if (activeTab === 'rep_export') {
-      fetchTransactions();
       fetchReportData(selectedReportType, selectedClientId);
     }
     if (activeTab === 'users_all' || activeTab.startsWith('users_')) {
@@ -720,8 +719,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchAnalyticsData = async () => {
     try {
-      const u = await api.analytics.getUser();
-      setUserAnalytics(u);
       const c = await api.analytics.getContent();
       setContentAnalytics(c);
       const r = await api.analytics.getRevenue();
@@ -801,7 +798,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       const payload = {};
       if (clientId) {
         payload.client_id = clientId;
-        payload.admin_id = clientId;
       }
       const res = await api.reports.getSuperAdminReport(reportType, payload);
       let list = [];

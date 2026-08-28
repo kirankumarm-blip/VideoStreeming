@@ -1437,9 +1437,12 @@ export const api = {
       });
     },
     getSuperAdminReport: (formstep = 'user_activity', payload = {}) => {
+      const cleanPayload = { ...payload };
+      delete cleanPayload.admin_id;
+      delete cleanPayload.formStep;
       return request('/superadmin/report', {
         method: 'POST',
-        body: JSON.stringify({ formstep, ...payload }),
+        body: JSON.stringify({ formstep, ...cleanPayload }),
         expectArray: true
       });
     },

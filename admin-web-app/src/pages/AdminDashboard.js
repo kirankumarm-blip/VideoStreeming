@@ -658,6 +658,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [courses, setCourses] = useState([]);
   const [courseDrafts, setCourseDrafts] = useState([]);
   const [loadingCourseDrafts, setLoadingCourseDrafts] = useState(false);
+  const isFetchingCourseDraftsRef = useRef(false);
+  const lastFetchedCourseDraftRef = useRef(null);
   const [editingCourse, setEditingCourse] = useState(null);
   const [isCourseViewOnly, setIsCourseViewOnly] = useState(false);
 
@@ -1775,14 +1777,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchAnalyticsData = async () => {
     try {
-      const u = await api.analytics.getUser();
-      console.log("Fetched user analytics data u:", u);
-      setUserAnalytics(u);
-    } catch (err) {
-      console.error("Failed to fetch user analytics", err);
-    }
-
-    try {
       const c = await api.analytics.getContent();
       setContentAnalytics(c);
     } catch (err) {
@@ -2385,6 +2379,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchCourseDrafts = async (adminId = selectedAdminId) => {
+    const key = `${adminId || '0'}`;
+    if (isFetchingCourseDraftsRef.current) return;
+    if (lastFetchedCourseDraftRef.current === key && courseDrafts && courseDrafts.length > 0) return;
+
+    isFetchingCourseDraftsRef.current = true;
+    lastFetchedCourseDraftRef.current = key;
+
     setLoadingCourseDrafts(true);
     try {
       const getDraftsFn = api.drafts?.getCourseDrafts || api.videos?.getCourseDrafts;
@@ -2396,6 +2397,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       console.error('Failed to fetch course drafts:', e);
       setCourseDrafts([]);
     } finally {
+      isFetchingCourseDraftsRef.current = false;
       setLoadingCourseDrafts(false);
     }
   };
