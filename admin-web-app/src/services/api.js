@@ -1430,7 +1430,7 @@ export const api = {
   },
   reports: {
     getAdminReport: (formstep = 'course_analytics', payload = {}) => {
-      return request('/admin/report', {
+      return request('/vdadmin/report', {
         method: 'POST',
         body: JSON.stringify({ formstep, ...payload }),
         expectArray: true

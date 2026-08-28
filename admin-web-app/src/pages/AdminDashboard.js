@@ -1452,7 +1452,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchSettingsData();
     }
     if (activeTab === 'rep_export') {
-      fetchTransactions();
       fetchAdminReport(adminReportType);
     }
   }, [activeTab, selectedAdminId, adminReportType]);
