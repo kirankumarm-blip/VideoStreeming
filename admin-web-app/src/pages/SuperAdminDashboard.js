@@ -928,18 +928,25 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       const data = await api.vdadmins.list({ 
         client_id: clientId || '0'
       });
-      let list = [];
+      let rawList = [];
       if (Array.isArray(data)) {
-        list = data.map(item => item.json || item);
-      } else if (data && Array.isArray(data.admins)) {
-        list = data.admins.map(item => item.json || item);
-      } else if (data && Array.isArray(data.data)) {
-        list = data.data.map(item => item.json || item);
+        rawList = data;
       } else if (data && typeof data === 'object') {
-        const arrayProp = Object.values(data).find(val => Array.isArray(val));
-        if (arrayProp) list = arrayProp.map(item => item.json || item);
+        if (Array.isArray(data.admins)) rawList = data.admins;
+        else if (Array.isArray(data.data)) rawList = data.data;
+        else if (Array.isArray(data.result)) rawList = data.result;
+        else {
+          const arrayProp = Object.values(data).find(val => Array.isArray(val));
+          if (arrayProp) rawList = arrayProp;
+        }
       }
-      setAdmins(list);
+      const validAdmins = rawList.map(item => {
+        if (!item) return null;
+        if (item.json && typeof item.json === 'object') return item.json;
+        return item;
+      }).filter(a => a && typeof a === 'object' && Object.keys(a).length > 0);
+
+      setAdmins(validAdmins);
     } catch (e) {
       console.error(e);
       setAdmins([]);

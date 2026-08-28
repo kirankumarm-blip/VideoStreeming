@@ -248,6 +248,7 @@ async function request(endpoint, options = {}) {
       urlPath.includes('/monitoring') ||
       urlPath.includes('analytics') ||
       bodyObj.formStep === 'getAllAdmins' ||
+      bodyObj.formstep === 'getAllAdmins' ||
       bodyObj.formStep === 'getMyUsers' ||
       bodyObj.formStep === 'blockedUsers' ||
       bodyObj.formStep === 'getUserLogs' ||
@@ -784,11 +785,11 @@ export const api = {
       delete payload.admin_id;
 
       if (isSuperAdmin) {
-        delete payload.formStep;
         return request('/vdadmins', {
           method: 'POST',
           body: JSON.stringify({ 
             formstep: "getAllAdmins",
+            formStep: "getAllAdmins",
             ...payload 
           }),
         });
