@@ -664,7 +664,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
     if (activeTab === 'analytics' || activeTab.includes('analytics')) {
       fetchDashboardData('analytics', selectedClientId);
-      fetchAnalyticsData();
     }
     if (activeTab === 'admins_all') {
       fetchAdmins();
@@ -717,18 +716,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   }, [showAdminModal, activeTab]);
 
-  const fetchAnalyticsData = async () => {
-    try {
-      const r = await api.analytics.getRevenue();
-      setRevenueAnalytics(r);
-      const e = await api.analytics.getEngagement();
-      setEngagementAnalytics(e);
-      const s = await api.analytics.getStreaming();
-      setStreamingAnalytics(s);
-    } catch (err) {
-      console.error('Failed to load analytics data', err);
-    }
-  };
+  const fetchAnalyticsData = async () => {};
 
   const fetchMonitoringData = async () => {
     try {

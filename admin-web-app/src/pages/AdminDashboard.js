@@ -1440,7 +1440,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'analytics' || activeTab.startsWith('analytics_')) {
       fetchDashboardData('analytics');
-      fetchAnalyticsData();
     }
     if (activeTab === 'realtime' || activeTab.startsWith('mon_')) {
       fetchMonitoringData();
@@ -1775,28 +1774,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchAnalyticsData = async () => {
-    try {
-      const r = await api.analytics.getRevenue();
-      setRevenueAnalytics(r);
-    } catch (err) {
-      console.error("Failed to fetch revenue analytics", err);
-    }
-
-    try {
-      const e = await api.analytics.getEngagement();
-      setEngagementAnalytics(e);
-    } catch (err) {
-      console.error("Failed to fetch engagement analytics", err);
-    }
-
-    try {
-      const s = await api.analytics.getStreaming();
-      setStreamingAnalytics(s);
-    } catch (err) {
-      console.error("Failed to fetch streaming analytics", err);
-    }
-  };
+  const fetchAnalyticsData = async () => {};
 
   const fetchMonitoringData = async () => {
     try {
