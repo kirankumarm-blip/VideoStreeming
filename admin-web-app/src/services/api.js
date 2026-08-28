@@ -784,11 +784,13 @@ export const api = {
       delete payload.admin_id;
 
       if (isSuperAdmin) {
-        delete payload.formstep;
         delete payload.formStep;
         return request('/vdadmins', {
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ 
+            formstep: "getAllAdmins",
+            ...payload 
+          }),
         });
       }
 
