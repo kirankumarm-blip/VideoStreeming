@@ -2082,6 +2082,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
               {(() => {
                 if (activeTab === 'author_admin') return 'Author Management';
+                if (activeTab === 'video_edit') return 'Edit Video';
                 if (activeTab === 'video_upload') return 'Upload Video';
                 if (activeTab === 'course_upload') return 'Upload Course';
                 if (activeTab === 'content_videos') return 'All Videos';
@@ -2142,8 +2143,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <ThreeDLoader text="Loading telemetry core..." />
         ) : (
           <>
-            {/* Embed Video Upload / Course Upload / All Courses / Course Draft / Video All / Categories / Sub Categories from AdminDashboard */}
-            {['video_upload', 'course_upload', 'course_all', 'course_draft', 'video_all', 'content_videos', 'categories', 'sub_categories'].includes(activeTab) && (
+            {/* Embed Video Upload / Video Edit / Course Upload / All Courses / Course Draft / Video All / Categories / Sub Categories from AdminDashboard */}
+            {['video_upload', 'video_edit', 'course_upload', 'course_all', 'course_draft', 'video_all', 'content_videos', 'categories', 'sub_categories'].includes(activeTab) && (
               <AdminDashboard justContent={true} activeTabOverride={activeTab === 'content_videos' ? 'video_all' : activeTab} selectedAdminId={selectedAdminId} theme={theme} />
             )}
 
