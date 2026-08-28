@@ -594,6 +594,15 @@ export const api = {
     }
   },
   vdcategories: {
+    getDropdownData: () => {
+      return request('/vdcategories', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "dropdown_data"
+        }),
+        expectArray: true
+      });
+    },
     getCategories: (clientId = null) => {
       const payload = { formstep: "getCategories" };
       if (clientId !== null && clientId !== undefined && clientId !== '') {

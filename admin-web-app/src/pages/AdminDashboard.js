@@ -1395,17 +1395,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchUsers();
     }
     if (activeTab === 'video_upload') {
-      fetchCategories();
-      fetchVisibilities();
-      fetchLevels();
-      fetchPlans();
-      fetchLanguages();
-      fetchAdminsList();
-      if (uploadForm.category) {
-        fetchSubCategories(uploadForm.category);
-      } else {
-        setSubCategories([]);
-        lastFetchedSubCatIdRef.current = null;
+      api.vdcategories.getDropdownData().then(res => {
+        const rawList = Array.isArray(res) ? res : (res?.data || []);
+        if (rawList.length > 0) setCategories(rawList);
+      }).catch(e => console.error(e));
+
+      if (String(uploadForm.visibility || '').toLowerCase() === 'private') {
+        fetchAdminsList();
       }
     }
     if (activeTab === 'course_upload') {
@@ -1455,6 +1451,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchAdminReport(adminReportType);
     }
   }, [activeTab, selectedAdminId, adminReportType]);
+
+  useEffect(() => {
+    if (activeTab === 'video_upload' && String(uploadForm.visibility || '').toLowerCase() === 'private') {
+      fetchAdminsList();
+    }
+  }, [uploadForm.visibility, activeTab]);
 
   useEffect(() => {
     if (showUserModal || showAuthorAdminModal) {
