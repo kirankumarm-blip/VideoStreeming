@@ -2222,20 +2222,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const rawVis = Array.isArray(obj.visibility) ? obj.visibility : (Array.isArray(obj.visibilities) ? obj.visibilities : []);
         const normalizedVis = rawVis.map(item => ({
           ...item,
-          id: String(item.name || item.visibility || item.id || ''),
-          name: String(item.name || item.visibility || item.id || '')
+          id: String(item.id !== undefined && item.id !== null ? item.id : (item.visibility_id || item.vis_id || item.name || item.visibility || '')),
+          name: String(item.name || item.visibility || item.label || item.id || '')
         }));
         setVisibilities(normalizedVis);
 
         const firstCatId = normalizedCats.length > 0 ? normalizedCats[0].id : '';
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
-        const firstVisName = normalizedVis.length > 0 ? normalizedVis[0].id : '';
+        const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
         setUploadForm(prev => ({
           ...prev,
           category: prev.category || firstCatId,
           languageId: prev.languageId || firstLangId,
-          visibility: prev.visibility || firstVisName
+          visibility: prev.visibility || firstVisId
         }));
 
         const targetCatId = uploadForm.category || firstCatId;
@@ -5501,12 +5501,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             setSubCategories([]);
                             setUploadForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
                             lastFetchedSubCatIdRef.current = null;
-                            const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
+                            const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString() || v.name?.toString().toLowerCase() === val?.toString().toLowerCase());
                             const isPrivate = (selectedVisObj && (
                               (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
                               (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                              (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                            )) || (val && val.toString().toLowerCase() === 'private');
+                              (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+                              (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+                            )) || (val && (val.toString().toLowerCase() === 'private' || val.toString() === '2'));
                             if (isPrivate) {
                               fetchAdminsList().then((admList) => {
                                 const firstAdmId = (Array.isArray(admList) && admList.length > 0) ? (admList[0].id || admList[0].alpha_id || admList[0].admin_id) : uploadForm.adminId;
@@ -5527,12 +5528,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       </div>
 
                       {(() => {
-                        const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+                        const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString() || v.name?.toString().toLowerCase() === uploadForm.visibility?.toString().toLowerCase());
                         const isPrivate = (selectedVisObj && (
                           (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
                           (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                          (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                        )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+                          (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+                          (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+                        )) || (uploadForm.visibility && (uploadForm.visibility.toString().toLowerCase() === 'private' || uploadForm.visibility.toString() === '2'));
                         return isPrivate;
                       })() && (
                         isSuperAdmin ? (
