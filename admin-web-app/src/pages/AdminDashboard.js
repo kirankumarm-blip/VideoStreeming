@@ -5503,6 +5503,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           value={uploadForm.visibility}
                           onChange={(e) => {
                             const val = e.target.value;
+                            if (String(val || '').toLowerCase() === String(uploadForm.visibility || '').toLowerCase()) {
+                              return;
+                            }
                             setCategories([]);
                             setSubCategories([]);
                             setUploadForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
