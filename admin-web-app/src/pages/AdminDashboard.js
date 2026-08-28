@@ -2257,17 +2257,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchVideos = async (adminId = selectedAdminId) => {
-    const fetchKey = String(adminId || '0');
     if (isFetchingVideosRef.current) return;
-    if (lastFetchedVideosRef.current === fetchKey && myVideos && myVideos.length > 0) {
-      return;
-    }
     setMyVideos([]);
     setAssignedVideos([]);
     setMyPersonalVideos([]);
     setLoading(true);
     isFetchingVideosRef.current = true;
-    lastFetchedVideosRef.current = fetchKey;
 
     try {
       if (isAuthorAdminUser) {
@@ -2337,17 +2332,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchCourses = async (adminId = selectedAdminId) => {
-    const key = `${adminId || '0'}`;
     if (isFetchingCoursesRef.current) return;
-    if (lastFetchedCoursesRef.current === key && courses && courses.length > 0) return;
-
-    isFetchingCoursesRef.current = true;
-    lastFetchedCoursesRef.current = key;
-
     setCourses([]);
     setAssignedCourses([]);
     setMyPersonalCourses([]);
     setLoadingCourses(true);
+    isFetchingCoursesRef.current = true;
     if (isAuthorAdminUser) {
       fetchAssignedCourses(adminId);
       fetchMyPersonalCourses(adminId);
