@@ -2223,12 +2223,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
-        setUploadForm(prev => ({
-          ...prev,
-          category: prev.category || firstCatId,
-          languageId: prev.languageId || firstLangId,
-          visibility: prev.visibility || firstVisId
-        }));
+        setUploadForm(prev => {
+          const catVal = prev.category || firstCatId;
+          if (catVal) {
+            fetchSubCategories(catVal, clientId);
+          }
+          return {
+            ...prev,
+            category: catVal,
+            languageId: prev.languageId || firstLangId,
+            visibility: prev.visibility || firstVisId
+          };
+        });
       }
     } catch (err) {
       console.error('Failed to fetch dropdown data with client', err);
@@ -5438,12 +5444,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             setUploadForm(prev => ({ ...prev, category: val, subCategory: '' }));
                             lastFetchedSubCatIdRef.current = null;
                             if (val) {
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
+                              const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString() || v.name?.toString().toLowerCase() === uploadForm.visibility?.toString().toLowerCase());
                               const isPrivate = (selectedVisObj && (
                                 (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
                                 (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                              )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+                                (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+                              )) || (uploadForm.visibility && (uploadForm.visibility.toString().toLowerCase() === 'private' || uploadForm.visibility.toString() === '2'));
                               const clientId = (isSuperAdmin && isPrivate) ? String(uploadForm.adminId || selectedAdminId || '0').trim() : null;
                               fetchSubCategories(val, clientId);
                             } else {
