@@ -1423,7 +1423,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'sub_categories' || activeTab === 'sub_category') {
       fetchAllSubCategories();
-      fetchCategories();
     }
     if (activeTab === 'author_admin') {
       fetchAuthorAdmins();

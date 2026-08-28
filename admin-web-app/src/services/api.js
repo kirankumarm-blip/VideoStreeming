@@ -595,7 +595,7 @@ export const api = {
   },
   vdcategories: {
     getCategories: (clientId = null) => {
-      const payload = { formstep: "getCategories", formStep: "getCategories" };
+      const payload = { formstep: "getCategories" };
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
         payload.admin_id = clientId;
@@ -658,8 +658,7 @@ export const api = {
       return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify({
-          formstep: "subcategory",
-          formStep: "subcategory"
+          formstep: "subcategory"
         }),
         expectArray: true
       });
