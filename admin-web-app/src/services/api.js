@@ -778,7 +778,20 @@ export const api = {
       });
     },
     list: (params = {}) => {
-      const payload = typeof params === 'object' ? params : { client_id: params, admin_id: params };
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const payload = typeof params === 'object' ? { ...params } : { client_id: params };
+      delete payload.admin_id;
+
+      if (isSuperAdmin) {
+        delete payload.formstep;
+        delete payload.formStep;
+        return request('/vdadmins', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+
       return request('/vdadmins', {
         method: 'POST',
         body: JSON.stringify({ 

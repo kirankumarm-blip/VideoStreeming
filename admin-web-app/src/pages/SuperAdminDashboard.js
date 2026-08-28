@@ -926,8 +926,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     setLoading(true);
     try {
       const data = await api.vdadmins.list({ 
-        client_id: clientId || null,
-        admin_id: clientId || null
+        client_id: clientId || '0'
       });
       let list = [];
       if (Array.isArray(data)) {
