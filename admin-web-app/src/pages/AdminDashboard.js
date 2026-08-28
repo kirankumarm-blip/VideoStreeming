@@ -4478,8 +4478,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setUploadSuccess(succMsg);
       showSuccess(succMsg);
       resetVideoFormToDefault();
-      fetchDashboardData(activeTab);
-      fetchCourses(selectedAdminId);
       lastFetchedVideosRef.current = null;
       fetchVideos(selectedAdminId);
       changeTab('video_all');
