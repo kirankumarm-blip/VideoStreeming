@@ -2233,6 +2233,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchDropdownDataWithClient = async (clientId = null) => {
+    setCategories([]);
+    setSubCategories([]);
     try {
       const res = await api.vdcategories.getDropdownData(clientId);
       let obj = res;
@@ -5501,8 +5503,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           value={uploadForm.visibility}
                           onChange={(e) => {
                             const val = e.target.value;
-                            setUploadForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
+                            setCategories([]);
                             setSubCategories([]);
+                            setUploadForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
                             lastFetchedSubCatIdRef.current = null;
                             const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
                             const isPrivate = (selectedVisObj && (
@@ -5546,8 +5549,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               value={uploadForm.adminId}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setUploadForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
+                                setCategories([]);
                                 setSubCategories([]);
+                                setUploadForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
                                 lastFetchedSubCatIdRef.current = null;
                                 if (val && val !== '0') {
                                   fetchDropdownDataWithClient(val);
