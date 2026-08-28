@@ -1777,13 +1777,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchAnalyticsData = async () => {
     try {
-      const c = await api.analytics.getContent();
-      setContentAnalytics(c);
-    } catch (err) {
-      console.error("Failed to fetch content analytics", err);
-    }
-
-    try {
       const r = await api.analytics.getRevenue();
       setRevenueAnalytics(r);
     } catch (err) {

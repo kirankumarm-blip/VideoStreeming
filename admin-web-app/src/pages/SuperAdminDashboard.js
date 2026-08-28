@@ -719,8 +719,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchAnalyticsData = async () => {
     try {
-      const c = await api.analytics.getContent();
-      setContentAnalytics(c);
       const r = await api.analytics.getRevenue();
       setRevenueAnalytics(r);
       const e = await api.analytics.getEngagement();
