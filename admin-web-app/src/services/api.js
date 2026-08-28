@@ -1109,7 +1109,7 @@ export const api = {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
-      const payload = { formStep: "getAssignedVideos", formstep: "getAssignedVideos" };
+      const payload = { formstep: "getAssignedVideos" };
       if (params && params.adminId) {
         payload.client_id = params.adminId;
         payload.admin_id = params.adminId;
@@ -1125,7 +1125,7 @@ export const api = {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
-      const payload = { formStep: "getMyVideos", formstep: "getMyVideos" };
+      const payload = { formstep: "getMyVideos" };
       if (params && params.adminId) {
         payload.client_id = params.adminId;
         payload.admin_id = params.adminId;
@@ -1141,7 +1141,7 @@ export const api = {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
-      const payload = { formStep: "getAssignedCourse", formstep: "getAssignedCourse" };
+      const payload = { formstep: "getAssignedCourse" };
       if (params && params.adminId) {
         payload.client_id = params.adminId;
         payload.admin_id = params.adminId;
@@ -1157,7 +1157,7 @@ export const api = {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
-      const payload = { formStep: "getMyCourse", formstep: "getMyCourse" };
+      const payload = { formstep: "getMyCourse" };
       if (params && params.adminId) {
         payload.client_id = params.adminId;
         payload.admin_id = params.adminId;
@@ -1176,9 +1176,7 @@ export const api = {
       return request(endpoint, {
         method: 'POST',
         body: JSON.stringify({
-          formstep: "getAthorAdmins",
-          formStep: "getAthorAdmins",
-          ...params
+          formstep: "getAthorAdmins"
         }),
         expectArray: true
       });
