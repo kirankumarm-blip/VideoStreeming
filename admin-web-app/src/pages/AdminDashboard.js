@@ -629,6 +629,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [adminsList, setAdminsList] = useState([]);
   const [loadingAdminsList, setLoadingAdminsList] = useState(false);
   const isFetchingAdminsListRef = useRef(false);
+  const isFetchingDropdownDataRef = useRef(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState(null);
@@ -1396,53 +1397,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchUsers();
     }
     if (activeTab === 'video_upload') {
-      api.vdcategories.getDropdownData().then(res => {
-        let obj = res;
-        if (Array.isArray(res) && res.length > 0) {
-          obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
-        } else if (res && res.data) {
-          obj = res.data;
-        }
-
-        if (obj && typeof obj === 'object') {
-          // 1. Categories
-          const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
-          const normalizedCats = rawCats.map(item => {
-            const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
-            return {
-              ...item,
-              ...j,
-              id: String(item.id || j.id || item.category_id || j.category_id || ''),
-              name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
-            };
-          });
-          setCategories(normalizedCats);
-
-          // 2. Languages
-          const rawLangs = Array.isArray(obj.languages) ? obj.languages : (Array.isArray(obj.language) ? obj.language : []);
-          const normalizedLangs = rawLangs.map(item => ({
-            ...item,
-            id: String(item.id || item.language_id || item.code || item.name || ''),
-            name: item.name || item.language_name || item.title || String(item.id || '')
-          }));
-          setLanguages(normalizedLangs);
-
-          // 3. Visibility
-          const rawVis = Array.isArray(obj.visibility) ? obj.visibility : (Array.isArray(obj.visibilities) ? obj.visibilities : []);
-          const normalizedVis = rawVis.map(item => ({
-            ...item,
-            id: String(item.name || item.visibility || item.id || ''),
-            name: String(item.name || item.visibility || item.id || '')
-          }));
-          setVisibilities(normalizedVis);
-
-          // 4. Subcategories if present
-          if (Array.isArray(obj.subcategories) || Array.isArray(obj.sub_categories)) {
-            setSubCategories(obj.subcategories || obj.sub_categories);
-          }
-        }
-      }).catch(e => console.error(e));
-
+      fetchDropdownDataWithClient(null);
       if (String(uploadForm.visibility || '').toLowerCase() === 'private') {
         fetchAdminsList();
       }
@@ -2233,6 +2188,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchDropdownDataWithClient = async (clientId = null) => {
+    if (isFetchingDropdownDataRef.current) return;
+    isFetchingDropdownDataRef.current = true;
     setCategories([]);
     setSubCategories([]);
     try {
@@ -2254,9 +2211,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
           };
         }));
+
+        const rawLangs = Array.isArray(obj.languages) ? obj.languages : (Array.isArray(obj.language) ? obj.language : []);
+        setLanguages(rawLangs.map(item => ({
+          ...item,
+          id: String(item.id || item.language_id || item.code || item.name || ''),
+          name: item.name || item.language_name || item.title || String(item.id || '')
+        })));
+
+        const rawVis = Array.isArray(obj.visibility) ? obj.visibility : (Array.isArray(obj.visibilities) ? obj.visibilities : []);
+        setVisibilities(rawVis.map(item => ({
+          ...item,
+          id: String(item.name || item.visibility || item.id || ''),
+          name: String(item.name || item.visibility || item.id || '')
+        })));
       }
     } catch (err) {
       console.error('Failed to fetch dropdown data with client', err);
+    } finally {
+      isFetchingDropdownDataRef.current = false;
     }
   };
 
