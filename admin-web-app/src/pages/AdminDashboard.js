@@ -72,6 +72,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   }, [activeTabOverride]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const isFetchingDashboardRef = useRef(false);
+  const lastFetchedDashboardRef = useRef(null);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const isFetchingCoursesRef = useRef(false);
   const lastFetchedCoursesRef = useRef(null);
@@ -1810,6 +1812,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchDashboardData = async (formStep = 'overview') => {
+    const key = `${formStep}`;
+    if (isFetchingDashboardRef.current) return;
+    if (lastFetchedDashboardRef.current === key && formStep === 'overview' && stats) return;
+
+    isFetchingDashboardRef.current = true;
+    lastFetchedDashboardRef.current = key;
+
     setLoading(true);
     try {
       const data = await api.dashboard.getAdmin(formStep);
@@ -1817,6 +1826,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     } catch (err) {
       setError('Failed to load admin dashboard data');
     } finally {
+      isFetchingDashboardRef.current = false;
       setLoading(false);
     }
   };
