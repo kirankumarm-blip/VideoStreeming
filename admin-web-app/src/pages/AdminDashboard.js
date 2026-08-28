@@ -72,7 +72,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   }, [activeTabOverride]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const isFetchingCoursesRef = useRef(false);
   const lastFetchedCoursesRef = useRef(null);

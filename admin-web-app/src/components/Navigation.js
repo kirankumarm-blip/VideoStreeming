@@ -22,10 +22,19 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const profileRef = useRef(null);
   const recentlyViewedRef = useRef(null);
 
-  const isSuperAdminUser = user && user.role === 'super_admin';
+  const isAdminUser = Boolean(
+    user && (
+      user.role === 'admin' || 
+      user.role === 'super_admin' || 
+      user.role_id === 1 || 
+      user.role_id === 2 || 
+      user.role === 1 || 
+      user.role === 2
+    )
+  );
 
   useEffect(() => {
-    if (user && !isSuperAdminUser) {
+    if (user && !isAdminUser) {
       fetchNotifications();
       if (user.role === 'user') {
         fetchRecentlyViewedByFilter(activeFilter);
@@ -423,8 +432,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           )}
         </button>
 
-        {/* Notifications (Users, Authors & Admins) */}
-        {user && user.role !== 'super_admin' && (
+        {/* Notifications (Users & Authors) */}
+        {user && !isAdminUser && (
           <div ref={notifRef} style={{ position: 'relative' }} className="nav-notifications">
             <div 
               onClick={() => {
