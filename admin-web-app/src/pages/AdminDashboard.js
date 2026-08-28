@@ -5505,6 +5505,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   }));
                                 }
                               }).catch(err => console.error(err));
+                            } else {
+                              api.vdcategories.getDropdownData(null).then(res => {
+                                let obj = res;
+                                if (Array.isArray(res) && res.length > 0) {
+                                  obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
+                                } else if (res && res.data) {
+                                  obj = res.data;
+                                }
+                                if (obj && typeof obj === 'object') {
+                                  const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
+                                  setCategories(rawCats.map(item => {
+                                    const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+                                    return {
+                                      ...item,
+                                      ...j,
+                                      id: String(item.id || j.id || item.category_id || j.category_id || ''),
+                                      name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+                                    };
+                                  }));
+                                }
+                              }).catch(err => console.error(err));
                             }
                           }}
                           placeholder="Select Visibility"
