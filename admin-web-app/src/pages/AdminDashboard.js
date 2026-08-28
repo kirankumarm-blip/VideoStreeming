@@ -1055,77 +1055,39 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (!video) return;
     setEditingVideo(video);
 
-    const catRawId = video.category_id || video.cat_id || '';
-    const catRawName = video.category || video.category_name || '';
-    const foundCat = categories.find(c => 
-      (catRawId && String(c.id) === String(catRawId)) || 
-      (catRawName && String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRawName).trim().toLowerCase())
-    );
-    const catId = foundCat ? String(foundCat.id) : String(catRawId || catRawName);
-
+    const catRawId = video.category_id || video.cat_id || video.category || '';
     const subCatRaw = video.subcategory_id || video.sub_category_id || video.sub_category || video.subcategory || video.subCategory || video.subcategory_name || '';
-    const langVal = String(video.language_id || video.languageId || video.language || (languages[0]?.id || ''));
-    const rawVis = video.visibility_id || video.visibility || video.visibility_name || '';
-    const foundVis = visibilities.find(v => 
-      String(v.id) === String(rawVis) || 
-      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
-    );
-    const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
-    const rawClient = video.client_id || video.clientId || video.assigned_admin || video.admin_id || video.adminId || video.client || video.client_name || selectedAdminId || '';
-    const foundAdmin = adminsList.find(a => {
-      const aId = String(a.id || a.admin_id || a.alpha_id || '').trim();
-      const aName = String(a.name || a.username || a.client_name || a.company_name || a.title || '').trim().toLowerCase();
-      const targetStr = String(rawClient).trim().toLowerCase();
-      return aId === targetStr || aName === targetStr;
-    });
-    const admVal = foundAdmin 
-      ? String(foundAdmin.id || foundAdmin.admin_id || foundAdmin.alpha_id) 
-      : String(rawClient || selectedAdminId || '');
+    const langVal = String(video.language_id || video.languageId || video.language || '');
+    const visVal = String(video.visibility_id || video.visibility || video.visibility_name || '');
+    const clientVal = video.client_id || video.clientId || video.assigned_admin || video.admin_id || video.adminId || null;
+    const admVal = String(clientVal || selectedAdminId || '');
 
     setUploadForm({
       title: video.title || video.video_title || '',
       description: video.description || video.desc || '',
-      category: catId,
+      category: String(catRawId),
       subCategory: String(subCatRaw),
       tags: video.tags || '',
       visibility: visVal,
-      planId: String(video.plan_id || video.planId || plans[0]?.id || ''),
+      planId: String(video.plan_id || video.planId || ''),
       languageId: langVal,
       adminId: admVal
     });
 
-    if (catId) {
-      fetchSubCategories(catId).then((subList) => {
-        if (Array.isArray(subList) && subList.length > 0) {
-          const target = String(subCatRaw).trim().toLowerCase();
-          const foundSub = subList.find(s => {
-            const sId = String(s.id || s.subcategory_id || s.sub_category_id || '');
-            const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
-            return sId === target || sName === target || (sName && target && (sName.startsWith(target.slice(0, 8)) || target.startsWith(sName.slice(0, 8))));
-          });
-          if (foundSub) {
-            const subId = String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '');
-            setUploadForm(prev => ({ ...prev, subCategory: subId }));
-          }
-        }
-      });
-    }
-
     const parsedThumb = video.thumbnail || video.thumbnail_image || video.thumbnail_url || video.thumbnailUrl || '';
-    if (parsedThumb) {
-      setThumbPreviewUrl(parsedThumb.startsWith('http') ? parsedThumb : `http://localhost:5000${parsedThumb}`);
-    } else {
-      setThumbPreviewUrl(null);
-    }
+    setThumbPreviewUrl(parsedThumb ? (parsedThumb.startsWith('http') ? parsedThumb : `http://localhost:5000${parsedThumb}`) : null);
 
     const parsedVideo = video.video_url || video.videoUrl || video.url || '';
-    if (parsedVideo) {
-      setVideoPreviewUrl(parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`);
-    } else {
-      setVideoPreviewUrl(null);
-    }
+    setVideoPreviewUrl(parsedVideo ? (parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`) : null);
 
     setActiveTab('video_upload');
+
+    isFetchingDropdownDataRef.current = false;
+    fetchDropdownDataWithClient(clientVal).then(() => {
+      if (catRawId) {
+        fetchSubCategories(catRawId);
+      }
+    });
   };
 
   // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
@@ -1185,9 +1147,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (foundCat) {
         if (String(uploadForm.category) !== String(foundCat.id)) {
           setUploadForm(prev => ({ ...prev, category: String(foundCat.id) }));
-        }
-        if (lastFetchedSubCatIdRef.current !== String(foundCat.id)) {
-          fetchSubCategories(foundCat.id);
         }
       }
     }
