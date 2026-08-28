@@ -1090,11 +1090,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     changeTab('video_edit');
 
     isFetchingDropdownDataRef.current = false;
-    fetchDropdownDataWithClient(clientVal).then(() => {
-      if (catRawId) {
-        fetchSubCategories(catRawId);
-      }
-    });
+    fetchDropdownDataWithClient(clientVal);
   };
 
   // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
@@ -2204,11 +2200,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           languageId: prev.languageId || firstLangId,
           visibility: prev.visibility || firstVisId
         }));
-
-        const targetCatId = uploadForm.category || firstCatId;
-        if (targetCatId) {
-          fetchSubCategories(targetCatId, clientId);
-        }
       }
     } catch (err) {
       console.error('Failed to fetch dropdown data with client', err);
