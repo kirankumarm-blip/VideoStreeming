@@ -1916,15 +1916,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       lastFetchedSubCatIdRef.current = null;
       return [];
     }
-    let targetId = categoryId;
-    if (categoryId && categories.length > 0) {
+    let targetId = String(categoryId).trim();
+    if (categories && categories.length > 0) {
       const foundCat = categories.find(c => 
-        String(c.id) === String(categoryId) || 
-        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(categoryId).trim().toLowerCase()
+        String(c.id) === targetId || 
+        String(c.name || c.category || c.category_name || c.title || '').trim().toLowerCase() === targetId.toLowerCase()
       );
       if (foundCat) {
-        targetId = foundCat.id;
+        targetId = String(foundCat.id);
       }
+    }
+    if (isNaN(parseInt(targetId, 10))) {
+      return [];
     }
 
     const refKey = `${targetId}_${clientId || ''}`;
@@ -2246,9 +2249,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             visibility: prev.visibility || firstVisId
           };
         });
+        return normalizedCats;
       }
+      return [];
     } catch (err) {
       console.error('Failed to fetch dropdown data with client', err);
+      return [];
     } finally {
       isFetchingDropdownDataRef.current = false;
     }
