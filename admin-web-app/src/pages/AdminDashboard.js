@@ -2232,6 +2232,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
+  const fetchDropdownDataWithClient = async (clientId = null) => {
+    try {
+      const res = await api.vdcategories.getDropdownData(clientId);
+      let obj = res;
+      if (Array.isArray(res) && res.length > 0) {
+        obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
+      } else if (res && res.data) {
+        obj = res.data;
+      }
+      if (obj && typeof obj === 'object') {
+        const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
+        setCategories(rawCats.map(item => {
+          const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+          return {
+            ...item,
+            ...j,
+            id: String(item.id || j.id || item.category_id || j.category_id || ''),
+            name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+          };
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch dropdown data with client', err);
+    }
+  };
+
   const fetchLevels = async () => {
     try {
       const data = await api.videos.getLevels();
@@ -5475,7 +5501,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           value={uploadForm.visibility}
                           onChange={(e) => {
                             const val = e.target.value;
-                            setUploadForm(prev => ({ ...prev, visibility: val }));
+                            setUploadForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
+                            setSubCategories([]);
+                            lastFetchedSubCatIdRef.current = null;
                             const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
                             const isPrivate = (selectedVisObj && (
                               (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
@@ -5483,49 +5511,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                             )) || (val && val.toString().toLowerCase() === 'private');
                             if (isPrivate) {
-                              fetchAdminsList();
-                              const currentClientId = String(uploadForm.adminId || selectedAdminId || '').trim();
-                              api.vdcategories.getDropdownData(currentClientId || null).then(res => {
-                                let obj = res;
-                                if (Array.isArray(res) && res.length > 0) {
-                                  obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
-                                } else if (res && res.data) {
-                                  obj = res.data;
+                              fetchAdminsList().then((admList) => {
+                                const firstAdmId = (Array.isArray(admList) && admList.length > 0) ? (admList[0].id || admList[0].alpha_id || admList[0].admin_id) : uploadForm.adminId;
+                                const targetClientId = String(uploadForm.adminId || firstAdmId || '').trim();
+                                if (targetClientId && targetClientId !== '0') {
+                                  fetchDropdownDataWithClient(targetClientId);
+                                } else {
+                                  fetchDropdownDataWithClient(null);
                                 }
-                                if (obj && typeof obj === 'object') {
-                                  const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
-                                  setCategories(rawCats.map(item => {
-                                    const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
-                                    return {
-                                      ...item,
-                                      ...j,
-                                      id: String(item.id || j.id || item.category_id || j.category_id || ''),
-                                      name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
-                                    };
-                                  }));
-                                }
-                              }).catch(err => console.error(err));
+                              });
                             } else {
-                              api.vdcategories.getDropdownData(null).then(res => {
-                                let obj = res;
-                                if (Array.isArray(res) && res.length > 0) {
-                                  obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
-                                } else if (res && res.data) {
-                                  obj = res.data;
-                                }
-                                if (obj && typeof obj === 'object') {
-                                  const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
-                                  setCategories(rawCats.map(item => {
-                                    const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
-                                    return {
-                                      ...item,
-                                      ...j,
-                                      id: String(item.id || j.id || item.category_id || j.category_id || ''),
-                                      name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
-                                    };
-                                  }));
-                                }
-                              }).catch(err => console.error(err));
+                              fetchDropdownDataWithClient(null);
                             }
                           }}
                           placeholder="Select Visibility"
@@ -5550,28 +5546,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               value={uploadForm.adminId}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setUploadForm(prev => ({ ...prev, adminId: val }));
-                                if (val) {
-                                  api.vdcategories.getDropdownData(val).then(res => {
-                                    let obj = res;
-                                    if (Array.isArray(res) && res.length > 0) {
-                                      obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
-                                    } else if (res && res.data) {
-                                      obj = res.data;
-                                    }
-                                    if (obj && typeof obj === 'object') {
-                                      const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
-                                      setCategories(rawCats.map(item => {
-                                        const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
-                                        return {
-                                          ...item,
-                                          ...j,
-                                          id: String(item.id || j.id || item.category_id || j.category_id || ''),
-                                          name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
-                                        };
-                                      }));
-                                    }
-                                  }).catch(err => console.error(err));
+                                setUploadForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
+                                setSubCategories([]);
+                                lastFetchedSubCatIdRef.current = null;
+                                if (val && val !== '0') {
+                                  fetchDropdownDataWithClient(val);
                                 }
                               }}
                               placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
