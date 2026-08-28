@@ -1103,6 +1103,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
         }
       }
+      if (languages && languages.length > 0) {
+        const targetLangStr = String(langVal).trim().toLowerCase();
+        const foundLang = languages.find(l =>
+          String(l.id).toLowerCase() === targetLangStr ||
+          String(l.name || l.title || l.language_name || '').trim().toLowerCase() === targetLangStr
+        );
+        if (foundLang) {
+          const resolvedLangId = String(foundLang.id || foundLang.language_id || foundLang.code);
+          setUploadForm(prev => ({ ...prev, languageId: resolvedLangId }));
+        }
+      }
       if (resolvedCatId) {
         fetchSubCategories(resolvedCatId, clientVal).then((subList) => {
           if (Array.isArray(subList) && subList.length > 0) {
@@ -4409,6 +4420,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       );
       const visibilityId = foundVis ? String(foundVis.id) : String(uploadForm.visibility || '1');
 
+      const foundLang = languages.find(l =>
+        String(l.id).toLowerCase() === String(uploadForm.languageId || '').toLowerCase() ||
+        String(l.name || l.title || l.language_name || '').toLowerCase() === String(uploadForm.languageId || '').toLowerCase()
+      );
+      const languageId = foundLang ? String(foundLang.id || foundLang.language_id || foundLang.code) : String(uploadForm.languageId || '1');
+
       const registerPayload = {
         title: uploadForm.title,
         description: uploadForm.description,
@@ -4417,7 +4434,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         notificationMessage: videoNotifMsg,
         category: uploadForm.category,
         subcategory_id: resolvedSubCatId,
-        language_id: uploadForm.languageId,
+        language_id: languageId,
+        language: languageId,
         tags: uploadForm.tags,
         visibility: visibilityId,
         videoUrl: encryptedVideoUrl,
