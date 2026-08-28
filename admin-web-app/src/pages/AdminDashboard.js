@@ -18,9 +18,16 @@ const getFormattedSeconds = (sec) => {
   return `${Math.round(s)} sec`;
 };
 
-const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId }) => {
+const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId, onTabChange }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState(activeTabOverride || 'overview'); // overview, users_all, video_upload, etc.
+
+  const changeTab = (newTab) => {
+    setActiveTab(newTab);
+    if (typeof onTabChange === 'function') {
+      onTabChange(newTab);
+    }
+  };
 
   const currentUser = getCurrentUser();
   const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
@@ -1080,7 +1087,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const parsedVideo = video.video_url || video.videoUrl || video.url || '';
     setVideoPreviewUrl(parsedVideo ? (parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`) : null);
 
-    setActiveTab('video_edit');
+    changeTab('video_edit');
 
     isFetchingDropdownDataRef.current = false;
     fetchDropdownDataWithClient(clientVal).then(() => {
@@ -4431,7 +4438,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchCourses(selectedAdminId);
       lastFetchedVideosRef.current = null;
       fetchVideos(selectedAdminId);
-      setActiveTab('video_all');
+      changeTab('video_all');
     } catch (err) {
       console.error('Failed to register/upload video:', err);
       showError(`Video ${editingVideo ? 'update' : 'upload'} failed: ${err.message || 'Server error'}`);
@@ -5368,7 +5375,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         style={{ padding: '6px 14px', fontSize: '13px', borderRadius: '8px' }}
                         onClick={() => {
                           resetVideoFormToDefault();
-                          setActiveTab('video_all');
+                          changeTab('video_all');
                         }}
                       >
                         ❌ Cancel Edit

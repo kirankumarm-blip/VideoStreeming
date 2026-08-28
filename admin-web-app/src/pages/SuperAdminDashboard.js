@@ -2145,7 +2145,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <>
             {/* Embed Video Upload / Video Edit / Course Upload / All Courses / Course Draft / Video All / Categories / Sub Categories from AdminDashboard */}
             {['video_upload', 'video_edit', 'course_upload', 'course_all', 'course_draft', 'video_all', 'content_videos', 'categories', 'sub_categories'].includes(activeTab) && (
-              <AdminDashboard justContent={true} activeTabOverride={activeTab === 'content_videos' ? 'video_all' : activeTab} selectedAdminId={selectedAdminId} theme={theme} />
+              <AdminDashboard justContent={true} activeTabOverride={activeTab === 'content_videos' ? 'video_all' : activeTab} selectedAdminId={selectedAdminId} theme={theme} onTabChange={(tab) => setActiveTab(tab === 'video_all' ? 'content_videos' : tab)} />
             )}
 
             {/* OVERVIEW TAB WORKSPACE (Unified 5-second dashboard) */}
