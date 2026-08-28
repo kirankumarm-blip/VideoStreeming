@@ -170,7 +170,9 @@ const PaginatedTable = ({
   showExport = true,
   onExport,
   tableStyle = {},
-  tableClassName = "data-table"
+  tableClassName = "data-table",
+  loading = false,
+  loadingMessage = "Loading data..."
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
@@ -558,7 +560,16 @@ const PaginatedTable = ({
             </tr>
           </thead>
           <tbody>
-            {currentData.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={headers.length} style={{ textAlign: 'center', padding: '56px 16px', color: '#94a3b8' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', justifyContent: 'center' }}>
+                    <span className="spinner" style={{ display: 'inline-block', width: '28px', height: '28px', border: '3px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s infinite linear' }} />
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #1e293b)' }}>{loadingMessage}</span>
+                  </div>
+                </td>
+              </tr>
+            ) : currentData.length > 0 ? (
               currentData.map((item, index) => renderRow(item, startIndex + index))
             ) : (
               <tr>

@@ -2286,6 +2286,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (lastFetchedVideosRef.current === fetchKey && myVideos && myVideos.length > 0) {
       return;
     }
+    setMyVideos([]);
+    setAssignedVideos([]);
+    setMyPersonalVideos([]);
+    setLoading(true);
     isFetchingVideosRef.current = true;
     lastFetchedVideosRef.current = fetchKey;
 
@@ -2324,6 +2328,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     } finally {
       isFetchingVideosRef.current = false;
+      setLoading(false);
     }
   };
 
@@ -2356,9 +2361,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchCourses = async (adminId = selectedAdminId) => {
+    setCourses([]);
+    setAssignedCourses([]);
+    setMyPersonalCourses([]);
+    setLoadingCourses(true);
     if (isAuthorAdminUser) {
       fetchAssignedCourses(adminId);
       fetchMyPersonalCourses(adminId);
+      setLoadingCourses(false);
     } else {
       try {
         const data = await api.videos.listCourses(adminId);
@@ -2368,6 +2378,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       } catch (e) {
         console.error(e);
         setCourses([]);
+      } finally {
+        setLoadingCourses(false);
       }
     }
   };
@@ -6983,6 +6995,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <PaginatedTable
                       headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Uploaded By', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', 'Uploaded By', t('admin.tableActions')]}
                       data={activeTableData}
+                      loading={loading}
                       emptyMessage={isAuthorAdminUser ? (videoSubTab === 'my_videos' ? 'No personal uploaded videos found' : 'No assigned videos found') : 'No uploaded videos found'}
                       renderRow={(video, index) => {
                         const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
@@ -7146,6 +7159,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <PaginatedTable
                       headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Assigned Admin', 'Actions']}
                       data={validCourseData}
+                      loading={loadingCourses}
                       emptyMessage={isAuthorAdminUser ? (courseSubTab === 'my_courses' ? 'No personal courses found' : 'No assigned courses found') : 'No data available'}
                       renderRow={(course, index) => {
                         const displayTitle = course.course_title || course.title || 'Untitled Course';

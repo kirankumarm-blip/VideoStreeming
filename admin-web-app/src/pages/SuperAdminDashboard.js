@@ -357,6 +357,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   const fetchAuthorAdmins = async (clientId = selectedClientId) => {
+    setAuthorAdmins([]);
+    setLoading(true);
     try {
       const payload = {
         client_id: clientId ?? '0'
@@ -381,6 +383,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     } catch (err) {
       console.error("Failed to fetch author admins:", err);
       setAuthorAdmins([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -928,6 +932,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   const fetchAdmins = async (clientId = selectedClientId) => {
+    setAdmins([]);
+    setLoading(true);
     try {
       const data = await api.vdadmins.list({ 
         client_id: clientId || null,
@@ -948,6 +954,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     } catch (e) {
       console.error(e);
       setAdmins([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1410,6 +1418,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   // --- Client Management Handlers ---
   const fetchClients = async () => {
+    setClients([]);
+    setLoading(true);
     try {
       const res = await api.vdclients.getClients();
       const list = Array.isArray(res) ? res : (res?.data || res?.clients || []);
@@ -1417,6 +1427,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     } catch (err) {
       console.error("Failed to fetch clients:", err);
       setClients([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -2428,6 +2440,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <PaginatedTable
                     headers={['Name', 'Email', 'Mobile', 'Status', 'Role', 'Actions']}
                     data={admins}
+                    loading={loading}
                     emptyMessage="No administrators registered yet"
                     renderRow={(admin, index) => {
                       const isAdminActive = admin.status === true || String(admin.status).toLowerCase() === 'true' || String(admin.status).toLowerCase() === 'active';
@@ -2525,6 +2538,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <PaginatedTable
                     headers={['Client Name', 'Phone Number', 'Address Line 1', 'Address Line 2', 'State', 'City', 'Zipcode', 'Actions']}
                     data={clients}
+                    loading={loading}
                     emptyMessage="No clients found"
                     renderRow={(client, index) => (
                       <tr key={client.id || index}>
@@ -2603,8 +2617,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Name', 'Email', 'Mobile', 'Status', 'Actions']}
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Client', 'Actions']}
                     data={authorAdmins}
+                    loading={loading}
                     emptyMessage="No author admins registered yet"
                     renderRow={(item, index) => {
                       const admin = (item && item.json) ? item.json : item;
