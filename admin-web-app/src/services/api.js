@@ -1086,14 +1086,12 @@ export const api = {
       const isSuperAdmin = user && user.role === 'super_admin';
       if (isSuperAdmin) {
         const payload = {};
-        if (params && params.adminId) {
-          payload.client_id = params.adminId;
-          payload.admin_id = params.adminId;
-          payload.assigned_admin = params.adminId;
+        if (params && (params.adminId !== undefined || params.client_id !== undefined)) {
+          payload.client_id = params.adminId !== undefined ? params.adminId : params.client_id;
         }
         return request('/dashboard/super-admin', {
           method: 'POST',
-          body: JSON.stringify({ formstep: "getAllVidoes", formStep: "getAllVidoes", ...payload }),
+          body: JSON.stringify({ formstep: "getAllVidoes", ...payload }),
           expectArray: true
         });
       }
