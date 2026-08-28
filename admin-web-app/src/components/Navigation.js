@@ -60,7 +60,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   }, []);
 
   const fetchNotifications = async () => {
-    if (isSuperAdminUser) return;
+    if (isAdminUser) return;
     try {
       const data = await api.notifications.list();
       let rawList = [];
