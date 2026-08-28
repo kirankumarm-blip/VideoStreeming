@@ -8056,6 +8056,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
              activeTab !== 'author_admin' &&
              !activeTab.startsWith('users_') && 
              activeTab !== 'video_upload' && 
+             activeTab !== 'video_edit' && 
              activeTab !== 'video_all' && 
              activeTab !== 'course_upload' && 
              activeTab !== 'course_all' && 
