@@ -563,6 +563,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const [subCategories, setSubCategories] = useState([]);
+  const lastFetchedSubCatIdRef = useRef(null);
+  const isFetchingSubCategoriesRef = useRef(null);
   const [showSubCategoryModal, setShowSubCategoryModal] = useState(false);
   const [editingSubCategory, setEditingSubCategory] = useState(null);
   const [subCategoryForm, setSubCategoryForm] = useState({ id: '', cat_id: '', name: '', description: '' });
@@ -1931,10 +1933,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
 
     const refKey = `${targetId}_${clientId || ''}`;
-    if (targetId && lastFetchedSubCatIdRef.current === refKey && subCategories.length > 0) {
+    if (lastFetchedSubCatIdRef.current === refKey || isFetchingSubCategoriesRef.current === refKey) {
       return subCategories;
     }
 
+    isFetchingSubCategoriesRef.current = refKey;
     lastFetchedSubCatIdRef.current = refKey;
     setLoadingSubCategories(true);
     try {
@@ -1966,6 +1969,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return [];
     } finally {
       setLoadingSubCategories(false);
+      isFetchingSubCategoriesRef.current = null;
     }
   };
 
@@ -2237,18 +2241,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
-        setUploadForm(prev => {
-          const catVal = prev.category || firstCatId;
-          if (catVal) {
-            fetchSubCategories(catVal, clientId);
-          }
-          return {
-            ...prev,
-            category: catVal,
-            languageId: prev.languageId || firstLangId,
-            visibility: prev.visibility || firstVisId
-          };
-        });
+        setUploadForm(prev => ({
+          ...prev,
+          category: prev.category || firstCatId,
+          languageId: prev.languageId || firstLangId,
+          visibility: prev.visibility || firstVisId
+        }));
         return normalizedCats;
       }
       return [];
