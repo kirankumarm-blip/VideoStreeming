@@ -4584,6 +4584,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   });
 
   const getActiveTabLabel = () => {
+    if (editingVideo) return 'Edit Video';
+    if (editingCourse) return 'Edit Course';
     for (const section of visibleMenuStructure) {
       if ((section.title === 'Author Management' || section.title === 'Author Admin') && activeTab === 'author_admin') return 'Author Management';
       const item = section.items.find(i => i.id === activeTab);
@@ -5364,7 +5366,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         type="button"
                         className="btn btn-secondary"
                         style={{ padding: '6px 14px', fontSize: '13px', borderRadius: '8px' }}
-                        onClick={() => resetVideoFormToDefault()}
+                        onClick={() => {
+                          resetVideoFormToDefault();
+                          setActiveTab('video_all');
+                        }}
                       >
                         ❌ Cancel Edit
                       </button>
