@@ -840,7 +840,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       const payload = {};
       if (clientId) {
         payload.client_id = clientId;
-        payload.admin_id = clientId;
       }
       
       let data;
