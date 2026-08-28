@@ -72,7 +72,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   }, [activeTabOverride]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  const isFetchingCoursesRef = useRef(false);
+  const lastFetchedCoursesRef = useRef(null);
   const [error, setError] = useState('');
   const [customAlert, setCustomAlert] = useState({
     show: false,
@@ -2326,6 +2329,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchCourses = async (adminId = selectedAdminId) => {
+    const key = `${adminId || '0'}`;
+    if (isFetchingCoursesRef.current) return;
+    if (lastFetchedCoursesRef.current === key && courses && courses.length > 0) return;
+
+    isFetchingCoursesRef.current = true;
+    lastFetchedCoursesRef.current = key;
+
     setCourses([]);
     setAssignedCourses([]);
     setMyPersonalCourses([]);
@@ -2333,6 +2343,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (isAuthorAdminUser) {
       fetchAssignedCourses(adminId);
       fetchMyPersonalCourses(adminId);
+      isFetchingCoursesRef.current = false;
       setLoadingCourses(false);
     } else {
       try {
@@ -2344,6 +2355,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         console.error(e);
         setCourses([]);
       } finally {
+        isFetchingCoursesRef.current = false;
         setLoadingCourses(false);
       }
     }
