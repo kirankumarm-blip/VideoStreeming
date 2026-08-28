@@ -674,19 +674,13 @@ export const api = {
     },
     getSubCategories: (categoryId = null, clientId = null) => {
       const payload = {
-        formstep: "getSubCategory",
-        formStep: "getSubCategory"
+        formstep: "getSubCategory"
       };
       if (categoryId) {
         payload.category_id = categoryId;
-        payload.cat_id = categoryId;
-        payload.catId = categoryId;
       }
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
-        payload.admin_id = clientId;
-        payload.clientId = clientId;
-        payload.adminId = clientId;
       }
       return request('/vdcategories', {
         method: 'POST',
