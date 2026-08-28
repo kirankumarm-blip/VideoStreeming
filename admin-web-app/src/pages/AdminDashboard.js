@@ -627,7 +627,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     languageId: '',
     adminId: ''
   });
-  const lastFetchedSubCatIdRef = useRef(null);
   const lastFetchedVideosRef = useRef(null);
   const isFetchingVideosRef = useRef(false);
   const [loadingSubCategories, setLoadingSubCategories] = useState(false);
