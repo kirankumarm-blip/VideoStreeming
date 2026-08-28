@@ -628,6 +628,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingLanguages, setLoadingLanguages] = useState(false);
   const [adminsList, setAdminsList] = useState([]);
   const [loadingAdminsList, setLoadingAdminsList] = useState(false);
+  const isFetchingAdminsListRef = useRef(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState(null);
@@ -2196,10 +2197,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchAdminsList = async () => {
+    if (isFetchingAdminsListRef.current) return adminsList;
+    isFetchingAdminsListRef.current = true;
     setLoadingAdminsList(true);
     try {
       const res = await api.videos.getAdmins();
-      console.log("getAdmins API raw response:", res);
       let rawList = [];
       if (Array.isArray(res)) {
         rawList = res;
@@ -2212,9 +2214,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           rawList = [res];
         }
       }
-      console.log("rawList computed:", rawList);
       const admList = rawList.map(item => item.json || item);
-      console.log("admList computed:", admList);
       setAdminsList(admList);
       if (admList.length > 0) {
         const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
@@ -2227,6 +2227,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setAdminsList([]);
       return [];
     } finally {
+      isFetchingAdminsListRef.current = false;
       setLoadingAdminsList(false);
     }
   };
@@ -5509,7 +5510,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 const val = e.target.value;
                                 setUploadForm(prev => ({ ...prev, adminId: val }));
                                 if (val) {
-                                  fetchCategories(val);
+                                  api.vdcategories.getDropdownData(val).then(res => {
+                                    let obj = res;
+                                    if (Array.isArray(res) && res.length > 0) {
+                                      obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
+                                    } else if (res && res.data) {
+                                      obj = res.data;
+                                    }
+                                    if (obj && typeof obj === 'object') {
+                                      const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
+                                      setCategories(rawCats.map(item => {
+                                        const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+                                        return {
+                                          ...item,
+                                          ...j,
+                                          id: String(item.id || j.id || item.category_id || j.category_id || ''),
+                                          name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+                                        };
+                                      }));
+                                    }
+                                  }).catch(err => console.error(err));
                                 }
                               }}
                               placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
