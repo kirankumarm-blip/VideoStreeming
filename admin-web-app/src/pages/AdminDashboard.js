@@ -1080,7 +1080,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const parsedVideo = video.video_url || video.videoUrl || video.url || '';
     setVideoPreviewUrl(parsedVideo ? (parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`) : null);
 
-    setActiveTab('video_upload');
+    setActiveTab('video_edit');
 
     isFetchingDropdownDataRef.current = false;
     fetchDropdownDataWithClient(clientVal).then(() => {
@@ -5353,8 +5353,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               </div>
             )}
             
-            {/* VIDEO_UPLOAD CONTENT VIEW */}
-            {activeTab === 'video_upload' && (
+            {/* VIDEO_UPLOAD & VIDEO_EDIT CONTENT VIEW */}
+            {(activeTab === 'video_upload' || activeTab === 'video_edit') && (
               <div className="animate-fade-in" style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', maxWidth: '1200px', margin: '0 auto', alignItems: 'start' }}>
                 
                 {/* LEFT COLUMN: Upload Video Form */}
