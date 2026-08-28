@@ -302,6 +302,31 @@ app.put('/api/auth/profile', authenticateToken, upload.single('avatar'), (req, r
 
 const handleVdCategories = (req, res) => {
   const formstep = req.body.formstep || req.body.formStep;
+  if (formstep === 'dropdown_data') {
+    const db = readDB();
+    return res.json({
+      categories: db.categories || [],
+      subcategories: db.sub_categories || [],
+      languages: [
+        { id: "1", name: "English" },
+        { id: "2", name: "Spanish" },
+        { id: "3", name: "French" }
+      ],
+      visibilities: [
+        { id: "public", name: "public" },
+        { id: "private", name: "private" }
+      ],
+      levels: [
+        { id: "Beginner", name: "Beginner" },
+        { id: "Intermediate", name: "Intermediate" },
+        { id: "Advanced", name: "Advanced" }
+      ],
+      plans: [
+        { id: "free", name: "Free" },
+        { id: "premium", name: "Premium" }
+      ]
+    });
+  }
   if (formstep === 'getStates') {
     return res.json([
       { state_id: "1", name: "California" },

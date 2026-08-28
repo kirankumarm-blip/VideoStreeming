@@ -1396,8 +1396,35 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
     if (activeTab === 'video_upload') {
       api.vdcategories.getDropdownData().then(res => {
-        const rawList = Array.isArray(res) ? res : (res?.data || []);
-        if (rawList.length > 0) setCategories(rawList);
+        let obj = res;
+        if (res && res.data) obj = res.data;
+        if (obj && typeof obj === 'object') {
+          if (Array.isArray(obj.categories)) {
+            const normalizedCats = obj.categories.map(item => {
+              const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+              return { ...item, ...j, id: String(item.id || j.id || ''), name: item.name || j.name || item.category_name || j.category_name || '' };
+            });
+            setCategories(normalizedCats);
+          } else if (Array.isArray(res)) {
+            setCategories(res.map(item => (item && item.json) ? item.json : item));
+          }
+
+          if (Array.isArray(obj.subcategories)) {
+            setSubCategories(obj.subcategories);
+          }
+          if (Array.isArray(obj.languages)) {
+            setLanguages(obj.languages);
+          }
+          if (Array.isArray(obj.visibilities)) {
+            setVisibilities(obj.visibilities);
+          }
+          if (Array.isArray(obj.levels)) {
+            setLevels(obj.levels);
+          }
+          if (Array.isArray(obj.plans)) {
+            setPlans(obj.plans);
+          }
+        }
       }).catch(e => console.error(e));
 
       if (String(uploadForm.visibility || '').toLowerCase() === 'private') {
