@@ -1324,10 +1324,9 @@ export const api = {
     },
 
     getCourseDrafts: (adminId = null) => {
-      const payload = { formstep: "getCourseDraft", formStep: "getCourseDraft" };
-      if (adminId && adminId !== '0') {
+      const payload = { formstep: "getCourseDraft" };
+      if (adminId !== null && adminId !== undefined && adminId !== '') {
         payload.admin_id = adminId;
-        payload.adminId = adminId;
       }
       return request('/vd_drafts', {
         method: 'POST',
@@ -1522,10 +1521,9 @@ export const api = {
   },
   drafts: {
     getCourseDrafts: (adminId = null) => {
-      const payload = { formstep: "getCourseDraft", formStep: "getCourseDraft" };
-      if (adminId && adminId !== '0') {
+      const payload = { formstep: "getCourseDraft" };
+      if (adminId !== null && adminId !== undefined && adminId !== '') {
         payload.admin_id = adminId;
-        payload.adminId = adminId;
       }
       return request('/vd_drafts', {
         method: 'POST',
