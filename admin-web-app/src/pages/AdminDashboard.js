@@ -1397,32 +1397,47 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'video_upload') {
       api.vdcategories.getDropdownData().then(res => {
         let obj = res;
-        if (res && res.data) obj = res.data;
-        if (obj && typeof obj === 'object') {
-          if (Array.isArray(obj.categories)) {
-            const normalizedCats = obj.categories.map(item => {
-              const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
-              return { ...item, ...j, id: String(item.id || j.id || ''), name: item.name || j.name || item.category_name || j.category_name || '' };
-            });
-            setCategories(normalizedCats);
-          } else if (Array.isArray(res)) {
-            setCategories(res.map(item => (item && item.json) ? item.json : item));
-          }
+        if (Array.isArray(res) && res.length > 0) {
+          obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
+        } else if (res && res.data) {
+          obj = res.data;
+        }
 
-          if (Array.isArray(obj.subcategories)) {
-            setSubCategories(obj.subcategories);
-          }
-          if (Array.isArray(obj.languages)) {
-            setLanguages(obj.languages);
-          }
-          if (Array.isArray(obj.visibilities)) {
-            setVisibilities(obj.visibilities);
-          }
-          if (Array.isArray(obj.levels)) {
-            setLevels(obj.levels);
-          }
-          if (Array.isArray(obj.plans)) {
-            setPlans(obj.plans);
+        if (obj && typeof obj === 'object') {
+          // 1. Categories
+          const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
+          const normalizedCats = rawCats.map(item => {
+            const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+            return {
+              ...item,
+              ...j,
+              id: String(item.id || j.id || item.category_id || j.category_id || ''),
+              name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+            };
+          });
+          setCategories(normalizedCats);
+
+          // 2. Languages
+          const rawLangs = Array.isArray(obj.languages) ? obj.languages : (Array.isArray(obj.language) ? obj.language : []);
+          const normalizedLangs = rawLangs.map(item => ({
+            ...item,
+            id: String(item.id || item.language_id || item.code || item.name || ''),
+            name: item.name || item.language_name || item.title || String(item.id || '')
+          }));
+          setLanguages(normalizedLangs);
+
+          // 3. Visibility
+          const rawVis = Array.isArray(obj.visibility) ? obj.visibility : (Array.isArray(obj.visibilities) ? obj.visibilities : []);
+          const normalizedVis = rawVis.map(item => ({
+            ...item,
+            id: String(item.name || item.visibility || item.id || ''),
+            name: String(item.name || item.visibility || item.id || '')
+          }));
+          setVisibilities(normalizedVis);
+
+          // 4. Subcategories if present
+          if (Array.isArray(obj.subcategories) || Array.isArray(obj.sub_categories)) {
+            setSubCategories(obj.subcategories || obj.sub_categories);
           }
         }
       }).catch(e => console.error(e));
