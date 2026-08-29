@@ -23,6 +23,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [activeTab, setActiveTab] = useState(activeTabOverride || 'overview'); // overview, users_all, video_upload, etc.
 
   const changeTab = (newTab) => {
+    if (newTab === 'video_upload') {
+      resetVideoFormToDefault();
+    }
     setActiveTab(newTab);
     if (typeof onTabChange === 'function') {
       onTabChange(newTab);
@@ -74,6 +77,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   useEffect(() => {
     if (activeTabOverride) {
+      if (activeTabOverride === 'video_upload') {
+        resetVideoFormToDefault();
+      }
       setActiveTab(activeTabOverride);
     }
   }, [activeTabOverride]);
@@ -1433,11 +1439,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchUsers();
     }
     if (activeTab === 'video_upload') {
-      if (!editingVideo) {
-        resetVideoFormToDefault();
-        isFetchingDropdownDataRef.current = false;
-        fetchDropdownDataWithClient(null);
-      }
+      resetVideoFormToDefault();
+      isFetchingDropdownDataRef.current = false;
+      fetchDropdownDataWithClient(null);
     }
     if (activeTab === 'course_upload') {
       fetchCategories();
