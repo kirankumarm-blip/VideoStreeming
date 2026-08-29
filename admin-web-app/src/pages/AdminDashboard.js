@@ -2251,29 +2251,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
-        let targetCat = '';
-        setUploadForm(prev => {
-          let cat = prev.category;
-          if (cat) {
-            const found = normalizedCats.find(c =>
-              String(c.id).toLowerCase() === String(cat).toLowerCase() ||
-              String(c.name || '').trim().toLowerCase() === String(cat).trim().toLowerCase()
-            );
-            cat = found ? String(found.id) : (firstCatId || cat);
-          } else {
-            cat = firstCatId;
-          }
-          targetCat = cat;
-          return {
-            ...prev,
-            category: cat,
-            languageId: prev.languageId || firstLangId,
-            visibility: prev.visibility || firstVisId
-          };
-        });
+        let currentCat = uploadForm.category;
+        if (currentCat) {
+          const found = normalizedCats.find(c =>
+            String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
+            String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
+          );
+          currentCat = found ? String(found.id) : (firstCatId || currentCat);
+        } else {
+          currentCat = firstCatId;
+        }
 
-        if (targetCat) {
-          fetchSubCategories(targetCat, clientId);
+        setUploadForm(prev => ({
+          ...prev,
+          category: currentCat,
+          languageId: prev.languageId || firstLangId,
+          visibility: prev.visibility || firstVisId
+        }));
+
+        if (currentCat) {
+          fetchSubCategories(currentCat, clientId);
         }
 
         return {
