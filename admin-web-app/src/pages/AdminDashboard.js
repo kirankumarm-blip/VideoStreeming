@@ -5510,6 +5510,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <PremiumSelect
                           options={visibilities.map(vis => ({ id: vis.id, name: vis.name || vis.visibility || vis.title || vis.id }))}
                           value={uploadForm.visibility}
+                          disabled={Boolean(editingVideo)}
                           onChange={(e) => {
                             const val = e.target.value;
                             if (String(val || '').toLowerCase() === String(uploadForm.visibility || '').toLowerCase()) {
