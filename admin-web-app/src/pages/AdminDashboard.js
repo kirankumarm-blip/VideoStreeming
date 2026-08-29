@@ -1091,22 +1091,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     changeTab('video_edit');
 
     isFetchingDropdownDataRef.current = false;
-    fetchDropdownDataWithClient(clientVal).then(() => {
+    fetchDropdownDataWithClient(clientVal).then((data) => {
+      const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
+      const langsList = (data && Array.isArray(data.languages)) ? data.languages : languages;
+
       const targetCatStr = String(catRawId).trim().toLowerCase();
       let resolvedCatId = catRawId;
-      if (categories && categories.length > 0) {
-        const foundCat = categories.find(c =>
+      if (catsList && catsList.length > 0) {
+        const foundCat = catsList.find(c =>
           String(c.id).toLowerCase() === targetCatStr ||
           String(c.name || c.category_name || '').trim().toLowerCase() === targetCatStr
         );
         if (foundCat) {
           resolvedCatId = String(foundCat.id);
-          setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
+        } else if (!catRawId && catsList[0]) {
+          resolvedCatId = String(catsList[0].id);
         }
+        setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
       }
-      if (languages && languages.length > 0) {
+      if (langsList && langsList.length > 0) {
         const targetLangStr = String(langVal).trim().toLowerCase();
-        const foundLang = languages.find(l =>
+        const foundLang = langsList.find(l =>
           String(l.id).toLowerCase() === targetLangStr ||
           String(l.name || l.title || l.language_name || '').trim().toLowerCase() === targetLangStr
         );
@@ -1918,16 +1923,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return [];
     }
     let targetId = String(categoryId).trim();
+    const targetCatStr = targetId.toLowerCase();
     if (categories && categories.length > 0) {
       const foundCat = categories.find(c => 
-        String(c.id) === targetId || 
-        String(c.name || c.category || c.category_name || c.title || '').trim().toLowerCase() === targetId.toLowerCase()
+        String(c.id).toLowerCase() === targetCatStr || 
+        String(c.name || c.category || c.category_name || c.title || '').trim().toLowerCase() === targetCatStr
       );
       if (foundCat) {
         targetId = String(foundCat.id);
       }
     }
-    if (isNaN(parseInt(targetId, 10))) {
+    if (!targetId) {
       return [];
     }
 
@@ -2240,13 +2246,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
-        setUploadForm(prev => ({
-          ...prev,
-          category: prev.category || firstCatId,
-          languageId: prev.languageId || firstLangId,
-          visibility: prev.visibility || firstVisId
-        }));
-        return normalizedCats;
+        let activeCatId = '';
+        setUploadForm(prev => {
+          activeCatId = prev.category || firstCatId;
+          return {
+            ...prev,
+            category: activeCatId,
+            languageId: prev.languageId || firstLangId,
+            visibility: prev.visibility || firstVisId
+          };
+        });
+
+        const targetCatForSub = activeCatId || firstCatId;
+        if (targetCatForSub) {
+          fetchSubCategories(targetCatForSub, clientId);
+        }
+
+        return {
+          categories: normalizedCats,
+          languages: normalizedLangs,
+          visibilities: normalizedVis
+        };
       }
       return [];
     } catch (err) {
