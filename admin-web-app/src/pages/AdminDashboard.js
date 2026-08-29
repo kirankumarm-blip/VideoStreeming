@@ -5607,7 +5607,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 }
                               }}
                               placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
-                              disabled={loadingAdminsList}
+                              disabled={loadingAdminsList || Boolean(editingVideo)}
                               icon="fa-solid fa-user-gear"
                             />
                           </div>
