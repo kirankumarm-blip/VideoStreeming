@@ -831,9 +831,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setIsCourseViewOnly(isViewOnly);
     setEditingCourse(course);
 
-    if (authorAdminsList.length === 0) fetchAuthorAdminsList();
-    if (adminsList.length === 0) fetchAdminsList();
-
     const combinedAdmins = [...authorAdminsList, ...adminsList];
 
     // 1. Match Category (by ID or name)
@@ -1190,13 +1187,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         String(c.id) === String(courseForm.category) || 
         String(c.name || c.category || c.title || '').trim().toLowerCase() === String(courseForm.category).trim().toLowerCase()
       );
-      if (foundCat) {
-        if (String(courseForm.category) !== String(foundCat.id)) {
-          setCourseForm(prev => ({ ...prev, category: String(foundCat.id) }));
-        }
-        if (lastFetchedSubCatIdRef.current !== String(foundCat.id)) {
-          fetchSubCategories(foundCat.id);
-        }
+      if (foundCat && String(courseForm.category) !== String(foundCat.id)) {
+        setCourseForm(prev => ({ ...prev, category: String(foundCat.id) }));
       }
     }
 
@@ -2338,7 +2330,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             level: prev.level || (obj.levels && obj.levels[0]?.id) || 'Beginner'
           }));
 
-          if (currentCourseCat) {
+          if (!editingCourse && currentCourseCat) {
             fetchSubCategories(currentCourseCat, clientId);
           }
         } else {
@@ -2360,7 +2352,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             visibility: prev.visibility || firstVisId
           }));
 
-          if (currentCat) {
+          if (!editingVideo && currentCat) {
             fetchSubCategories(currentCat, clientId);
           }
         }
