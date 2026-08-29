@@ -4692,16 +4692,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   // --- Delete Video Handler ---
   const handleDeleteVideo = async (id) => {
-    if (window.confirm('Are you sure you want to delete this video?')) {
-      try {
-        await api.videos.delete(id);
-        lastFetchedVideosRef.current = null;
-        fetchVideos();
-        fetchDashboardData();
-      } catch (err) {
-        alert(err.message || 'Failed to delete video');
-      }
-    }
+    setCustomAlert({
+      show: true,
+      title: 'Coming Soon!',
+      message: 'Coming soon!',
+      type: 'info',
+      buttonText: 'OK'
+    });
   };
 
 
