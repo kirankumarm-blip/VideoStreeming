@@ -2265,17 +2265,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }));
         setVisibilities(normalizedVis);
 
-        if (Array.isArray(obj.levels)) {
-          const normalizedLevels = obj.levels.map(item => ({
-            id: String(item.id || item.level_id || item.level || item.name || ''),
+        const rawLevels = Array.isArray(obj.course_levels) ? obj.course_levels : (Array.isArray(obj.levels) ? obj.levels : (Array.isArray(obj.course_level) ? obj.course_level : []));
+        if (rawLevels.length > 0) {
+          const normalizedLevels = rawLevels.map(item => ({
+            id: String(item.id !== undefined && item.id !== null ? item.id : (item.level_id || item.level || item.name || '')),
             name: item.name || item.level || item.title || String(item.id || '')
           }));
           setLevels(normalizedLevels);
         }
 
-        if (Array.isArray(obj.plans)) {
-          const normalizedPlans = obj.plans.map(item => ({
-            id: String(item.id || item.plan_id || item.name || ''),
+        const rawPlans = Array.isArray(obj.plans) ? obj.plans : (Array.isArray(obj.plan) ? obj.plan : []);
+        if (rawPlans.length > 0) {
+          const normalizedPlans = rawPlans.map(item => ({
+            id: String(item.id !== undefined && item.id !== null ? item.id : (item.plan_id || item.name || '')),
             name: item.name || item.title || item.plan_name || String(item.id || '')
           }));
           setPlans(normalizedPlans);
@@ -2295,8 +2297,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           setAuthorAdminsList(mappedAuthors);
         }
 
-        if (Array.isArray(obj.quiz_types)) {
-          setQuizTypesList(obj.quiz_types);
+        const rawQuizTypes = Array.isArray(obj.quiz_types) ? obj.quiz_types : (Array.isArray(obj.question_types) ? obj.question_types : (Array.isArray(obj.question_type) ? obj.question_type : []));
+        if (rawQuizTypes.length > 0) {
+          const normalizedQuizTypes = rawQuizTypes.map(item => ({
+            id: String(item.id !== undefined && item.id !== null ? item.id : (item.type_id || item.code || item.name || '')),
+            name: item.name || item.label || item.type || item.title || String(item.id || '')
+          }));
+          setQuizTypesList(normalizedQuizTypes);
         }
 
         const firstCatId = normalizedCats.length > 0 ? normalizedCats[0].id : '';
