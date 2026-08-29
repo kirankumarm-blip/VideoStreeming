@@ -1061,31 +1061,50 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleEditVideo = (video) => {
     if (!video) return;
-    setEditingVideo(video);
 
-    const catRawId = video.category_id || video.cat_id || video.category || '';
-    const subCatRaw = video.subcategory_id || video.sub_category_id || video.sub_category || video.subcategory || video.subCategory || video.subcategory_name || '';
-    const langVal = String(video.language_id || video.languageId || video.language || '');
-    const visVal = String(video.visibility_id || video.visibility || video.visibility_name || '');
-    const clientVal = video.client_id || video.clientId || video.assigned_admin || video.admin_id || video.adminId || null;
+    const extractVal = (field) => {
+      if (!field) return '';
+      if (typeof field === 'object') {
+        return String(field.id || field.category_id || field.sub_category_id || field.subcategory_id || field.name || field.title || field.label || '');
+      }
+      return String(field);
+    };
+
+    let videoObj = video;
+    if (video.json) {
+      try {
+        const parsed = typeof video.json === 'string' ? JSON.parse(video.json) : video.json;
+        if (parsed && typeof parsed === 'object') {
+          videoObj = { ...video, ...parsed };
+        }
+      } catch (e) {}
+    }
+
+    setEditingVideo(videoObj);
+
+    const catRawId = extractVal(videoObj.category_id || videoObj.cat_id || videoObj.category || videoObj.category_name);
+    const subCatRaw = extractVal(videoObj.subcategory_id || videoObj.sub_category_id || videoObj.sub_category || videoObj.subcategory || videoObj.subCategory || videoObj.subcategory_name || videoObj.sub_category_name || videoObj.subcategoryId || videoObj.subCategoryId);
+    const langVal = extractVal(videoObj.language_id || videoObj.languageId || videoObj.language || videoObj.language_name);
+    const visVal = extractVal(videoObj.visibility_id || videoObj.visibility || videoObj.visibility_name);
+    const clientVal = extractVal(videoObj.client_id || videoObj.clientId || videoObj.assigned_admin || videoObj.admin_id || videoObj.adminId) || null;
     const admVal = String(clientVal || selectedAdminId || '');
 
     setUploadForm({
-      title: video.title || video.video_title || '',
-      description: video.description || video.desc || '',
+      title: videoObj.title || videoObj.video_title || '',
+      description: videoObj.description || videoObj.desc || '',
       category: '',
       subCategory: '',
-      tags: video.tags || '',
+      tags: videoObj.tags || '',
       visibility: visVal,
-      planId: String(video.plan_id || video.planId || ''),
+      planId: extractVal(videoObj.plan_id || videoObj.planId),
       languageId: langVal,
       adminId: admVal
     });
 
-    const parsedThumb = video.thumbnail || video.thumbnail_image || video.thumbnail_url || video.thumbnailUrl || '';
+    const parsedThumb = videoObj.thumbnail || videoObj.thumbnail_image || videoObj.thumbnail_url || videoObj.thumbnailUrl || '';
     setThumbPreviewUrl(parsedThumb ? (parsedThumb.startsWith('http') ? parsedThumb : `http://localhost:5000${parsedThumb}`) : null);
 
-    const parsedVideo = video.video_url || video.videoUrl || video.url || '';
+    const parsedVideo = videoObj.video_url || videoObj.videoUrl || videoObj.url || '';
     setVideoPreviewUrl(parsedVideo ? (parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`) : null);
 
     changeTab('video_edit');
@@ -1128,15 +1147,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (resolvedCatId) {
         fetchSubCategories(resolvedCatId, clientVal).then((subList) => {
           if (Array.isArray(subList) && subList.length > 0) {
-            const targetSubStr = String(subCatRaw).trim().toLowerCase();
+            const targetSubStr = String(subCatRaw || '').trim().toLowerCase();
             const foundSub = subList.find(s => {
               const sId = String(s.id || s.subcategory_id || s.sub_category_id || '').toLowerCase();
               const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
-              return sId === targetSubStr || sName === targetSubStr;
+              return targetSubStr && (sId === targetSubStr || sName === targetSubStr);
             });
             if (foundSub) {
               const resolvedSubId = String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '');
               setUploadForm(prev => ({ ...prev, subCategory: resolvedSubId }));
+            } else if (subCatRaw) {
+              setUploadForm(prev => ({ ...prev, subCategory: String(subCatRaw) }));
+            } else if (subList[0]) {
+              setUploadForm(prev => ({ ...prev, subCategory: String(subList[0].id) }));
             }
           }
         });
