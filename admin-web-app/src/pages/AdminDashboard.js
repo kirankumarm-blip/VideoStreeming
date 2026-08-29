@@ -1517,8 +1517,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   useEffect(() => {
     if (showUserModal || showAuthorAdminModal) {
-      fetchGenders();
-      fetchStates();
+      if (genders.length === 0) fetchGenders();
+      if (statesList.length === 0) fetchStates();
     }
     if (showAuthorAdminModal && (authorAdminForm.state_id || authorAdminForm.state)) {
       fetchCities(authorAdminForm.state_id || authorAdminForm.state);
@@ -1526,6 +1526,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   }, [showUserModal, showAuthorAdminModal]);
 
   const fetchStates = async () => {
+    if (statesList.length > 0) return statesList;
     setLoadingStates(true);
     try {
       const res = await api.vdcategories.getStates();
@@ -1605,8 +1606,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     });
     setCitiesList([]);
     setShowAuthorAdminModal(true);
-    fetchStates();
-    fetchGenders();
+    if (statesList.length === 0) fetchStates();
+    if (genders.length === 0) fetchGenders();
   };
 
   const handleEditAuthorAdminClick = async (admin) => {

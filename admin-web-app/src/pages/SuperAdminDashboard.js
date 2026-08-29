@@ -175,7 +175,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const handleAddAuthorAdminClick = async () => {
     setEditingAuthorAdmin(null);
-    const clients = dropdownClients.length > 0 ? dropdownClients : (await fetchDropdownClients() || []);
+    let clients = dropdownClients;
+    if (!clients || clients.length <= 1) {
+      clients = await fetchDropdownClients() || [];
+    }
     const actualClients = (clients || []).filter(c => String(c.id) !== '0');
     const initialClientId = (selectedClientId && selectedClientId !== '0') ? selectedClientId : (actualClients[0]?.id || '');
 
@@ -197,9 +200,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     });
     setCitiesList([]);
     setShowAuthorAdminModal(true);
-    fetchStates();
-    fetchGenders();
-    fetchDropdownClients();
+    if (statesList.length === 0) fetchStates();
+    if (genders.length === 0) fetchGenders();
     if (initialClientId) {
       fetchClientAdmins(initialClientId);
     } else {
@@ -700,10 +702,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   useEffect(() => {
     if (showClientModal || showAuthorAdminModal) {
-      fetchStates();
+      if (statesList.length === 0) fetchStates();
     }
     if (showAuthorAdminModal) {
-      fetchGenders();
+      if (genders.length === 0) fetchGenders();
       if (authorAdminForm.state_id || authorAdminForm.state) {
         fetchCities(authorAdminForm.state_id || authorAdminForm.state);
       }
