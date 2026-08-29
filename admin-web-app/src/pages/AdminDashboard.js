@@ -1444,20 +1444,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchDropdownDataWithClient(null);
     }
     if (activeTab === 'course_upload') {
-      fetchCategories();
-      fetchVisibilities();
-      fetchLevels();
-      fetchPlans();
-      fetchLanguages();
-      fetchAdminsList();
-      fetchAuthorAdminsList();
-      fetchQuizTypesList();
-      if (courseForm.category) {
-        fetchSubCategories(courseForm.category);
-      } else {
-        setSubCategories([]);
-        lastFetchedSubCatIdRef.current = null;
+      if (!editingCourse) {
+        resetCourseFormToDefault();
       }
+      isFetchingDropdownDataRef.current = false;
+      fetchDropdownDataWithClient(null, 'course');
     }
     if (activeTab === 'categories') {
       fetchCategories();
@@ -2234,11 +2225,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchDropdownDataWithClient = async (clientId = null) => {
+  const fetchDropdownDataWithClient = async (clientId = null, type = null) => {
     if (isFetchingDropdownDataRef.current) return;
     isFetchingDropdownDataRef.current = true;
     try {
-      const res = await api.vdcategories.getDropdownData(clientId);
+      const res = await api.vdcategories.getDropdownData(clientId, type);
       let obj = res;
       if (Array.isArray(res) && res.length > 0) {
         obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
@@ -2274,36 +2265,97 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }));
         setVisibilities(normalizedVis);
 
+        if (Array.isArray(obj.levels)) {
+          const normalizedLevels = obj.levels.map(item => ({
+            id: String(item.id || item.level_id || item.level || item.name || ''),
+            name: item.name || item.level || item.title || String(item.id || '')
+          }));
+          setLevels(normalizedLevels);
+        }
+
+        if (Array.isArray(obj.plans)) {
+          const normalizedPlans = obj.plans.map(item => ({
+            id: String(item.id || item.plan_id || item.name || ''),
+            name: item.name || item.title || item.plan_name || String(item.id || '')
+          }));
+          setPlans(normalizedPlans);
+        }
+
+        if (Array.isArray(obj.admins)) {
+          setAdminsList(obj.admins.map(item => item.json || item));
+        }
+
+        if (Array.isArray(obj.author_admins)) {
+          const mappedAuthors = obj.author_admins.map(item => {
+            const combined = { ...item, ...(item.json || {}) };
+            const idVal = String(combined.id || combined.user_id || combined.admin_id || '');
+            const nameVal = combined.name || (combined.first_name ? `${combined.first_name} ${combined.last_name || ''}`.trim() : '') || combined.author_name || `Author ${idVal}`;
+            return { id: idVal, name: nameVal };
+          }).filter(a => a.id && a.name);
+          setAuthorAdminsList(mappedAuthors);
+        }
+
+        if (Array.isArray(obj.quiz_types)) {
+          setQuizTypesList(obj.quiz_types);
+        }
+
         const firstCatId = normalizedCats.length > 0 ? normalizedCats[0].id : '';
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
-        let currentCat = uploadForm.category;
-        if (currentCat) {
-          const found = normalizedCats.find(c =>
-            String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
-            String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
-          );
-          currentCat = found ? String(found.id) : (firstCatId || currentCat);
+        if (type === 'course') {
+          let currentCourseCat = courseForm.category;
+          if (currentCourseCat) {
+            const found = normalizedCats.find(c =>
+              String(c.id).toLowerCase() === String(currentCourseCat).toLowerCase() ||
+              String(c.name || '').trim().toLowerCase() === String(currentCourseCat).trim().toLowerCase()
+            );
+            currentCourseCat = found ? String(found.id) : (firstCatId || currentCourseCat);
+          } else {
+            currentCourseCat = firstCatId;
+          }
+
+          setCourseForm(prev => ({
+            ...prev,
+            category: currentCourseCat,
+            language: prev.language || firstLangId,
+            visibility: prev.visibility || firstVisId,
+            level: prev.level || (obj.levels && obj.levels[0]?.id) || 'Beginner'
+          }));
+
+          if (currentCourseCat) {
+            fetchSubCategories(currentCourseCat, clientId);
+          }
         } else {
-          currentCat = firstCatId;
-        }
+          let currentCat = uploadForm.category;
+          if (currentCat) {
+            const found = normalizedCats.find(c =>
+              String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
+              String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
+            );
+            currentCat = found ? String(found.id) : (firstCatId || currentCat);
+          } else {
+            currentCat = firstCatId;
+          }
 
-        setUploadForm(prev => ({
-          ...prev,
-          category: currentCat,
-          languageId: prev.languageId || firstLangId,
-          visibility: prev.visibility || firstVisId
-        }));
+          setUploadForm(prev => ({
+            ...prev,
+            category: currentCat,
+            languageId: prev.languageId || firstLangId,
+            visibility: prev.visibility || firstVisId
+          }));
 
-        if (currentCat) {
-          fetchSubCategories(currentCat, clientId);
+          if (currentCat) {
+            fetchSubCategories(currentCat, clientId);
+          }
         }
 
         return {
           categories: normalizedCats,
           languages: normalizedLangs,
-          visibilities: normalizedVis
+          visibilities: normalizedVis,
+          levels: obj.levels,
+          plans: obj.plans
         };
       }
       return [];

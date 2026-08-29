@@ -324,6 +324,16 @@ const handleVdCategories = (req, res) => {
       plans: [
         { id: "free", name: "Free" },
         { id: "premium", name: "Premium" }
+      ],
+      admins: db.admins || [],
+      author_admins: db.author_admins || [
+        { id: "1", name: "Dr. Angela Yu", first_name: "Angela", last_name: "Yu" },
+        { id: "2", name: "Maximilian Schwarzmuller", first_name: "Maximilian", last_name: "Schwarzmuller" }
+      ],
+      quiz_types: [
+        { id: "1", name: "Multiple Choice" },
+        { id: "2", name: "True/False" },
+        { id: "3", name: "Short Answer" }
       ]
     });
   }

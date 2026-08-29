@@ -594,8 +594,11 @@ export const api = {
     }
   },
   vdcategories: {
-    getDropdownData: (clientId = null) => {
+    getDropdownData: (clientId = null, type = null) => {
       const payload = { formstep: "dropdown_data" };
+      if (type) {
+        payload.type = type;
+      }
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
       }
