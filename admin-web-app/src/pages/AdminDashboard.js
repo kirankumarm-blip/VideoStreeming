@@ -6287,7 +6287,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <PremiumSelect
                                 options={visibilities.map(vis => ({ id: vis.id, name: vis.name || vis.visibility || vis.title || vis.id }))}
                                 value={courseForm.visibility}
-                                disabled={isCourseViewOnly}
+                                disabled={isCourseViewOnly || Boolean(editingCourse)}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   setCourseForm(prev => ({ ...prev, visibility: val }));
@@ -6335,7 +6335,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                      return acc;
                                    }, [])}
                                   value={courseForm.adminId}
-                                  disabled={isCourseViewOnly || loadingAdminsList}
+                                  disabled={isCourseViewOnly || loadingAdminsList || Boolean(editingCourse)}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     setCourseForm(prev => ({ ...prev, adminId: val }));
