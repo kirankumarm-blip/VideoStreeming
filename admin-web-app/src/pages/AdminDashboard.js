@@ -931,24 +931,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     const targetClientId = (isSuperAdminMode && admVal && admVal !== '0') ? admVal : (selectedAdminId !== '0' ? selectedAdminId : null);
 
-    fetchCategories(targetClientId).then((fetchedCats) => {
-      const catList = (Array.isArray(fetchedCats) && fetchedCats.length > 0) ? fetchedCats : categories;
-      const foundCat = catList.find(c => 
-        String(c.id) === String(catRaw) || 
-        String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
-      );
-      const resolvedCatId = foundCat ? String(foundCat.id) : String(catRaw);
-      
-      setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
+    isFetchingDropdownDataRef.current = false;
+    lastFetchedSubCatIdRef.current = null;
+    fetchDropdownDataWithClient(targetClientId, 'course').then((data) => {
+      const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
+      const targetCatStr = String(catRaw).trim().toLowerCase();
+      let resolvedCatId = '';
+      if (catsList && catsList.length > 0) {
+        const foundCat = catsList.find(c => 
+          String(c.id).toLowerCase() === targetCatStr || 
+          String(c.name || c.category || c.title || '').trim().toLowerCase() === targetCatStr
+        );
+        resolvedCatId = foundCat ? String(foundCat.id) : String(catRaw);
+        setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
+      }
 
       if (resolvedCatId) {
         fetchSubCategories(resolvedCatId, targetClientId).then((subList) => {
-          const foundSub = (subList || []).find(s =>
-            String(s.id) === String(subCatRaw) ||
-            String(s.name || s.sub_category_name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase() === String(subCatRaw).trim().toLowerCase()
-          );
-          const resolvedSubId = foundSub ? String(foundSub.id) : String(subCatRaw);
-          setCourseForm(prev => ({ ...prev, subCategory: resolvedSubId }));
+          if (Array.isArray(subList) && subList.length > 0) {
+            const targetSubStr = String(subCatRaw || '').trim().toLowerCase();
+            const foundSub = subList.find(s =>
+              String(s.id).toLowerCase() === targetSubStr ||
+              String(s.name || s.sub_category_name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase() === targetSubStr
+            );
+            const resolvedSubId = foundSub ? String(foundSub.id) : String(subCatRaw);
+            setCourseForm(prev => ({ ...prev, subCategory: resolvedSubId }));
+          }
         });
       }
     });
