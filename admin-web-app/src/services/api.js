@@ -253,6 +253,7 @@ async function request(endpoint, options = {}) {
       bodyObj.formStep === 'blockedUsers' ||
       bodyObj.formStep === 'getUserLogs' ||
       bodyObj.formStep === 'getAllVideos' ||
+      bodyObj.formstep === 'getAllVideos' ||
       bodyObj.formStep === 'getAssignedVideos' ||
       bodyObj.formStep === 'getMyVideos' ||
       bodyObj.formstep === 'getAssignedVideos' ||
@@ -1102,7 +1103,7 @@ export const api = {
           expectArray: true
         });
       }
-      const payload = { formStep: "getAllVideos", formstep: "getAllVideos" };
+      const payload = { formstep: "getAllVideos" };
       if (params && params.adminId) {
         payload.client_id = params.adminId;
         payload.admin_id = params.adminId;
