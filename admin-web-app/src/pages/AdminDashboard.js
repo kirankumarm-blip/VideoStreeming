@@ -1073,8 +1073,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setUploadForm({
       title: video.title || video.video_title || '',
       description: video.description || video.desc || '',
-      category: String(catRawId),
-      subCategory: String(subCatRaw),
+      category: '',
+      subCategory: '',
       tags: video.tags || '',
       visibility: visVal,
       planId: String(video.plan_id || video.planId || ''),
@@ -1090,13 +1090,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     changeTab('video_edit');
 
+    fetchAdminsList();
+
     isFetchingDropdownDataRef.current = false;
+    lastFetchedSubCatIdRef.current = null;
     fetchDropdownDataWithClient(clientVal).then((data) => {
       const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
       const langsList = (data && Array.isArray(data.languages)) ? data.languages : languages;
 
       const targetCatStr = String(catRawId).trim().toLowerCase();
-      let resolvedCatId = catRawId;
+      let resolvedCatId = '';
       if (catsList && catsList.length > 0) {
         const foundCat = catsList.find(c =>
           String(c.id).toLowerCase() === targetCatStr ||
@@ -1109,6 +1112,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
         setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
       }
+
       if (langsList && langsList.length > 0) {
         const targetLangStr = String(langVal).trim().toLowerCase();
         const foundLang = langsList.find(l =>
@@ -1120,6 +1124,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           setUploadForm(prev => ({ ...prev, languageId: resolvedLangId }));
         }
       }
+
       if (resolvedCatId) {
         fetchSubCategories(resolvedCatId, clientVal).then((subList) => {
           if (Array.isArray(subList) && subList.length > 0) {
@@ -2246,20 +2251,29 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
-        let activeCatId = '';
+        let targetCat = '';
         setUploadForm(prev => {
-          activeCatId = prev.category || firstCatId;
+          let cat = prev.category;
+          if (cat) {
+            const found = normalizedCats.find(c =>
+              String(c.id).toLowerCase() === String(cat).toLowerCase() ||
+              String(c.name || '').trim().toLowerCase() === String(cat).trim().toLowerCase()
+            );
+            cat = found ? String(found.id) : (firstCatId || cat);
+          } else {
+            cat = firstCatId;
+          }
+          targetCat = cat;
           return {
             ...prev,
-            category: activeCatId,
+            category: cat,
             languageId: prev.languageId || firstLangId,
             visibility: prev.visibility || firstVisId
           };
         });
 
-        const targetCatForSub = activeCatId || firstCatId;
-        if (targetCatForSub) {
-          fetchSubCategories(targetCatForSub, clientId);
+        if (targetCat) {
+          fetchSubCategories(targetCat, clientId);
         }
 
         return {
