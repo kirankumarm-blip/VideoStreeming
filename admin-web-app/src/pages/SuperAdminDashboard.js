@@ -3840,6 +3840,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 })()} 
                 controls 
                 autoPlay
+                controlsList="nodownload"
                 onContextMenu={(e) => e.preventDefault()}
                 style={{ width: '100%', height: '100%', display: 'block' }}
               />

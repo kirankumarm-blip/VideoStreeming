@@ -5929,6 +5929,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         src={videoPreviewUrl} 
                         poster={thumbPreviewUrl || undefined}
                         controls 
+                        controlsList="nodownload"
+                        onContextMenu={(e) => e.preventDefault()}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                       />
                     ) : thumbPreviewUrl ? (
@@ -8305,6 +8307,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 })()} 
                 controls 
                 autoPlay
+                controlsList="nodownload"
                 onContextMenu={(e) => e.preventDefault()}
                 style={{ width: '100%', height: '100%', display: 'block' }}
               />
