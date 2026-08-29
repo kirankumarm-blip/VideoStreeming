@@ -199,7 +199,17 @@ const Signup = () => {
           return item;
         });
 
-        setGenders(genderList);
+        const order = { 'male': 1, 'female': 2, 'other': 3, 'others': 3 };
+        const sortedGenders = [...genderList].sort((a, b) => {
+          const nameA = String(a.name || a.label || a.gender || a.id || '').trim().toLowerCase();
+          const nameB = String(b.name || b.label || b.gender || b.id || '').trim().toLowerCase();
+          const orderA = order[nameA] !== undefined ? order[nameA] : 99;
+          const orderB = order[nameB] !== undefined ? order[nameB] : 99;
+          if (orderA !== orderB) return orderA - orderB;
+          return nameA.localeCompare(nameB);
+        });
+
+        setGenders(sortedGenders);
       } catch (err) {
         console.error('Failed to fetch genders:', err);
       }

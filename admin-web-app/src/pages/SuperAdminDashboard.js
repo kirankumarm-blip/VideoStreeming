@@ -982,6 +982,19 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     }
   };
 
+  const sortGenders = (list) => {
+    if (!Array.isArray(list)) return [];
+    const order = { 'male': 1, 'female': 2, 'other': 3, 'others': 3 };
+    return [...list].sort((a, b) => {
+      const nameA = String(a.name || a.label || a.gender || a.id || '').trim().toLowerCase();
+      const nameB = String(b.name || b.label || b.gender || b.id || '').trim().toLowerCase();
+      const orderA = order[nameA] !== undefined ? order[nameA] : 99;
+      const orderB = order[nameB] !== undefined ? order[nameB] : 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return nameA.localeCompare(nameB);
+    });
+  };
+
   const fetchGenders = async () => {
     try {
       const res = await api.dashboard.getSuperAdmin('getGender');
@@ -995,8 +1008,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         const arrayProp = Object.values(res).find(val => Array.isArray(val));
         if (arrayProp) list = arrayProp.map(item => item.json || item);
       }
-      setGenders(list);
-      return list;
+      const sorted = sortGenders(list);
+      setGenders(sorted);
+      return sorted;
     } catch (e) {
       console.error('Failed to fetch user genders', e);
       setGenders([]);
