@@ -6202,28 +6202,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             options={categories.map(c => ({ id: c.id, name: c.name }))}
                             value={courseForm.category}
                             disabled={isCourseViewOnly}
-                            onOpen={() => {
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
-                              const isPrivate = (selectedVisObj && (
-                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                              )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
-                              const clientId = (isSuperAdmin && isPrivate) ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
-                              fetchCategories(clientId);
-                            }}
                             onChange={(e) => {
                               const val = e.target.value;
                               setCourseForm(prev => ({ ...prev, category: val, subCategory: '' }));
                               lastFetchedSubCatIdRef.current = null;
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString() || v.name?.toString().toLowerCase() === courseForm.visibility?.toString().toLowerCase());
                               const isPrivate = (selectedVisObj && (
                                 (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
                                 (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                              )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+                                (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+                              )) || (courseForm.visibility && (courseForm.visibility.toString().toLowerCase() === 'private' || courseForm.visibility.toString() === '2'));
                               const clientId = (isSuperAdmin && isPrivate) ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
-                              fetchCategories(clientId);
                               if (val) {
                                 fetchSubCategories(val, clientId);
                               } else {
@@ -6281,7 +6271,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                       fetchAdminsList();
                                     }
                                     const clientId = isPrivate ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
-                                    fetchCategories(clientId);
+                                    fetchDropdownDataWithClient(clientId, 'course');
                                     if (courseForm.category) {
                                       lastFetchedSubCatIdRef.current = null;
                                       fetchSubCategories(courseForm.category, clientId);
@@ -6326,7 +6316,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                         (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
                                       )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
                                       const clientId = isPrivate ? (val || null) : null;
-                                      fetchCategories(clientId);
+                                      fetchDropdownDataWithClient(clientId, 'course');
                                       if (courseForm.category) {
                                         lastFetchedSubCatIdRef.current = null;
                                         fetchSubCategories(courseForm.category, clientId);
