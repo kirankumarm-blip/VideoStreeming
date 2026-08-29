@@ -644,6 +644,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingAdminsList, setLoadingAdminsList] = useState(false);
   const isFetchingAdminsListRef = useRef(false);
   const isFetchingDropdownDataRef = useRef(false);
+  const isFetchingStatesRef = useRef(false);
+  const isFetchingGendersRef = useRef(false);
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState(null);
@@ -1563,6 +1565,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const fetchStates = async () => {
     if (statesList.length > 0) return statesList;
+    if (isFetchingStatesRef.current) return statesList;
+    isFetchingStatesRef.current = true;
     setLoadingStates(true);
     try {
       const res = await api.vdcategories.getStates();
@@ -1577,6 +1581,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       console.error("Failed to fetch states:", err);
       return [];
     } finally {
+      isFetchingStatesRef.current = false;
       setLoadingStates(false);
     }
   };
@@ -1642,8 +1647,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     });
     setCitiesList([]);
     setShowAuthorAdminModal(true);
-    if (statesList.length === 0) fetchStates();
-    if (genders.length === 0) fetchGenders();
   };
 
   const handleEditAuthorAdminClick = async (admin) => {
@@ -1948,6 +1951,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const fetchGenders = async () => {
+    if (genders.length > 0) return genders;
+    if (isFetchingGendersRef.current) return genders;
+    isFetchingGendersRef.current = true;
     try {
       const res = await api.users.getGender();
       console.log('Fetched user genders:', res);
@@ -1966,6 +1972,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       console.error('Failed to fetch user genders', e);
       setGenders([]);
       return [];
+    } finally {
+      isFetchingGendersRef.current = false;
     }
   };
 
