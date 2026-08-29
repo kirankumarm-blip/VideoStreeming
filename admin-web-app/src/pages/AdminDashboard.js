@@ -1147,11 +1147,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     changeTab('video_edit');
 
-    fetchAdminsList();
+    const isPrivate = (visVal && (String(visVal).toLowerCase() === 'private' || String(visVal) === '2')) || Boolean(clientVal);
+    if (isPrivate) {
+      fetchAdminsList();
+    }
 
     isFetchingDropdownDataRef.current = false;
     lastFetchedSubCatIdRef.current = null;
-    fetchDropdownDataWithClient(clientVal).then((data) => {
+    fetchDropdownDataWithClient(clientVal, 'video', true).then((data) => {
       const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
       const langsList = (data && Array.isArray(data.languages)) ? data.languages : languages;
 
@@ -1183,6 +1186,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       if (resolvedCatId) {
+        lastFetchedSubCatIdRef.current = null;
         fetchSubCategories(resolvedCatId, clientVal).then((subList) => {
           if (Array.isArray(subList) && subList.length > 0) {
             const targetSubStr = String(subCatRaw || '').trim().toLowerCase();
@@ -1466,9 +1470,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchUsers();
     }
     if (activeTab === 'video_upload') {
-      resetVideoFormToDefault();
-      isFetchingDropdownDataRef.current = false;
-      fetchDropdownDataWithClient(null);
+      if (!editingVideo) {
+        resetVideoFormToDefault();
+        isFetchingDropdownDataRef.current = false;
+        fetchDropdownDataWithClient(null);
+      }
     }
     if (activeTab === 'course_upload') {
       if (!editingCourse) {
