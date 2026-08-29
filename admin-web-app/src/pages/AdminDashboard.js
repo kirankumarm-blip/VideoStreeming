@@ -6301,23 +6301,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 disabled={isCourseViewOnly || Boolean(editingCourse)}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  setCourseForm(prev => ({ ...prev, visibility: val }));
-                                  const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString());
+                                  if (String(val || '').toLowerCase() === String(courseForm.visibility || '').toLowerCase()) {
+                                    return;
+                                  }
+                                  setCategories([]);
+                                  setSubCategories([]);
+                                  setCourseForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
+                                  lastFetchedSubCatIdRef.current = null;
+                                  const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString() || v.name?.toString().toLowerCase() === val?.toString().toLowerCase());
                                   const isPrivate = (selectedVisObj && (
                                     (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
                                     (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                    (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                                  )) || (val && val.toString().toLowerCase() === 'private');
-                                  if (isSuperAdmin) {
-                                    if (isPrivate) {
-                                      fetchAdminsList();
-                                    }
-                                    const clientId = isPrivate ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
-                                    fetchDropdownDataWithClient(clientId, 'course');
-                                    if (courseForm.category) {
-                                      lastFetchedSubCatIdRef.current = null;
-                                      fetchSubCategories(courseForm.category, clientId);
-                                    }
+                                    (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+                                    (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+                                  )) || (val && (val.toString().toLowerCase() === 'private' || val.toString() === '2'));
+                                  if (isPrivate) {
+                                    fetchAdminsList().then((admList) => {
+                                      const firstAdmId = (Array.isArray(admList) && admList.length > 0) ? (admList[0].id || admList[0].alpha_id || admList[0].admin_id) : courseForm.adminId;
+                                      const targetClientId = String(courseForm.adminId || firstAdmId || '').trim();
+                                      if (targetClientId && targetClientId !== '0') {
+                                        fetchDropdownDataWithClient(targetClientId, 'course', true);
+                                      } else {
+                                        fetchDropdownDataWithClient(null, 'course', true);
+                                      }
+                                    });
+                                  } else {
+                                    fetchDropdownDataWithClient(null, 'course', true);
                                   }
                                 }}
                                 placeholder="Select Visibility"
@@ -6325,12 +6334,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               />
                             </div>
                             {(() => {
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
+                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString() || v.name?.toString().toLowerCase() === courseForm.visibility?.toString().toLowerCase());
                               const isPrivate = (selectedVisObj && (
                                 (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
                                 (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                              )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
+                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+                                (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+                              )) || (courseForm.visibility && (courseForm.visibility.toString().toLowerCase() === 'private' || courseForm.visibility.toString() === '2'));
                               return isPrivate;
                             })() && (
                               <div className="form-group" style={{ margin: 0 }}>
@@ -6349,20 +6359,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   disabled={isCourseViewOnly || loadingAdminsList || Boolean(editingCourse)}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    setCourseForm(prev => ({ ...prev, adminId: val }));
-                                    if (isSuperAdmin) {
-                                      const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
-                                      const isPrivate = (selectedVisObj && (
-                                        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-                                      )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
-                                      const clientId = isPrivate ? (val || null) : null;
-                                      fetchDropdownDataWithClient(clientId, 'course');
-                                      if (courseForm.category) {
-                                        lastFetchedSubCatIdRef.current = null;
-                                        fetchSubCategories(courseForm.category, clientId);
-                                      }
+                                    setCategories([]);
+                                    setSubCategories([]);
+                                    setCourseForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
+                                    lastFetchedSubCatIdRef.current = null;
+                                    if (val && val !== '0') {
+                                      fetchDropdownDataWithClient(val, 'course', true);
                                     }
                                   }}
                                   placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
