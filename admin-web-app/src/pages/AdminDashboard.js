@@ -1124,6 +1124,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const subCatRaw = extractVal(videoObj.subcategory_id || videoObj.sub_category_id || videoObj.sub_category || videoObj.subcategory || videoObj.subCategory || videoObj.subcategory_name || videoObj.sub_category_name || videoObj.subcategoryId || videoObj.subCategoryId);
     const langVal = extractVal(videoObj.language_id || videoObj.languageId || videoObj.language || videoObj.language_name);
     const visVal = extractVal(videoObj.visibility_id || videoObj.visibility || videoObj.visibility_name);
+    const planRaw = extractVal(videoObj.plan_id || videoObj.planId || videoObj.plan || videoObj.plan_name);
     const clientVal = extractVal(videoObj.client_id || videoObj.clientId || videoObj.assigned_admin || videoObj.admin_id || videoObj.adminId) || null;
     const admVal = String(clientVal || selectedAdminId || '');
 
@@ -1134,7 +1135,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       subCategory: '',
       tags: videoObj.tags || '',
       visibility: visVal,
-      planId: extractVal(videoObj.plan_id || videoObj.planId),
+      planId: planRaw,
       languageId: langVal,
       adminId: admVal
     });
@@ -1157,6 +1158,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     fetchDropdownDataWithClient(clientVal, 'video', true).then((data) => {
       const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
       const langsList = (data && Array.isArray(data.languages)) ? data.languages : languages;
+      const plansList = (data && Array.isArray(data.plans)) ? data.plans : plans;
 
       const targetCatStr = String(catRawId).trim().toLowerCase();
       let resolvedCatId = '';
@@ -1182,6 +1184,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         if (foundLang) {
           const resolvedLangId = String(foundLang.id || foundLang.language_id || foundLang.code);
           setUploadForm(prev => ({ ...prev, languageId: resolvedLangId }));
+        }
+      }
+
+      if (plansList && plansList.length > 0) {
+        const targetPlanStr = String(planRaw || '').trim().toLowerCase();
+        const foundPlan = plansList.find(p =>
+          String(p.id).toLowerCase() === targetPlanStr ||
+          String(p.name || p.plan_name || p.title || '').trim().toLowerCase() === targetPlanStr
+        );
+        if (foundPlan) {
+          const resolvedPlanId = String(foundPlan.id || foundPlan.plan_id || foundPlan.name);
+          setUploadForm(prev => ({ ...prev, planId: resolvedPlanId }));
+        } else if (planRaw) {
+          setUploadForm(prev => ({ ...prev, planId: String(planRaw) }));
         }
       }
 
@@ -1279,7 +1295,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
     }
-  }, [editingVideo, categories, visibilities, subCategories]);
+
+    if (plans.length > 0 && uploadForm.planId) {
+      const targetPlan = String(uploadForm.planId).trim().toLowerCase();
+      const foundPlan = plans.find(p => 
+        String(p.id).toLowerCase() === targetPlan || 
+        String(p.name || p.plan_name || p.title || '').trim().toLowerCase() === targetPlan
+      );
+      if (foundPlan) {
+        const targetPlanId = String(foundPlan.id || foundPlan.plan_id || foundPlan.name);
+        if (targetPlanId && String(uploadForm.planId) !== targetPlanId) {
+          setUploadForm(prev => ({ ...prev, planId: targetPlanId }));
+        }
+      }
+    }
+  }, [editingVideo, categories, visibilities, subCategories, plans]);
   const [courseThumbnail, setCourseThumbnail] = useState(null);
   const [courseBanner, setCourseBanner] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -2308,12 +2338,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           setLevels(normalizedLevels);
         }
 
-        const rawPlans = Array.isArray(obj.plans) ? obj.plans : (Array.isArray(obj.plan) ? obj.plan : []);
+        const rawPlans = Array.isArray(obj.plans) ? obj.plans : (Array.isArray(obj.plan) ? obj.plan : (Array.isArray(obj.plan_types) ? obj.plan_types : []));
+        let normalizedPlans = [];
         if (rawPlans.length > 0) {
-          const normalizedPlans = rawPlans.map(item => ({
-            id: String(item.id !== undefined && item.id !== null ? item.id : (item.plan_id || item.name || '')),
-            name: item.name || item.title || item.plan_name || String(item.id || '')
-          }));
+          normalizedPlans = rawPlans.map(item => {
+            const itemObj = (item && typeof item === 'object') ? (item.json || item) : { name: String(item), id: String(item) };
+            const planId = String(itemObj.id !== undefined && itemObj.id !== null ? itemObj.id : (itemObj.plan_id || itemObj.name || itemObj.plan || ''));
+            const planName = itemObj.name || itemObj.title || itemObj.plan_name || itemObj.plan || planId;
+            return {
+              id: planId,
+              name: planName
+            };
+          });
           setPlans(normalizedPlans);
         }
 
@@ -2400,7 +2436,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           languages: normalizedLangs,
           visibilities: normalizedVis,
           levels: obj.levels,
-          plans: obj.plans
+          plans: normalizedPlans
         };
       }
       return [];
