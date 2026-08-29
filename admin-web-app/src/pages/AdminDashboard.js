@@ -3725,11 +3725,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       // Automatically navigate to All Courses / Drafts tab
       if (isDraft) {
-        setActiveTab('course_draft');
+        changeTab('course_draft');
       } else {
-        setActiveTab('course_all');
+        changeTab('course_all');
       }
-      setActiveTab('course_all');
     } catch (e) {
       console.error(e);
       setUploadProgress('');
@@ -6193,7 +6192,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         onClick={() => {
                           resetCourseFormToDefault();
                           setIsCourseViewOnly(false);
-                          setActiveTab('course_all');
+                          changeTab('course_all');
                         }}
                       >
                         {isCourseViewOnly ? '← Back to All Courses' : '❌ Cancel Edit'}
@@ -7076,7 +7075,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           onClick={() => {
                             resetCourseFormToDefault();
                             setIsCourseViewOnly(false);
-                            setActiveTab('course_all');
+                            changeTab('course_all');
                           }}
                         >
                           ← Back to All Courses
