@@ -930,7 +930,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     isFetchingDropdownDataRef.current = false;
     lastFetchedSubCatIdRef.current = null;
-    fetchDropdownDataWithClient(targetClientId, 'course').then((data) => {
+    fetchDropdownDataWithClient(targetClientId, 'course', true).then((data) => {
       const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
       const targetCatStr = String(catRaw).trim().toLowerCase();
       let resolvedCatId = '';
@@ -1446,9 +1446,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'course_upload') {
       if (!editingCourse) {
         resetCourseFormToDefault();
+        isFetchingDropdownDataRef.current = false;
+        fetchDropdownDataWithClient(null, 'course');
       }
-      isFetchingDropdownDataRef.current = false;
-      fetchDropdownDataWithClient(null, 'course');
     }
     if (activeTab === 'categories') {
       fetchCategories();
@@ -2225,7 +2225,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchDropdownDataWithClient = async (clientId = null, type = null) => {
+  const fetchDropdownDataWithClient = async (clientId = null, type = null, isEdit = false) => {
     if (isFetchingDropdownDataRef.current) return;
     isFetchingDropdownDataRef.current = true;
     try {
@@ -2311,49 +2311,53 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
 
         if (type === 'course') {
-          let currentCourseCat = courseForm.category;
-          if (currentCourseCat) {
-            const found = normalizedCats.find(c =>
-              String(c.id).toLowerCase() === String(currentCourseCat).toLowerCase() ||
-              String(c.name || '').trim().toLowerCase() === String(currentCourseCat).trim().toLowerCase()
-            );
-            currentCourseCat = found ? String(found.id) : (firstCatId || currentCourseCat);
-          } else {
-            currentCourseCat = firstCatId;
-          }
+          if (!isEdit) {
+            let currentCourseCat = courseForm.category;
+            if (currentCourseCat) {
+              const found = normalizedCats.find(c =>
+                String(c.id).toLowerCase() === String(currentCourseCat).toLowerCase() ||
+                String(c.name || '').trim().toLowerCase() === String(currentCourseCat).trim().toLowerCase()
+              );
+              currentCourseCat = found ? String(found.id) : (firstCatId || currentCourseCat);
+            } else {
+              currentCourseCat = firstCatId;
+            }
 
-          setCourseForm(prev => ({
-            ...prev,
-            category: currentCourseCat,
-            language: prev.language || firstLangId,
-            visibility: prev.visibility || firstVisId,
-            level: prev.level || (obj.levels && obj.levels[0]?.id) || 'Beginner'
-          }));
+            setCourseForm(prev => ({
+              ...prev,
+              category: currentCourseCat,
+              language: prev.language || firstLangId,
+              visibility: prev.visibility || firstVisId,
+              level: prev.level || (obj.levels && obj.levels[0]?.id) || 'Beginner'
+            }));
 
-          if (!editingCourse && currentCourseCat) {
-            fetchSubCategories(currentCourseCat, clientId);
+            if (currentCourseCat) {
+              fetchSubCategories(currentCourseCat, clientId);
+            }
           }
         } else {
-          let currentCat = uploadForm.category;
-          if (currentCat) {
-            const found = normalizedCats.find(c =>
-              String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
-              String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
-            );
-            currentCat = found ? String(found.id) : (firstCatId || currentCat);
-          } else {
-            currentCat = firstCatId;
-          }
+          if (!isEdit) {
+            let currentCat = uploadForm.category;
+            if (currentCat) {
+              const found = normalizedCats.find(c =>
+                String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
+                String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
+              );
+              currentCat = found ? String(found.id) : (firstCatId || currentCat);
+            } else {
+              currentCat = firstCatId;
+            }
 
-          setUploadForm(prev => ({
-            ...prev,
-            category: currentCat,
-            languageId: prev.languageId || firstLangId,
-            visibility: prev.visibility || firstVisId
-          }));
+            setUploadForm(prev => ({
+              ...prev,
+              category: currentCat,
+              languageId: prev.languageId || firstLangId,
+              visibility: prev.visibility || firstVisId
+            }));
 
-          if (!editingVideo && currentCat) {
-            fetchSubCategories(currentCat, clientId);
+            if (currentCat) {
+              fetchSubCategories(currentCat, clientId);
+            }
           }
         }
 
