@@ -1304,9 +1304,16 @@ export const api = {
       const isSuperAdmin = user && user.role === 'super_admin';
       const endpoint = isSuperAdmin ? '/SuperAdminVideos' : '/adminVideos';
       const bodyObj = { ...payload };
-      const step = bodyObj.formstep || bodyObj.formStep || (isSuperAdmin ? "uploadCourse" : "UploadCouse");
+      const step = bodyObj.formstep || (isSuperAdmin ? "uploadCourse" : "UploadCouse");
       bodyObj.formstep = step;
-      bodyObj.formStep = step;
+      delete bodyObj.formStep;
+      delete bodyObj.adminId;
+      delete bodyObj.admin_id;
+      delete bodyObj.clientId;
+      delete bodyObj.subCategory;
+      delete bodyObj.visibility;
+      delete bodyObj.notificationMessage;
+      delete bodyObj.message;
       return request(endpoint, {
         method: 'POST',
         body: JSON.stringify(bodyObj)

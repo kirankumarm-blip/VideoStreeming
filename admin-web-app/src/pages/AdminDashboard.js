@@ -3582,14 +3582,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const payload = {
         title: courseForm.title,
         description: courseForm.description,
-        message: courseNotifMsg,
         notification_message: courseNotifMsg,
-        notificationMessage: courseNotifMsg,
         category: finalCatId,
-        subCategory: finalSubCatId,
         subcategory_id: finalSubCatId,
         visibility_id: rootVisId,
-        visibility: rootVisId,
         language_id: finalLangId,
         author_id: finalAuthorId,
         instructor_id: finalAuthorId,
@@ -3636,24 +3632,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       payload.client_id = effectiveClientId;
-      payload.clientId = effectiveClientId;
-      payload.admin_id = effectiveClientId;
-      payload.adminId = effectiveClientId;
       payload.assigned_admin = effectiveClientId;
 
       if (isDraft) {
         payload.formstep = "saveDraft";
-        payload.formStep = "saveDraft";
       } else if (editingCourse) {
         payload.id = editingCourse.id;
         payload.course_id = editingCourse.id;
         payload.formstep = "editCourse";
-        payload.formStep = "editCourse";
       } else {
         const currentUserObj = getCurrentUser();
         const defaultStep = (currentUserObj && currentUserObj.role === 'super_admin') ? "uploadCourse" : "UploadCouse";
         payload.formstep = defaultStep;
-        payload.formStep = defaultStep;
       }
 
       await api.videos.uploadCourse(payload);
