@@ -107,7 +107,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   useEffect(() => {
     if (showAdminModal) {
-      fetchStates();
+      if (statesList.length === 0) fetchStates();
+      if (genders.length === 0) fetchGenders();
     }
   }, [showAdminModal]);
 
