@@ -1714,8 +1714,33 @@ const VideoWatch = () => {
                     </div>
                   </div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                    {completedCount} of {courseLessons.length} completed
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {completedCount} of {courseLessons.length} completed
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allExpanded = courseChapters.every((c, i) => (expandedChapters[`chap_${c.id || i}`] ?? true) === true);
+                        const nextState = {};
+                        courseChapters.forEach((c, i) => {
+                          nextState[`chap_${c.id || i}`] = !allExpanded;
+                        });
+                        setExpandedChapters(nextState);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#6366f1',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      {courseChapters.every((c, i) => (expandedChapters[`chap_${c.id || i}`] ?? true) === true) ? 'Collapse all sections' : 'Expand all sections'}
+                    </button>
                   </div>
                   <div style={{ width: '100%', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ width: `${displayPercent}%`, height: '100%', background: '#6366f1', borderRadius: '3px' }} />
@@ -1723,7 +1748,7 @@ const VideoWatch = () => {
                 </div>
 
                 {/* Chapters & Lessons Accordion List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '540px', overflowY: 'auto', paddingRight: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'calc(100vh - 160px)', minHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                   {courseChapters.map((chapter, chapIdx) => {
                     const chapKey = `chap_${chapter.id || chapIdx}`;
                     // Expanded if not explicitly set to false (default expanded)
@@ -1746,9 +1771,9 @@ const VideoWatch = () => {
                         key={chapKey}
                         style={{
                           borderRadius: '12px',
-                          border: isCurrentChapter ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--border-color)',
+                          border: isCurrentChapter ? '1.5px solid rgba(99, 102, 241, 0.45)' : '1px solid var(--border-color)',
                           background: 'var(--bg-secondary)',
-                          overflow: 'hidden',
+                          boxShadow: isCurrentChapter ? '0 2px 12px rgba(99, 102, 241, 0.06)' : 'none',
                           transition: 'border-color 0.2s'
                         }}
                       >
