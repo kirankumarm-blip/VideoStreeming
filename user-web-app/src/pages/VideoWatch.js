@@ -1689,9 +1689,10 @@ const VideoWatch = () => {
                 flexDirection: 'column',
                 width: '100%',
                 maxWidth: '380px',
-                height: 'calc(100vh - 36px)',
+                height: 'calc(100vh - 120px)',
+                maxHeight: 'calc(100vh - 120px)',
                 position: 'sticky',
-                top: '12px',
+                top: '16px',
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '16px',
@@ -1767,7 +1768,7 @@ const VideoWatch = () => {
                   flex: 1,
                   minHeight: 0,
                   overflowY: 'auto',
-                  padding: '10px',
+                  padding: '10px 10px 48px 10px',
                   scrollbarWidth: 'thin'
                 }}>
                   {courseChapters.map((chapter, chapIdx) => {
