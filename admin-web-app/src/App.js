@@ -147,7 +147,7 @@ const AppLayout = ({ theme, setTheme }) => {
           position: 'relative',
           minWidth: 0,
           height: '100%',
-          overflow: 'hidden'
+          overflowY: 'auto'
         }}>
           <Routes>
           {/* Public Authentication routes */}

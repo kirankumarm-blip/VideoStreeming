@@ -1756,21 +1756,7 @@ const VideoWatch = () => {
             const strokeDashoffset = circumference - (displayPercent / 100) * circumference;
 
             return (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                width: '100%',
-                maxWidth: '380px',
-                height: 'calc(100vh - 120px)',
-                maxHeight: 'calc(100vh - 120px)',
-                position: 'sticky',
-                top: '16px',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
-              }}>
+              <div className="watch-course-playlist-container">
                 {/* Course Playlist Card Header Box (Fixed at top) */}
                 <div style={{ 
                   padding: '12px 14px', 
@@ -1833,16 +1819,7 @@ const VideoWatch = () => {
                 </div>
 
                 {/* Chapters & Lessons Accordion List (Scrollable Area) */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  padding: '10px 10px 48px 10px',
-                  scrollbarWidth: 'thin'
-                }}>
+                <div className="watch-course-accordion-list">
                   {courseChapters.map((chapter, chapIdx) => {
                     const chapKey = `chap_${chapter.id || chapIdx}`;
                     // Expanded if not explicitly set to false (default expanded)

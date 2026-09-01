@@ -792,6 +792,49 @@ select option {
   .user-dashboard-content, .watch-layout {
     padding: 24px 16px !important;
   }
+
+  .watch-course-playlist-container {
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    position: static !important;
+    overflow: visible !important;
+    margin-top: 16px !important;
+    margin-bottom: 40px !important;
+  }
+
+  .watch-course-accordion-list {
+    max-height: none !important;
+    overflow-y: visible !important;
+    padding: 10px 10px 24px 10px !important;
+  }
+}
+
+.watch-course-playlist-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 380px;
+  height: calc(100vh - 100px);
+  max-height: calc(100vh - 100px);
+  position: sticky;
+  top: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+
+.watch-course-accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 10px 48px 10px;
+  scrollbar-width: thin;
 }
 
 /* Video grid responsive layout */
