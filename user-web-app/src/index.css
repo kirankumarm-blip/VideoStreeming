@@ -813,6 +813,16 @@ select option {
     box-shadow: 6px 0 25px rgba(0, 0, 0, 0.2) !important;
   }
 
+  .sidebar-mobile-only-lang {
+    display: block !important;
+  }
+}
+
+/* Sidebar mobile-only language card: Hidden by default in Web mode */
+.sidebar-mobile-only-lang {
+  display: none !important;
+}
+
   .watch-layout {
     grid-template-columns: 1fr !important;
     gap: 24px;

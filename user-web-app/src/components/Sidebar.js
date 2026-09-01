@@ -350,8 +350,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Bottom Language Selector Card */}
-        <div style={{
+        {/* Bottom Language Selector Card (Mobile Only) */}
+        <div className="sidebar-mobile-only-lang" style={{
           marginTop: 'auto',
           paddingTop: '14px'
         }}>
