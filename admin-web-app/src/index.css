@@ -1028,29 +1028,63 @@ select option {
 /* --- Global Navbar Responsiveness --- */
 .global-navbar {
   height: 60px !important;
-  padding: 0 40px !important;
+  padding: 0 16px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 1200px) {
+  .global-navbar {
+    padding: 0 12px !important;
+  }
+  .nav-lang-switcher {
+    width: 100px !important;
+    min-width: 100px !important;
+  }
 }
 
 @media (max-width: 992px) {
   .global-navbar {
     height: 56px !important;
-    padding: 0 16px !important;
+    padding: 0 10px !important;
+    gap: 8px !important;
   }
   .nav-search-container {
-    max-width: 200px !important;
+    max-width: 160px !important;
+  }
+  .nav-recently-played button {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+  .nav-lang-switcher {
+    width: 95px !important;
+    min-width: 95px !important;
+  }
+  .nav-lang-switcher button {
+    padding: 4px 6px !important;
+    font-size: 11px !important;
   }
 }
 
 @media (max-width: 768px) {
+  .global-navbar {
+    padding: 0 8px !important;
+  }
   .nav-search-container {
     display: none !important; /* Hide search bar on tablet/mobile header */
   }
   .nav-recently-played {
     display: none !important; /* Hide recently played shortcut on mobile */
   }
+  .nav-lang-switcher {
+    width: 88px !important;
+    min-width: 88px !important;
+  }
   .nav-premium-badge {
-    padding: 6px 10px !important;
-    font-size: 11px !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
   }
   .user-dashboard-content {
     padding: 24px 16px !important;
