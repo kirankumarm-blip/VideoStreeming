@@ -672,6 +672,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                 ? previewRecentVideo.video.thumbnail
                 : (previewRecentVideo.video?.thumbnail ? `http://localhost:5000${previewRecentVideo.video.thumbnail}` : '')}
               controls
+              controlsList="nodownload"
+              onContextMenu={(e) => e.preventDefault()}
               autoPlay
               playsInline
               onTimeUpdate={() => {
