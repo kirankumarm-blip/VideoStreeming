@@ -1528,29 +1528,60 @@ const VideoWatch = () => {
             borderBottom: '1px solid var(--border-color)'
           }} className="watch-engagement-row">
             
-            {/* Publisher details */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {/* Channel Avatar bubble */}
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: '16px'
-              }}>
-                LA
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 700, fontSize: '15px' }}>{video.author || video.instructor || video.client_name || 'LurnAx Education'}</span>
-              </div>
-              
+            {/* Publisher / Course details */}
+            {(() => {
+              const activeCourse = location.state?.course;
+              const courseDisplayName = activeCourse?.title || 
+                activeCourse?.course_name || 
+                activeCourse?.name || 
+                video?.course_name || 
+                video?.courseTitle || 
+                video?.course || 
+                (typeof activeCourse === 'string' ? activeCourse : null) || 
+                video?.author || 
+                video?.instructor || 
+                video?.client_name || 
+                'LurnAx Education';
 
-            </div>
+              const getCourseInitials = (name) => {
+                if (!name) return 'LA';
+                const words = String(name).trim().split(/\s+/).filter(Boolean);
+                if (words.length >= 2) {
+                  return (words[0][0] + words[1][0]).toUpperCase();
+                }
+                return String(name).slice(0, 2).toUpperCase();
+              };
+
+              const initials = getCourseInitials(courseDisplayName);
+
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {/* Channel / Course Avatar bubble */}
+                  <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '15px',
+                    letterSpacing: '0.5px',
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                    flexShrink: 0
+                  }}>
+                    {initials}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-primary)' }}>
+                      {courseDisplayName}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Engagement buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>

@@ -934,6 +934,7 @@ const UserDashboard = () => {
             showUpgradeAlert('Need to upgrade your plan');
             return;
           }
+          const courseTitle = course.title || course.course_name || course.name || 'Course';
           const lessonsList = getCourseLessonsList(course);
           if (lessonsList && lessonsList.length > 0) {
             const firstVideo = lessonsList[0];
@@ -945,21 +946,25 @@ const UserDashboard = () => {
               videoUrl: firstVideo.videoUrl || firstVideo.video_url || '',
               thumbnail: firstVideo.thumbnailUrl || firstVideo.thumbnail_url || course.thumbnail || '',
               category: course.category || '',
-              description: firstVideo.description || course.description || ''
+              description: firstVideo.description || course.description || '',
+              course_name: courseTitle,
+              courseTitle: courseTitle
             };
-            handleVideoCardClick(videoPayload, course);
+            handleVideoCardClick(videoPayload, { ...course, title: courseTitle });
           } else if (course.videoUrl || course.video_url) {
             handleVideoCardClick({
               ...course,
               id: course.id,
-              title: course.title || course.course_name,
+              title: courseTitle,
               videoUrl: course.videoUrl || course.video_url,
               thumbnail: course.thumbnail,
               category: course.category,
-              description: course.description
-            }, course);
+              description: course.description,
+              course_name: courseTitle,
+              courseTitle: courseTitle
+            }, { ...course, title: courseTitle });
           } else {
-            showUpgradeAlert(`Opening course: "${course.title || course.course_name}"!`);
+            showUpgradeAlert(`Opening course: "${courseTitle}"!`);
           }
         }}
         style={{
