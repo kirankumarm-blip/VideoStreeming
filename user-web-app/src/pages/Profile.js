@@ -476,9 +476,10 @@ const Profile = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
-                color: '#ffffff',
+                color: 'var(--text-primary)',
                 fontWeight: 800,
-                fontSize: '36px'
+                fontSize: '38px',
+                userSelect: 'none'
               }}>
                 {avatarPreview ? (
                   <img src={avatarPreview} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
