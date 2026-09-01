@@ -1684,16 +1684,26 @@ const VideoWatch = () => {
             const strokeDashoffset = circumference - (displayPercent / 100) * circumference;
 
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '380px' }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                width: '100%',
+                maxWidth: '380px',
+                height: 'calc(100vh - 110px)',
+                position: 'sticky',
+                top: '76px'
+              }}>
                 {/* Course Playlist Card Header Box */}
                 <div style={{ 
-                  padding: '18px', 
+                  padding: '16px 18px', 
                   borderRadius: '16px', 
                   background: 'var(--bg-secondary)', 
                   border: '1px solid var(--border-color)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                  flexShrink: 0
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '16px' }}>📖</span> Course Content
@@ -1752,9 +1762,10 @@ const VideoWatch = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px',
-                  maxHeight: 'calc(100vh - 120px)',
+                  flex: 1,
+                  minHeight: 0,
                   overflowY: 'auto',
-                  padding: '2px 6px 80px 2px',
+                  padding: '2px 6px 24px 2px',
                   scrollbarWidth: 'thin'
                 }}>
                   {courseChapters.map((chapter, chapIdx) => {
