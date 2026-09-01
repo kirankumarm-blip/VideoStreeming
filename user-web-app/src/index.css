@@ -26,6 +26,10 @@
 
   --menu-active-bg: rgba(139, 92, 246, 0.22);
   --menu-active-color: #a78bfa;
+  --sidebar-active-bg: linear-gradient(90deg, rgba(236, 72, 153, 0.12) 0%, rgba(139, 92, 246, 0.18) 100%);
+  --sidebar-active-border: rgba(139, 92, 246, 0.35);
+  --premium-card-bg: linear-gradient(135deg, rgba(30, 27, 75, 0.75) 0%, rgba(15, 23, 42, 0.95) 100%);
+  --premium-card-border: rgba(234, 179, 8, 0.3);
   --bg-card: #121217;
   --input-bg: #1a1a22;
   --table-header-bg: #f3e8ff;
@@ -58,11 +62,26 @@
 
   --menu-active-bg: #f3e8ff;
   --menu-active-color: #7c3aed;
+  --sidebar-active-bg: linear-gradient(90deg, rgba(236, 72, 153, 0.08) 0%, rgba(99, 102, 241, 0.12) 100%);
+  --sidebar-active-border: rgba(99, 102, 241, 0.25);
+  --premium-card-bg: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  --premium-card-border: rgba(245, 158, 11, 0.35);
   --bg-card: #ffffff;
   --input-bg: #ffffff;
   --table-header-bg: #f3e8ff;
   --table-header-color: #7c3aed;
   --table-row-hover: #f8fafc;
+}
+
+/* Premium Sidebar Item Hover and Transitions */
+.premium-sidebar-item:not(.active):hover {
+  background: var(--bg-tertiary) !important;
+  transform: translateX(3px);
+}
+
+.premium-sidebar-item:not(.active):hover svg:last-child {
+  opacity: 0.8 !important;
+  transform: translateX(2px);
 }
 
 * {
