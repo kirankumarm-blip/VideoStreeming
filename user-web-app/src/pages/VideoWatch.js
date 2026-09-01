@@ -252,6 +252,13 @@ const VideoWatch = () => {
 
       // Fetch watch history
       const history = await api.videos.getHistory().catch(() => []);
+      const completedFromHistory = history
+        .filter(h => (h.completionPercentage >= 90 || h.status === true || h.staus === true))
+        .map(h => String(h.videoId || h.id || h.video_url || ''));
+      if (completedFromHistory.length > 0) {
+        setCompletedLessonIds(prev => Array.from(new Set([...prev, ...completedFromHistory])));
+      }
+
       const thisRecord = history.find(h => h.videoId === id);
       if (thisRecord && thisRecord.lastPosition > 5 && thisRecord.completionPercentage < 95) {
         const mins = Math.floor(thisRecord.lastPosition / 60);
@@ -277,6 +284,42 @@ const VideoWatch = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Track actually completed lesson IDs
+  const [completedLessonIds, setCompletedLessonIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem('completed_lessons_set');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const markLessonAsCompleted = (lessonId) => {
+    if (!lessonId) return;
+    const strId = String(lessonId);
+    setCompletedLessonIds(prev => {
+      if (prev.includes(strId)) return prev;
+      const updated = [...prev, strId];
+      try {
+        localStorage.setItem('completed_lessons_set', JSON.stringify(updated));
+      } catch (err) {
+        console.error(err);
+      }
+      return updated;
+    });
+  };
+
+  const isLessonCompleted = (lesson) => {
+    if (!lesson) return false;
+    const lId = String(lesson.id || lesson.video_id || lesson.videoUrl || lesson.video_url || '');
+    if (lId && completedLessonIds.includes(lId)) return true;
+    if (lesson.id && completedLessonIds.includes(String(lesson.id))) return true;
+    if (lesson.video_id && completedLessonIds.includes(String(lesson.video_id))) return true;
+    if (lesson.videoUrl && completedLessonIds.includes(String(lesson.videoUrl))) return true;
+    if (lesson.video_url && completedLessonIds.includes(String(lesson.video_url))) return true;
+    return false;
   };
 
   // Chapter Accordion State
@@ -968,6 +1011,11 @@ const VideoWatch = () => {
     const vidId = idRef.current || id || activeVid?.id;
 
     if (vidId) {
+      markLessonAsCompleted(vidId);
+      if (activeVid?.id) markLessonAsCompleted(activeVid.id);
+      if (activeVid?.videoUrl) markLessonAsCompleted(activeVid.videoUrl);
+      if (activeVid?.video_url) markLessonAsCompleted(activeVid.video_url);
+
       try {
         await api.dashboard.getUser('watchHistory', { 
           id: vidId,
@@ -1697,9 +1745,8 @@ const VideoWatch = () => {
             const courseTitle = location.state.course.title || location.state.course.course_name || 'Course';
             const courseId = location.state.course.id || location.state.course.course_id || location.state.course.courseId || 1;
             
-            // Calculate completion progress
-            const currentIdx = courseLessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url));
-            const completedCount = currentIdx === -1 ? 0 : currentIdx; // Index represents number of lessons watched before this one
+            // Calculate completion progress based on ACTUALLY completed lessons
+            const completedCount = courseLessons.filter(l => isLessonCompleted(l)).length;
             const percent = courseLessons.length > 0 ? Math.round((completedCount / courseLessons.length) * 100) : 0;
             const displayPercent = Math.min(100, Math.max(0, percent));
             
@@ -1802,10 +1849,7 @@ const VideoWatch = () => {
                     const isExpanded = expandedChapters[chapKey] !== false;
                     
                     const chapLessons = chapter.lessons || [];
-                    const chapCompletedCount = chapLessons.filter(l => {
-                      const lGlobalIdx = courseLessons.findIndex(gl => String(gl.id || gl.videoUrl || gl.video_url) === String(l.id || l.videoUrl || l.video_url));
-                      return lGlobalIdx !== -1 && lGlobalIdx < completedCount;
-                    }).length;
+                    const chapCompletedCount = chapLessons.filter(l => isLessonCompleted(l)).length;
 
                     const isCurrentChapter = chapLessons.some(l => 
                       String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url)
@@ -1874,7 +1918,7 @@ const VideoWatch = () => {
                               const isLocked = isChapterLocked(lesson, location.state?.course);
                               const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
                               const lessonDuration = lesson.duration || (globalIdx === 0 ? '5:21' : globalIdx === 1 ? '8:45' : globalIdx === 2 ? '6:30' : '7:15');
-                              const isCompleted = globalIdx !== -1 && globalIdx < completedCount;
+                              const isCompleted = isLessonCompleted(lesson);
 
                               return (
                                 <div 
