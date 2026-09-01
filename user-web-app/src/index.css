@@ -816,12 +816,6 @@ select option {
   .sidebar-mobile-only-lang {
     display: block !important;
   }
-}
-
-/* Sidebar mobile-only language card: Hidden by default in Web mode */
-.sidebar-mobile-only-lang {
-  display: none !important;
-}
 
   .watch-layout {
     grid-template-columns: 1fr !important;
@@ -847,6 +841,11 @@ select option {
     overflow-y: visible !important;
     padding: 10px 10px 24px 10px !important;
   }
+}
+
+/* Sidebar mobile-only language card: Hidden by default in Web mode */
+.sidebar-mobile-only-lang {
+  display: none !important;
 }
 
 .watch-course-playlist-container {
