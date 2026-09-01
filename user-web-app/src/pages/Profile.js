@@ -278,16 +278,24 @@ const Profile = () => {
       return;
     }
 
+    const userEmail = currentProfile.email || profile?.email || getCurrentUser()?.email;
+    if (!userEmail) {
+      setError('User email not found. Please log in again.');
+      return;
+    }
+
     try {
-      await api.auth.changePassword(oldPassword, newPassword);
-      setSuccess('Password updated successfully!');
+      // Calling the same resetPassword API used in login page forgot password section
+      const res = await api.auth.resetPassword(userEmail, newPassword);
+      const msg = (res && res.message) ? res.message : 'Password updated successfully!';
+      setSuccess(msg);
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setActiveModal(null);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
-      setError(err.message || 'Failed to update password. Check old password.');
+      setError(err.message || 'Failed to update password. Please check your inputs.');
     }
   };
 
@@ -784,19 +792,6 @@ const Profile = () => {
               <button type="button" onClick={() => setActiveModal(null)} style={closeBtnStyle}>✕</button>
             </div>
             <form onSubmit={handleChangePassword} style={{ padding: '20px' }}>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Current Password</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="Enter current password"
-                  value={oldPassword}
-                  onChange={e => setOldPassword(e.target.value.trim())}
-                  required
-                  style={inputStyle}
-                />
-              </div>
-
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>New Password</label>
                 <input
