@@ -186,14 +186,14 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       height: '60px',
-      padding: '0 40px',
+      padding: '0 24px',
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border-color)',
       position: 'sticky',
       top: 0,
       zIndex: 90
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {/* Burger menu for tablet/mobile */}
         <button 
           onClick={toggleSidebar} 
@@ -201,7 +201,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             background: 'none',
             border: 'none',
             color: 'var(--text-primary)',
-            fontSize: '24px',
+            fontSize: '22px',
             cursor: 'pointer',
             display: 'none' // Controlled in CSS or dynamically based on resize, but hidden on desktop
           }}
@@ -221,11 +221,10 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             src="/logo.png" 
             alt="LurnAx" 
             style={{ 
-              height: '100px', 
-              width: '250px', 
+              height: '42px', 
+              width: '135px', 
               objectFit: 'contain', 
               objectPosition: 'left',
-              margin: '-20px 0', 
               zIndex: 110, 
               position: 'relative',
               imageRendering: '-webkit-optimize-contrast' 
@@ -234,9 +233,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         </div>
       </div>
 
-
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
 
 
         {/* Recently Viewed Dropdown */}
