@@ -1687,45 +1687,48 @@ const VideoWatch = () => {
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '14px',
                 width: '100%',
                 maxWidth: '380px',
-                height: 'calc(100vh - 110px)',
+                height: 'calc(100vh - 80px)',
                 position: 'sticky',
-                top: '76px'
+                top: '20px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
               }}>
-                {/* Course Playlist Card Header Box */}
+                {/* Course Playlist Card Header Box (Fixed at top) */}
                 <div style={{ 
-                  padding: '16px 18px', 
-                  borderRadius: '16px', 
+                  padding: '14px 16px', 
+                  borderBottom: '1px solid var(--border-color)',
                   background: 'var(--bg-secondary)', 
-                  border: '1px solid var(--border-color)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
                   flexShrink: 0
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div>
-                      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px' }}>📖</span> Course Content
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '15px' }}>📖</span> Course Content
                       </h3>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '2px' }}>
                         {courseChapters.length} {courseChapters.length === 1 ? 'Section' : 'Sections'} • {courseLessons.length} {courseLessons.length === 1 ? 'Lesson' : 'Lessons'}
                       </div>
                     </div>
-                    {/* SVG Progress Ring */}
-                    <div style={{ position: 'relative', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="44" height="44" viewBox="0 0 44 44">
-                        <circle cx="22" cy="22" r={radius} fill="transparent" stroke="var(--bg-tertiary)" strokeWidth="3" />
-                        <circle cx="22" cy="22" r={radius} fill="transparent" stroke="#6366f1" strokeWidth="3" 
-                          strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-                          transform="rotate(-90 22 22)" />
-                      </svg>
-                      <span style={{ position: 'absolute', fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>{displayPercent}%</span>
-                    </div>
+                    {/* Percentage badge */}
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                      color: '#6366f1',
+                      padding: '3px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      {displayPercent}%
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                       {completedCount} of {courseLessons.length} completed
                     </div>
                     <button
@@ -1745,27 +1748,26 @@ const VideoWatch = () => {
                         fontSize: '11px',
                         fontWeight: 600,
                         cursor: 'pointer',
-                        padding: '2px 6px',
-                        borderRadius: '4px'
+                        padding: 0
                       }}
                     >
-                      {courseChapters.every((c, i) => (expandedChapters[`chap_${c.id || i}`] ?? true) === true) ? 'Collapse all sections' : 'Expand all sections'}
+                      {courseChapters.every((c, i) => (expandedChapters[`chap_${c.id || i}`] ?? true) === true) ? 'Collapse all' : 'Expand all'}
                     </button>
                   </div>
-                  <div style={{ width: '100%', height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${displayPercent}%`, height: '100%', background: '#6366f1', borderRadius: '3px' }} />
+                  <div style={{ width: '100%', height: '4px', background: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ width: `${displayPercent}%`, height: '100%', background: '#6366f1', borderRadius: '2px' }} />
                   </div>
                 </div>
 
-                {/* Chapters & Lessons Accordion List */}
+                {/* Chapters & Lessons Accordion List (Scrollable Area) */}
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
+                  gap: '8px',
                   flex: 1,
                   minHeight: 0,
                   overflowY: 'auto',
-                  padding: '2px 6px 24px 2px',
+                  padding: '10px',
                   scrollbarWidth: 'thin'
                 }}>
                   {courseChapters.map((chapter, chapIdx) => {
