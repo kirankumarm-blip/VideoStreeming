@@ -167,40 +167,6 @@ const Sidebar = ({ isOpen, onClose }) => {
           boxSizing: 'border-box'
         }}
       >
-        {/* Mobile Header with Close Button and Brand */}
-        <div className="mobile-sidebar-brand-header" style={{
-          display: 'none',
-          alignItems: 'center',
-          gap: '12px',
-          paddingBottom: '14px',
-          borderBottom: '1px solid var(--border-color)',
-          marginBottom: '10px'
-        }}>
-          <button 
-            onClick={onClose} 
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '50%',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: 0
-            }}
-            type="button"
-          >
-            ✕
-          </button>
-          <div>
-            <img src="/logo.png" alt="LurnAx" style={{ height: '36px', width: '130px', objectFit: 'contain', objectPosition: 'left' }} />
-          </div>
-        </div>
-
         {/* Menu Items List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {menuItems.map((item) => {
