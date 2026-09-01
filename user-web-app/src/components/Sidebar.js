@@ -31,78 +31,29 @@ const Sidebar = ({ isOpen, onClose }) => {
   };
 
   return (
-    <>
-      {/* Mobile Backdrop Overlay */}
-      {isOpen && (
-        <div 
-          onClick={onClose}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 990,
-            backdropFilter: 'blur(4px)'
-          }}
-          className="mobile-sidebar-backdrop"
-        />
-      )}
-
-      {/* Sidebar Container */}
-      <div 
-        className={`youtube-sidebar ${isOpen ? 'open' : ''}`}
-        style={{
-          width: '240px',
-          background: 'var(--bg-secondary)',
-          borderRight: '1px solid var(--border-color)',
-          paddingTop: '0px',
-          paddingBottom: '0px',
-          paddingLeft: '12px',
-          paddingRight: '12px',
-          marginTop: '0px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-          position: 'sticky',
-          top: '60px',
-          height: 'calc(100vh - 60px)',
-          overflowY: 'auto',
-          transition: 'transform 0.3s ease, left 0.3s ease',
-          zIndex: 995
-        }}
-      >
-        {/* Mobile Sidebar Brand Header */}
-        <div className="mobile-sidebar-brand-header" style={{
-          alignItems: 'center',
-          gap: '16px',
-          padding: '12px 16px',
-          borderBottom: '1px solid var(--border-color)',
-          marginBottom: '10px',
-          width: '100%',
-          justifyContent: 'flex-start'
-        }}>
-          <button 
-            onClick={onClose} 
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '20px',
-              cursor: 'pointer',
-              padding: 0,
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            type="button"
-          >
-            ✕
-          </button>
-          <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
-        </div>
-
-        {menuItems.map((item, idx) => {
+    <div 
+      className={`youtube-sidebar ${isOpen ? 'open' : ''}`}
+      style={{
+        width: '240px',
+        background: 'var(--bg-secondary)',
+        borderRight: '1px solid var(--border-color)',
+        paddingLeft: '12px',
+        paddingRight: '12px',
+        paddingTop: '12px',
+        paddingBottom: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        position: 'sticky',
+        top: '60px',
+        height: 'calc(100vh - 60px)',
+        overflowY: 'auto',
+        transition: 'all 0.25s ease',
+        zIndex: 85,
+        boxSizing: 'border-box'
+      }}
+    >
+      {menuItems.map((item, idx) => {
           const isSelected = activeView === item.id;
           return (
             <button

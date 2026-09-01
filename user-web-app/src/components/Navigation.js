@@ -214,8 +214,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             src="/logo.png" 
             alt="LurnAx" 
             style={{ 
-              height: '42px', 
-              width: '135px', 
+              height: '56px', 
+              width: '200px', 
               objectFit: 'contain', 
               objectPosition: 'left',
               zIndex: 110, 
