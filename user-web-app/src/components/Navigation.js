@@ -17,6 +17,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const [showRecentlyViewed, setShowRecentlyViewed] = useState(false);
   const [activeFilter, setActiveFilter] = useState('Last 7 days');
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [previewRecentVideo, setPreviewRecentVideo] = useState(null);
   
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -122,6 +123,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             id: data.video_id || data.id || idx,
             title: data.title || '',
             thumbnail: data.thumbnail || '',
+            video_url: data.video_url || data.videoUrl || data.url || ''
           },
           completionPercentage: parseFloat(data.completion_percentage || 0),
           watchDuration: data.watch_duration || '',
@@ -174,7 +176,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   if (!user) return null;
 
   return (
-    <nav className="global-navbar" style={{
+    <>
+      <nav className="global-navbar" style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -333,7 +336,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                         <div 
                           key={item.id} 
                           onClick={() => {
-                            navigate(`/watch/${video.id}`);
+                            setPreviewRecentVideo(item);
                             setShowRecentlyViewed(false);
                           }}
                           style={{
@@ -555,6 +558,198 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         </div>
       </div>
     </nav>
+
+    {/* Custom Video Alert / Preview Pop-up Modal for Recently Played */}
+    {previewRecentVideo && (
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3000,
+          padding: '20px'
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setPreviewRecentVideo(null);
+          }
+        }}
+      >
+        <div 
+          style={{
+            width: '100%',
+            maxWidth: '560px',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            animation: 'modalZoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          {/* Pop-up Header */}
+          <div style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            background: 'var(--bg-tertiary)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <span style={{ fontSize: '18px' }}>🎬</span>
+              <h3 style={{ 
+                margin: 0, 
+                fontSize: '15px', 
+                fontWeight: 700, 
+                color: 'var(--text-primary)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {previewRecentVideo.video?.title || 'Recently Played Video'}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewRecentVideo(null)}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                transition: 'all 0.2s'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Video Player Section */}
+          <div style={{ position: 'relative', width: '100%', backgroundColor: '#000' }}>
+            <video
+              src={previewRecentVideo.video?.video_url && previewRecentVideo.video.video_url.startsWith('http') 
+                ? previewRecentVideo.video.video_url 
+                : (previewRecentVideo.video?.video_url ? `http://localhost:5000${previewRecentVideo.video.video_url}` : '')}
+              poster={previewRecentVideo.video?.thumbnail && previewRecentVideo.video.thumbnail.startsWith('http')
+                ? previewRecentVideo.video.thumbnail
+                : (previewRecentVideo.video?.thumbnail ? `http://localhost:5000${previewRecentVideo.video.thumbnail}` : '')}
+              controls
+              autoPlay
+              playsInline
+              style={{
+                width: '100%',
+                maxHeight: '300px',
+                display: 'block',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          {/* Meta Details & Progress */}
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  backgroundColor: previewRecentVideo.watchStatus === 'Completed' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                  color: previewRecentVideo.watchStatus === 'Completed' ? '#10b981' : '#8b5cf6'
+                }}>
+                  {previewRecentVideo.watchStatus || 'Watched'} • {previewRecentVideo.completionPercentage || 0}%
+                </span>
+                {previewRecentVideo.watchDuration && (
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    ⏱️ {previewRecentVideo.watchDuration}
+                  </span>
+                )}
+              </div>
+
+              {previewRecentVideo.startedAt && (
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  📅 {previewRecentVideo.startedAt}
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ width: '100%', height: '5px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${Math.min(100, Math.max(0, previewRecentVideo.completionPercentage || 0))}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #ec4899, #8b5cf6)',
+                borderRadius: '3px'
+              }} />
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setPreviewRecentVideo(null)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(`/watch/${previewRecentVideo.video?.id}`);
+                  setPreviewRecentVideo(null);
+                }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)'
+                }}
+              >
+                <span>Open Full Watch Page</span>
+                <span>➔</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 };
 
