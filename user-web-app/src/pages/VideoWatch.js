@@ -985,8 +985,33 @@ const VideoWatch = () => {
       }
     }
 
-    // Always trigger quiz on video completion (triggers getQuizDetails API call)
-    triggerQuizForChapter(chapId, cId, activeCourse);
+    // Check if the completed video is the last video of the chapter
+    if (activeCourse) {
+      const chapters = getCourseChapters(activeCourse);
+      const currentChap = chapters.find(c => String(c.id) === String(chapId));
+      const chapLessons = currentChap ? currentChap.lessons : [];
+      
+      const currentLessonIdx = chapLessons.findIndex(l => 
+        String(l.id || l.videoUrl || l.video_url) === String(activeVid?.id || activeVid?.videoUrl || activeVid?.video_url)
+      );
+
+      const isLastVideoInChapter = currentLessonIdx === -1 || currentLessonIdx === chapLessons.length - 1;
+
+      if (isLastVideoInChapter || chapLessons.length <= 1) {
+        // Last video in chapter completed -> Trigger chapter quiz!
+        triggerQuizForChapter(chapId, cId, activeCourse);
+      } else if (currentLessonIdx < chapLessons.length - 1) {
+        // Not the last video in chapter -> Advance to the next video in this chapter
+        const nextLesson = chapLessons[currentLessonIdx + 1];
+        if (nextLesson) {
+          handleNavigateToVideo(nextLesson, activeCourse);
+        }
+      } else {
+        triggerQuizForChapter(chapId, cId, activeCourse);
+      }
+    } else {
+      triggerQuizForChapter(chapId, cId, activeCourse);
+    }
   };
 
   const handleResume = () => {
