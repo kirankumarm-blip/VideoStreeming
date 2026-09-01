@@ -30,6 +30,8 @@
   --sidebar-active-border: rgba(139, 92, 246, 0.35);
   --premium-card-bg: linear-gradient(135deg, rgba(30, 27, 75, 0.75) 0%, rgba(15, 23, 42, 0.95) 100%);
   --premium-card-border: rgba(234, 179, 8, 0.3);
+  --profile-hero-bg: linear-gradient(135deg, rgba(28, 18, 48, 0.95) 0%, rgba(14, 15, 26, 0.98) 100%);
+  --profile-hero-border: rgba(139, 92, 246, 0.25);
   --bg-card: #121217;
   --input-bg: #1a1a22;
   --table-header-bg: #f3e8ff;
@@ -66,11 +68,28 @@
   --sidebar-active-border: rgba(99, 102, 241, 0.25);
   --premium-card-bg: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   --premium-card-border: rgba(245, 158, 11, 0.35);
+  --profile-hero-bg: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+  --profile-hero-border: rgba(139, 92, 246, 0.2);
   --bg-card: #ffffff;
   --input-bg: #ffffff;
   --table-header-bg: #f3e8ff;
   --table-header-color: #7c3aed;
   --table-row-hover: #f8fafc;
+}
+
+/* Profile Page Theming & Item Animations */
+.profile-menu-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-menu-item:hover svg:last-child {
+  transform: translateX(3px);
+  color: var(--accent-secondary) !important;
+  opacity: 1 !important;
+}
+
+.light-theme .profile-hero-card {
+  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.08) !important;
 }
 
 /* Premium Sidebar Item Hover and Transitions */
