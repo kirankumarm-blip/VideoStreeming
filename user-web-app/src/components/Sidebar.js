@@ -1,11 +1,12 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import PremiumSelect from './PremiumSelect';
 
 const Sidebar = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
 
   const searchParams = new URLSearchParams(location.search);
 
@@ -133,6 +134,41 @@ const Sidebar = ({ isOpen, onClose }) => {
             </button>
           );
         })}
+
+        {/* Language Selector in Sidebar */}
+        <div style={{
+          marginTop: 'auto',
+          paddingTop: '16px',
+          paddingBottom: '20px',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }} className="sidebar-lang-section">
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', paddingLeft: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🌐</span> {t('nav.language', 'Language')}
+          </div>
+          <PremiumSelect
+            options={[
+              { id: 'en', name: 'English' },
+              { id: 'hi', name: 'हिंदी' },
+              { id: 'kn', name: 'ಕನ್ನಡ' }
+            ]}
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            searchable={false}
+            size="small"
+            style={{ width: '100%' }}
+            buttonStyle={{
+              height: '36px',
+              padding: '6px 12px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              backgroundColor: 'var(--bg-tertiary)'
+            }}
+          />
+        </div>
       </div>
     </>
   );

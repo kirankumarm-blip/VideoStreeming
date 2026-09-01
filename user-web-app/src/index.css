@@ -1062,12 +1062,7 @@ select option {
     font-size: 12px !important;
   }
   .nav-lang-switcher {
-    width: 95px !important;
-    min-width: 95px !important;
-  }
-  .nav-lang-switcher button {
-    padding: 4px 6px !important;
-    font-size: 11px !important;
+    display: none !important; /* Shifted to side menu bar in mobile mode */
   }
 }
 
