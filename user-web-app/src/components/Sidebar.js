@@ -31,29 +31,49 @@ const Sidebar = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div 
-      className={`youtube-sidebar ${isOpen ? 'open' : ''}`}
-      style={{
-        width: '240px',
-        background: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border-color)',
-        paddingLeft: '12px',
-        paddingRight: '12px',
-        paddingTop: '12px',
-        paddingBottom: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        position: 'sticky',
-        top: '60px',
-        height: 'calc(100vh - 60px)',
-        overflowY: 'auto',
-        transition: 'all 0.25s ease',
-        zIndex: 85,
-        boxSizing: 'border-box'
-      }}
-    >
-      {menuItems.map((item, idx) => {
+    <>
+      {/* Mobile Drawer Backdrop Overlay */}
+      {isOpen && (
+        <div 
+          onClick={onClose} 
+          style={{
+            position: 'fixed',
+            top: '56px',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.4)',
+            zIndex: 990,
+            backdropFilter: 'blur(2px)'
+          }}
+          className="mobile-sidebar-backdrop"
+        />
+      )}
+
+      {/* Sidebar Navigation Drawer */}
+      <div 
+        className={`youtube-sidebar ${isOpen ? 'open' : ''}`}
+        style={{
+          width: '240px',
+          background: 'var(--bg-secondary)',
+          borderRight: '1px solid var(--border-color)',
+          paddingLeft: '12px',
+          paddingRight: '12px',
+          paddingTop: '12px',
+          paddingBottom: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          position: 'sticky',
+          top: '60px',
+          height: 'calc(100vh - 60px)',
+          overflowY: 'auto',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          zIndex: 995,
+          boxSizing: 'border-box'
+        }}
+      >
+        {menuItems.map((item, idx) => {
           const isSelected = activeView === item.id;
           return (
             <button
