@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, setCurrentUser, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PaginatedTable from '../components/PaginatedTable';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const fileInputRef = useRef(null);
 
@@ -535,16 +537,24 @@ const Profile = () => {
               <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
                 {name || currentProfile.name || 'User Name'}
               </h2>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '3px 10px',
-                borderRadius: '20px',
-                background: 'rgba(124, 58, 237, 0.25)',
-                border: '1px solid rgba(168, 85, 247, 0.4)',
-                color: '#c084fc'
-              }}>
-                Free Plan
+              <span 
+                onClick={() => navigate('/plans')}
+                title="Click to view & upgrade plans"
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '3px 10px',
+                  borderRadius: '20px',
+                  background: 'rgba(124, 58, 237, 0.25)',
+                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                  color: '#c084fc',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {currentProfile?.user_plan === '3' ? '👑 Premium Plan' : currentProfile?.user_plan === '2' ? '⭐️ Intermediate Plan' : 'Free Plan'}
               </span>
             </div>
 
@@ -965,9 +975,8 @@ const Profile = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setSuccess('VIP Upgrade requested! Our team will contact you.');
                     setActiveModal(null);
-                    setTimeout(() => setSuccess(''), 4000);
+                    navigate('/plans');
                   }}
                   style={{
                     padding: '10px',

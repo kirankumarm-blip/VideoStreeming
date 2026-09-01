@@ -322,7 +322,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={() => {
-              navigate('/profile');
+              navigate('/plans');
               if (onClose) onClose();
             }}
             style={{

@@ -9,6 +9,7 @@ import VideoWatch from './pages/VideoWatch';
 import Profile from './pages/Profile';
 import UserQuizzes from './pages/UserQuizzes';
 import Certificates from './pages/Certificates';
+import Plans from './pages/Plans';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -151,6 +152,12 @@ const AppLayout = ({ theme, setTheme }) => {
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/plans" element={
+            <ProtectedRoute>
+              <Plans />
             </ProtectedRoute>
           } />
 

@@ -335,8 +335,9 @@ const UserDashboard = () => {
     setCustomAlert({
       show: true,
       title: 'Upgrade Required',
-      message,
-      buttonText: 'OK'
+      message: `${message}. Upgrade your account to unlock premium courses, HD lessons, and offline access!`,
+      buttonText: 'View Plans & Upgrade ➔',
+      action: () => navigate('/plans')
     });
   };
   
@@ -1983,7 +1984,14 @@ const UserDashboard = () => {
 
                   {/* Button */}
                   <button
-                    onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+                    onClick={() => {
+                      setCustomAlert(prev => ({ ...prev, show: false }));
+                      if (customAlert.action) {
+                        customAlert.action();
+                      } else {
+                        navigate('/plans');
+                      }
+                    }}
                     style={{
                       width: '100%',
                       padding: '12px 24px',
