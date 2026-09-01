@@ -18,10 +18,28 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const [activeFilter, setActiveFilter] = useState('Last 7 days');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [previewRecentVideo, setPreviewRecentVideo] = useState(null);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(0);
   
   const notifRef = useRef(null);
   const profileRef = useRef(null);
   const recentlyViewedRef = useRef(null);
+  const previewVideoRef = useRef(null);
+
+  const formatVideoTime = (secs) => {
+    if (isNaN(secs) || secs < 0) return '00:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handlePreviewSeek = (e) => {
+    const newTime = parseFloat(e.target.value);
+    setPreviewCurrentTime(newTime);
+    if (previewVideoRef.current) {
+      previewVideoRef.current.currentTime = newTime;
+    }
+  };
 
   useEffect(() => {
     fetchNotifications();
@@ -646,6 +664,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           {/* Video Player Section */}
           <div style={{ position: 'relative', width: '100%', backgroundColor: '#000' }}>
             <video
+              ref={previewVideoRef}
               src={previewRecentVideo.video?.video_url && previewRecentVideo.video.video_url.startsWith('http') 
                 ? previewRecentVideo.video.video_url 
                 : (previewRecentVideo.video?.video_url ? `http://localhost:5000${previewRecentVideo.video.video_url}` : '')}
@@ -655,17 +674,28 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               controls
               autoPlay
               playsInline
+              onTimeUpdate={() => {
+                if (previewVideoRef.current) {
+                  setPreviewCurrentTime(previewVideoRef.current.currentTime);
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (previewVideoRef.current) {
+                  setPreviewDuration(previewVideoRef.current.duration);
+                }
+              }}
               style={{
                 width: '100%',
-                maxHeight: '300px',
+                maxHeight: '320px',
                 display: 'block',
                 outline: 'none'
               }}
             />
           </div>
 
-          {/* Meta Details & Progress */}
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Meta Details & Draggable Progress Bar */}
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Status & Timing */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
@@ -678,11 +708,9 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                 }}>
                   {previewRecentVideo.watchStatus || 'Watched'} • {previewRecentVideo.completionPercentage || 0}%
                 </span>
-                {previewRecentVideo.watchDuration && (
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    ⏱️ {previewRecentVideo.watchDuration}
-                  </span>
-                )}
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  {formatVideoTime(previewCurrentTime)} / {formatVideoTime(previewDuration)}
+                </span>
               </div>
 
               {previewRecentVideo.startedAt && (
@@ -692,57 +720,67 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               )}
             </div>
 
-            {/* Progress bar */}
-            <div style={{ width: '100%', height: '5px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${Math.min(100, Math.max(0, previewRecentVideo.completionPercentage || 0))}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #ec4899, #8b5cf6)',
-                borderRadius: '3px'
-              }} />
-            </div>
-
-            {/* Footer Buttons */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '6px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setPreviewRecentVideo(null)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Close
-              </button>
+            {/* Draggable Forward/Backward Timeline Slider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
               <button
                 type="button"
                 onClick={() => {
-                  navigate(`/watch/${previewRecentVideo.video?.id}`);
-                  setPreviewRecentVideo(null);
+                  if (previewVideoRef.current) {
+                    previewVideoRef.current.currentTime = Math.max(0, previewVideoRef.current.currentTime - 10);
+                  }
                 }}
                 style={{
-                  padding: '8px 18px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: 700,
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '8px',
+                  padding: '5px 9px',
+                  fontSize: '11px',
                   cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)'
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap'
                 }}
+                title="Rewind 10 seconds"
               >
-                <span>Open Full Watch Page</span>
-                <span>➔</span>
+                ⏪ 10s
+              </button>
+
+              <input
+                type="range"
+                min={0}
+                max={previewDuration || 100}
+                step={0.1}
+                value={previewCurrentTime}
+                onChange={handlePreviewSeek}
+                style={{
+                  flex: 1,
+                  cursor: 'pointer',
+                  accentColor: '#8b5cf6',
+                  height: '6px'
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (previewVideoRef.current) {
+                    previewVideoRef.current.currentTime = Math.min(previewDuration || 1000, previewVideoRef.current.currentTime + 10);
+                  }
+                }}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '8px',
+                  padding: '5px 9px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap'
+                }}
+                title="Forward 10 seconds"
+              >
+                10s ⏩
               </button>
             </div>
           </div>
