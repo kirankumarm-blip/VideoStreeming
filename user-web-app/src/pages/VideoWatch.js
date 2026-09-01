@@ -1230,7 +1230,7 @@ const VideoWatch = () => {
   })();
 
   return (
-    <div className="watch-layout" style={{ padding: '32px 40px', overflowX: 'hidden' }}>
+    <div className="watch-layout" style={{ padding: '16px 28px 28px 28px', overflowX: 'hidden' }}>
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -1689,9 +1689,9 @@ const VideoWatch = () => {
                 flexDirection: 'column',
                 width: '100%',
                 maxWidth: '380px',
-                height: 'calc(100vh - 80px)',
+                height: 'calc(100vh - 36px)',
                 position: 'sticky',
-                top: '20px',
+                top: '12px',
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '16px',
@@ -1700,7 +1700,7 @@ const VideoWatch = () => {
               }}>
                 {/* Course Playlist Card Header Box (Fixed at top) */}
                 <div style={{ 
-                  padding: '14px 16px', 
+                  padding: '12px 14px', 
                   borderBottom: '1px solid var(--border-color)',
                   background: 'var(--bg-secondary)', 
                   flexShrink: 0
