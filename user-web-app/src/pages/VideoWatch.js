@@ -1363,7 +1363,7 @@ const VideoWatch = () => {
             </div>
 
             {/* Playback Speed */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '120px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '12px', color: '#aaa' }}>{t('watch.playbackSpeed')}:</span>
               <PremiumSelect
                 options={[
@@ -1375,13 +1375,15 @@ const VideoWatch = () => {
                 value={String(playbackSpeed)}
                 onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
                 searchable={false}
+                size="small"
                 icon="fa-solid fa-gauge-high"
-                style={{ width: '90px' }}
+                style={{ width: '76px' }}
+                dropUp={true}
               />
             </div>
 
             {/* Quality Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '120px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '12px', color: '#aaa' }}>{t('watch.quality')}:</span>
               <PremiumSelect
                 options={[
@@ -1393,8 +1395,10 @@ const VideoWatch = () => {
                 value={quality}
                 onChange={(e) => handleQualityChange(e.target.value)}
                 searchable={false}
+                size="small"
                 icon="fa-solid fa-sliders"
-                style={{ width: '100px' }}
+                style={{ width: '82px' }}
+                dropUp={true}
               />
             </div>
 
@@ -1444,8 +1448,7 @@ const VideoWatch = () => {
                 LA
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 700, fontSize: '15px' }}>LurnAx Education</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>120K subscribers</span>
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>{video.author || video.instructor || video.client_name || 'LurnAx Education'}</span>
               </div>
               
 

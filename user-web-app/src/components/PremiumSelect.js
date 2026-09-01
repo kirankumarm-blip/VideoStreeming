@@ -9,6 +9,8 @@ const PremiumSelect = ({
   searchable = true,
   className = "",
   style = {},
+  buttonStyle = {},
+  size = "medium",
   icon = "fa-solid fa-list",
   label = "",
   dropUp = false
@@ -66,6 +68,8 @@ const PremiumSelect = ({
     setSearchQuery("");
   };
 
+  const isSmall = size === 'small';
+
   return (
     <div ref={dropdownRef} className={`premium-select-container ${className}`} style={{ position: 'relative', width: '100%', ...style }}>
       {/* Trigger Button */}
@@ -78,25 +82,27 @@ const PremiumSelect = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 18px',
+          padding: isSmall ? '4px 8px' : '14px 18px',
           backgroundColor: 'var(--input-bg, rgba(255,255,255,0.04))',
           border: isOpen ? '1px solid var(--accent-secondary, #7c3aed)' : '1px solid var(--border-color, rgba(0,0,0,0.12))',
-          borderRadius: '12px',
+          borderRadius: isSmall ? '6px' : '12px',
           color: selectedOption ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #94a3b8)',
-          fontSize: '15px',
+          fontSize: isSmall ? '12px' : '15px',
           fontWeight: 500,
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
           boxShadow: isOpen ? '0 0 0 1px var(--accent-secondary, #7c3aed), 0 0 16px rgba(139, 92, 246, 0.25)' : 'none',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          opacity: disabled ? 0.6 : 1
+          opacity: disabled ? 0.6 : 1,
+          height: isSmall ? '28px' : 'auto',
+          ...buttonStyle
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isSmall ? '5px' : '10px', overflow: 'hidden' }}>
           {selectedOption?.icon ? (
-            <i className={selectedOption.icon} style={{ color: 'var(--accent-secondary, #7c3aed)', fontSize: '14px' }}></i>
+            <i className={selectedOption.icon} style={{ color: 'var(--accent-secondary, #7c3aed)', fontSize: isSmall ? '11px' : '14px' }}></i>
           ) : icon ? (
-            <i className={icon} style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '13px' }}></i>
+            <i className={icon} style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: isSmall ? '11px' : '13px' }}></i>
           ) : null}
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {selectedOption ? selectedOption.label : placeholder}
@@ -105,10 +111,11 @@ const PremiumSelect = ({
         <i
           className="fa-solid fa-chevron-down"
           style={{
-            fontSize: '12px',
+            fontSize: isSmall ? '9px' : '12px',
             color: isOpen ? 'var(--accent-secondary, #7c3aed)' : 'var(--text-secondary, #94a3b8)',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.25s ease'
+            transition: 'transform 0.25s ease',
+            marginLeft: isSmall ? '4px' : '0'
           }}
         ></i>
       </button>
@@ -173,12 +180,12 @@ const PremiumSelect = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '10px 12px',
+                      padding: isSmall ? '6px 8px' : '10px 12px',
                       backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.15)' : 'transparent',
                       color: isSelected ? 'var(--accent-primary, #e50914)' : 'var(--text-primary, #1e293b)',
                       border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '13px',
+                      borderRadius: isSmall ? '6px' : '8px',
+                      fontSize: isSmall ? '12px' : '13px',
                       fontWeight: isSelected ? 700 : 500,
                       cursor: 'pointer',
                       textAlign: 'left',
