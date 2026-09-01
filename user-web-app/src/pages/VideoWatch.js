@@ -1748,7 +1748,15 @@ const VideoWatch = () => {
                 </div>
 
                 {/* Chapters & Lessons Accordion List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: 'calc(100vh - 160px)', minHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  maxHeight: 'calc(100vh - 120px)',
+                  overflowY: 'auto',
+                  padding: '2px 6px 80px 2px',
+                  scrollbarWidth: 'thin'
+                }}>
                   {courseChapters.map((chapter, chapIdx) => {
                     const chapKey = `chap_${chapter.id || chapIdx}`;
                     // Expanded if not explicitly set to false (default expanded)
