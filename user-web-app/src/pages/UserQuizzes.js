@@ -267,8 +267,7 @@ const UserQuizzes = () => {
   };
 
   return (
-    <div style={{
-      padding: '32px 40px',
+    <div className="user-quiz-page-container" style={{
       height: '100%',
       overflowY: 'auto',
       backgroundColor: 'var(--bg-primary)',
@@ -279,15 +278,15 @@ const UserQuizzes = () => {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '28px',
+        marginBottom: '20px',
         flexWrap: 'wrap',
-        gap: '16px'
+        gap: '12px'
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>📝</span> Quiz Performance & History
           </h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
             Track your chapter assessment scores, results, and attempts across all enrolled courses.
           </p>
         </div>
@@ -318,16 +317,16 @@ const UserQuizzes = () => {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '20px',
+        marginBottom: '16px',
         flexWrap: 'wrap',
-        gap: '16px',
+        gap: '12px',
         backgroundColor: 'var(--bg-secondary)',
-        padding: '16px 20px',
+        padding: '14px 16px',
         borderRadius: '16px',
         border: '1px solid var(--border-color)'
       }}>
         {/* Search Input */}
-        <div style={{ position: 'relative', width: '280px' }}>
+        <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
           <input
             type="text"
             placeholder="Search quiz, course, chapter..."
@@ -335,13 +334,14 @@ const UserQuizzes = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               width: '100%',
-              padding: '8px 14px 8px 36px',
-              borderRadius: '8px',
+              padding: '9px 14px 9px 36px',
+              borderRadius: '10px',
               border: '1px solid var(--border-color)',
               background: 'var(--bg-primary)',
               color: 'var(--text-primary)',
               fontSize: '13px',
-              outline: 'none'
+              outline: 'none',
+              boxSizing: 'border-box'
             }}
           />
           <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: 'var(--text-secondary)' }}>
@@ -350,22 +350,23 @@ const UserQuizzes = () => {
         </div>
 
         {/* Result Filter Tabs */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {['All', 'Passed', 'Failed'].map(status => (
             <button
               key={status}
               onClick={() => setFilterResult(status)}
               style={{
-                padding: '6px 14px',
+                padding: '7px 14px',
                 borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: filterResult === status ? 700 : 500,
+                fontSize: '12px',
+                fontWeight: filterResult === status ? 700 : 600,
                 border: '1px solid',
                 borderColor: filterResult === status ? 'var(--accent-primary)' : 'var(--border-color)',
-                backgroundColor: filterResult === status ? 'var(--accent-primary)' : 'transparent',
+                backgroundColor: filterResult === status ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
                 color: filterResult === status ? '#ffffff' : 'var(--text-secondary)',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap'
               }}
             >
               {status === 'Passed' ? '🟢 Passed' : status === 'Failed' ? '🔴 Failed' : 'All Quizzes'}
@@ -378,19 +379,26 @@ const UserQuizzes = () => {
       {loading ? (
         <ThreeDLoader text="Loading quiz telemetry data..." />
       ) : (
-        <div style={{
+        <div className="user-quiz-card-wrapper" style={{
           backgroundColor: 'var(--bg-secondary)',
           borderRadius: '16px',
-          padding: '20px',
+          padding: '16px',
           border: '1px solid var(--border-color)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)'
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+          width: '100%',
+          boxSizing: 'border-box',
+          overflow: 'hidden'
         }}>
           <PaginatedTable
             headers={tableHeaders}
             data={filteredQuizzes}
             renderRow={renderQuizRow}
-            emptyMessage="No data available"
+            emptyMessage="No quiz attempts found"
             defaultItemsPerPage={10}
+            showSearch={false}
+            showStatusFilter={false}
+            showExport={true}
+            tableStyle={{ minWidth: '680px' }}
           />
         </div>
       )}

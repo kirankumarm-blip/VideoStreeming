@@ -848,6 +848,31 @@ select option {
   display: none !important;
 }
 
+/* Quiz page full width responsiveness */
+.user-quiz-page-container {
+  padding: 32px 32px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 992px) {
+  .user-quiz-page-container {
+    padding: 20px 16px !important;
+  }
+  .user-quiz-card-wrapper {
+    padding: 12px 10px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .user-quiz-page-container {
+    padding: 16px 10px !important;
+  }
+  .user-quiz-card-wrapper {
+    padding: 10px 8px !important;
+  }
+}
+
 .watch-course-playlist-container {
   display: flex;
   flex-direction: column;
