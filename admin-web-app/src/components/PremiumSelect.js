@@ -115,16 +115,25 @@ const PremiumSelect = ({
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-        </div>
-        <i
-          className="fa-solid fa-chevron-down"
+        <svg
+          width={size === 'small' ? "11" : "13"}
+          height={size === 'small' ? "11" : "13"}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           style={{
-            fontSize: '12px',
             color: isOpen ? 'var(--accent-secondary, #7c3aed)' : 'var(--text-secondary, #94a3b8)',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.25s ease'
+            transition: 'transform 0.25s ease',
+            marginLeft: size === 'small' ? '4px' : '6px',
+            flexShrink: 0
           }}
-        ></i>
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
       </button>
 
       {/* Floating Menu Panel */}
