@@ -279,6 +279,16 @@ const VideoWatch = () => {
     }
   };
 
+  // Chapter Accordion State
+  const [expandedChapters, setExpandedChapters] = useState({});
+
+  const toggleChapterExpand = (chapKey) => {
+    setExpandedChapters(prev => ({
+      ...prev,
+      [chapKey]: prev[chapKey] !== undefined ? !prev[chapKey] : false
+    }));
+  };
+
   // Chapter Quiz Modal State
   const [quizModal, setQuizModal] = useState({
     show: false,
@@ -735,88 +745,103 @@ const VideoWatch = () => {
     }));
   };
 
-  const getCourseLessonsList = (courseObj) => {
+  const getCourseChapters = (courseObj) => {
     if (!courseObj) return [];
-    if (Array.isArray(courseObj.chapters)) {
-      const list = [];
-      const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
-      courseObj.chapters.forEach(chap => {
-        const chapId = chap.id || chap.chapter_id || chap.chapterId || 0;
-        const chapItems = Array.isArray(chap.videos) ? chap.videos : (Array.isArray(chap.lessons) ? chap.lessons : []);
-        chapItems.forEach((v, idx) => {
+    const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
+
+    // 1. If courseObj.chapters is an array of objects with videos/lessons
+    if (Array.isArray(courseObj.chapters) && courseObj.chapters.length > 0 && typeof courseObj.chapters[0] === 'object') {
+      return courseObj.chapters.map((chap, cIdx) => {
+        const chapId = chap.id ?? chap.chapter_id ?? chap.chapterId ?? (cIdx + 1);
+        const chapTitle = chap.title || chap.chapter_title || chap.chapter_name || chap.name || chap.chapter || `Chapter ${cIdx + 1}`;
+        const rawItems = Array.isArray(chap.videos) ? chap.videos : (Array.isArray(chap.lessons) ? chap.lessons : []);
+        const lessons = rawItems.map((v, vIdx) => {
           if (typeof v === 'string') {
-            list.push({
-              id: `${cId}-v-${idx}`,
-              title: `Lesson ${idx + 1}`,
+            return {
+              id: `${cId}-${chapId}-${vIdx}`,
+              title: `Lesson ${vIdx + 1}`,
               videoUrl: v,
               thumbnailUrl: courseObj.thumbnail || '',
               thumbnail: courseObj.thumbnail || '',
               course_id: cId,
-              chapter_id: chapId
-            });
-          } else {
-            const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
-            list.push({
-              ...v,
-              thumbnail: tUrl,
-              thumbnailUrl: tUrl,
-              course_id: v.course_id || v.courseId || cId,
-              chapter_id: v.chapter_id || v.chapterId || chapId
-            });
+              chapter_id: chapId,
+              chapter: chapTitle
+            };
           }
-        });
-      });
-      if (list.length > 0) {
-        return list;
-      }
-    }
-    if (Array.isArray(courseObj.videos)) {
-      const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
-      return courseObj.videos.map((v, index) => {
-        if (typeof v === 'string') {
+          const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
           return {
-            id: `${cId}-v-${index}`,
-            title: `Lesson ${index + 1}`,
+            ...v,
+            id: v.id || v.video_id || `${cId}-${chapId}-${vIdx}`,
+            title: v.title || v.video_title || v.name || `Lesson ${vIdx + 1}`,
+            thumbnail: tUrl,
+            thumbnailUrl: tUrl,
+            course_id: v.course_id || v.courseId || cId,
+            chapter_id: v.chapter_id || v.chapterId || chapId,
+            chapter: v.chapter || chapTitle
+          };
+        });
+        return {
+          id: chapId,
+          title: chapTitle,
+          quiz: chap.quiz,
+          lessons
+        };
+      });
+    }
+
+    // 2. If courseObj.videos or courseObj.lessons is a flat array, group by chapter_id / chapter
+    const rawList = Array.isArray(courseObj.videos) ? courseObj.videos : (Array.isArray(courseObj.lessons) ? courseObj.lessons : []);
+    if (rawList.length > 0) {
+      const chaptersMap = new Map();
+      rawList.forEach((v, vIdx) => {
+        let item = v;
+        if (typeof v === 'string') {
+          item = {
+            id: `${cId}-v-${vIdx}`,
+            title: `Lesson ${vIdx + 1}`,
             videoUrl: v,
             thumbnailUrl: courseObj.thumbnail || '',
             thumbnail: courseObj.thumbnail || '',
             course_id: cId,
-            chapter_id: 0
+            chapter_id: 1,
+            chapter: 'Chapter 1'
+          };
+        } else {
+          const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
+          const chapId = v.chapter_id ?? v.chapterId ?? 1;
+          const chapTitle = v.chapter || v.chapter_name || v.chapter_title || `Chapter ${chapId}`;
+          item = {
+            ...v,
+            id: v.id || v.video_id || `${cId}-${chapId}-${vIdx}`,
+            title: v.title || v.video_title || v.name || `Lesson ${vIdx + 1}`,
+            thumbnail: tUrl,
+            thumbnailUrl: tUrl,
+            course_id: v.course_id || v.courseId || cId,
+            chapter_id: chapId,
+            chapter: chapTitle
           };
         }
-        const tUrl = v.video_thumbnail || v.videoThumbnail || v.thumbnail || v.thumbnailUrl || v.thumbnail_url || courseObj.thumbnail || '';
-        return {
-          ...v,
-          thumbnail: tUrl,
-          thumbnailUrl: tUrl,
-          course_id: v.course_id || v.courseId || cId,
-          chapter_id: v.chapter_id || v.chapterId || 0
-        };
+        const chapKey = String(item.chapter_id);
+        if (!chaptersMap.has(chapKey)) {
+          chaptersMap.set(chapKey, {
+            id: item.chapter_id,
+            title: item.chapter || `Chapter ${item.chapter_id}`,
+            lessons: []
+          });
+        }
+        chaptersMap.get(chapKey).lessons.push(item);
       });
+      return Array.from(chaptersMap.values());
     }
-    if (Array.isArray(courseObj.lessons)) {
-      const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
-      return courseObj.lessons.map((l, index) => {
-        if (typeof l === 'string') {
-          return {
-            id: `${cId}-l-${index}`,
-            title: `Lesson ${index + 1}`,
-            videoUrl: l,
-            thumbnailUrl: courseObj.thumbnail || '',
-            thumbnail: courseObj.thumbnail || '',
-            course_id: cId,
-            chapter_id: 0
-          };
-        }
-        const tUrl = l.video_thumbnail || l.videoThumbnail || l.thumbnail || l.thumbnailUrl || l.thumbnail_url || courseObj.thumbnail || '';
-        return {
-          ...l,
-          thumbnail: tUrl,
-          thumbnailUrl: tUrl,
-          course_id: l.course_id || l.courseId || cId,
-          chapter_id: l.chapter_id || l.chapterId || 0
-        };
-      });
+
+    return [];
+  };
+
+  const getCourseLessonsList = (courseObj) => {
+    if (!courseObj) return [];
+    const chapters = getCourseChapters(courseObj);
+    if (chapters.length > 0) {
+      return chapters.flatMap(c => c.lessons);
     }
     return [];
   };
@@ -1640,10 +1665,12 @@ const VideoWatch = () => {
 
       {/* RIGHT COLUMN: RECOMMENDATIONS OR COURSE PLAYLIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {location.state?.course && getCourseLessonsList(location.state.course).length > 0 ? (
+        {location.state?.course && getCourseChapters(location.state.course).length > 0 ? (
           (() => {
+            const courseChapters = getCourseChapters(location.state.course);
             const courseLessons = getCourseLessonsList(location.state.course);
             const courseTitle = location.state.course.title || location.state.course.course_name || 'Course';
+            const courseId = location.state.course.id || location.state.course.course_id || location.state.course.courseId || 1;
             
             // Calculate completion progress
             const currentIdx = courseLessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url));
@@ -1660,28 +1687,28 @@ const VideoWatch = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '380px' }}>
                 {/* Course Playlist Card Header Box */}
                 <div style={{ 
-                  padding: '20px', 
+                  padding: '18px', 
                   borderRadius: '16px', 
                   background: 'var(--bg-secondary)', 
                   border: '1px solid var(--border-color)',
                   boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                     <div>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>📖</span> Course Playlist
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px' }}>📖</span> Course Content
                       </h3>
                       <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                        {courseTitle} ({courseLessons.length} Lessons)
+                        {courseChapters.length} {courseChapters.length === 1 ? 'Section' : 'Sections'} • {courseLessons.length} {courseLessons.length === 1 ? 'Lesson' : 'Lessons'}
                       </div>
                     </div>
                     {/* SVG Progress Ring */}
-                    <div style={{ position: 'relative', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="48" height="48" viewBox="0 0 48 48">
-                        <circle cx="24" cy="24" r={radius} fill="transparent" stroke="var(--bg-tertiary)" strokeWidth="3" />
-                        <circle cx="24" cy="24" r={radius} fill="transparent" stroke="#6366f1" strokeWidth="3" 
+                    <div style={{ position: 'relative', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="44" height="44" viewBox="0 0 44 44">
+                        <circle cx="22" cy="22" r={radius} fill="transparent" stroke="var(--bg-tertiary)" strokeWidth="3" />
+                        <circle cx="22" cy="22" r={radius} fill="transparent" stroke="#6366f1" strokeWidth="3" 
                           strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-                          transform="rotate(-90 24 24)" />
+                          transform="rotate(-90 22 22)" />
                       </svg>
                       <span style={{ position: 'absolute', fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>{displayPercent}%</span>
                     </div>
@@ -1695,249 +1722,211 @@ const VideoWatch = () => {
                   </div>
                 </div>
 
-                {/* Lessons vertical list of cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
-                  {courseLessons.map((lesson, idx) => {
-                    const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
-                    const isLocked = isChapterLocked(lesson, location.state?.course);
-                    const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
-                    const lessonDuration = lesson.duration || (idx === 0 ? '5:21' : idx === 1 ? '8:45' : idx === 2 ? '6:30' : '7:15');
+                {/* Chapters & Lessons Accordion List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '540px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {courseChapters.map((chapter, chapIdx) => {
+                    const chapKey = `chap_${chapter.id || chapIdx}`;
+                    // Expanded if not explicitly set to false (default expanded)
+                    const isExpanded = expandedChapters[chapKey] !== false;
+                    
+                    const chapLessons = chapter.lessons || [];
+                    const chapCompletedCount = chapLessons.filter(l => {
+                      const lGlobalIdx = courseLessons.findIndex(gl => String(gl.id || gl.videoUrl || gl.video_url) === String(l.id || l.videoUrl || l.video_url));
+                      return lGlobalIdx !== -1 && lGlobalIdx < completedCount;
+                    }).length;
+
+                    const isCurrentChapter = chapLessons.some(l => 
+                      String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url)
+                    );
+
+                    const quizObj = findQuizForChapter(chapter.id, location.state?.course);
 
                     return (
                       <div 
-                        key={idx}
-                        onClick={() => handleNavigateToVideo(lesson, location.state?.course)}
+                        key={chapKey}
                         style={{
-                          display: 'flex',
-                          gap: '12px',
-                          padding: '12px',
-                          cursor: 'pointer',
-                          background: 'var(--bg-secondary)',
                           borderRadius: '12px',
-                          border: isLessonActive ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
-                          boxShadow: isLessonActive ? '0 4px 15px rgba(99, 102, 241, 0.08)' : 'none',
-                          transition: 'border 0.2s, background 0.2s',
-                          opacity: isLocked ? 0.9 : 1
+                          border: isCurrentChapter ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--border-color)',
+                          background: 'var(--bg-secondary)',
+                          overflow: 'hidden',
+                          transition: 'border-color 0.2s'
                         }}
                       >
-                        {/* Thumbnail on left */}
-                        <div style={{ position: 'relative', width: '90px', height: '54px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
-                          <img 
-                            src={lessonThumb} 
-                            alt={lesson.title || `Lesson ${idx + 1}`} 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                          />
-                          {isLocked && (
-                            <div 
-                              style={{
-                                position: 'absolute',
-                                top: '4px',
-                                left: '4px',
-                                background: 'rgba(0,0,0,0.75)',
-                                color: '#f59e0b',
-                                padding: '2px 6px',
-                                borderRadius: '10px',
-                                fontSize: '10px',
-                                fontWeight: 'bold',
-                                zIndex: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '2px'
-                              }}
-                              title="Need to upgrade your plan"
-                            >
-                              🔒 <span style={{ fontSize: '9px', color: '#fff' }}>PRO</span>
-                            </div>
-                          )}
-                          {isLessonActive && (
-                            <div style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              width: '100%',
-                              height: '100%',
-                              backgroundColor: 'rgba(0,0,0,0.4)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}>
-                              <div style={{
-                                width: '22px',
-                                height: '22px',
-                                borderRadius: '50%',
-                                backgroundColor: '#6366f1',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}>
-                                <span style={{ fontSize: '7px', color: '#fff', marginLeft: '1px' }}>▶</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Title and duration info */}
-                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                        {/* Chapter Section Header (Udemy Accordion Header) */}
+                        <div 
+                          onClick={() => toggleChapterExpand(chapKey)}
+                          style={{
+                            padding: '12px 14px',
+                            background: isCurrentChapter ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-tertiary)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '10px',
+                            userSelect: 'none',
+                            borderBottom: isExpanded ? '1px solid var(--border-color)' : 'none'
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ 
                               fontSize: '13px', 
-                              fontWeight: '600', 
-                              color: isLessonActive ? '#6366f1' : 'var(--text-primary)',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
+                              fontWeight: '700', 
+                              color: isCurrentChapter ? '#6366f1' : 'var(--text-primary)',
+                              whiteSpace: 'nowrap',
                               overflow: 'hidden',
-                              lineHeight: '1.3'
+                              textOverflow: 'ellipsis'
                             }}>
-                              <span style={{ color: 'var(--text-secondary)', marginRight: '6px', fontWeight: '500' }}>{idx + 1}</span>
-                              {lesson.title || lesson.name || `Lesson ${idx + 1}`}
+                              Section {chapIdx + 1}: {chapter.title || `Chapter ${chapIdx + 1}`}
                             </div>
-                            {isLocked ? (
-                              <span 
-                                style={{
-                                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                                  color: '#f59e0b',
-                                  padding: '2px 8px',
-                                  borderRadius: '12px',
-                                  fontSize: '10px',
-                                  fontWeight: '700',
-                                  whiteSpace: 'nowrap',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px'
-                                }}
-                                title="Need to upgrade your plan"
-                              >
-                                🔒 PRO
-                              </span>
-                            ) : isLessonActive ? (
-                              <span style={{
-                                backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                                color: '#6366f1',
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                fontSize: '9px',
-                                fontWeight: '700',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                Now Playing
-                              </span>
-                            ) : null}
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {chapCompletedCount} / {chapLessons.length} • {chapLessons.length} {chapLessons.length === 1 ? 'lesson' : 'lessons'}
+                            </div>
                           </div>
-                          
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                            <span>{lessonDuration}</span>
-                            {isLocked ? (
-                              <span style={{ fontSize: '12px', color: '#f59e0b' }}>🔒</span>
-                            ) : (!isLessonActive && idx > completedCount ? (
-                              <span style={{ fontSize: '11px' }}>🔒</span>
-                            ) : null)}
-                          </div>
+                          <i 
+                            className="fa-solid fa-chevron-down" 
+                            style={{ 
+                              fontSize: '12px', 
+                              color: isCurrentChapter ? '#6366f1' : 'var(--text-secondary)',
+                              transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+                              transition: 'transform 0.2s ease'
+                            }} 
+                          />
                         </div>
+
+                        {/* Chapter Lessons List (Collapsible) */}
+                        {isExpanded && (
+                          <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {chapLessons.map((lesson, lIdx) => {
+                              const globalIdx = courseLessons.findIndex(gl => String(gl.id || gl.videoUrl || gl.video_url) === String(lesson.id || lesson.videoUrl || lesson.video_url));
+                              const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
+                              const isLocked = isChapterLocked(lesson, location.state?.course);
+                              const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
+                              const lessonDuration = lesson.duration || (globalIdx === 0 ? '5:21' : globalIdx === 1 ? '8:45' : globalIdx === 2 ? '6:30' : '7:15');
+                              const isCompleted = globalIdx !== -1 && globalIdx < completedCount;
+
+                              return (
+                                <div 
+                                  key={lesson.id || lIdx}
+                                  onClick={() => handleNavigateToVideo(lesson, location.state?.course)}
+                                  style={{
+                                    display: 'flex',
+                                    gap: '10px',
+                                    padding: '8px 10px',
+                                    cursor: 'pointer',
+                                    borderRadius: '8px',
+                                    background: isLessonActive ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                                    border: isLessonActive ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+                                    transition: 'background 0.15s ease',
+                                    alignItems: 'center'
+                                  }}
+                                  onMouseEnter={e => {
+                                    if (!isLessonActive) e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                                  }}
+                                  onMouseLeave={e => {
+                                    if (!isLessonActive) e.currentTarget.style.backgroundColor = 'transparent';
+                                  }}
+                                >
+                                  {/* Status indicator / Checkbox */}
+                                  <div style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {isLessonActive ? (
+                                      <span style={{ fontSize: '11px', color: '#6366f1' }}>▶</span>
+                                    ) : isCompleted ? (
+                                      <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold' }}>✓</span>
+                                    ) : isLocked ? (
+                                      <span style={{ fontSize: '11px', color: '#f59e0b' }}>🔒</span>
+                                    ) : (
+                                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid var(--text-secondary)' }}></span>
+                                    )}
+                                  </div>
+
+                                  {/* Thumbnail */}
+                                  <div style={{ position: 'relative', width: '64px', height: '38px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                                    <img 
+                                      src={lessonThumb} 
+                                      alt={lesson.title || `Lesson ${lIdx + 1}`} 
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                    />
+                                    {isLocked && (
+                                      <div style={{
+                                        position: 'absolute',
+                                        top: '2px',
+                                        right: '2px',
+                                        background: 'rgba(0,0,0,0.7)',
+                                        color: '#f59e0b',
+                                        padding: '1px 4px',
+                                        borderRadius: '4px',
+                                        fontSize: '8px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        PRO
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Title & Duration */}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ 
+                                      fontSize: '12px', 
+                                      fontWeight: isLessonActive ? '700' : '500', 
+                                      color: isLessonActive ? '#6366f1' : 'var(--text-primary)',
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}>
+                                      {lesson.title || `Lesson ${lIdx + 1}`}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span><i className="fa-solid fa-circle-play" style={{ fontSize: '9px', marginRight: '3px' }} />{lessonDuration}</span>
+                                      {isLessonActive && <span style={{ color: '#6366f1', fontWeight: 700 }}>• Playing</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {/* Chapter Quiz Trigger Button under Chapter */}
+                            {(quizObj || location.state?.course?.quizzes) && (
+                              <div 
+                                onClick={() => triggerQuizForChapter(chapter.id, courseId, location.state?.course)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '8px 12px',
+                                  background: 'rgba(229, 9, 20, 0.06)',
+                                  border: '1px dashed rgba(229, 9, 20, 0.3)',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  marginTop: '4px',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.12)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.06)'}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '13px' }}>📝</span>
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#e50914' }}>
+                                    Section {chapIdx + 1} Quiz Assessment
+                                  </div>
+                                </div>
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  backgroundColor: '#e50914',
+                                  color: '#fff',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px'
+                                }}>
+                                  Take Quiz
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-
-                {/* Continue Learning card at bottom */}
-                {completedCount + 1 < courseLessons.length && (
-                  <div style={{ marginTop: '4px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>
-                      Continue Learning
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px',
-                      borderRadius: '12px',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-color)',
-                      cursor: 'pointer'
-                    }} onClick={() => {
-                      const nextIdx = completedCount + 1;
-                      const nextLesson = courseLessons[nextIdx];
-                      handleNavigateToVideo(nextLesson, location.state?.course);
-                    }}>
-                      <div style={{ width: '70px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-                        <img 
-                          src={courseLessons[completedCount + 1]?.thumbnail || courseLessons[completedCount + 1]?.thumbnailUrl || courseLessons[completedCount + 1]?.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600'} 
-                          alt="Next" 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                        />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {courseLessons[completedCount + 1]?.title || 'Next Lesson'}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          Lesson {completedCount + 2} • {courseLessons[completedCount + 1]?.duration || '9:10'}
-                        </div>
-                      </div>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 'bold' }}>&gt;</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* View Full Course Content Button */}
-                <button 
-                  onClick={() => alert("Showing full course content details...")}
-                  style={{
-                    width: '100%',
-                    padding: '10px 16px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid #6366f1',
-                    color: '#6366f1',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <span>📋</span> View Full Course Content
-                </button>
-
-                {/* Playlist Chapter Quiz Launch Button */}
-                {(() => {
-                  const activeCourse = location.state?.course;
-                  const chapId = video?.chapter_id ?? video?.chapterId ?? 1;
-                  const cId = video?.course_id ?? video?.courseId ?? activeCourse?.id ?? 1;
-                  const quizObj = findQuizForChapter(chapId, activeCourse);
-
-                  if (quizObj || activeCourse?.quizzes) {
-                    return (
-                      <button 
-                        onClick={() => triggerQuizForChapter(chapId, cId, activeCourse)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px',
-                          backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                          border: '1px solid #e50914',
-                          color: '#e50914',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px',
-                          marginTop: '8px'
-                        }}
-                      >
-                        <span>📝</span> Take Chapter {chapId} Quiz
-                      </button>
-                    );
-                  }
-                  return null;
-                })()}
               </div>
             );
           })()
