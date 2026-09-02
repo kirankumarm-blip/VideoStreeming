@@ -1952,13 +1952,12 @@ const VideoWatch = () => {
                         {/* Chapter Lessons List (Collapsible) */}
                         {isExpanded && (
                           <div style={{ position: 'relative', overflow: 'hidden', padding: '8px' }}>
-                            {/* Inner container (blurred if single video is locked) */}
+                            {/* Inner container (content visible with center lock) */}
                             <div style={{
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '8px',
-                              filter: isSingleVideoLocked ? 'blur(4px)' : 'none',
-                              opacity: isSingleVideoLocked ? 0.35 : 1,
+                              opacity: isSingleVideoLocked ? 0.85 : 1,
                               pointerEvents: isSingleVideoLocked ? 'none' : 'auto',
                               userSelect: isSingleVideoLocked ? 'none' : 'auto',
                               transition: 'all 0.2s ease'
@@ -2115,24 +2114,24 @@ const VideoWatch = () => {
                                   flexDirection: 'column',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  background: 'rgba(0, 0, 0, 0.2)',
+                                  background: 'rgba(0, 0, 0, 0.05)',
                                   borderRadius: '8px',
                                   cursor: 'pointer',
                                   zIndex: 10
                                 }}
                               >
                                 <div style={{
-                                  width: '44px',
-                                  height: '44px',
+                                  width: '38px',
+                                  height: '38px',
                                   borderRadius: '50%',
-                                  background: 'rgba(30, 27, 75, 0.85)',
+                                  background: 'rgba(23, 23, 23, 0.9)',
                                   border: '1.5px solid #f59e0b',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '20px',
-                                  boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)',
-                                  marginBottom: '6px'
+                                  fontSize: '18px',
+                                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
+                                  marginBottom: '4px'
                                 }}>
                                   🔒
                                 </div>
@@ -2140,10 +2139,11 @@ const VideoWatch = () => {
                                   fontSize: '11px',
                                   fontWeight: 800,
                                   color: '#f59e0b',
-                                  background: 'rgba(0, 0, 0, 0.75)',
-                                  padding: '3px 10px',
-                                  borderRadius: '12px',
-                                  letterSpacing: '0.3px'
+                                  background: 'rgba(0, 0, 0, 0.85)',
+                                  padding: '2px 9px',
+                                  borderRadius: '10px',
+                                  letterSpacing: '0.3px',
+                                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)'
                                 }}>
                                   PRO Plan Required
                                 </span>
