@@ -1308,12 +1308,7 @@ const VideoWatch = () => {
     return visStr === '2' || visStr === 'private' || vis === true || vis === 2;
   };
 
-  const [isWatchLaterSaved, setIsWatchLaterSaved] = useState(false);
   const [savingWatchLater, setSavingWatchLater] = useState(false);
-
-  useEffect(() => {
-    setIsWatchLaterSaved(false);
-  }, [id]);
 
   const handleSaveToWatchLater = async () => {
     if (savingWatchLater) return;
@@ -1329,7 +1324,6 @@ const VideoWatch = () => {
       });
 
       if (res?.status === 431 || res?.statusCode === 431 || res?.code === 431 || res?.message?.includes('already')) {
-        setIsWatchLaterSaved(true);
         setCustomAlert({
           show: true,
           title: 'Watch Later',
@@ -1341,7 +1335,6 @@ const VideoWatch = () => {
         return;
       }
 
-      setIsWatchLaterSaved(true);
       setCustomAlert({
         show: true,
         title: 'Watch Later',
@@ -1356,7 +1349,6 @@ const VideoWatch = () => {
       const is431 = statusCode === 431 || String(statusCode) === '431' || String(e.message || '').includes('431');
 
       if (is431) {
-        setIsWatchLaterSaved(true);
         setCustomAlert({
           show: true,
           title: 'Watch Later',
@@ -1829,25 +1821,24 @@ const VideoWatch = () => {
               {/* Watch Later button */}
               <button 
                 style={{
-                  background: isWatchLaterSaved ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-tertiary)',
-                  border: isWatchLaterSaved ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '20px',
                   padding: '8px 16px',
-                  color: isWatchLaterSaved ? '#10b981' : 'var(--text-primary)',
+                  color: 'var(--text-primary)',
                   fontSize: '13px',
-                  fontWeight: isWatchLaterSaved ? 700 : 600,
+                  fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: isWatchLaterSaved ? '0 2px 10px rgba(16, 185, 129, 0.2)' : 'none'
+                  transition: 'all 0.2s ease'
                 }} 
                 onClick={handleSaveToWatchLater}
                 disabled={savingWatchLater}
               >
-                <span>{isWatchLaterSaved ? '✓' : '🔖'}</span>
-                <span>{savingWatchLater ? 'Adding...' : isWatchLaterSaved ? 'Added to Watch Later' : 'Watch Later'}</span>
+                <span>🔖</span>
+                <span>{savingWatchLater ? 'Adding...' : 'Watch Later'}</span>
               </button>
             </div>
           </div>
