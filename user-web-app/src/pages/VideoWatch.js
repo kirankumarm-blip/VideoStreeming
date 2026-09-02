@@ -501,6 +501,24 @@ const VideoWatch = () => {
   };
 
   const triggerQuizForChapter = async (chapId, cId, courseObj) => {
+    // Verify that the video in this chapter has been watched
+    const activeCourse = courseObj || location.state?.course;
+    const allChaps = getCourseChapters(activeCourse);
+    const targetChap = allChaps.find(c => String(c.id || '') === String(chapId));
+    if (targetChap && targetChap.lessons && targetChap.lessons.length > 0) {
+      const watchable = targetChap.lessons.filter(l => !isChapterLocked(l, activeCourse));
+      const hasWatched = watchable.length > 0 && watchable.some(l => isLessonCompleted(l));
+      if (watchable.length > 0 && !hasWatched) {
+        setCustomAlert({
+          show: true,
+          title: 'Quiz Locked',
+          message: 'Please watch the video lesson first to unlock this Chapter Quiz Assessment!',
+          buttonText: 'OK'
+        });
+        return;
+      }
+    }
+
     let quizInfo = findQuizForChapter(chapId, courseObj);
     if (!quizInfo) {
       quizInfo = {
@@ -1859,6 +1877,20 @@ const VideoWatch = () => {
                     const chapLessons = chapter.lessons || [];
                     const chapCompletedCount = chapLessons.filter(l => isLessonCompleted(l)).length;
 
+                    // Condition 1: If chapter has only 1 video and that video is private:
+                    // Blur video & quiz, and lock should be in center
+                    const isSingleVideo = chapLessons.length === 1;
+                    const isSingleVideoLocked = isSingleVideo && isChapterLocked(chapLessons[0], location.state?.course);
+
+                    // Condition 2: If chapter has multiple videos and at least one is public:
+                    // Show quiz (not blurred as whole chapter)
+                    const hasMultipleVideos = chapLessons.length > 1;
+                    const hasPublicVideo = chapLessons.some(l => !isChapterLocked(l, location.state?.course));
+
+                    // Condition 3: Without watching video no need to open quiz
+                    const watchableLessons = chapLessons.filter(l => !isChapterLocked(l, location.state?.course));
+                    const isChapterWatched = watchableLessons.length > 0 && watchableLessons.some(l => isLessonCompleted(l));
+
                     const isCurrentChapter = chapLessons.some(l => 
                       String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url)
                     );
@@ -1919,129 +1951,213 @@ const VideoWatch = () => {
 
                         {/* Chapter Lessons List (Collapsible) */}
                         {isExpanded && (
-                          <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {chapLessons.map((lesson, lIdx) => {
-                              const globalIdx = courseLessons.findIndex(gl => String(gl.id || gl.videoUrl || gl.video_url) === String(lesson.id || lesson.videoUrl || lesson.video_url));
-                              const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
-                              const isLocked = isChapterLocked(lesson, location.state?.course);
-                              const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
-                              const lessonDuration = lesson.duration || (globalIdx === 0 ? '5:21' : globalIdx === 1 ? '8:45' : globalIdx === 2 ? '6:30' : '7:15');
-                              const isCompleted = isLessonCompleted(lesson);
+                          <div style={{ position: 'relative', overflow: 'hidden', padding: '8px' }}>
+                            {/* Inner container (blurred if single video is locked) */}
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '8px',
+                              filter: isSingleVideoLocked ? 'blur(4px)' : 'none',
+                              opacity: isSingleVideoLocked ? 0.35 : 1,
+                              pointerEvents: isSingleVideoLocked ? 'none' : 'auto',
+                              userSelect: isSingleVideoLocked ? 'none' : 'auto',
+                              transition: 'all 0.2s ease'
+                            }}>
+                              {chapLessons.map((lesson, lIdx) => {
+                                const globalIdx = courseLessons.findIndex(gl => String(gl.id || gl.videoUrl || gl.video_url) === String(lesson.id || lesson.videoUrl || lesson.video_url));
+                                const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
+                                const isLocked = isChapterLocked(lesson, location.state?.course);
+                                const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
+                                const lessonDuration = lesson.duration || (globalIdx === 0 ? '5:21' : globalIdx === 1 ? '8:45' : globalIdx === 2 ? '6:30' : '7:15');
+                                const isCompleted = isLessonCompleted(lesson);
 
-                              return (
+                                return (
+                                  <div 
+                                    key={lesson.id || lIdx}
+                                    onClick={() => handleNavigateToVideo(lesson, location.state?.course)}
+                                    style={{
+                                      display: 'flex',
+                                      gap: '10px',
+                                      padding: '8px 10px',
+                                      cursor: 'pointer',
+                                      borderRadius: '8px',
+                                      background: isLessonActive ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                                      border: isLessonActive ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+                                      transition: 'background 0.15s ease',
+                                      alignItems: 'center'
+                                    }}
+                                    onMouseEnter={e => {
+                                      if (!isLessonActive) e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                                    }}
+                                    onMouseLeave={e => {
+                                      if (!isLessonActive) e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
+                                  >
+                                    {/* Status indicator / Checkbox */}
+                                    <div style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      {isLessonActive ? (
+                                        <span style={{ fontSize: '11px', color: '#6366f1' }}>▶</span>
+                                      ) : isCompleted ? (
+                                        <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold' }}>✓</span>
+                                      ) : isLocked ? (
+                                        <span style={{ fontSize: '11px', color: '#f59e0b' }}>🔒</span>
+                                      ) : (
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid var(--text-secondary)' }}></span>
+                                      )}
+                                    </div>
+
+                                    {/* Thumbnail */}
+                                    <div style={{ position: 'relative', width: '64px', height: '38px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                                      <img 
+                                        src={lessonThumb} 
+                                        alt={lesson.title || `Lesson ${lIdx + 1}`} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                      />
+                                      {isLocked && (
+                                        <div style={{
+                                          position: 'absolute',
+                                          top: '2px',
+                                          right: '2px',
+                                          background: 'rgba(0,0,0,0.7)',
+                                          color: '#f59e0b',
+                                          padding: '1px 4px',
+                                          borderRadius: '4px',
+                                          fontSize: '8px',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          PRO
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Title & Duration */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ 
+                                        fontSize: '12px', 
+                                        fontWeight: isLessonActive ? '700' : '500', 
+                                        color: isLessonActive ? '#6366f1' : 'var(--text-primary)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}>
+                                        {lesson.title || `Lesson ${lIdx + 1}`}
+                                      </div>
+                                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span><i className="fa-solid fa-circle-play" style={{ fontSize: '9px', marginRight: '3px' }} />{lessonDuration}</span>
+                                        {isLessonActive && <span style={{ color: '#6366f1', fontWeight: 700 }}>• Playing</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                              {/* Chapter Quiz Trigger Button under Chapter */}
+                              {(quizObj || location.state?.course?.quizzes) && (
                                 <div 
-                                  key={lesson.id || lIdx}
-                                  onClick={() => handleNavigateToVideo(lesson, location.state?.course)}
+                                  onClick={() => {
+                                    if (!isChapterWatched) {
+                                      setCustomAlert({
+                                        show: true,
+                                        title: 'Quiz Locked',
+                                        message: 'Please watch the video lesson first to unlock this Chapter Quiz Assessment!',
+                                        buttonText: 'OK'
+                                      });
+                                      return;
+                                    }
+                                    triggerQuizForChapter(chapter.id, courseId, location.state?.course);
+                                  }}
                                   style={{
                                     display: 'flex',
-                                    gap: '10px',
-                                    padding: '8px 10px',
-                                    cursor: 'pointer',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '8px 12px',
+                                    background: isChapterWatched ? 'rgba(229, 9, 20, 0.06)' : 'var(--bg-tertiary)',
+                                    border: isChapterWatched ? '1px dashed rgba(229, 9, 20, 0.35)' : '1px dashed var(--border-color)',
                                     borderRadius: '8px',
-                                    background: isLessonActive ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
-                                    border: isLessonActive ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
-                                    transition: 'background 0.15s ease',
-                                    alignItems: 'center'
+                                    cursor: isChapterWatched ? 'pointer' : 'not-allowed',
+                                    marginTop: '4px',
+                                    transition: 'all 0.2s',
+                                    opacity: isChapterWatched ? 1 : 0.8
                                   }}
                                   onMouseEnter={e => {
-                                    if (!isLessonActive) e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                                    if (isChapterWatched) e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.12)';
                                   }}
                                   onMouseLeave={e => {
-                                    if (!isLessonActive) e.currentTarget.style.backgroundColor = 'transparent';
+                                    if (isChapterWatched) e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.06)';
                                   }}
                                 >
-                                  {/* Status indicator / Checkbox */}
-                                  <div style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {isLessonActive ? (
-                                      <span style={{ fontSize: '11px', color: '#6366f1' }}>▶</span>
-                                    ) : isCompleted ? (
-                                      <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 'bold' }}>✓</span>
-                                    ) : isLocked ? (
-                                      <span style={{ fontSize: '11px', color: '#f59e0b' }}>🔒</span>
-                                    ) : (
-                                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1.5px solid var(--text-secondary)' }}></span>
-                                    )}
-                                  </div>
-
-                                  {/* Thumbnail */}
-                                  <div style={{ position: 'relative', width: '64px', height: '38px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-                                    <img 
-                                      src={lessonThumb} 
-                                      alt={lesson.title || `Lesson ${lIdx + 1}`} 
-                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                                    />
-                                    {isLocked && (
-                                      <div style={{
-                                        position: 'absolute',
-                                        top: '2px',
-                                        right: '2px',
-                                        background: 'rgba(0,0,0,0.7)',
-                                        color: '#f59e0b',
-                                        padding: '1px 4px',
-                                        borderRadius: '4px',
-                                        fontSize: '8px',
-                                        fontWeight: 'bold'
-                                      }}>
-                                        PRO
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Title & Duration */}
-                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '13px' }}>{isChapterWatched ? '📝' : '🔒'}</span>
                                     <div style={{ 
-                                      fontSize: '12px', 
-                                      fontWeight: isLessonActive ? '700' : '500', 
-                                      color: isLessonActive ? '#6366f1' : 'var(--text-primary)',
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis'
+                                      fontSize: '11px', 
+                                      fontWeight: 600, 
+                                      color: isChapterWatched ? '#e50914' : 'var(--text-secondary)' 
                                     }}>
-                                      {lesson.title || `Lesson ${lIdx + 1}`}
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span><i className="fa-solid fa-circle-play" style={{ fontSize: '9px', marginRight: '3px' }} />{lessonDuration}</span>
-                                      {isLessonActive && <span style={{ color: '#6366f1', fontWeight: 700 }}>• Playing</span>}
+                                      Chapter {chapIdx + 1} Quiz Assessment
                                     </div>
                                   </div>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    backgroundColor: isChapterWatched ? '#e50914' : 'rgba(100, 116, 139, 0.2)',
+                                    color: isChapterWatched ? '#fff' : 'var(--text-secondary)',
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}>
+                                    {isChapterWatched ? 'Take Quiz' : 'Locked'}
+                                  </span>
                                 </div>
-                              );
-                            })}
+                              )}
+                            </div>
 
-                            {/* Chapter Quiz Trigger Button under Chapter */}
-                            {(quizObj || location.state?.course?.quizzes) && (
+                            {/* Center Lock Overlay if chapter has only 1 video and that video is private */}
+                            {isSingleVideoLocked && (
                               <div 
-                                onClick={() => triggerQuizForChapter(chapter.id, courseId, location.state?.course)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  showUpgradeAlert('Need to upgrade your plan');
+                                }}
                                 style={{
+                                  position: 'absolute',
+                                  inset: '4px',
                                   display: 'flex',
+                                  flexDirection: 'column',
                                   alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  padding: '8px 12px',
-                                  background: 'rgba(229, 9, 20, 0.06)',
-                                  border: '1px dashed rgba(229, 9, 20, 0.3)',
+                                  justifyContent: 'center',
+                                  background: 'rgba(0, 0, 0, 0.2)',
                                   borderRadius: '8px',
                                   cursor: 'pointer',
-                                  marginTop: '4px',
-                                  transition: 'background 0.2s'
+                                  zIndex: 10
                                 }}
-                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.12)'}
-                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.06)'}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '13px' }}>📝</span>
-                                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#e50914' }}>
-                                    Chapter {chapIdx + 1} Quiz Assessment
-                                  </div>
+                                <div style={{
+                                  width: '44px',
+                                  height: '44px',
+                                  borderRadius: '50%',
+                                  background: 'rgba(30, 27, 75, 0.85)',
+                                  border: '1.5px solid #f59e0b',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '20px',
+                                  boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)',
+                                  marginBottom: '6px'
+                                }}>
+                                  🔒
                                 </div>
                                 <span style={{
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                  backgroundColor: '#e50914',
-                                  color: '#fff',
-                                  padding: '2px 8px',
-                                  borderRadius: '10px'
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  color: '#f59e0b',
+                                  background: 'rgba(0, 0, 0, 0.75)',
+                                  padding: '3px 10px',
+                                  borderRadius: '12px',
+                                  letterSpacing: '0.3px'
                                 }}>
-                                  Take Quiz
+                                  PRO Plan Required
                                 </span>
                               </div>
                             )}
