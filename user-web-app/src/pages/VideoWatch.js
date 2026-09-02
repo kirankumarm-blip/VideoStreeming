@@ -2071,43 +2071,31 @@ const VideoWatch = () => {
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
                                     padding: '8px 12px',
-                                    background: isChapterWatched ? 'rgba(229, 9, 20, 0.06)' : 'var(--bg-tertiary)',
-                                    border: isChapterWatched ? '1px dashed rgba(229, 9, 20, 0.35)' : '1px dashed var(--border-color)',
+                                    background: 'rgba(229, 9, 20, 0.06)',
+                                    border: '1px dashed rgba(229, 9, 20, 0.3)',
                                     borderRadius: '8px',
-                                    cursor: isChapterWatched ? 'pointer' : 'not-allowed',
+                                    cursor: 'pointer',
                                     marginTop: '4px',
-                                    transition: 'all 0.2s',
-                                    opacity: isChapterWatched ? 1 : 0.8
+                                    transition: 'background 0.2s'
                                   }}
-                                  onMouseEnter={e => {
-                                    if (isChapterWatched) e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.12)';
-                                  }}
-                                  onMouseLeave={e => {
-                                    if (isChapterWatched) e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.06)';
-                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.12)'}
+                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(229, 9, 20, 0.06)'}
                                 >
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '13px' }}>{isChapterWatched ? '📝' : '🔒'}</span>
-                                    <div style={{ 
-                                      fontSize: '11px', 
-                                      fontWeight: 600, 
-                                      color: isChapterWatched ? '#e50914' : 'var(--text-secondary)' 
-                                    }}>
+                                    <span style={{ fontSize: '13px' }}>📝</span>
+                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#e50914' }}>
                                       Chapter {chapIdx + 1} Quiz Assessment
                                     </div>
                                   </div>
                                   <span style={{
                                     fontSize: '10px',
                                     fontWeight: 700,
-                                    backgroundColor: isChapterWatched ? '#e50914' : 'rgba(100, 116, 139, 0.2)',
-                                    color: isChapterWatched ? '#fff' : 'var(--text-secondary)',
+                                    backgroundColor: '#e50914',
+                                    color: '#fff',
                                     padding: '2px 8px',
-                                    borderRadius: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
+                                    borderRadius: '10px'
                                   }}>
-                                    {isChapterWatched ? 'Take Quiz' : 'Locked'}
+                                    Take Quiz
                                   </span>
                                 </div>
                               )}
