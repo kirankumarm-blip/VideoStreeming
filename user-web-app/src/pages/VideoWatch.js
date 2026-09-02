@@ -590,13 +590,27 @@ const VideoWatch = () => {
   const handleTextAnswer = (textVal) => {
     const q = quizModal.questions[quizModal.currentIdx];
     if (!q) return;
+    // Disallow leading whitespace and empty spaces
+    const sanitized = (textVal || '').replace(/^\s+/, '');
     setQuizModal(prev => ({
       ...prev,
       userAnswers: {
         ...prev.userAnswers,
-        [q.id]: textVal
+        [q.id]: sanitized
       }
     }));
+  };
+
+  const isCurrentQuestionAnswered = () => {
+    const currentQ = quizModal.questions[quizModal.currentIdx];
+    if (!currentQ) return false;
+    const ans = quizModal.userAnswers[currentQ.id];
+    if (ans === undefined || ans === null) return false;
+    const qType = String(currentQ.question_type || currentQ.questionType || 1);
+    if (qType === '3') {
+      return String(ans).trim().length > 0;
+    }
+    return true;
   };
 
   const handleNextQuizQuestion = () => {
@@ -2452,6 +2466,11 @@ const VideoWatch = () => {
                         <input
                           type="text"
                           value={selectedOpt || ''}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' && (!e.currentTarget.value || e.currentTarget.selectionStart === 0)) {
+                              e.preventDefault();
+                            }
+                          }}
                           onChange={(e) => handleTextAnswer(e.target.value)}
                           placeholder="Enter your answer here..."
                           style={{
@@ -2673,7 +2692,7 @@ const VideoWatch = () => {
                   {quizModal.currentIdx < quizModal.questions.length - 1 ? (
                     <button
                       onClick={handleNextQuizQuestion}
-                      disabled={quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined}
+                      disabled={!isCurrentQuestionAnswered()}
                       className="btn btn-primary"
                       style={{
                         padding: '8px 24px',
@@ -2683,8 +2702,8 @@ const VideoWatch = () => {
                         color: '#ffffff',
                         borderRadius: '8px',
                         fontWeight: 600,
-                        cursor: quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined ? 'not-allowed' : 'pointer',
-                        opacity: quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined ? 0.5 : 1
+                        cursor: !isCurrentQuestionAnswered() ? 'not-allowed' : 'pointer',
+                        opacity: !isCurrentQuestionAnswered() ? 0.5 : 1
                       }}
                     >
                       Next ➔
@@ -2692,7 +2711,7 @@ const VideoWatch = () => {
                   ) : (
                     <button
                       onClick={handleSubmitQuiz}
-                      disabled={quizModal.isSubmitting || quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined}
+                      disabled={quizModal.isSubmitting || !isCurrentQuestionAnswered()}
                       className="btn btn-primary"
                       style={{
                         padding: '8px 24px',
@@ -2702,8 +2721,8 @@ const VideoWatch = () => {
                         color: '#ffffff',
                         borderRadius: '8px',
                         fontWeight: 700,
-                        cursor: (quizModal.isSubmitting || quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined) ? 'not-allowed' : 'pointer',
-                        opacity: (quizModal.isSubmitting || quizModal.userAnswers[quizModal.questions[quizModal.currentIdx]?.id] === undefined) ? 0.5 : 1,
+                        cursor: (quizModal.isSubmitting || !isCurrentQuestionAnswered()) ? 'not-allowed' : 'pointer',
+                        opacity: (quizModal.isSubmitting || !isCurrentQuestionAnswered()) ? 0.5 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px'
