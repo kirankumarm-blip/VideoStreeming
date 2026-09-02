@@ -1900,7 +1900,7 @@ const VideoWatch = () => {
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
                             }}>
-                              Chapter {chapIdx + 1}: {chapter.title || `Chapter ${chapIdx + 1}`}
+                              Chapter {chapIdx + 1} : {chapter.title || `Chapter ${chapIdx + 1}`}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                               {chapCompletedCount} / {chapLessons.length} • {chapLessons.length} {chapLessons.length === 1 ? 'lesson' : 'lessons'}
