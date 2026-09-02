@@ -608,27 +608,67 @@ const VideoWatch = () => {
     }
   };
 
-  const navigateToNextLessonOrChapter = () => {
+  const navigateToNextLessonOrChapter = (completedChapId = null) => {
     const activeVid = videoRefData.current || video || location.state?.video;
-    const activeCourse = location.state?.course;
+    const activeCourse = location.state?.course || video?.course;
     const vidId = idRef.current || id || activeVid?.id;
 
-    const lessons = getCourseLessonsList(activeCourse);
-    if (lessons && lessons.length > 0) {
-      const currentIdx = lessons.findIndex(l => String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl));
-      if (currentIdx !== -1 && currentIdx + 1 < lessons.length) {
-        const nextLesson = lessons[currentIdx + 1];
-        if (!isChapterLocked(nextLesson, activeCourse)) {
-          setTimeout(() => {
-            handleNavigateToVideo(nextLesson, activeCourse);
-          }, 300);
+    if (!activeCourse) return;
+
+    const chapters = getCourseChapters(activeCourse);
+    const allLessons = getCourseLessonsList(activeCourse);
+
+    // 1. Find current video index in the global lessons list
+    let currentIdx = -1;
+    if (allLessons.length > 0) {
+      currentIdx = allLessons.findIndex(l => 
+        String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl || activeVid?.video_url)
+      );
+    }
+
+    // 2. Search forward from current video for the next PLAYABLE (unlocked) video
+    let nextPlayableLesson = null;
+    if (currentIdx !== -1) {
+      for (let i = currentIdx + 1; i < allLessons.length; i++) {
+        const candidate = allLessons[i];
+        if (!isChapterLocked(candidate, activeCourse)) {
+          nextPlayableLesson = candidate;
+          break;
         }
       }
+    }
+
+    // 3. Fallback: Search subsequent chapters starting after completedChapId
+    if (!nextPlayableLesson && chapters.length > 0) {
+      const targetChapId = completedChapId ?? activeVid?.chapter_id ?? activeVid?.chapterId;
+      let chapIdx = -1;
+      if (targetChapId !== undefined && targetChapId !== null) {
+        chapIdx = chapters.findIndex(c => String(c.id) === String(targetChapId));
+      }
+      const startIdx = chapIdx !== -1 ? chapIdx + 1 : 0;
+      for (let c = startIdx; c < chapters.length; c++) {
+        const chapLessons = chapters[c].lessons || [];
+        const candidate = chapLessons.find(l => !isChapterLocked(l, activeCourse));
+        if (candidate) {
+          nextPlayableLesson = candidate;
+          break;
+        }
+      }
+    }
+
+    // 4. Navigate and autoplay the next playable video
+    if (nextPlayableLesson) {
+      setTimeout(() => {
+        handleNavigateToVideo(nextPlayableLesson, activeCourse);
+      }, 300);
+    } else {
+      console.log("No further unlocked lessons found in this course.");
     }
   };
 
   const handleCloseQuizModal = () => {
     const wasCompleted = quizModal.completed;
+    const completedChapId = quizModal.chapterId;
     setQuizModal({
       show: false,
       title: '',
@@ -644,7 +684,7 @@ const VideoWatch = () => {
     });
 
     if (wasCompleted) {
-      navigateToNextLessonOrChapter();
+      navigateToNextLessonOrChapter(completedChapId);
     }
   };
 
@@ -1061,19 +1101,29 @@ const VideoWatch = () => {
         String(l.id || l.videoUrl || l.video_url) === String(activeVid?.id || activeVid?.videoUrl || activeVid?.video_url)
       );
 
-      const isLastVideoInChapter = currentLessonIdx === -1 || currentLessonIdx === chapLessons.length - 1;
-
-      if (isLastVideoInChapter || chapLessons.length <= 1) {
-        // Last video in chapter completed -> Trigger chapter quiz!
-        triggerQuizForChapter(chapId, cId, activeCourse);
-      } else if (currentLessonIdx < chapLessons.length - 1) {
-        // Not the last video in chapter -> Advance to the next video in this chapter
-        const nextLesson = chapLessons[currentLessonIdx + 1];
-        if (nextLesson) {
-          handleNavigateToVideo(nextLesson, activeCourse);
+      // Check if there are more PLAYABLE videos remaining in THIS chapter
+      let nextPlayableInChap = null;
+      if (currentLessonIdx !== -1 && currentLessonIdx < chapLessons.length - 1) {
+        for (let i = currentLessonIdx + 1; i < chapLessons.length; i++) {
+          if (!isChapterLocked(chapLessons[i], activeCourse)) {
+            nextPlayableInChap = chapLessons[i];
+            break;
+          }
         }
-      } else {
+      }
+
+      const quizObj = findQuizForChapter(chapId, activeCourse);
+      const hasChapterQuiz = Boolean(quizObj || activeCourse?.quizzes);
+
+      if (nextPlayableInChap) {
+        // Next playable video in this chapter found -> advance to it
+        handleNavigateToVideo(nextPlayableInChap, activeCourse);
+      } else if (hasChapterQuiz) {
+        // All playable videos in this chapter completed -> Trigger chapter quiz!
         triggerQuizForChapter(chapId, cId, activeCourse);
+      } else {
+        // No quiz for this chapter -> Advance directly to next playable lesson/chapter!
+        navigateToNextLessonOrChapter(chapId);
       }
     } else {
       triggerQuizForChapter(chapId, cId, activeCourse);
@@ -1882,12 +1932,7 @@ const VideoWatch = () => {
                     const isSingleVideo = chapLessons.length === 1;
                     const isSingleVideoLocked = isSingleVideo && isChapterLocked(chapLessons[0], location.state?.course);
 
-                    // Condition 2: If chapter has multiple videos and at least one is public:
-                    // Show quiz (not blurred as whole chapter)
-                    const hasMultipleVideos = chapLessons.length > 1;
-                    const hasPublicVideo = chapLessons.some(l => !isChapterLocked(l, location.state?.course));
-
-                    // Condition 3: Without watching video no need to open quiz
+                    // Condition 2 & 3: Without watching video no need to open quiz
                     const watchableLessons = chapLessons.filter(l => !isChapterLocked(l, location.state?.course));
                     const isChapterWatched = watchableLessons.length > 0 && watchableLessons.some(l => isLessonCompleted(l));
 
