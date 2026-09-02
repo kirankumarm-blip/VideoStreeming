@@ -2613,7 +2613,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="table-container">
                   <PaginatedTable
-                    headers={['Name', 'Email', 'Mobile', 'Status', 'Client', 'Actions']}
+                    headers={['Name', 'Email', 'Mobile', 'Status', 'Actions']}
                     data={authorAdmins}
                     loading={loading}
                     emptyMessage="No author admins registered yet"
