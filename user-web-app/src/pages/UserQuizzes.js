@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import PaginatedTable from '../components/PaginatedTable';
@@ -11,12 +11,15 @@ const UserQuizzes = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterResult, setFilterResult] = useState('All');
   const [selectedQuizDetail, setSelectedQuizDetail] = useState(null);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     fetchQuizHistory();
   }, []);
 
   const fetchQuizHistory = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
     try {
       const response = await api.dashboard.getUser('getQuizHistory', { formstep: 'getQuizHistory' });
@@ -89,6 +92,7 @@ const UserQuizzes = () => {
       setQuizzes([]);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
