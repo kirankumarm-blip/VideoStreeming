@@ -1313,29 +1313,7 @@ const VideoWatch = () => {
 
   useEffect(() => {
     setIsWatchLaterSaved(false);
-    const checkWatchLater = async () => {
-      try {
-        const res = await api.dashboard.getUser('getwatchLaterVideos', { formStep: 'getwatchLaterVideos' });
-        let list = [];
-        if (Array.isArray(res)) list = res;
-        else if (res?.data && Array.isArray(res.data)) list = res.data;
-        else if (res?.json && Array.isArray(res.json)) list = res.json;
-
-        const currentVidId = String(id || '');
-        const exists = list.some(item => {
-          const d = (item && item.json !== undefined) ? item.json : item;
-          const itemId = String(d?.id || d?.video_id || d?.videoId || d?.video_url || d?.videoUrl || '');
-          return (currentVidId && itemId === currentVidId) || (video?.videoUrl && itemId === String(video.videoUrl));
-        });
-        if (exists) {
-          setIsWatchLaterSaved(true);
-        }
-      } catch (e) {}
-    };
-    if (id) {
-      checkWatchLater();
-    }
-  }, [id, video]);
+  }, [id]);
 
   const handleSaveToWatchLater = async () => {
     if (savingWatchLater) return;
