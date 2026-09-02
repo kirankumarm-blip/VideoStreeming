@@ -1801,7 +1801,7 @@ const VideoWatch = () => {
                         <span style={{ fontSize: '15px' }}>📖</span> Course Content
                       </h3>
                       <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '2px' }}>
-                        {courseChapters.length} {courseChapters.length === 1 ? 'Section' : 'Sections'} • {courseLessons.length} {courseLessons.length === 1 ? 'Lesson' : 'Lessons'}
+                        {courseChapters.length} {courseChapters.length === 1 ? 'Chapter' : 'Chapters'} • {courseLessons.length} {courseLessons.length === 1 ? 'Lesson' : 'Lessons'}
                       </div>
                     </div>
                     {/* Percentage badge */}
@@ -1900,7 +1900,13 @@ const VideoWatch = () => {
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
                             }}>
-                              Section {chapIdx + 1}: {chapter.title || `Chapter ${chapIdx + 1}`}
+                              {(() => {
+                                const rawTitle = (chapter.title || '').trim();
+                                if (/^chapter\s*\d+/i.test(rawTitle)) {
+                                  return rawTitle;
+                                }
+                                return rawTitle ? `Chapter ${chapIdx + 1}: ${rawTitle}` : `Chapter ${chapIdx + 1}`;
+                              })()}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                               {chapCompletedCount} / {chapLessons.length} • {chapLessons.length} {chapLessons.length === 1 ? 'lesson' : 'lessons'}
@@ -2030,7 +2036,7 @@ const VideoWatch = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <span style={{ fontSize: '13px' }}>📝</span>
                                   <div style={{ fontSize: '11px', fontWeight: 600, color: '#e50914' }}>
-                                    Section {chapIdx + 1} Quiz Assessment
+                                    Chapter {chapIdx + 1} Quiz Assessment
                                   </div>
                                 </div>
                                 <span style={{
