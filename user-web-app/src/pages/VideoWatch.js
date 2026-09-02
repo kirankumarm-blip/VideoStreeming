@@ -1952,12 +1952,13 @@ const VideoWatch = () => {
                         {/* Chapter Lessons List (Collapsible) */}
                         {isExpanded && (
                           <div style={{ position: 'relative', overflow: 'hidden', padding: '8px' }}>
-                            {/* Inner container (content visible with center lock) */}
+                            {/* Inner container (content visible with balanced blur and center lock) */}
                             <div style={{
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '8px',
-                              opacity: isSingleVideoLocked ? 0.85 : 1,
+                              filter: isSingleVideoLocked ? 'blur(2px)' : 'none',
+                              opacity: isSingleVideoLocked ? 0.75 : 1,
                               pointerEvents: isSingleVideoLocked ? 'none' : 'auto',
                               userSelect: isSingleVideoLocked ? 'none' : 'auto',
                               transition: 'all 0.2s ease'
