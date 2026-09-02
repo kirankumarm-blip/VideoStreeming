@@ -1487,7 +1487,7 @@ const VideoWatch = () => {
             className="video-watermark-overlay"
             style={{
               position: 'absolute',
-              top: '16px',
+              top: '14px',
               right: '18px',
               zIndex: 35,
               pointerEvents: 'none',
@@ -1498,47 +1498,32 @@ const VideoWatch = () => {
               gap: '4px'
             }}
           >
-            {/* Logo Watermark Badge */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(0, 0, 0, 0.45)',
-              backdropFilter: 'blur(4px)',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)'
-            }}>
-              <img 
-                src="/logo.png" 
-                alt="Logo" 
-                style={{ 
-                  height: '20px', 
-                  maxWidth: '80px', 
-                  objectFit: 'contain',
-                  display: 'block' 
-                }} 
-              />
-            </div>
+            {/* Logo Watermark (Direct on video, no blur container) */}
+            <img 
+              src="/logo.png" 
+              alt="LurnAx" 
+              style={{ 
+                height: '34px', 
+                width: 'auto',
+                maxWidth: '130px', 
+                objectFit: 'contain',
+                display: 'block',
+                filter: 'drop-shadow(0 2px 6px rgba(0, 0, 0, 0.9))'
+              }} 
+            />
 
             {/* User Email Watermark */}
             {userEmail && (
-              <div style={{
+              <span style={{
                 fontSize: '11px',
                 fontWeight: 600,
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontFamily: 'monospace',
-                textShadow: '0 1px 3px rgba(0, 0, 0, 0.9)',
-                letterSpacing: '0.4px',
-                background: 'rgba(0, 0, 0, 0.35)',
-                backdropFilter: 'blur(2px)',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
+                color: 'rgba(255, 255, 255, 0.85)',
+                fontFamily: 'monospace, sans-serif',
+                textShadow: '0 1px 4px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9)',
+                letterSpacing: '0.4px'
               }}>
                 {userEmail}
-              </div>
+              </span>
             )}
           </div>
 
