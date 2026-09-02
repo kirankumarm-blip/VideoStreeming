@@ -21,7 +21,9 @@ const VideoWatch = () => {
     show: false,
     title: 'Upgrade Required',
     message: '',
-    buttonText: 'OK'
+    buttonText: 'OK',
+    type: 'warning',
+    icon: '👑'
   });
 
   const showUpgradeAlert = (message = 'Need to upgrade your plan') => {
@@ -29,7 +31,9 @@ const VideoWatch = () => {
       show: true,
       title: 'Upgrade Required',
       message,
-      buttonText: 'OK'
+      buttonText: 'OK',
+      type: 'warning',
+      icon: '👑'
     });
   };
 
@@ -1304,16 +1308,97 @@ const VideoWatch = () => {
     return visStr === '2' || visStr === 'private' || vis === true || vis === 2;
   };
 
+  const [isWatchLaterSaved, setIsWatchLaterSaved] = useState(false);
+  const [savingWatchLater, setSavingWatchLater] = useState(false);
+
+  useEffect(() => {
+    setIsWatchLaterSaved(false);
+    const checkWatchLater = async () => {
+      try {
+        const res = await api.dashboard.getUser('getwatchLaterVideos', { formStep: 'getwatchLaterVideos' });
+        let list = [];
+        if (Array.isArray(res)) list = res;
+        else if (res?.data && Array.isArray(res.data)) list = res.data;
+        else if (res?.json && Array.isArray(res.json)) list = res.json;
+
+        const currentVidId = String(id || '');
+        const exists = list.some(item => {
+          const d = (item && item.json !== undefined) ? item.json : item;
+          const itemId = String(d?.id || d?.video_id || d?.videoId || d?.video_url || d?.videoUrl || '');
+          return (currentVidId && itemId === currentVidId) || (video?.videoUrl && itemId === String(video.videoUrl));
+        });
+        if (exists) {
+          setIsWatchLaterSaved(true);
+        }
+      } catch (e) {}
+    };
+    if (id) {
+      checkWatchLater();
+    }
+  }, [id, video]);
+
   const handleSaveToWatchLater = async () => {
+    if (savingWatchLater) return;
+    setSavingWatchLater(true);
     try {
-      await api.dashboard.getUser('watchLater', { 
-        id,
-        title: video?.title || '',
-        thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
-        video_url: video?.videoUrl || video?.video_url || ''
+      const activeVid = videoRefData.current || video || location.state?.video;
+      const vidId = idRef.current || id || activeVid?.id;
+      const res = await api.dashboard.getUser('watchLater', { 
+        id: vidId,
+        title: activeVid?.title || '',
+        thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
+        video_url: activeVid?.videoUrl || activeVid?.video_url || ''
+      });
+
+      if (res?.status === 431 || res?.statusCode === 431 || res?.code === 431 || res?.message?.includes('already')) {
+        setIsWatchLaterSaved(true);
+        setCustomAlert({
+          show: true,
+          title: 'Watch Later',
+          message: 'Video is already in watch later.',
+          buttonText: 'OK',
+          type: 'info',
+          icon: '🔖'
+        });
+        return;
+      }
+
+      setIsWatchLaterSaved(true);
+      setCustomAlert({
+        show: true,
+        title: 'Watch Later',
+        message: 'Video has been added to watch later.',
+        buttonText: 'OK',
+        type: 'success',
+        icon: '✓'
       });
     } catch (e) {
-      console.error(e);
+      console.error("Watch Later error:", e);
+      const statusCode = e.status || e.statusCode || e.response?.status;
+      const is431 = statusCode === 431 || String(statusCode) === '431' || String(e.message || '').includes('431');
+
+      if (is431) {
+        setIsWatchLaterSaved(true);
+        setCustomAlert({
+          show: true,
+          title: 'Watch Later',
+          message: 'Video is already in watch later.',
+          buttonText: 'OK',
+          type: 'info',
+          icon: '🔖'
+        });
+      } else {
+        setCustomAlert({
+          show: true,
+          title: 'Watch Later',
+          message: e.message || 'Unable to update Watch Later. Please try again.',
+          buttonText: 'OK',
+          type: 'warning',
+          icon: '⚠️'
+        });
+      }
+    } finally {
+      setSavingWatchLater(false);
     }
   };
 
@@ -1764,20 +1849,27 @@ const VideoWatch = () => {
               </button>
 
               {/* Watch Later button */}
-              <button style={{
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '20px',
-                padding: '8px 16px',
-                color: 'var(--text-primary)',
-                fontSize: '13px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }} onClick={handleSaveToWatchLater}>
-                🔖 Watch Later
+              <button 
+                style={{
+                  background: isWatchLaterSaved ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-tertiary)',
+                  border: isWatchLaterSaved ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+                  borderRadius: '20px',
+                  padding: '8px 16px',
+                  color: isWatchLaterSaved ? '#10b981' : 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: isWatchLaterSaved ? 700 : 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isWatchLaterSaved ? '0 2px 10px rgba(16, 185, 129, 0.2)' : 'none'
+                }} 
+                onClick={handleSaveToWatchLater}
+                disabled={savingWatchLater}
+              >
+                <span>{isWatchLaterSaved ? '✓' : '🔖'}</span>
+                <span>{savingWatchLater ? 'Adding...' : isWatchLaterSaved ? 'Added to Watch Later' : 'Watch Later'}</span>
               </button>
             </div>
           </div>
@@ -2233,7 +2325,7 @@ const VideoWatch = () => {
         )}
       </div>
 
-      {/* --- CUSTOM UPGRADE ALERT MODAL (Portal to document.body for viewport centering) --- */}
+      {/* --- CUSTOM ALERT MODAL (Portal to document.body for viewport centering) --- */}
       {customAlert.show && ReactDOM.createPortal(
         <div style={{
           position: 'fixed',
@@ -2252,9 +2344,10 @@ const VideoWatch = () => {
           animation: 'fadeIn 0.25s ease'
         }}>
           <div style={{
-            background: '#ffffff',
+            background: 'var(--bg-card, #ffffff)',
             borderRadius: '20px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
+            border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
             width: '90%',
             maxWidth: '380px',
             padding: '36px 24px',
@@ -2262,30 +2355,39 @@ const VideoWatch = () => {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            color: '#333333',
+            color: 'var(--text-primary, #111827)',
             animation: 'scaleIn 0.25s ease',
             position: 'relative'
           }}>
-            {/* Crown Circle Icon */}
+            {/* Dynamic Alert Icon */}
             <div style={{
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              border: '3px solid #f59e0b',
-              background: 'rgba(245, 158, 11, 0.12)',
+              border: `3px solid ${
+                customAlert.type === 'success' ? '#10b981' :
+                customAlert.type === 'info' ? '#6366f1' : '#f59e0b'
+              }`,
+              background: customAlert.type === 'success' ? 'rgba(16, 185, 129, 0.12)' :
+                          customAlert.type === 'info' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(245, 158, 11, 0.12)',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               marginBottom: '20px'
             }}>
-              <span style={{ fontSize: '32px' }}>👑</span>
+              <span style={{ fontSize: '28px' }}>
+                {customAlert.icon || (
+                  customAlert.type === 'success' ? '✓' :
+                  customAlert.type === 'info' ? '🔖' : '👑'
+                )}
+              </span>
             </div>
 
             {/* Title */}
             <h3 style={{
               fontSize: '20px',
               fontWeight: 700,
-              color: '#111827',
+              color: 'var(--text-primary, #111827)',
               margin: '0 0 12px 0'
             }}>
               {customAlert.title}
@@ -2294,7 +2396,7 @@ const VideoWatch = () => {
             {/* Message */}
             <p style={{
               fontSize: '14px',
-              color: '#4b5563',
+              color: 'var(--text-secondary, #4b5563)',
               lineHeight: '1.5',
               margin: '0 0 28px 0'
             }}>
@@ -2308,17 +2410,25 @@ const VideoWatch = () => {
                 width: '100%',
                 padding: '12px 24px',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                background: customAlert.type === 'success'
+                  ? 'linear-gradient(135deg, #10b981, #059669)'
+                  : customAlert.type === 'info'
+                  ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
                 color: '#ffffff',
                 border: 'none',
                 fontSize: '15px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
+                boxShadow: customAlert.type === 'success'
+                  ? '0 4px 14px rgba(16, 185, 129, 0.4)'
+                  : customAlert.type === 'info'
+                  ? '0 4px 14px rgba(99, 102, 241, 0.4)'
+                  : '0 4px 14px rgba(245, 158, 11, 0.4)',
                 transition: 'all 0.2s'
               }}
             >
-              {customAlert.buttonText}
+              {customAlert.buttonText || 'OK'}
             </button>
           </div>
         </div>,
