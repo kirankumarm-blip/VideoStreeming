@@ -38,6 +38,7 @@ const VideoWatch = () => {
   };
 
   const currentUser = getCurrentUser();
+  const userEmail = currentUser?.email || localStorage.getItem('user_email') || currentUser?.username || 'user@lurnax.com';
   const userPlan = String(location.state?.userPlan ?? location.state?.user_plan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
 
   const isChapterLocked = (lesson, courseObj = null) => {
@@ -49,6 +50,7 @@ const VideoWatch = () => {
     return visStr === '2' || visStr === 'private' || vis === true || vis === 2;
   };
   
+  const playerContainerRef = useRef(null);
   const videoRef = useRef(null);
   const trackingIntervalRef = useRef(null);
   const [lastPositionLoaded, setLastPositionLoaded] = useState(false);
@@ -1234,13 +1236,20 @@ const VideoWatch = () => {
   };
 
   const handleFullscreen = () => {
-    if (videoRef.current) {
-      if (videoRef.current.requestFullscreen) {
-        videoRef.current.requestFullscreen();
-      } else if (videoRef.current.webkitRequestFullscreen) {
-        videoRef.current.webkitRequestFullscreen();
-      } else if (videoRef.current.msRequestFullscreen) {
-        videoRef.current.msRequestFullscreen();
+    const target = playerContainerRef.current || videoRef.current;
+    if (target) {
+      if (!document.fullscreenElement) {
+        if (target.requestFullscreen) {
+          target.requestFullscreen();
+        } else if (target.webkitRequestFullscreen) {
+          target.webkitRequestFullscreen();
+        } else if (target.msRequestFullscreen) {
+          target.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
       }
     }
   };
@@ -1452,7 +1461,11 @@ const VideoWatch = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
         {/* Video Player */}
-        <div className="video-player-container animate-fade-in" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div 
+          ref={playerContainerRef}
+          className="video-player-container animate-fade-in" 
+          style={{ position: 'relative', overflow: 'hidden' }}
+        >
           
           <video
             ref={videoRef}
@@ -1468,6 +1481,66 @@ const VideoWatch = () => {
             controls={false}
             preload="auto"
           />
+
+          {/* Top-Right Video Watermark: Brand Logo & User Email */}
+          <div 
+            className="video-watermark-overlay"
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '18px',
+              zIndex: 35,
+              pointerEvents: 'none',
+              userSelect: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '4px'
+            }}
+          >
+            {/* Logo Watermark Badge */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(0, 0, 0, 0.45)',
+              backdropFilter: 'blur(4px)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)'
+            }}>
+              <img 
+                src="/logo.png" 
+                alt="Logo" 
+                style={{ 
+                  height: '20px', 
+                  maxWidth: '80px', 
+                  objectFit: 'contain',
+                  display: 'block' 
+                }} 
+              />
+            </div>
+
+            {/* User Email Watermark */}
+            {userEmail && (
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontFamily: 'monospace',
+                textShadow: '0 1px 3px rgba(0, 0, 0, 0.9)',
+                letterSpacing: '0.4px',
+                background: 'rgba(0, 0, 0, 0.35)',
+                backdropFilter: 'blur(2px)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
+              }}>
+                {userEmail}
+              </div>
+            )}
+          </div>
 
           {/* Buffering quality overlay spinner */}
           {isQualitySwitching && (
