@@ -1179,8 +1179,8 @@ select option {
     padding: 0 12px !important;
   }
   .nav-lang-switcher {
-    width: 100px !important;
-    min-width: 100px !important;
+    width: 135px !important;
+    min-width: 135px !important;
   }
 }
 
@@ -1226,8 +1226,8 @@ select option {
     display: none !important; /* Hide recently played shortcut on mobile */
   }
   .nav-lang-switcher {
-    width: 88px !important;
-    min-width: 88px !important;
+    width: 125px !important;
+    min-width: 125px !important;
   }
   .nav-premium-badge {
     padding: 4px 8px !important;

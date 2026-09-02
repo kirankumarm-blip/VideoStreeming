@@ -395,7 +395,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         )}
 
         {/* Language Switcher */}
-        <div style={{ display: 'flex', alignItems: 'center', width: '118px', minWidth: '118px' }} className="nav-lang-switcher">
+        <div style={{ display: 'flex', alignItems: 'center', width: '135px', minWidth: '135px' }} className="nav-lang-switcher">
           <PremiumSelect
             options={[
               { id: 'en', name: 'English' },
@@ -406,12 +406,13 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             onChange={(e) => setLanguage(e.target.value)}
             searchable={false}
             size="small"
-            style={{ width: '118px', minWidth: '118px' }}
+            icon="fa-solid fa-globe"
+            style={{ width: '135px', minWidth: '135px' }}
             buttonStyle={{
               height: '34px',
-              padding: '4px 10px',
+              padding: '4px 12px',
               borderRadius: '20px',
-              fontSize: '12px',
+              fontSize: '12.5px',
               fontWeight: 600
             }}
           />
