@@ -1900,13 +1900,7 @@ const VideoWatch = () => {
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
                             }}>
-                              {(() => {
-                                const rawTitle = (chapter.title || '').trim();
-                                if (/^chapter\s*\d+/i.test(rawTitle)) {
-                                  return rawTitle;
-                                }
-                                return rawTitle ? `Chapter ${chapIdx + 1}: ${rawTitle}` : `Chapter ${chapIdx + 1}`;
-                              })()}
+                              Chapter {chapIdx + 1}: {chapter.title || `Chapter ${chapIdx + 1}`}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                               {chapCompletedCount} / {chapLessons.length} • {chapLessons.length} {chapLessons.length === 1 ? 'lesson' : 'lessons'}
