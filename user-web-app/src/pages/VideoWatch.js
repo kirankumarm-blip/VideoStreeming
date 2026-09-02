@@ -1779,39 +1779,6 @@ const VideoWatch = () => {
               }} onClick={handleSaveToWatchLater}>
                 🔖 Watch Later
               </button>
-
-              {/* Chapter Quiz Launch Button */}
-              {(() => {
-                const activeCourse = location.state?.course;
-                const chapId = video?.chapter_id ?? video?.chapterId ?? location.state?.chapterId ?? 1;
-                const cId = video?.course_id ?? video?.courseId ?? activeCourse?.id ?? 1;
-                const quizObj = findQuizForChapter(chapId, activeCourse);
-
-                if (quizObj || location.state?.course) {
-                  return (
-                    <button 
-                      style={{
-                        background: 'linear-gradient(135deg, #e50914, #b20710)',
-                        border: 'none',
-                        borderRadius: '20px',
-                        padding: '8px 18px',
-                        color: '#ffffff',
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 14px rgba(229, 9, 20, 0.35)'
-                      }} 
-                      onClick={() => triggerQuizForChapter(chapId, cId, activeCourse)}
-                    >
-                      📝 Take Chapter Quiz
-                    </button>
-                  );
-                }
-                return null;
-              })()}
             </div>
           </div>
 
