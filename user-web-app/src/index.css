@@ -1164,11 +1164,12 @@ select option {
 }
 
 .nav-brand-logo {
-  height: 95px !important;
-  width: 240px !important;
+  height: 42px !important;
+  width: auto !important;
+  max-width: 140px !important;
   object-fit: contain !important;
   object-position: left !important;
-  margin: -18px 0 !important;
+  margin: 0 !important;
   z-index: 110 !important;
   position: relative !important;
   image-rendering: -webkit-optimize-contrast !important;
@@ -1191,9 +1192,10 @@ select option {
     gap: 8px !important;
   }
   .nav-brand-logo {
-    height: 70px !important;
-    width: 175px !important;
-    margin: -8px 0 !important;
+    height: 36px !important;
+    width: auto !important;
+    max-width: 125px !important;
+    margin: 0 !important;
   }
   .nav-search-container {
     max-width: 160px !important;
@@ -1209,9 +1211,10 @@ select option {
 
 @media (max-width: 576px) {
   .nav-brand-logo {
-    height: 56px !important;
-    width: 140px !important;
-    margin: -4px 0 !important;
+    height: 30px !important;
+    width: auto !important;
+    max-width: 110px !important;
+    margin: 0 !important;
   }
 }
 

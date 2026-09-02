@@ -1501,7 +1501,7 @@ const VideoWatch = () => {
             {/* Logo Watermark (Direct on video, no blur container) */}
             <img 
               src="/logo.png" 
-              alt="LurnAx" 
+              alt="XLurn" 
               style={{ 
                 height: '34px', 
                 width: 'auto',

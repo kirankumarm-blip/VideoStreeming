@@ -1958,7 +1958,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           >
             ✕
           </button>
-          <img src="/logo.png" alt="LurnAx" style={{ height: '48px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="XLurn" style={{ height: '40px', objectFit: 'contain' }} />
         </div>
         )}
 

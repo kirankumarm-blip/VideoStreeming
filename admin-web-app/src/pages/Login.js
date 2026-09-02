@@ -413,7 +413,7 @@ const Login = () => {
         left: '24px',
         zIndex: 100
       }}>
-        <img src="/logo.png" alt="LurnAx" style={{ height: '100px', width: '300px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src="/logo.png" alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Theme Toggle */}

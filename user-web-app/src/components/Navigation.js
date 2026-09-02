@@ -233,14 +233,15 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         >
           <img 
             src="/logo.png" 
-            alt="LurnAx" 
+            alt="XLurn" 
             className="nav-brand-logo"
             style={{ 
-              height: '95px', 
-              width: '240px', 
+              height: '42px', 
+              width: 'auto',
+              maxWidth: '140px',
               objectFit: 'contain', 
               objectPosition: 'left',
-              margin: '-18px 0',
+              margin: '0',
               zIndex: 110, 
               position: 'relative',
               imageRendering: '-webkit-optimize-contrast' 
