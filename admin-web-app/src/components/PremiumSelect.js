@@ -12,6 +12,7 @@ const PremiumSelect = ({
   style = {},
   icon = "fa-solid fa-list",
   label = "",
+  size = "default",
   dropUp = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -115,6 +116,7 @@ const PremiumSelect = ({
           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
+        </div>
         <svg
           width={size === 'small' ? "11" : "13"}
           height={size === 'small' ? "11" : "13"}
