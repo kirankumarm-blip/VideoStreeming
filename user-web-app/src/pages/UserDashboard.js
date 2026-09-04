@@ -431,24 +431,40 @@ const UserDashboard = () => {
   useEffect(() => {
     if (selectedCategory) {
       const catId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.category_id || selectedCategory.name) : selectedCategory;
+      const catState = typeof selectedCategory === 'object' ? (selectedCategory.state || selectedCategory.visibility || selectedCategory.status || null) : null;
+      const catName = typeof selectedCategory === 'object' ? (selectedCategory.name || selectedCategory.title || selectedCategory.category_name || null) : selectedCategory;
       const subId = selectedSubCategory ? (typeof selectedSubCategory === 'object' ? (selectedSubCategory.id || selectedSubCategory.sub_category_id || selectedSubCategory.name) : selectedSubCategory) : null;
-      fetchCategoryVideos(catId, subId);
+      
+      fetchCategoryVideos(catId, subId, catState, catName);
 
       // Check if subcategories already exist on the selected category object
-      const currentCatObj = allCategoriesList.find(c => 
-        (selectedCategory && typeof selectedCategory === 'object' && (c.id === selectedCategory.id || c.name === selectedCategory.name)) ||
-        c.id === selectedCategory || 
-        c.name === selectedCategory ||
-        c.title === selectedCategory ||
-        String(c.name || '').toLowerCase() === String(selectedCategory?.name || selectedCategory || '').toLowerCase()
-      ) || (typeof selectedCategory === 'object' ? selectedCategory : null);
+      const currentCatObj = (typeof selectedCategory === 'object' && selectedCategory.sub_categories && selectedCategory.sub_categories.length > 0)
+        ? selectedCategory
+        : (allCategoriesList.find(c => 
+            (typeof selectedCategory === 'object' && (
+              (selectedCategory.unique_id && c.unique_id === selectedCategory.unique_id) ||
+              (c.id === selectedCategory.id && c.name === selectedCategory.name && (c.state || '') === (selectedCategory.state || '')) ||
+              (c.name === selectedCategory.name && (selectedCategory.state ? c.state === selectedCategory.state : true))
+            )) ||
+            (c.name === catName && (catState ? c.state === catState : true)) ||
+            c.id === selectedCategory || 
+            c.name === selectedCategory
+          ) || (typeof selectedCategory === 'object' ? selectedCategory : null));
 
       if (currentCatObj && currentCatObj.sub_categories && currentCatObj.sub_categories.length > 0) {
         setDynamicSubCategories(currentCatObj.sub_categories);
       } else {
-        // Fetch subcategories dynamically from vdUser API
-        api.user.getSubCategories(catId).then(res => {
-          console.log(`Subcategories from API for category ${catId}:`, res);
+        // Fetch subcategories dynamically from vdUser API passing categoryId and state
+        const subPayload = {};
+        if (catState) {
+          subPayload.state = catState;
+          subPayload.visibility = catState;
+        }
+        if (catName) {
+          subPayload.category_name = catName;
+        }
+        api.user.getSubCategories(catId, subPayload).then(res => {
+          console.log(`Subcategories from API for category ${catId} (state: ${catState}):`, res);
           let raw = Array.isArray(res) ? res : (res?.sub_categories || res?.subCategories || res?.data || res?.result || res?.json || []);
           if (typeof raw === 'string') {
             try { raw = JSON.parse(raw); } catch(e) { raw = raw.split(',').map(s => s.trim()).filter(Boolean); }
@@ -508,15 +524,34 @@ const UserDashboard = () => {
     }
   };
 
-  const fetchCategoryVideos = async (categoryId, subCategory = null) => {
+  const fetchCategoryVideos = async (categoryId, subCategory = null, categoryState = null, categoryName = null) => {
     setCategoryLoading(true);
     try {
-      const payload = { category_id: categoryId };
+      const payload = { 
+        category_id: categoryId,
+        id: categoryId
+      };
+      if (categoryState) {
+        payload.state = categoryState;
+        payload.visibility = categoryState;
+      }
+      if (categoryName) {
+        payload.category_name = categoryName;
+        payload.name = categoryName;
+        payload.category = categoryName;
+      }
       if (subCategory) {
-        payload.sub_category = subCategory;
+        const subName = typeof subCategory === 'object' ? (subCategory.name || subCategory.title || subCategory.id) : subCategory;
+        const subId = typeof subCategory === 'object' ? (subCategory.id || subCategory.sub_category_id) : null;
+        payload.sub_category = subName;
+        payload.subCategory = subName;
+        if (subId) {
+          payload.sub_category_id = subId;
+          payload.subCategoryId = subId;
+        }
       }
       const data = await api.dashboard.getUser('getCategoryVideo', payload);
-      console.log(`Category videos for category_id: ${categoryId}, sub_category: ${subCategory}:`, data);
+      console.log(`Category videos for category_id: ${categoryId}, state: ${categoryState}, sub_category: ${subCategory}:`, data);
       const list = filterValidVideoItems(data);
       setCategoryVideosList(list);
     } catch (e) {
@@ -721,6 +756,7 @@ const UserDashboard = () => {
         .filter(c => c && typeof c === 'object' && (c.name || c.title || c.category_name || c.id || c.category_id))
         .map((c, idx) => {
           const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
+          const catState = c.state || c.visibility || c.status || '';
           const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
           const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
             ? c.icon
@@ -757,6 +793,9 @@ const UserDashboard = () => {
             name: catName,
             title: catName,
             category_name: catName,
+            state: catState,
+            visibility: catState,
+            unique_id: `${c.id || idx}_${catName}_${catState}`,
             icon: iconEmoji,
             video_count: parseInt(vCount, 10) || 0,
             videoCount: parseInt(vCount, 10) || 0,
@@ -801,6 +840,7 @@ const UserDashboard = () => {
         const defaultIcons = ['💻', '🤖', '⚛️', '📱', '☁️', '🧠', '🎨', '🚀', '📊', '🔒', '📚', '🎯'];
         const mappedCategories = rawCategories.map((c, idx) => {
           const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
+          const catState = c.state || c.visibility || c.status || '';
           const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
           const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
             ? c.icon
@@ -833,6 +873,9 @@ const UserDashboard = () => {
             name: catName,
             title: catName,
             category_name: catName,
+            state: catState,
+            visibility: catState,
+            unique_id: `${c.id || idx}_${catName}_${catState}`,
             icon: iconEmoji,
             video_count: parseInt(vCount, 10) || 0,
             videoCount: parseInt(vCount, 10) || 0,
@@ -841,24 +884,7 @@ const UserDashboard = () => {
         });
 
         if (mappedCategories.length > 0) {
-          setAllCategoriesList(prev => {
-            if (prev.length === 0) return mappedCategories;
-            // Merge with existing allCategoriesList to ensure sub_categories are updated
-            return prev.map(pCat => {
-              const foundInDash = mappedCategories.find(mc => 
-                String(mc.id) === String(pCat.id) || 
-                String(mc.name).toLowerCase() === String(pCat.name).toLowerCase()
-              );
-              if (foundInDash && foundInDash.sub_categories && foundInDash.sub_categories.length > 0) {
-                return {
-                  ...pCat,
-                  ...foundInDash,
-                  sub_categories: foundInDash.sub_categories
-                };
-              }
-              return pCat;
-            });
-          });
+          setAllCategoriesList(mappedCategories);
         }
 
         const recommended = actualData.recommended || [];
@@ -1571,18 +1597,25 @@ const UserDashboard = () => {
                   {allCategoriesList.map((cat, idx) => {
                     const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
                     const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
+                    const catState = typeof cat === 'object' ? (cat.state || cat.visibility || '') : '';
+                    const catKey = typeof cat === 'object' ? (cat.unique_id || `${catId}_${catName}_${catState}_${idx}`) : `${cat}_${idx}`;
                     const iconObj = categoriesWithIcons.find(c => c.name.toLowerCase() === String(catName).toLowerCase());
                     const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconObj ? iconObj.icon : '📚');
                     const videoCount = typeof cat === 'object' ? (cat.video_count !== undefined ? cat.video_count : (cat.videoCount || 0)) : 0;
 
                     const isSelected = selectedCategory && (
-                      (typeof selectedCategory === 'object' && (selectedCategory.id === catId || selectedCategory.name === catName)) ||
-                      selectedCategory === catName || selectedCategory === catId
+                      (typeof selectedCategory === 'object' && (
+                        (selectedCategory.unique_id && cat.unique_id && selectedCategory.unique_id === cat.unique_id) ||
+                        (selectedCategory.name === catName && (selectedCategory.state || '') === catState) ||
+                        (selectedCategory.id === catId && selectedCategory.name === catName)
+                      )) ||
+                      selectedCategory === cat ||
+                      selectedCategory === catName
                     );
 
                     return (
                       <button
-                        key={catId || idx}
+                        key={catKey}
                         onClick={() => {
                           setSelectedCategory(cat);
                           setSelectedSubCategory(null);
@@ -2009,9 +2042,11 @@ const UserDashboard = () => {
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
-                    {allCategoriesList.map(cat => {
+                    {allCategoriesList.map((cat, idx) => {
                       const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
                       const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
+                      const catState = typeof cat === 'object' ? (cat.state || cat.visibility || '') : '';
+                      const catKey = typeof cat === 'object' ? (cat.unique_id || `${catId}_${catName}_${catState}_${idx}`) : `${cat}_${idx}`;
                       const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
                       const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconMatch?.icon || '📚');
                       const count = typeof cat === 'object' && cat.video_count !== undefined 
@@ -2022,7 +2057,7 @@ const UserDashboard = () => {
                       
                       return (
                         <div 
-                          key={catId || catName}
+                          key={catKey}
                           onClick={() => {
                             setSelectedCategory(cat);
                             setSearchParams({ view: 'home' });
