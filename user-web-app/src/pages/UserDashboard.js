@@ -429,7 +429,7 @@ const UserDashboard = () => {
   }, [activeView]);
 
   useEffect(() => {
-    if (selectedCategory) {
+    if (activeView === 'home' && selectedCategory) {
       const catId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.category_id || selectedCategory.name) : selectedCategory;
       const catState = typeof selectedCategory === 'object' ? (selectedCategory.state || selectedCategory.visibility || selectedCategory.status || null) : null;
       const catName = typeof selectedCategory === 'object' ? (selectedCategory.name || selectedCategory.title || selectedCategory.category_name || null) : selectedCategory;
@@ -456,11 +456,11 @@ const UserDashboard = () => {
       } else {
         setDynamicSubCategories([]);
       }
-    } else {
+    } else if (activeView === 'home') {
       setCategoryVideosList([]);
       setDynamicSubCategories([]);
     }
-  }, [selectedCategory, selectedSubCategory, allCategoriesList]);
+  }, [selectedCategory, selectedSubCategory, allCategoriesList, activeView]);
 
   const filterValidVideoItems = (data) => {
     let rawList = [];
