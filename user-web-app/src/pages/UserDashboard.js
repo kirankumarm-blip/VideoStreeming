@@ -2868,11 +2868,23 @@ const UserDashboard = () => {
                                 </p>
                               )}
 
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px', flexWrap: 'wrap' }}>
                                 <span style={{
-                              <span><i className="fa-regular fa-calendar"></i> {item.date || (item.watched_at && !item.watched_at.includes('T') ? item.watched_at : (item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'))}</span>
-                              {item.watch_time > 0 && <span><i className="fa-regular fa-eye"></i> {Math.round(item.watch_time / 60)} mins watched</span>}
-                            </div>
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: isComplete ? '#10b981' : 'var(--text-secondary)'
+                                }}>
+                                  {isComplete ? '✅ Completed' : `⏳ In Progress (${pct}%)`}
+                                </span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                  <i className="fa-regular fa-calendar"></i> {item.date || (item.watched_at && !item.watched_at.includes('T') ? item.watched_at : (item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'))}
+                                </span>
+                                {item.watch_time > 0 && (
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    <i className="fa-regular fa-eye"></i> {Math.round(item.watch_time / 60)} mins watched
+                                  </span>
+                                )}
+                              </div>
                           </div>
 
                           {/* Action Button */}
