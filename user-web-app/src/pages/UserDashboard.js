@@ -787,9 +787,80 @@ const UserDashboard = () => {
         const list = filterValidVideoItems(data);
         setDownloadsList(list);
       } else {
-        const actualData = Array.isArray(data) ? (data[0] || {}) : (data.json || data || {});
+        let actualData = {};
+        if (Array.isArray(data)) {
+          const first = data[0] || {};
+          actualData = (first && first.json !== undefined) ? first.json : first;
+        } else if (data && data.json !== undefined) {
+          actualData = data.json;
+        } else {
+          actualData = data || {};
+        }
         
-        const categoriesList = actualData.categories || [];
+        const rawCategories = actualData.categories || [];
+        const defaultIcons = ['💻', '🤖', '⚛️', '📱', '☁️', '🧠', '🎨', '🚀', '📊', '🔒', '📚', '🎯'];
+        const mappedCategories = rawCategories.map((c, idx) => {
+          const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
+          const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
+          const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
+            ? c.icon
+            : (iconMatch?.icon || defaultIcons[idx % defaultIcons.length]);
+          const vCount = c.video_count !== undefined ? c.video_count : (c.videoCount !== undefined ? c.videoCount : 0);
+
+          let rawSub = c.sub_categories || c.subCategories || c.sub_category || c.subCategory || c.subcategories || c.subcategory || [];
+          if (typeof rawSub === 'string') {
+            try {
+              const p = JSON.parse(rawSub);
+              rawSub = Array.isArray(p) ? p : rawSub.split(',').map(s => s.trim()).filter(Boolean);
+            } catch (e) {
+              rawSub = rawSub.split(',').map(s => s.trim()).filter(Boolean);
+            }
+          }
+          if (!Array.isArray(rawSub)) rawSub = [rawSub];
+          const parsedSubCats = rawSub.map((s, sIdx) => {
+            if (typeof s === 'string') return { id: s, name: s, title: s };
+            return {
+              id: s.id || s.sub_category_id || s.subcategory_id || s.name || `sub-${sIdx + 1}`,
+              name: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
+              title: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
+              ...s
+            };
+          }).filter(s => s && s.name);
+
+          return {
+            id: c.id || c.category_id || `cat-${idx + 1}`,
+            category_id: c.id || c.category_id || `cat-${idx + 1}`,
+            name: catName,
+            title: catName,
+            category_name: catName,
+            icon: iconEmoji,
+            video_count: parseInt(vCount, 10) || 0,
+            videoCount: parseInt(vCount, 10) || 0,
+            sub_categories: parsedSubCats
+          };
+        });
+
+        if (mappedCategories.length > 0) {
+          setAllCategoriesList(prev => {
+            if (prev.length === 0) return mappedCategories;
+            // Merge with existing allCategoriesList to ensure sub_categories are updated
+            return prev.map(pCat => {
+              const foundInDash = mappedCategories.find(mc => 
+                String(mc.id) === String(pCat.id) || 
+                String(mc.name).toLowerCase() === String(pCat.name).toLowerCase()
+              );
+              if (foundInDash && foundInDash.sub_categories && foundInDash.sub_categories.length > 0) {
+                return {
+                  ...pCat,
+                  ...foundInDash,
+                  sub_categories: foundInDash.sub_categories
+                };
+              }
+              return pCat;
+            });
+          });
+        }
+
         const recommended = actualData.recommended || [];
         const trending = actualData.trending || [];
         const topRated = actualData.top_rated || actualData.topRated || [];
@@ -834,7 +905,7 @@ const UserDashboard = () => {
 
         setDashboardData({
           ...actualData,
-          categories: categoriesList,
+          categories: mappedCategories.length > 0 ? mappedCategories : rawCategories,
           recommended,
           trending,
           topRated,
