@@ -676,32 +676,33 @@ const UserDashboard = () => {
       const unwrapped = raw.map(item => (item && item.json !== undefined ? item.json : item));
       const defaultIcons = ['💻', '🤖', '⚛️', '📱', '☁️', '🧠', '🎨', '🚀', '📊', '🔒', '📚', '🎯'];
 
-      const mapped = unwrapped.map((c, idx) => {
-        const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
-        const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
-        const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
-          ? c.icon
-          : (iconMatch?.icon || defaultIcons[idx % defaultIcons.length]);
-        const vCount = c.video_count !== undefined ? c.video_count : (c.videoCount !== undefined ? c.videoCount : 0);
+      const mapped = unwrapped
+        .filter(c => c && typeof c === 'object' && (c.name || c.title || c.category_name || c.id || c.category_id))
+        .map((c, idx) => {
+          const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
+          const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
+          const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
+            ? c.icon
+            : (iconMatch?.icon || defaultIcons[idx % defaultIcons.length]);
+          const vCount = c.video_count !== undefined ? c.video_count : (c.videoCount !== undefined ? c.videoCount : 0);
 
-        return {
-          id: c.id || c.category_id || `cat-${idx + 1}`,
-          category_id: c.id || c.category_id || `cat-${idx + 1}`,
-          name: catName,
-          title: catName,
-          category_name: catName,
-          icon: iconEmoji,
-          video_count: parseInt(vCount, 10) || 0,
-          videoCount: parseInt(vCount, 10) || 0,
-          sub_categories: c.sub_categories || c.subCategories || []
-        };
-      });
+          return {
+            id: c.id || c.category_id || `cat-${idx + 1}`,
+            category_id: c.id || c.category_id || `cat-${idx + 1}`,
+            name: catName,
+            title: catName,
+            category_name: catName,
+            icon: iconEmoji,
+            video_count: parseInt(vCount, 10) || 0,
+            videoCount: parseInt(vCount, 10) || 0,
+            sub_categories: c.sub_categories || c.subCategories || []
+          };
+        });
 
-      if (mapped.length > 0) {
-        setAllCategoriesList(mapped);
-      }
+      setAllCategoriesList(mapped);
     } catch (e) {
       console.error("Failed to load categories from vdUser getAllCategories API", e);
+      setAllCategoriesList([]);
     } finally {
       setCategoriesLoading(false);
       setLoading(false);
@@ -1431,7 +1432,7 @@ const UserDashboard = () => {
                     🧭 {t('user.allTopics')}
                   </button>
 
-                  {(allCategoriesList.length > 0 ? allCategoriesList : (dashboardData?.categories && dashboardData.categories.length > 0 ? dashboardData.categories : categoriesWithIcons)).map((cat, idx) => {
+                  {allCategoriesList.map((cat, idx) => {
                     const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
                     const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
                     const iconObj = categoriesWithIcons.find(c => c.name.toLowerCase() === String(catName).toLowerCase());
@@ -1776,53 +1777,94 @@ const UserDashboard = () => {
                     <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Loading categories...</span>
                   )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
-                  {(allCategoriesList.length > 0 ? allCategoriesList : categoriesWithIcons).map(cat => {
-                    const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
-                    const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
-                    const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
-                    const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconMatch?.icon || '📚');
-                    const count = typeof cat === 'object' && cat.video_count !== undefined 
-                      ? cat.video_count 
-                      : (typeof cat === 'object' && cat.videoCount !== undefined 
-                        ? cat.videoCount 
-                        : ((dashboardData?.categories || []).find(c => c.name === catName)?.videoCount || 0));
-                    
-                    return (
+
+                {categoriesLoading ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
+                    {[1, 2, 3, 4, 5, 6].map(n => (
                       <div 
-                        key={catId || catName}
-                        onClick={() => {
-                          setSelectedCategory(cat);
-                          setSearchParams({ view: 'home' });
-                        }}
-                        style={{
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '16px',
-                          padding: '24px',
+                        key={n} 
+                        style={{ 
+                          background: 'var(--bg-secondary)', 
+                          border: '1px solid var(--border-color)', 
+                          borderRadius: '16px', 
+                          padding: '32px 24px', 
                           textAlign: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          boxShadow: 'var(--shadow-sm)'
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                          e.currentTarget.style.transform = 'translateY(-4px)';
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.borderColor = 'var(--border-color)';
-                          e.currentTarget.style.transform = 'none';
+                          opacity: 0.6,
+                          animation: 'pulse 1.5s infinite' 
                         }}
                       >
-                        <div style={{ fontSize: '48px', marginBottom: '12px' }}>{icon}</div>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>{catName}</h3>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                          {count} {language === 'hi' ? 'वीडियो' : language === 'kn' ? 'ವೀಡಿಯೊಗಳು' : 'videos'}
-                        </p>
+                        <div style={{ fontSize: '36px', marginBottom: '12px' }}>⏳</div>
+                        <div style={{ height: '16px', background: 'var(--bg-tertiary)', borderRadius: '8px', margin: '0 auto 8px', width: '60%' }}></div>
+                        <div style={{ height: '12px', background: 'var(--bg-tertiary)', borderRadius: '6px', margin: '0 auto', width: '40%' }}></div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : allCategoriesList.length === 0 ? (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '60px 20px', 
+                    background: 'var(--bg-secondary)', 
+                    borderRadius: '16px', 
+                    border: '1px solid var(--border-color)',
+                    marginTop: '16px'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🗂️</div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
+                      No categories available
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px', maxWidth: '400px', margin: '0 auto' }}>
+                      There are currently no categories found from the server.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
+                    {allCategoriesList.map(cat => {
+                      const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
+                      const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
+                      const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
+                      const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconMatch?.icon || '📚');
+                      const count = typeof cat === 'object' && cat.video_count !== undefined 
+                        ? cat.video_count 
+                        : (typeof cat === 'object' && cat.videoCount !== undefined 
+                          ? cat.videoCount 
+                          : 0);
+                      
+                      return (
+                        <div 
+                          key={catId || catName}
+                          onClick={() => {
+                            setSelectedCategory(cat);
+                            setSearchParams({ view: 'home' });
+                          }}
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '16px',
+                            padding: '24px',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: 'var(--shadow-sm)'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                            e.currentTarget.style.transform = 'none';
+                          }}
+                        >
+                          <div style={{ fontSize: '48px', marginBottom: '12px' }}>{icon}</div>
+                          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>{catName}</h3>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            {count} {language === 'hi' ? 'वीडियो' : language === 'kn' ? 'ವೀಡಿಯೊಗಳು' : 'videos'}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
