@@ -431,7 +431,7 @@ const UserDashboard = () => {
   useEffect(() => {
     if (activeView === 'home' && selectedCategory) {
       const catId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.category_id || selectedCategory.name) : selectedCategory;
-      const catState = typeof selectedCategory === 'object' ? (selectedCategory.state || selectedCategory.visibility || selectedCategory.status || null) : null;
+      const catState = typeof selectedCategory === 'object' ? (selectedCategory.source || selectedCategory.state || selectedCategory.visibility || selectedCategory.status || null) : null;
       const catName = typeof selectedCategory === 'object' ? (selectedCategory.name || selectedCategory.title || selectedCategory.category_name || null) : selectedCategory;
       const subId = selectedSubCategory ? (typeof selectedSubCategory === 'object' ? (selectedSubCategory.id || selectedSubCategory.sub_category_id || selectedSubCategory.name) : selectedSubCategory) : null;
       
@@ -443,10 +443,10 @@ const UserDashboard = () => {
         : (allCategoriesList.find(c => 
             (typeof selectedCategory === 'object' && (
               (selectedCategory.unique_id && c.unique_id === selectedCategory.unique_id) ||
-              (c.id === selectedCategory.id && c.name === selectedCategory.name && (c.state || '') === (selectedCategory.state || '')) ||
-              (c.name === selectedCategory.name && (selectedCategory.state ? c.state === selectedCategory.state : true))
+              (c.id === selectedCategory.id && c.name === selectedCategory.name && (c.source || c.state || '') === (selectedCategory.source || selectedCategory.state || '')) ||
+              (c.name === selectedCategory.name && ((selectedCategory.source || selectedCategory.state) ? (c.source || c.state) === (selectedCategory.source || selectedCategory.state) : true))
             )) ||
-            (c.name === catName && (catState ? c.state === catState : true)) ||
+            (c.name === catName && (catState ? (c.source || c.state) === catState : true)) ||
             c.id === selectedCategory || 
             c.name === selectedCategory
           ) || (typeof selectedCategory === 'object' ? selectedCategory : null));
@@ -501,6 +501,7 @@ const UserDashboard = () => {
       };
       if (categoryState) {
         payload.state = categoryState;
+        payload.source = categoryState;
         payload.visibility = categoryState;
       }
       if (categoryName) {
@@ -724,7 +725,7 @@ const UserDashboard = () => {
         .filter(c => c && typeof c === 'object' && (c.name || c.title || c.category_name || c.id || c.category_id))
         .map((c, idx) => {
           const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
-          const catState = c.state || c.visibility || c.status || '';
+          const catState = c.source || c.state || c.visibility || c.status || '';
           const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
           const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
             ? c.icon
@@ -761,6 +762,7 @@ const UserDashboard = () => {
             name: catName,
             title: catName,
             category_name: catName,
+            source: catState,
             state: catState,
             visibility: catState,
             unique_id: `${c.id || idx}_${catName}_${catState}`,
@@ -808,7 +810,7 @@ const UserDashboard = () => {
         const defaultIcons = ['💻', '🤖', '⚛️', '📱', '☁️', '🧠', '🎨', '🚀', '📊', '🔒', '📚', '🎯'];
         const mappedCategories = rawCategories.map((c, idx) => {
           const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
-          const catState = c.state || c.visibility || c.status || '';
+          const catState = c.source || c.state || c.visibility || c.status || '';
           const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
           const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
             ? c.icon
@@ -841,6 +843,7 @@ const UserDashboard = () => {
             name: catName,
             title: catName,
             category_name: catName,
+            source: catState,
             state: catState,
             visibility: catState,
             unique_id: `${c.id || idx}_${catName}_${catState}`,
@@ -852,7 +855,7 @@ const UserDashboard = () => {
         });
 
         if (mappedCategories.length > 0) {
-          setAllCategoriesList(mappedCategories);
+          setAllCategoriesList(prev => (prev && prev.length > 0 ? prev : mappedCategories));
         }
 
         const recommended = actualData.recommended || [];
@@ -1565,20 +1568,27 @@ const UserDashboard = () => {
                   {allCategoriesList.map((cat, idx) => {
                     const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
                     const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
-                    const catState = typeof cat === 'object' ? (cat.state || cat.visibility || '') : '';
+                    const catState = typeof cat === 'object' ? (cat.source || cat.state || cat.visibility || '') : '';
                     const catKey = typeof cat === 'object' ? (cat.unique_id || `${catId}_${catName}_${catState}_${idx}`) : `${cat}_${idx}`;
                     const iconObj = categoriesWithIcons.find(c => c.name.toLowerCase() === String(catName).toLowerCase());
                     const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconObj ? iconObj.icon : '📚');
                     const videoCount = typeof cat === 'object' ? (cat.video_count !== undefined ? cat.video_count : (cat.videoCount || 0)) : 0;
 
-                    const isSelected = selectedCategory && (
-                      (typeof selectedCategory === 'object' && (
-                        (selectedCategory.unique_id && cat.unique_id && selectedCategory.unique_id === cat.unique_id) ||
-                        (selectedCategory.name === catName && (selectedCategory.state || '') === catState) ||
-                        (selectedCategory.id === catId && selectedCategory.name === catName)
-                      )) ||
-                      selectedCategory === cat ||
-                      selectedCategory === catName
+                    const selCatState = selectedCategory && typeof selectedCategory === 'object' ? (selectedCategory.source || selectedCategory.state || selectedCategory.visibility || '') : '';
+                    const selCatName = selectedCategory && typeof selectedCategory === 'object' ? (selectedCategory.name || selectedCategory.title || selectedCategory.category_name) : selectedCategory;
+                    const selCatId = selectedCategory && typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.category_id) : selectedCategory;
+
+                    const isSelected = Boolean(
+                      selectedCategory && (
+                        (typeof selectedCategory === 'object' && (
+                          (selectedCategory.unique_id && cat.unique_id && selectedCategory.unique_id === cat.unique_id) ||
+                          (String(selCatName).trim().toLowerCase() === String(catName).trim().toLowerCase() && (selCatState ? selCatState === catState : true)) ||
+                          (String(selCatId) === String(catId) && String(selCatName).trim().toLowerCase() === String(catName).trim().toLowerCase())
+                        )) ||
+                        selectedCategory === cat ||
+                        String(selCatName).trim().toLowerCase() === String(catName).trim().toLowerCase() ||
+                        String(selectedCategory) === String(catId)
+                      )
                     );
 
                     return (
@@ -2013,7 +2023,7 @@ const UserDashboard = () => {
                     {allCategoriesList.map((cat, idx) => {
                       const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
                       const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
-                      const catState = typeof cat === 'object' ? (cat.state || cat.visibility || '') : '';
+                      const catState = typeof cat === 'object' ? (cat.source || cat.state || cat.visibility || '') : '';
                       const catKey = typeof cat === 'object' ? (cat.unique_id || `${catId}_${catName}_${catState}_${idx}`) : `${cat}_${idx}`;
                       const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
                       const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconMatch?.icon || '📚');
