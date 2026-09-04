@@ -134,62 +134,86 @@
     {
       "id": "cat-science",
       "name": "Science",
-      "description": "Physics, chemistry, biology and space exploration."
+      "description": "Physics, chemistry, biology and space exploration.",
+      "sub_categories": ["Physics", "Chemistry", "Biology", "Astronomy", "Quantum Mechanics"]
     },
     {
       "id": "cat-education",
       "name": "Education",
-      "description": "General academic courses and learning guides."
+      "description": "General academic courses and learning guides.",
+      "sub_categories": ["Study Skills", "Academic Writing", "Pedagogy", "Test Prep"]
     },
     {
       "id": "cat-tech",
       "name": "Technology",
-      "description": "Software development, programming, and AI."
+      "description": "Software development, programming, and AI.",
+      "sub_categories": ["Web Development", "Cloud & DevOps", "Cybersecurity", "Mobile Apps", "Databases"]
     },
     {
       "id": "cat-math",
       "name": "Mathematics",
-      "description": "Algebra, calculus, geometry, and problem solving."
+      "description": "Algebra, calculus, geometry, and problem solving.",
+      "sub_categories": ["Calculus", "Linear Algebra", "Probability & Statistics", "Discrete Math"]
     },
     {
       "id": "cat-lang",
       "name": "Language Learning",
-      "description": "Learn English, Spanish, French, and more."
+      "description": "Learn English, Spanish, French, and more.",
+      "sub_categories": ["English", "Spanish", "French", "German", "Japanese"]
     },
     {
       "id": "cat-career",
       "name": "Career Development",
-      "description": "Resume writing, job interviews, and workplace success."
+      "description": "Resume writing, job interviews, and workplace success.",
+      "sub_categories": ["Resume Building", "Interview Prep", "Networking", "Public Speaking"]
     },
     {
       "id": "cat-gk",
       "name": "General Knowledge",
-      "description": "Trivia, facts, history, and geography."
+      "description": "Trivia, facts, history, and geography.",
+      "sub_categories": ["World History", "Geography", "Current Affairs", "Science Trivia"]
     },
     {
       "id": "cat-health",
       "name": "Health",
-      "description": "Fitness, nutrition, mental health, and wellness."
+      "description": "Fitness, nutrition, mental health, and wellness.",
+      "sub_categories": ["Nutrition", "Fitness & Workouts", "Mental Wellness", "Yoga & Meditation", "First Aid"]
     },
     {
       "id": "cat-finance",
       "name": "Finance",
-      "description": "Personal finance, investing, and accounting basics."
+      "description": "Personal finance, investing, and accounting basics.",
+      "sub_categories": ["Investing", "Stock Market", "Personal Budgeting", "Crypto & Blockchain", "Accounting"]
     },
     {
       "id": "cat-ai",
       "name": "AI",
-      "description": "Artificial Intelligence, machine learning and deep neural networks."
+      "description": "Artificial Intelligence, machine learning and deep neural networks.",
+      "sub_categories": ["Machine Learning", "Deep Learning", "LLMs & Prompt Engineering", "Computer Vision", "NLP"]
     },
     {
       "id": "cat-coding",
       "name": "Coding",
-      "description": "Programming languages, algorithms, and software development."
+      "description": "Programming languages, algorithms, and software development.",
+      "sub_categories": ["JavaScript & TypeScript", "Python", "React & Frontend", "Node.js & Backend", "Data Structures"]
     },
     {
       "id": "cat-business",
       "name": "Business",
-      "description": "Entrepreneurship, marketing, startup strategies, and management."
+      "description": "Entrepreneurship, marketing, startup strategies, and management.",
+      "sub_categories": ["Startups", "Digital Marketing", "Product Management", "Leadership", "Sales Strategies"]
+    },
+    {
+      "id": "cat-electronics",
+      "name": "Electronicss",
+      "description": "Circuits, embedded systems, microcontrollers, and IoT hardware.",
+      "sub_categories": ["Circuit Design", "Microcontrollers", "Embedded Systems", "Robotics", "IoT Sensors"]
+    },
+    {
+      "id": "cat-vercel-nextjs",
+      "name": "Vercel Next JS",
+      "description": "Next.js 14 full-stack app router, server components, and deployment.",
+      "sub_categories": ["App Router", "Server Components (RSC)", "Server Actions", "NextAuth & Auth.js", "Deployment & Edge"]
     }
   ],
   "videos": [

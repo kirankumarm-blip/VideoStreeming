@@ -366,6 +366,26 @@ const handleVdCategories = (req, res) => {
       { city_id: "902", name: "Metro Area" }
     ]);
   }
+  if (formstep === 'getSubCategory' || formstep === 'getSubCategories' || formstep === 'subcategory') {
+    const db = readDB();
+    const rawCategories = db.categories || [];
+    const catId = req.body.category_id || req.body.categoryId || req.body.cat_id || req.body.id || req.body.category;
+    if (catId) {
+      const cat = rawCategories.find(c => 
+        String(c.id).toLowerCase() === String(catId).toLowerCase() ||
+        String(c.name).toLowerCase() === String(catId).toLowerCase()
+      );
+      const subCats = (cat && cat.sub_categories) ? cat.sub_categories : [];
+      return res.json(subCats);
+    }
+    const allSub = [];
+    rawCategories.forEach(c => {
+      if (c.sub_categories && Array.isArray(c.sub_categories)) {
+        c.sub_categories.forEach(s => allSub.push({ id: s, name: s, cat_id: c.id, category_name: c.name }));
+      }
+    });
+    return res.json(allSub);
+  }
   return res.json([]);
 };
 
@@ -1825,6 +1845,24 @@ const handleVdUser = (req, res) => {
       categories: enrichedCategories,
       data: enrichedCategories,
       result: enrichedCategories
+    });
+  }
+
+  // --- GET SUB CATEGORIES API (vdUser: formstep = getSubCategory) ---
+  if (formstep === 'getSubCategory' || formstep === 'getSubCategories' || formstep === 'subcategory') {
+    const rawCategories = db.categories || [];
+    const catId = req.body.category_id || req.body.categoryId || req.body.cat_id || req.body.id || req.body.category;
+    const cat = rawCategories.find(c => 
+      String(c.id).toLowerCase() === String(catId).toLowerCase() ||
+      String(c.name).toLowerCase() === String(catId).toLowerCase()
+    );
+    const subCats = (cat && cat.sub_categories) ? cat.sub_categories : [];
+    return res.json({
+      success: true,
+      formstep: 'getSubCategory',
+      sub_categories: subCats,
+      data: subCats,
+      result: subCats
     });
   }
 

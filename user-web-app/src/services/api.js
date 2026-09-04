@@ -968,6 +968,19 @@ export const api = {
           ...payload
         })
       });
+    },
+    getSubCategories: (categoryId, payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'getSubCategory',
+          category_id: categoryId,
+          categoryId: categoryId,
+          ...payload
+        })
+      });
     }
   },
   reports: {

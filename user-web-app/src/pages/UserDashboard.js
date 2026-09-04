@@ -374,6 +374,7 @@ const UserDashboard = () => {
   // Dynamic Categories state (calling vdUser with formstep getAllCategories)
   const [allCategoriesList, setAllCategoriesList] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [dynamicSubCategories, setDynamicSubCategories] = useState([]);
 
   // Community State
   const [comments, setComments] = useState([
@@ -429,13 +430,53 @@ const UserDashboard = () => {
 
   useEffect(() => {
     if (selectedCategory) {
-      const catId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.name) : selectedCategory;
-      const subId = selectedSubCategory ? (typeof selectedSubCategory === 'object' ? (selectedSubCategory.id || selectedSubCategory.name) : selectedSubCategory) : null;
+      const catId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.category_id || selectedCategory.name) : selectedCategory;
+      const subId = selectedSubCategory ? (typeof selectedSubCategory === 'object' ? (selectedSubCategory.id || selectedSubCategory.sub_category_id || selectedSubCategory.name) : selectedSubCategory) : null;
       fetchCategoryVideos(catId, subId);
+
+      // Check if subcategories already exist on the selected category object
+      const currentCatObj = allCategoriesList.find(c => 
+        (selectedCategory && typeof selectedCategory === 'object' && (c.id === selectedCategory.id || c.name === selectedCategory.name)) ||
+        c.id === selectedCategory || 
+        c.name === selectedCategory ||
+        c.title === selectedCategory ||
+        String(c.name || '').toLowerCase() === String(selectedCategory?.name || selectedCategory || '').toLowerCase()
+      ) || (typeof selectedCategory === 'object' ? selectedCategory : null);
+
+      if (currentCatObj && currentCatObj.sub_categories && currentCatObj.sub_categories.length > 0) {
+        setDynamicSubCategories(currentCatObj.sub_categories);
+      } else {
+        // Fetch subcategories dynamically from vdUser API
+        api.user.getSubCategories(catId).then(res => {
+          console.log(`Subcategories from API for category ${catId}:`, res);
+          let raw = Array.isArray(res) ? res : (res?.sub_categories || res?.subCategories || res?.data || res?.result || res?.json || []);
+          if (typeof raw === 'string') {
+            try { raw = JSON.parse(raw); } catch(e) { raw = raw.split(',').map(s => s.trim()).filter(Boolean); }
+          }
+          if (Array.isArray(raw) && raw.length > 0) {
+            const mappedSub = raw.map((s, sIdx) => {
+              if (typeof s === 'string') return { id: s, name: s, title: s };
+              return {
+                id: s.id || s.sub_category_id || s.subcategory_id || s.name || `sub-${sIdx + 1}`,
+                name: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
+                title: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
+                ...s
+              };
+            }).filter(s => s && s.name);
+            setDynamicSubCategories(mappedSub);
+          } else {
+            setDynamicSubCategories([]);
+          }
+        }).catch(err => {
+          console.log("No subcategories returned from API:", err);
+          setDynamicSubCategories([]);
+        });
+      }
     } else {
       setCategoryVideosList([]);
+      setDynamicSubCategories([]);
     }
-  }, [selectedCategory, selectedSubCategory]);
+  }, [selectedCategory, selectedSubCategory, allCategoriesList]);
 
   const filterValidVideoItems = (data) => {
     let rawList = [];
@@ -686,6 +727,30 @@ const UserDashboard = () => {
             : (iconMatch?.icon || defaultIcons[idx % defaultIcons.length]);
           const vCount = c.video_count !== undefined ? c.video_count : (c.videoCount !== undefined ? c.videoCount : 0);
 
+          let rawSub = c.sub_categories || c.subCategories || c.sub_category || c.subCategory || c.subcategories || c.subcategory || c.sub_category_list || c.sub_cats || [];
+          if (typeof rawSub === 'string') {
+            try {
+              const p = JSON.parse(rawSub);
+              rawSub = Array.isArray(p) ? p : rawSub.split(',').map(s => s.trim()).filter(Boolean);
+            } catch (e) {
+              rawSub = rawSub.split(',').map(s => s.trim()).filter(Boolean);
+            }
+          }
+          if (!Array.isArray(rawSub)) {
+            rawSub = [rawSub];
+          }
+          const parsedSubCats = rawSub.map((s, sIdx) => {
+            if (typeof s === 'string') {
+              return { id: s, name: s, title: s };
+            }
+            return {
+              id: s.id || s.sub_category_id || s.subcategory_id || s.name || `sub-${sIdx + 1}`,
+              name: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
+              title: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
+              ...s
+            };
+          }).filter(s => s && s.name);
+
           return {
             id: c.id || c.category_id || `cat-${idx + 1}`,
             category_id: c.id || c.category_id || `cat-${idx + 1}`,
@@ -695,7 +760,7 @@ const UserDashboard = () => {
             icon: iconEmoji,
             video_count: parseInt(vCount, 10) || 0,
             videoCount: parseInt(vCount, 10) || 0,
-            sub_categories: c.sub_categories || c.subCategories || []
+            sub_categories: parsedSubCats
           };
         });
 
@@ -1475,12 +1540,67 @@ const UserDashboard = () => {
 
                 {/* Subcategories Row */}
                 {selectedCategory && (() => {
-                  const currentCatObj = typeof selectedCategory === 'object' 
-                    ? selectedCategory 
-                    : (allCategoriesList.find(c => c.name === selectedCategory || c.id === selectedCategory) ||
-                       (dashboardData?.categories || []).find(c => c.name === selectedCategory || c.id === selectedCategory));
+                  const currentCatObj = allCategoriesList.find(c => 
+                    (selectedCategory && typeof selectedCategory === 'object' && (c.id === selectedCategory.id || c.name === selectedCategory.name)) ||
+                    c.id === selectedCategory || 
+                    c.name === selectedCategory ||
+                    c.title === selectedCategory ||
+                    String(c.name || '').toLowerCase() === String(selectedCategory?.name || selectedCategory || '').toLowerCase()
+                  ) || (typeof selectedCategory === 'object' ? selectedCategory : null) || (dashboardData?.categories || []).find(c => c.name === selectedCategory || c.id === selectedCategory);
                   
-                  const subCats = currentCatObj?.sub_categories || currentCatObj?.subCategories || [];
+                  let rawSubCats = (currentCatObj?.sub_categories && currentCatObj.sub_categories.length > 0) 
+                    ? currentCatObj.sub_categories 
+                    : (dynamicSubCategories && dynamicSubCategories.length > 0 ? dynamicSubCategories : (currentCatObj?.subCategories || currentCatObj?.sub_category || []));
+
+                  if (typeof rawSubCats === 'string') {
+                    try {
+                      const parsed = JSON.parse(rawSubCats);
+                      rawSubCats = Array.isArray(parsed) ? parsed : rawSubCats.split(',').map(s => s.trim()).filter(Boolean);
+                    } catch (e) {
+                      rawSubCats = rawSubCats.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                  }
+
+                  if (!Array.isArray(rawSubCats)) {
+                    rawSubCats = [rawSubCats];
+                  }
+
+                  let subCats = rawSubCats.map((sub, sIdx) => {
+                    if (typeof sub === 'string') {
+                      return { id: sub, name: sub, title: sub };
+                    }
+                    const subName = sub.name || sub.title || sub.sub_category_name || sub.subcategory_name || sub.label || `Subcategory ${sIdx + 1}`;
+                    const subId = sub.id || sub.sub_category_id || sub.subcategory_id || sub.subCategoryId || subName;
+                    return {
+                      id: subId,
+                      name: subName,
+                      title: subName,
+                      ...sub
+                    };
+                  }).filter(s => s && s.name);
+
+                  // If still empty, extract from any videos matching this category
+                  if (subCats.length === 0) {
+                    const catNameStr = String(currentCatObj?.name || selectedCategory?.name || selectedCategory || '').toLowerCase();
+                    const relevantVideos = [
+                      ...(categoryVideosList || []),
+                      ...((dashboardData?.trending || []).filter(v => String(v.category || '').toLowerCase() === catNameStr)),
+                      ...((dashboardData?.your_courses || []).filter(v => String(v.category || '').toLowerCase() === catNameStr))
+                    ];
+                    const seen = new Set();
+                    relevantVideos.forEach(v => {
+                      const subName = v.sub_category || v.subCategory || v.subcategory || v.sub_category_name || v.subcategory_name;
+                      if (subName && typeof subName === 'string' && !seen.has(subName.toLowerCase())) {
+                        seen.add(subName.toLowerCase());
+                        subCats.push({
+                          id: v.sub_category_id || v.subCategoryId || subName,
+                          name: subName,
+                          title: subName
+                        });
+                      }
+                    });
+                  }
+
                   if (!subCats || subCats.length === 0) return null;
 
                   return (
@@ -1506,8 +1626,8 @@ const UserDashboard = () => {
                       </button>
 
                       {subCats.map((sub, sIdx) => {
-                        const subName = typeof sub === 'object' ? sub.name : sub;
-                        const subId = typeof sub === 'object' ? sub.id : sub;
+                        const subName = typeof sub === 'object' ? (sub.name || sub.title) : sub;
+                        const subId = typeof sub === 'object' ? (sub.id || sub.sub_category_id || sub.name) : sub;
                         
                         const isSubSelected = selectedSubCategory && (
                           (typeof selectedSubCategory === 'object' && (selectedSubCategory.id === subId || selectedSubCategory.name === subName)) ||
@@ -1522,9 +1642,9 @@ const UserDashboard = () => {
                               padding: '6px 16px',
                               border: '1px solid var(--border-color)',
                               borderRadius: '20px',
-                              background: isSubSelected ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-tertiary)',
+                              background: isSubSelected ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
                               borderColor: isSubSelected ? 'var(--accent-primary)' : 'var(--border-color)',
-                              color: isSubSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                              color: isSubSelected ? '#ffffff' : 'var(--text-secondary)',
                               fontSize: '12px',
                               fontWeight: 600,
                               cursor: 'pointer',
