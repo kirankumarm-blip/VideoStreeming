@@ -773,7 +773,28 @@ const UserDashboard = () => {
           };
         });
 
-      setAllCategoriesList(mapped);
+      setAllCategoriesList(prev => {
+        if (!prev || prev.length === 0) return mapped;
+        // Merge mapped categories from getAllCategories with prev (preserving sub_categories if prev already has them)
+        return mapped.map(mCat => {
+          const mName = String(mCat.name || mCat.title || '').trim().toLowerCase();
+          const mState = mCat.source || mCat.state || '';
+          const match = prev.find(p => {
+            const pName = String(p.name || p.title || '').trim().toLowerCase();
+            const pState = p.source || p.state || '';
+            return (p.unique_id && mCat.unique_id && p.unique_id === mCat.unique_id) ||
+                   (pName === mName && (pState && mState ? pState === mState : true)) ||
+                   (pName === mName);
+          });
+          if (match && (!mCat.sub_categories || mCat.sub_categories.length === 0) && match.sub_categories && match.sub_categories.length > 0) {
+            return {
+              ...mCat,
+              sub_categories: match.sub_categories
+            };
+          }
+          return mCat;
+        });
+      });
     } catch (e) {
       console.error("Failed to load categories from vdUser getAllCategories API", e);
       setAllCategoriesList([]);
@@ -855,7 +876,50 @@ const UserDashboard = () => {
         });
 
         if (mappedCategories.length > 0) {
-          setAllCategoriesList(prev => (prev && prev.length > 0 ? prev : mappedCategories));
+          setAllCategoriesList(prev => {
+            if (!prev || prev.length === 0) return mappedCategories;
+            
+            // Update existing categories with sub_categories from dashboard
+            const updated = prev.map(pCat => {
+              const pName = String(pCat.name || pCat.title || '').trim().toLowerCase();
+              const pState = pCat.source || pCat.state || '';
+              const match = mappedCategories.find(mc => {
+                const mcName = String(mc.name || mc.title || '').trim().toLowerCase();
+                const mcState = mc.source || mc.state || '';
+                return (mc.unique_id && pCat.unique_id && mc.unique_id === pCat.unique_id) ||
+                       (mcName === pName && (mcState && pState ? mcState === pState : true)) ||
+                       (mcName === pName);
+              });
+              if (match) {
+                return {
+                  ...pCat,
+                  ...match,
+                  sub_categories: (match.sub_categories && match.sub_categories.length > 0) 
+                    ? match.sub_categories 
+                    : (pCat.sub_categories || [])
+                };
+              }
+              return pCat;
+            });
+
+            // Append any categories from dashboard that are not in prev
+            mappedCategories.forEach(mc => {
+              const mcName = String(mc.name || mc.title || '').trim().toLowerCase();
+              const mcState = mc.source || mc.state || '';
+              const exists = updated.some(u => {
+                const uName = String(u.name || u.title || '').trim().toLowerCase();
+                const uState = u.source || u.state || '';
+                return (u.unique_id && mc.unique_id && u.unique_id === mc.unique_id) ||
+                       (uName === mcName && (uState && mcState ? uState === mcState : true)) ||
+                       (uName === mcName);
+              });
+              if (!exists) {
+                updated.push(mc);
+              }
+            });
+
+            return updated;
+          });
         }
 
         const recommended = actualData.recommended || [];
