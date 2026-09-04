@@ -747,5 +747,33 @@
       "failedLoginLockout": 5
     }
   },
-  "user_notification_reads": []
+  "user_notification_reads": [],
+  "playlists": [
+    {
+      "id": "pl-1788513129290",
+      "playlist_id": "pl-1788513129290",
+      "userId": "u-user1",
+      "name": "My Saved Playlist",
+      "title": "My Saved Playlist",
+      "playlist_name": "My Saved Playlist",
+      "description": "Videos saved by user.",
+      "thumbnail": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600",
+      "video_count": 1,
+      "videos_count": 1,
+      "videos": [
+        {
+          "id": "v-test-99",
+          "video_id": "v-test-99",
+          "title": "Advanced Next.js",
+          "video_title": "Advanced Next.js",
+          "thumbnail": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600",
+          "video_url": "/uploads/test.mp4",
+          "videoUrl": "/uploads/test.mp4",
+          "added_at": "2026-09-04T09:12:09.290Z"
+        }
+      ],
+      "created_at": "2026-09-04T09:12:09.290Z",
+      "updated_at": "2026-09-04T09:12:09.290Z"
+    }
+  ]
 }

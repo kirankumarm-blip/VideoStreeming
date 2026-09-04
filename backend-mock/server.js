@@ -1787,6 +1787,47 @@ const handleVdUser = (req, res) => {
     });
   }
 
+  // --- GET ALL CATEGORIES API (vdUser: formstep = getAllCategories) ---
+  if (formstep === 'getAllCategories' || formstep === 'getCategories') {
+    const rawCategories = db.categories || [];
+    const allVideos = db.videos || [];
+
+    const defaultIcons = ['💻', '🤖', '⚛️', '📱', '☁️', '🧠', '🎨', '🚀', '📊', '🔒'];
+    const enrichedCategories = rawCategories.map((c, idx) => {
+      const catName = c.name || c.title || c.category_name || '';
+      const videoCount = allVideos.filter(v => 
+        String(v.category || '').toLowerCase() === catName.toLowerCase() ||
+        String(v.categoryId || v.category_id || '') === String(c.id)
+      ).length;
+
+      const iconEmoji = c.icon && !c.icon.startsWith('http') && !c.icon.startsWith('fa') 
+        ? c.icon 
+        : defaultIcons[idx % defaultIcons.length];
+
+      return {
+        id: c.id || `cat-${idx + 1}`,
+        category_id: c.id || `cat-${idx + 1}`,
+        name: catName,
+        title: catName,
+        category_name: catName,
+        description: c.description || c.desc || `Explore courses and lessons in ${catName}.`,
+        icon: iconEmoji,
+        icon_url: c.icon_url || c.thumbnail || '',
+        video_count: c.video_count !== undefined ? c.video_count : videoCount,
+        videoCount: c.video_count !== undefined ? c.video_count : videoCount,
+        sub_categories: c.sub_categories || c.subCategories || []
+      };
+    });
+
+    return res.json({
+      success: true,
+      formstep: 'getAllCategories',
+      categories: enrichedCategories,
+      data: enrichedCategories,
+      result: enrichedCategories
+    });
+  }
+
   return res.json({ success: true, message: 'vdUser processed' });
 };
 

@@ -957,6 +957,17 @@ export const api = {
           ...data
         })
       });
+    },
+    getAllCategories: (payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'getAllCategories',
+          ...payload
+        })
+      });
     }
   },
   reports: {

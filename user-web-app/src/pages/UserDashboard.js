@@ -371,6 +371,10 @@ const UserDashboard = () => {
   const [watchHistoryList, setWatchHistoryList] = useState([]);
   const [watchHistoryLoading, setWatchHistoryLoading] = useState(false);
 
+  // Dynamic Categories state (calling vdUser with formstep getAllCategories)
+  const [allCategoriesList, setAllCategoriesList] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
   // Community State
   const [comments, setComments] = useState([
     { id: 1, user: 'Dr. Sarah', text: 'Great progress on quantum physics course!', date: '2026-06-22T10:00:00Z', votes: 12 },
@@ -401,7 +405,7 @@ const UserDashboard = () => {
   }, [urlSearchQuery]);
 
   useEffect(() => {
-    // Removed automatic history and favorites fetch
+    fetchCategories();
   }, []);
 
   useEffect(() => {
@@ -414,6 +418,8 @@ const UserDashboard = () => {
       fetchPlaylists();
     } else if (activeView === 'watch_history' || activeView === 'history') {
       fetchWatchHistory();
+    } else if (activeView === 'categories') {
+      fetchCategories();
     } else if (activeView === 'downloads') {
       fetchDashboard('download_history');
     } else if (activeView === 'explore') {
@@ -644,6 +650,60 @@ const UserDashboard = () => {
       console.error("Failed to load watch history from vdUser getWatchHistory API", e);
     } finally {
       setWatchHistoryLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const res = await api.user.getAllCategories();
+      console.log("Categories from vdUser API (getAllCategories):", res);
+
+      let raw = [];
+      if (Array.isArray(res)) {
+        raw = res;
+      } else if (res && Array.isArray(res.categories)) {
+        raw = res.categories;
+      } else if (res && Array.isArray(res.data)) {
+        raw = res.data;
+      } else if (res && Array.isArray(res.result)) {
+        raw = res.result;
+      } else if (res && Array.isArray(res.json)) {
+        raw = res.json;
+      }
+
+      const unwrapped = raw.map(item => (item && item.json !== undefined ? item.json : item));
+      const defaultIcons = ['💻', '🤖', '⚛️', '📱', '☁️', '🧠', '🎨', '🚀', '📊', '🔒', '📚', '🎯'];
+
+      const mapped = unwrapped.map((c, idx) => {
+        const catName = c.name || c.title || c.category_name || `Category ${idx + 1}`;
+        const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
+        const iconEmoji = c.icon && !String(c.icon).startsWith('http') && !String(c.icon).startsWith('fa')
+          ? c.icon
+          : (iconMatch?.icon || defaultIcons[idx % defaultIcons.length]);
+        const vCount = c.video_count !== undefined ? c.video_count : (c.videoCount !== undefined ? c.videoCount : 0);
+
+        return {
+          id: c.id || c.category_id || `cat-${idx + 1}`,
+          category_id: c.id || c.category_id || `cat-${idx + 1}`,
+          name: catName,
+          title: catName,
+          category_name: catName,
+          icon: iconEmoji,
+          video_count: parseInt(vCount, 10) || 0,
+          videoCount: parseInt(vCount, 10) || 0,
+          sub_categories: c.sub_categories || c.subCategories || []
+        };
+      });
+
+      if (mapped.length > 0) {
+        setAllCategoriesList(mapped);
+      }
+    } catch (e) {
+      console.error("Failed to load categories from vdUser getAllCategories API", e);
+    } finally {
+      setCategoriesLoading(false);
       setLoading(false);
     }
   };
@@ -1371,12 +1431,12 @@ const UserDashboard = () => {
                     🧭 {t('user.allTopics')}
                   </button>
 
-                  {(dashboardData?.categories && dashboardData.categories.length > 0 ? dashboardData.categories : categoriesWithIcons).map((cat, idx) => {
-                    const catName = typeof cat === 'object' ? cat.name : cat;
-                    const catId = typeof cat === 'object' ? cat.id : cat;
-                    const iconObj = categoriesWithIcons.find(c => c.name.toLowerCase() === catName.toLowerCase());
-                    const icon = iconObj ? iconObj.icon : '📚';
-                    const videoCount = cat.videoCount || cat.video_count || 0;
+                  {(allCategoriesList.length > 0 ? allCategoriesList : (dashboardData?.categories && dashboardData.categories.length > 0 ? dashboardData.categories : categoriesWithIcons)).map((cat, idx) => {
+                    const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
+                    const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
+                    const iconObj = categoriesWithIcons.find(c => c.name.toLowerCase() === String(catName).toLowerCase());
+                    const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconObj ? iconObj.icon : '📚');
+                    const videoCount = typeof cat === 'object' ? (cat.video_count !== undefined ? cat.video_count : (cat.videoCount || 0)) : 0;
 
                     const isSelected = selectedCategory && (
                       (typeof selectedCategory === 'object' && (selectedCategory.id === catId || selectedCategory.name === catName)) ||
@@ -1416,7 +1476,8 @@ const UserDashboard = () => {
                 {selectedCategory && (() => {
                   const currentCatObj = typeof selectedCategory === 'object' 
                     ? selectedCategory 
-                    : (dashboardData?.categories || []).find(c => c.name === selectedCategory || c.id === selectedCategory);
+                    : (allCategoriesList.find(c => c.name === selectedCategory || c.id === selectedCategory) ||
+                       (dashboardData?.categories || []).find(c => c.name === selectedCategory || c.id === selectedCategory));
                   
                   const subCats = currentCatObj?.sub_categories || currentCatObj?.subCategories || [];
                   if (!subCats || subCats.length === 0) return null;
@@ -1709,17 +1770,29 @@ const UserDashboard = () => {
             {/* ================= CATEGORIES VIEW ================= */}
             {activeView === 'categories' && (
               <div className="animate-fade-in">
-                <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>{t('sidebar.categories')}</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.categories')}</h2>
+                  {categoriesLoading && (
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Loading categories...</span>
+                  )}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '24px' }}>
-                  {categoriesWithIcons.map(cat => {
-                    const matched = (dashboardData?.categories || []).find(c => c.name === cat.name);
-                    const count = matched?.videoCount || matched?.video_count || 0;
+                  {(allCategoriesList.length > 0 ? allCategoriesList : categoriesWithIcons).map(cat => {
+                    const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
+                    const catId = typeof cat === 'object' ? (cat.id || cat.category_id || cat.name) : cat;
+                    const iconMatch = categoriesWithIcons.find(ci => ci.name.toLowerCase() === String(catName).toLowerCase());
+                    const icon = (typeof cat === 'object' && cat.icon) ? cat.icon : (iconMatch?.icon || '📚');
+                    const count = typeof cat === 'object' && cat.video_count !== undefined 
+                      ? cat.video_count 
+                      : (typeof cat === 'object' && cat.videoCount !== undefined 
+                        ? cat.videoCount 
+                        : ((dashboardData?.categories || []).find(c => c.name === catName)?.videoCount || 0));
                     
                     return (
                       <div 
-                        key={cat.name}
+                        key={catId || catName}
                         onClick={() => {
-                          setSelectedCategory(cat.name);
+                          setSelectedCategory(cat);
                           setSearchParams({ view: 'home' });
                         }}
                         style={{
@@ -1741,8 +1814,8 @@ const UserDashboard = () => {
                           e.currentTarget.style.transform = 'none';
                         }}
                       >
-                        <div style={{ fontSize: '48px', marginBottom: '12px' }}>{cat.icon}</div>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>{cat.name}</h3>
+                        <div style={{ fontSize: '48px', marginBottom: '12px' }}>{icon}</div>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>{catName}</h3>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
                           {count} {language === 'hi' ? 'वीडियो' : language === 'kn' ? 'ವೀಡಿಯೊಗಳು' : 'videos'}
                         </p>
