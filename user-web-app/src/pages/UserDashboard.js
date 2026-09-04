@@ -476,6 +476,8 @@ const UserDashboard = () => {
     } finally {
       setCategoryLoading(false);
     }
+  };
+
   const fetchPlaylists = async () => {
     setPlaylistLoading(true);
     try {
