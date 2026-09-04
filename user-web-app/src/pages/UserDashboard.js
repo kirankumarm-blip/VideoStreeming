@@ -1343,15 +1343,10 @@ const UserDashboard = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 'auto', paddingTop: '6px' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
               {video.views || 0} {t('video.views')}
             </div>
-            {video.duration && (
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                {video.duration}
-              </div>
-            )}
           </div>
 
           {percentage > 0 && (
