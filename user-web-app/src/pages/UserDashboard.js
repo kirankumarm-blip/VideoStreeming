@@ -2911,7 +2911,8 @@ const UserDashboard = () => {
                   </div>
                 )}
               </div>
-            )}
+            );
+          })()}
 
             {/* ================= DOWNLOADS VIEW ================= */}
             {activeView === 'downloads' && (
