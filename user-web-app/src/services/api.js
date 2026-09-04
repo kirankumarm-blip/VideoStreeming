@@ -928,7 +928,6 @@ export const api = {
         body: JSON.stringify({
           token: token || '',
           formstep: 'getPlayList',
-          formStep: 'getPlayList',
           ...payload
         })
       });
@@ -940,7 +939,6 @@ export const api = {
         body: JSON.stringify({
           token: token || '',
           formstep: 'getWatchHistory',
-          formStep: 'getWatchHistory',
           ...payload
         })
       });
