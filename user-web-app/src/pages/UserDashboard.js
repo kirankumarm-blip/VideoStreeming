@@ -361,6 +361,15 @@ const UserDashboard = () => {
   // Detailed Watch History state
   const [historyList, setHistoryList] = useState([]);
 
+  // Playlist state (calling vdUser with formstep getPlayList)
+  const [playlistsList, setPlaylistsList] = useState([]);
+  const [selectedPlaylist, setSelectedPlaylist] = useState(null);
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+
+  // Dedicated Watch History state (calling vdUser with formstep getWatchHistory)
+  const [watchHistoryList, setWatchHistoryList] = useState([]);
+  const [watchHistoryLoading, setWatchHistoryLoading] = useState(false);
+
   // Community State
   const [comments, setComments] = useState([
     { id: 1, user: 'Dr. Sarah', text: 'Great progress on quantum physics course!', date: '2026-06-22T10:00:00Z', votes: 12 },
@@ -399,6 +408,11 @@ const UserDashboard = () => {
       fetchDashboard('Dashboard');
     } else if (activeView === 'watch_later') {
       fetchDashboard('getwatchLaterVideos');
+    } else if (activeView === 'playlist' || activeView === 'playlists') {
+      setSelectedPlaylist(null);
+      fetchPlaylists();
+    } else if (activeView === 'watch_history' || activeView === 'history') {
+      fetchWatchHistory();
     } else if (activeView === 'downloads') {
       fetchDashboard('download_history');
     } else if (activeView === 'explore') {
@@ -461,6 +475,73 @@ const UserDashboard = () => {
       console.error("Failed to load category videos", e);
     } finally {
       setCategoryLoading(false);
+    }
+  const fetchPlaylists = async () => {
+    setPlaylistLoading(true);
+    try {
+      const res = await api.user.getPlayList();
+      console.log("Playlists from vdUser API (getPlayList):", res);
+      const raw = res?.playlists || res?.data || res?.json || res?.result || (Array.isArray(res) ? res : []);
+      const mapped = raw.map((item, idx) => {
+        const p = (item && item.json) ? item.json : item;
+        const videosRaw = p.videos || p.video_list || p.lessons || [];
+        const mappedVideos = filterValidVideoItems(videosRaw).map(v => ({
+          ...v,
+          id: v.id || v.video_id || v.lesson_id,
+          title: v.title || v.video_title || v.name || 'Untitled Lesson',
+          thumbnail: v.thumbnail || v.image || p.thumbnail || p.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
+          duration: v.duration || '10:00',
+          category: v.category || 'General'
+        }));
+        return {
+          id: p.id || p.playlist_id || p._id || `pl-${idx + 1}`,
+          name: p.name || p.title || p.playlist_name || `Playlist ${idx + 1}`,
+          title: p.name || p.title || p.playlist_name || `Playlist ${idx + 1}`,
+          description: p.description || p.desc || 'Curated video playlist.',
+          thumbnail: p.thumbnail || p.image || p.cover || (mappedVideos[0]?.thumbnail) || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
+          video_count: p.video_count !== undefined ? p.video_count : (p.videos_count !== undefined ? p.videos_count : mappedVideos.length),
+          videos: mappedVideos,
+          created_at: p.created_at || p.createdAt || ''
+        };
+      });
+      setPlaylistsList(mapped);
+    } catch (e) {
+      console.error("Failed to load playlists from vdUser getPlayList API", e);
+    } finally {
+      setPlaylistLoading(false);
+    }
+  };
+
+  const fetchWatchHistory = async () => {
+    setWatchHistoryLoading(true);
+    try {
+      const res = await api.user.getWatchHistory();
+      console.log("Watch History from vdUser API (getWatchHistory):", res);
+      const raw = res?.watchHistory || res?.history || res?.data || res?.json || res?.result || (Array.isArray(res) ? res : []);
+      const mapped = raw.map((item, idx) => {
+        const h = (item && item.json) ? item.json : item;
+        return {
+          id: h.id || h.history_id || `hist-${idx + 1}`,
+          videoId: h.videoId || h.video_id || h.id,
+          title: h.title || h.video_title || h.name || 'Video Lesson',
+          thumbnail: h.thumbnail || h.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
+          duration: h.duration || '12:00',
+          category: h.category || h.category_name || 'General',
+          course_title: h.course_title || h.courseTitle || '',
+          chapter_title: h.chapter_title || h.chapterTitle || '',
+          watch_time: h.watch_time || h.watchTime || 0,
+          last_position: h.last_position || h.lastPosition || 0,
+          completion_percentage: h.completion_percentage !== undefined ? h.completion_percentage : (h.completionPercentage || 0),
+          status: h.status || (h.completion_percentage >= 95 ? 'completed' : 'in_progress'),
+          watched_at: h.watched_at || h.watchDate || h.watch_date || h.created_at || new Date().toISOString(),
+          views: h.views || 1
+        };
+      });
+      setWatchHistoryList(mapped);
+    } catch (e) {
+      console.error("Failed to load watch history from vdUser getWatchHistory API", e);
+    } finally {
+      setWatchHistoryLoading(false);
     }
   };
 
@@ -1650,6 +1731,343 @@ const UserDashboard = () => {
                     {favoritesList.map(video => (
                       <VideoCard key={video.id} video={video} />
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ================= PLAYLIST VIEW (vdUser: getPlayList) ================= */}
+            {(activeView === 'playlist' || activeView === 'playlists') && (
+              <div className="animate-fade-in">
+                {selectedPlaylist ? (
+                  <div>
+                    {/* Playlist Detail Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                      <button 
+                        onClick={() => setSelectedPlaylist(null)}
+                        className="btn btn-secondary"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', fontSize: '13px' }}
+                      >
+                        <i className="fa-solid fa-arrow-left"></i> {t('user.backToPlaylists', 'Back to Playlists')}
+                      </button>
+                      <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>
+                        {selectedPlaylist.title || selectedPlaylist.name}
+                      </h2>
+                      <span className="badge badge-active" style={{ fontSize: '12px' }}>
+                        {selectedPlaylist.videos?.length || selectedPlaylist.video_count || 0} Lessons
+                      </span>
+                    </div>
+
+                    {selectedPlaylist.description && (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', maxWidth: '800px', lineHeight: '1.6' }}>
+                        {selectedPlaylist.description}
+                      </p>
+                    )}
+
+                    {(!selectedPlaylist.videos || selectedPlaylist.videos.length === 0) ? (
+                      <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                        {language === 'hi' ? 'इस प्लेलिस्ट में कोई वीडियो नहीं है।' : language === 'kn' ? 'ಈ ಪ್ಲೇಪಟ್ಟಿಯಲ್ಲಿ ಯಾವುದೇ ವೀಡಿಯೊಗಳಿಲ್ಲ.' : 'No videos in this playlist yet.'}
+                      </div>
+                    ) : (
+                      <div className="youtube-video-grid">
+                        {selectedPlaylist.videos.map(video => (
+                          <VideoCard key={video.id || video.video_id} video={video} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {/* Playlists Grid */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.playlist', 'Playlist')}</h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                          {t('sidebar.subPlaylist', 'Curated & custom video playlists')}
+                        </p>
+                      </div>
+                      <span className="badge badge-active" style={{ fontSize: '12px' }}>
+                        {playlistsList.length} Playlists
+                      </span>
+                    </div>
+
+                    {playlistLoading ? (
+                      <div className="youtube-video-grid">
+                        {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
+                      </div>
+                    ) : playlistsList.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                        📑 {language === 'hi' ? 'कोई प्लेलिस्ट नहीं मिली।' : language === 'kn' ? 'ಯಾವುದೇ ಪ್ಲೇಪಟ್ಟಿಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No playlists found.'}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '22px' }}>
+                        {playlistsList.map(pl => (
+                          <div 
+                            key={pl.id}
+                            onClick={() => setSelectedPlaylist(pl)}
+                            className="glass-card"
+                            style={{
+                              padding: '0',
+                              borderRadius: '16px',
+                              overflow: 'hidden',
+                              cursor: 'pointer',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--bg-secondary)',
+                              transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
+                              display: 'flex',
+                              flexDirection: 'column'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-4px)';
+                              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.18)';
+                              e.currentTarget.style.borderColor = 'var(--accent-color, #2563eb)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'none';
+                              e.currentTarget.style.borderColor = 'var(--border-color)';
+                            }}
+                          >
+                            {/* Playlist Cover Image with Video Count Badge */}
+                            <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#0f172a' }}>
+                              <img 
+                                src={pl.thumbnail} 
+                                alt={pl.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => {
+                                  e.target.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60';
+                                }}
+                              />
+                              <div style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '10px',
+                                background: 'rgba(0, 0, 0, 0.75)',
+                                color: '#fff',
+                                padding: '4px 10px',
+                                borderRadius: '14px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                backdropFilter: 'blur(4px)'
+                              }}>
+                                <i className="fa-solid fa-list-ul"></i> {pl.video_count || pl.videos?.length || 0} Videos
+                              </div>
+                              <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)',
+                                display: 'flex',
+                                alignItems: 'flex-end',
+                                padding: '14px'
+                              }}>
+                                <span style={{ color: '#fff', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <i className="fa-solid fa-circle-play" style={{ color: 'var(--accent-color, #38bdf8)' }}></i> View Playlist
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Playlist Meta Details */}
+                            <div style={{ padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                              <div>
+                                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px 0', lineHeight: 1.4 }}>
+                                  {pl.title || pl.name}
+                                </h3>
+                                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                  {pl.description}
+                                </p>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                                <span><i className="fa-regular fa-clock"></i> {pl.videos?.length || pl.video_count || 0} Lessons</span>
+                                <span style={{ color: 'var(--accent-color, #2563eb)', fontWeight: 600 }}>Open ➔</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ================= WATCH HISTORY VIEW (vdUser: getWatchHistory) ================= */}
+            {(activeView === 'watch_history' || activeView === 'history') && (
+              <div className="animate-fade-in">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.watchHistory', 'Watch History')}</h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                      {t('sidebar.subWatchHistory', 'Videos and lessons you recently watched')}
+                    </p>
+                  </div>
+                  <span className="badge badge-active" style={{ fontSize: '12px' }}>
+                    {watchHistoryList.length} Watched Lessons
+                  </span>
+                </div>
+
+                {watchHistoryLoading ? (
+                  <div className="youtube-video-grid">
+                    {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
+                  </div>
+                ) : watchHistoryList.length === 0 ? (
+                  <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                    🕒 {language === 'hi' ? 'कोई देखने का इतिहास नहीं मिला।' : language === 'kn' ? 'ಯಾವುದೇ ವೀಕ್ಷಣೆ ಇತಿಹಾಸ ಕಂಡುಬಂದಿಲ್ಲ.' : 'No watch history recorded yet. Start watching videos to build your history!'}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {watchHistoryList.map(item => {
+                      const pct = Math.min(100, Math.max(0, item.completion_percentage || 0));
+                      const isComplete = item.status === 'completed' || pct >= 95;
+                      const videoTargetId = item.videoId || item.video_id || item.id;
+                      return (
+                        <div 
+                          key={item.id}
+                          className="glass-card"
+                          style={{
+                            display: 'flex',
+                            gap: '20px',
+                            padding: '16px',
+                            borderRadius: '16px',
+                            border: '1px solid var(--border-color)',
+                            background: 'var(--bg-secondary)',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {/* Thumbnail with duration & progress bar */}
+                          <div 
+                            onClick={() => navigate(`/watch/${videoTargetId}`)}
+                            style={{
+                              position: 'relative',
+                              width: '220px',
+                              minWidth: '200px',
+                              aspectRatio: '16/9',
+                              borderRadius: '12px',
+                              overflow: 'hidden',
+                              cursor: 'pointer',
+                              background: '#0f172a',
+                              flexShrink: 0
+                            }}
+                          >
+                            <img 
+                              src={item.thumbnail} 
+                              alt={item.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
+                              }}
+                            />
+                            {/* Duration Badge */}
+                            {item.duration && (
+                              <div style={{
+                                position: 'absolute',
+                                bottom: '8px',
+                                right: '8px',
+                                background: 'rgba(0, 0, 0, 0.8)',
+                                color: '#fff',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 600
+                              }}>
+                                {item.duration}
+                              </div>
+                            )}
+                            {/* Progress Bar at Bottom */}
+                            <div style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              height: '4px',
+                              background: 'rgba(255,255,255,0.2)'
+                            }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${pct}%`,
+                                background: isComplete ? '#10b981' : '#e50914'
+                              }} />
+                            </div>
+                          </div>
+
+                          {/* Info Column */}
+                          <div style={{ flex: 1, minWidth: '240px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                              {item.category && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  color: '#38bdf8',
+                                  fontWeight: 600
+                                }}>
+                                  {item.category}
+                                </span>
+                              )}
+                              <span style={{
+                                fontSize: '11px',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                background: isComplete ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                color: isComplete ? '#10b981' : '#f59e0b',
+                                fontWeight: 700
+                              }}>
+                                {isComplete ? '✓ Completed' : `⏳ In Progress (${Math.round(pct)}%)`}
+                              </span>
+                            </div>
+
+                            <h3 
+                              onClick={() => navigate(`/watch/${videoTargetId}`)}
+                              style={{ 
+                                fontSize: '16px', 
+                                fontWeight: 700, 
+                                margin: '0 0 6px 0', 
+                                color: 'var(--text-primary)', 
+                                cursor: 'pointer',
+                                lineHeight: 1.4
+                              }}
+                            >
+                              {item.title}
+                            </h3>
+
+                            {(item.course_title || item.chapter_title) && (
+                              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                                📚 {item.course_title} {item.chapter_title ? `• ${item.chapter_title}` : ''}
+                              </p>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                              <span><i className="fa-regular fa-calendar"></i> {item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'}</span>
+                              {item.watch_time > 0 && <span><i className="fa-regular fa-eye"></i> {Math.round(item.watch_time / 60)} mins watched</span>}
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <button
+                              onClick={() => navigate(`/watch/${videoTargetId}`)}
+                              className="btn btn-primary"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 18px',
+                                borderRadius: '20px',
+                                fontSize: '13px',
+                                fontWeight: 600
+                              }}
+                            >
+                              <i className="fa-solid fa-play"></i> {isComplete ? 'Watch Again' : 'Resume ➔'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

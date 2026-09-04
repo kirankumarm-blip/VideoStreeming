@@ -92,6 +92,32 @@ const Sidebar = ({ isOpen, onClose }) => {
       )
     },
     {
+      id: 'playlist',
+      label: t('sidebar.playlist', 'Playlist'),
+      subLabel: t('sidebar.subPlaylist', 'Curated & custom playlists'),
+      path: '/?view=playlist',
+      icon: () => (
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <polygon points="3 6 3 18 6 12 3 6" fill="currentColor"></polygon>
+        </svg>
+      )
+    },
+    {
+      id: 'watch_history',
+      label: t('sidebar.watchHistory', 'Watch History'),
+      subLabel: t('sidebar.subWatchHistory', 'Videos you watched'),
+      path: '/?view=watch_history',
+      icon: () => (
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      )
+    },
+    {
       id: 'downloads',
       label: t('sidebar.downloads', 'Downloads'),
       subLabel: t('sidebar.subDownloads', 'Offline viewing'),

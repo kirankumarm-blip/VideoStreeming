@@ -1590,6 +1590,127 @@ const handleVdUser = (req, res) => {
     });
   }
 
+  // --- PLAYLIST API (vdUser: formstep = getPlayList) ---
+  if (formstep === 'getPlayList' || formstep === 'getPlaylist' || formstep === 'getPlaylists') {
+    const allVideos = db.videos || [];
+    let userPlaylists = (db.playlists || []).filter(p => !p.userId || !userId || String(p.userId) === String(userId));
+
+    if (userPlaylists.length === 0) {
+      // Provide default categorized user playlists for rich experience
+      userPlaylists = [
+        {
+          id: 'pl-1',
+          playlist_id: 'pl-1',
+          name: 'Full Stack Web Development Essentials',
+          title: 'Full Stack Web Development Essentials',
+          playlist_name: 'Full Stack Web Development Essentials',
+          description: 'Curated list of lessons for mastering React, Node.js, and Modern Web Architecture.',
+          thumbnail: allVideos[0]?.thumbnail || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
+          image: allVideos[0]?.thumbnail || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
+          video_count: Math.min(allVideos.length, 4),
+          videos_count: Math.min(allVideos.length, 4),
+          videos: allVideos.slice(0, 4).map(v => ({
+            ...v,
+            video_id: v.id,
+            video_title: v.title
+          })),
+          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: 'pl-2',
+          playlist_id: 'pl-2',
+          name: 'AI, Machine Learning & Data Science Toolkit',
+          title: 'AI, Machine Learning & Data Science Toolkit',
+          playlist_name: 'AI, Machine Learning & Data Science Toolkit',
+          description: 'Deep dive into neural networks, transformer pipelines, and data processing.',
+          thumbnail: allVideos[1]?.thumbnail || 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=60',
+          image: allVideos[1]?.thumbnail || 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=60',
+          video_count: Math.min(allVideos.length, 3),
+          videos_count: Math.min(allVideos.length, 3),
+          videos: (allVideos.length > 2 ? allVideos.slice(2, 5) : allVideos).map(v => ({
+            ...v,
+            video_id: v.id,
+            video_title: v.title
+          })),
+          created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: 'pl-3',
+          playlist_id: 'pl-3',
+          name: 'Cloud Computing & DevOps Mastery',
+          title: 'Cloud Computing & DevOps Mastery',
+          playlist_name: 'Cloud Computing & DevOps Mastery',
+          description: 'Best practices for Docker, Kubernetes, CI/CD, and Cloud Infrastructure.',
+          thumbnail: allVideos[2]?.thumbnail || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60',
+          image: allVideos[2]?.thumbnail || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60',
+          video_count: Math.min(allVideos.length, 2),
+          videos_count: Math.min(allVideos.length, 2),
+          videos: (allVideos.length > 1 ? allVideos.slice(1, 3) : allVideos).map(v => ({
+            ...v,
+            video_id: v.id,
+            video_title: v.title
+          })),
+          created_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ];
+    }
+
+    return res.json({
+      success: true,
+      formstep: 'getPlayList',
+      playlists: userPlaylists,
+      data: userPlaylists,
+      result: userPlaylists
+    });
+  }
+
+  // --- WATCH HISTORY API (vdUser: formstep = getWatchHistory) ---
+  if (formstep === 'getWatchHistory' || formstep === 'watchHistory' || formstep === 'get_watch_history') {
+    const rawHistory = (db.watchHistory || []).filter(h => !userId || !h.userId || String(h.userId) === String(userId));
+    const allVideos = db.videos || [];
+
+    const enrichedHistory = rawHistory.map(h => {
+      const video = allVideos.find(v => String(v.id) === String(h.videoId)) || {};
+      return {
+        id: h.id,
+        history_id: h.id,
+        video_id: h.videoId || video.id,
+        videoId: h.videoId || video.id,
+        title: h.title || video.title || 'Untitled Video Lesson',
+        video_title: h.title || video.title || 'Untitled Video Lesson',
+        thumbnail: h.thumbnail || video.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
+        duration: h.duration || video.duration || '12:45',
+        category: h.category || video.category || 'General',
+        course_id: h.course_id || h.courseId || 0,
+        chapter_id: h.chapter_id || h.chapterId || 0,
+        course_title: h.course_title || h.courseTitle || '',
+        chapter_title: h.chapter_title || h.chapterTitle || '',
+        watch_time: h.watchTime || 0,
+        watchTime: h.watchTime || 0,
+        last_position: h.lastPosition || 0,
+        lastPosition: h.lastPosition || 0,
+        completion_percentage: h.completionPercentage || 0,
+        completionPercentage: h.completionPercentage || 0,
+        status: h.status || 'in_progress',
+        watched_at: h.watchDate || new Date().toISOString(),
+        watchDate: h.watchDate || new Date().toISOString(),
+        views: h.views || 1
+      };
+    }).sort((a, b) => new Date(b.watched_at) - new Date(a.watched_at));
+
+    return res.json({
+      success: true,
+      formstep: 'getWatchHistory',
+      watchHistory: enrichedHistory,
+      history: enrichedHistory,
+      data: enrichedHistory,
+      result: enrichedHistory
+    });
+  }
+
   return res.json({ success: true, message: 'vdUser processed' });
 };
 

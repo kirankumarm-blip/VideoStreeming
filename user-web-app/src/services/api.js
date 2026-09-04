@@ -920,6 +920,32 @@ export const api = {
       });
     }
   },
+  user: {
+    getPlayList: (payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'getPlayList',
+          formStep: 'getPlayList',
+          ...payload
+        })
+      });
+    },
+    getWatchHistory: (payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'getWatchHistory',
+          formStep: 'getWatchHistory',
+          ...payload
+        })
+      });
+    }
+  },
   reports: {
     getSuperAdmin: () => request('/reports/super-admin'),
     getAdmin: () => request('/reports/admin'),
