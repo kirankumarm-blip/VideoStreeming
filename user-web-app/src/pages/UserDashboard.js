@@ -363,6 +363,7 @@ const UserDashboard = () => {
 
   // Playlist state (calling vdUser with formstep getPlayList)
   const [playlistsList, setPlaylistsList] = useState([]);
+  const [playlistVideosList, setPlaylistVideosList] = useState([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistLoading, setPlaylistLoading] = useState(false);
 
@@ -479,54 +480,104 @@ const UserDashboard = () => {
   };
 
   const fetchPlaylists = async () => {
+    setLoading(true);
     setPlaylistLoading(true);
     try {
       const res = await api.user.getPlayList();
       console.log("Playlists from vdUser API (getPlayList):", res);
-      const raw = res?.playlists || res?.data || res?.json || res?.result || (Array.isArray(res) ? res : []);
-      const mapped = raw.map((item, idx) => {
-        const p = (item && item.json) ? item.json : item;
-        const videosRaw = p.videos || p.video_list || p.lessons || [];
-        const mappedVideos = filterValidVideoItems(videosRaw).map(v => ({
-          ...v,
-          id: v.id || v.video_id || v.lesson_id,
-          title: v.title || v.video_title || v.name || 'Untitled Lesson',
-          thumbnail: v.thumbnail || v.image || p.thumbnail || p.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
-          duration: v.duration || '10:00',
-          category: v.category || 'General'
-        }));
-        return {
-          id: p.id || p.playlist_id || p._id || `pl-${idx + 1}`,
-          name: p.name || p.title || p.playlist_name || `Playlist ${idx + 1}`,
-          title: p.name || p.title || p.playlist_name || `Playlist ${idx + 1}`,
-          description: p.description || p.desc || 'Curated video playlist.',
-          thumbnail: p.thumbnail || p.image || p.cover || (mappedVideos[0]?.thumbnail) || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
-          video_count: p.video_count !== undefined ? p.video_count : (p.videos_count !== undefined ? p.videos_count : mappedVideos.length),
-          videos: mappedVideos,
-          created_at: p.created_at || p.createdAt || ''
-        };
-      });
-      setPlaylistsList(mapped);
+
+      // Extract raw items
+      let raw = [];
+      if (Array.isArray(res)) {
+        raw = res;
+      } else if (res && Array.isArray(res.playlists)) {
+        raw = res.playlists;
+      } else if (res && Array.isArray(res.data)) {
+        raw = res.data;
+      } else if (res && Array.isArray(res.result)) {
+        raw = res.result;
+      } else if (res && Array.isArray(res.json)) {
+        raw = res.json;
+      }
+
+      // Unwrap { json: { ... }, pairedItem: ... } or direct objects
+      const unwrapped = raw.map(item => (item && item.json !== undefined ? item.json : item));
+
+      // Check if items are direct video items (e.g. have video_url, thumbnail, or title without sub-videos)
+      const directVideos = filterValidVideoItems(unwrapped).map(v => ({
+        ...v,
+        id: v.id || v.video_id || v.lesson_id,
+        videoId: v.id || v.video_id || v.lesson_id,
+        title: v.title || v.video_title || v.name || 'Untitled Lesson',
+        thumbnail: v.thumbnail || v.image || v.thumbnail_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
+        duration: v.duration || '10:00',
+        category: v.category || 'General',
+        video_url: v.video_url || v.videoUrl || v.url || ''
+      }));
+
+      // Map playlists if structured as folders
+      const mappedPlaylists = unwrapped
+        .filter(p => p && (p.videos || p.video_list || p.lessons || p.playlist_name || p.name))
+        .map((p, idx) => {
+          const videosRaw = p.videos || p.video_list || p.lessons || [];
+          const mappedVideos = filterValidVideoItems(videosRaw).map(v => ({
+            ...v,
+            id: v.id || v.video_id || v.lesson_id,
+            videoId: v.id || v.video_id || v.lesson_id,
+            title: v.title || v.video_title || v.name || 'Untitled Lesson',
+            thumbnail: v.thumbnail || v.image || p.thumbnail || p.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
+            duration: v.duration || '10:00',
+            category: v.category || 'General'
+          }));
+          return {
+            id: p.id || p.playlist_id || p._id || `pl-${idx + 1}`,
+            name: p.name || p.title || p.playlist_name || `Playlist ${idx + 1}`,
+            title: p.name || p.title || p.playlist_name || `Playlist ${idx + 1}`,
+            description: p.description || p.desc || 'Curated video playlist.',
+            thumbnail: p.thumbnail || p.image || p.cover || (mappedVideos[0]?.thumbnail) || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
+            video_count: p.video_count !== undefined ? p.video_count : (p.videos_count !== undefined ? p.videos_count : mappedVideos.length),
+            videos: mappedVideos,
+            created_at: p.created_at || p.createdAt || ''
+          };
+        });
+
+      setPlaylistVideosList(directVideos);
+      setPlaylistsList(mappedPlaylists);
     } catch (e) {
       console.error("Failed to load playlists from vdUser getPlayList API", e);
     } finally {
       setPlaylistLoading(false);
+      setLoading(false);
     }
   };
 
   const fetchWatchHistory = async () => {
+    setLoading(true);
     setWatchHistoryLoading(true);
     try {
       const res = await api.user.getWatchHistory();
       console.log("Watch History from vdUser API (getWatchHistory):", res);
-      const raw = res?.watchHistory || res?.history || res?.data || res?.json || res?.result || (Array.isArray(res) ? res : []);
-      const mapped = raw.map((item, idx) => {
-        const h = (item && item.json) ? item.json : item;
+      let raw = [];
+      if (Array.isArray(res)) {
+        raw = res;
+      } else if (res && Array.isArray(res.watchHistory)) {
+        raw = res.watchHistory;
+      } else if (res && Array.isArray(res.history)) {
+        raw = res.history;
+      } else if (res && Array.isArray(res.data)) {
+        raw = res.data;
+      } else if (res && Array.isArray(res.result)) {
+        raw = res.result;
+      } else if (res && Array.isArray(res.json)) {
+        raw = res.json;
+      }
+      const unwrapped = raw.map(item => (item && item.json !== undefined ? item.json : item));
+      const mapped = unwrapped.map((h, idx) => {
         return {
           id: h.id || h.history_id || `hist-${idx + 1}`,
           videoId: h.videoId || h.video_id || h.id,
           title: h.title || h.video_title || h.name || 'Video Lesson',
-          thumbnail: h.thumbnail || h.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
+          thumbnail: h.thumbnail || h.image || h.thumbnail_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
           duration: h.duration || '12:00',
           category: h.category || h.category_name || 'General',
           course_title: h.course_title || h.courseTitle || '',
@@ -544,6 +595,7 @@ const UserDashboard = () => {
       console.error("Failed to load watch history from vdUser getWatchHistory API", e);
     } finally {
       setWatchHistoryLoading(false);
+      setLoading(false);
     }
   };
 
@@ -1777,6 +1829,27 @@ const UserDashboard = () => {
                         ))}
                       </div>
                     )}
+                  </div>
+                ) : playlistVideosList.length > 0 ? (
+                  <div>
+                    {/* Flat Playlist Videos Grid */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.playlist', 'Playlist')}</h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                          {t('sidebar.subPlaylist', 'Your saved playlist videos')}
+                        </p>
+                      </div>
+                      <span className="badge badge-active" style={{ fontSize: '12px' }}>
+                        {playlistVideosList.length} Videos
+                      </span>
+                    </div>
+
+                    <div className="youtube-video-grid">
+                      {playlistVideosList.map(video => (
+                        <VideoCard key={video.id || video.video_id} video={video} />
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div>
