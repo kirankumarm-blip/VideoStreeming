@@ -1344,13 +1344,14 @@ const UserDashboard = () => {
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ color: '#f59e0b', fontSize: '12px' }}>{renderStars(video.rating)}</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>({video.rating || 4.5})</span>
-            </div>
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
               {video.views || 0} {t('video.views')}
             </div>
+            {video.duration && (
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                {video.duration}
+              </div>
+            )}
           </div>
 
           {percentage > 0 && (
