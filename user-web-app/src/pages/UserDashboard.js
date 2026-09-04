@@ -573,20 +573,69 @@ const UserDashboard = () => {
       }
       const unwrapped = raw.map(item => (item && item.json !== undefined ? item.json : item));
       const mapped = unwrapped.map((h, idx) => {
+        // Handle completion percentage key variants (e.g. "completion percentage", "completion_percentage", "completionPercentage", "progress")
+        const rawPct = h['completion percentage'] !== undefined 
+          ? h['completion percentage'] 
+          : (h.completion_percentage !== undefined 
+            ? h.completion_percentage 
+            : (h.completionPercentage !== undefined 
+              ? h.completionPercentage 
+              : (h.progress !== undefined ? h.progress : (h.status === 'completed' ? 100 : 0))));
+        
+        const numPct = Math.min(100, Math.max(0, parseFloat(rawPct) || 0));
+        const isCompleted = numPct >= 95 || h.status === 'completed' || h['status'] === 'completed';
+
+        // Handle video duration key variants (e.g. "video_duration_sec", "video_duration", "duration_sec", "duration")
+        const rawDuration = h.video_duration_sec || h.video_duration || h.duration_sec || h.duration || h.video_length || '';
+        let formattedDuration = '12:00';
+        if (rawDuration) {
+          if (typeof rawDuration === 'string' && rawDuration.includes(':')) {
+            formattedDuration = rawDuration;
+          } else {
+            const s = parseInt(rawDuration, 10);
+            if (!isNaN(s) && s > 0) {
+              const m = Math.floor(s / 60);
+              const rem = s % 60;
+              formattedDuration = `${m}:${rem < 10 ? '0' : ''}${rem}`;
+            } else if (typeof rawDuration === 'string') {
+              formattedDuration = rawDuration;
+            }
+          }
+        }
+
+        // Handle date/time
+        const dateStr = h.date || h.watched_at || h.watchDate || h.watch_date || h.created_at || '';
+
+        const vidId = h.id || h.video_id || h.videoId || `hist-${idx + 1}`;
+        const vidUrl = h.video_url || h.videoUrl || h.url || '';
+        const vidTitle = h.title || h.video_title || h.name || 'Untitled Lesson';
+        const vidThumb = h.thumbnail || h.image || h.thumbnail_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
+
         return {
-          id: h.id || h.history_id || `hist-${idx + 1}`,
-          videoId: h.videoId || h.video_id || h.id,
-          title: h.title || h.video_title || h.name || 'Video Lesson',
-          thumbnail: h.thumbnail || h.image || h.thumbnail_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
-          duration: h.duration || '12:00',
+          id: vidId,
+          videoId: vidId,
+          video_id: vidId,
+          title: vidTitle,
+          video_title: vidTitle,
+          name: vidTitle,
+          thumbnail: vidThumb,
+          thumbnailUrl: vidThumb,
+          image: vidThumb,
+          video_url: vidUrl,
+          videoUrl: vidUrl,
+          url: vidUrl,
+          duration: formattedDuration,
+          video_duration_sec: formattedDuration,
           category: h.category || h.category_name || 'General',
           course_title: h.course_title || h.courseTitle || '',
           chapter_title: h.chapter_title || h.chapterTitle || '',
-          watch_time: h.watch_time || h.watchTime || 0,
+          watch_time: h.watch_duration !== undefined ? h.watch_duration : (h.watch_time || h.watchTime || 0),
           last_position: h.last_position || h.lastPosition || 0,
-          completion_percentage: h.completion_percentage !== undefined ? h.completion_percentage : (h.completionPercentage || 0),
-          status: h.status || (h.completion_percentage >= 95 ? 'completed' : 'in_progress'),
-          watched_at: h.watched_at || h.watchDate || h.watch_date || h.created_at || new Date().toISOString(),
+          completion_percentage: numPct,
+          completionPercentage: numPct,
+          status: isCompleted ? 'completed' : 'in_progress',
+          watched_at: dateStr || new Date().toISOString(),
+          date: dateStr,
           views: h.views || 1
         };
       });
@@ -1994,9 +2043,13 @@ const UserDashboard = () => {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {watchHistoryList.map(item => {
-                      const pct = Math.min(100, Math.max(0, item.completion_percentage || 0));
+                      const pct = Math.min(100, Math.max(0, item.completion_percentage !== undefined ? item.completion_percentage : 0));
                       const isComplete = item.status === 'completed' || pct >= 95;
                       const videoTargetId = item.videoId || item.video_id || item.id;
+                      const handleNavigateToWatch = () => {
+                        navigate(`/watch/${videoTargetId}`, { state: { video: item } });
+                      };
+
                       return (
                         <div 
                           key={item.id}
@@ -2015,7 +2068,7 @@ const UserDashboard = () => {
                         >
                           {/* Thumbnail with duration & progress bar */}
                           <div 
-                            onClick={() => navigate(`/watch/${videoTargetId}`)}
+                            onClick={handleNavigateToWatch}
                             style={{
                               position: 'relative',
                               width: '220px',
@@ -2097,7 +2150,7 @@ const UserDashboard = () => {
                             </div>
 
                             <h3 
-                              onClick={() => navigate(`/watch/${videoTargetId}`)}
+                              onClick={handleNavigateToWatch}
                               style={{ 
                                 fontSize: '16px', 
                                 fontWeight: 700, 
@@ -2117,7 +2170,7 @@ const UserDashboard = () => {
                             )}
 
                             <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                              <span><i className="fa-regular fa-calendar"></i> {item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'}</span>
+                              <span><i className="fa-regular fa-calendar"></i> {item.date || (item.watched_at && !item.watched_at.includes('T') ? item.watched_at : (item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'))}</span>
                               {item.watch_time > 0 && <span><i className="fa-regular fa-eye"></i> {Math.round(item.watch_time / 60)} mins watched</span>}
                             </div>
                           </div>
@@ -2125,7 +2178,7 @@ const UserDashboard = () => {
                           {/* Action Button */}
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             <button
-                              onClick={() => navigate(`/watch/${videoTargetId}`)}
+                              onClick={handleNavigateToWatch}
                               className="btn btn-primary"
                               style={{
                                 display: 'inline-flex',
