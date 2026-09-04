@@ -454,39 +454,7 @@ const UserDashboard = () => {
       if (currentCatObj && currentCatObj.sub_categories && currentCatObj.sub_categories.length > 0) {
         setDynamicSubCategories(currentCatObj.sub_categories);
       } else {
-        // Fetch subcategories dynamically from vdUser API passing categoryId and state
-        const subPayload = {};
-        if (catState) {
-          subPayload.state = catState;
-          subPayload.visibility = catState;
-        }
-        if (catName) {
-          subPayload.category_name = catName;
-        }
-        api.user.getSubCategories(catId, subPayload).then(res => {
-          console.log(`Subcategories from API for category ${catId} (state: ${catState}):`, res);
-          let raw = Array.isArray(res) ? res : (res?.sub_categories || res?.subCategories || res?.data || res?.result || res?.json || []);
-          if (typeof raw === 'string') {
-            try { raw = JSON.parse(raw); } catch(e) { raw = raw.split(',').map(s => s.trim()).filter(Boolean); }
-          }
-          if (Array.isArray(raw) && raw.length > 0) {
-            const mappedSub = raw.map((s, sIdx) => {
-              if (typeof s === 'string') return { id: s, name: s, title: s };
-              return {
-                id: s.id || s.sub_category_id || s.subcategory_id || s.name || `sub-${sIdx + 1}`,
-                name: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
-                title: s.name || s.title || s.sub_category_name || s.subcategory_name || `Subcategory ${sIdx + 1}`,
-                ...s
-              };
-            }).filter(s => s && s.name);
-            setDynamicSubCategories(mappedSub);
-          } else {
-            setDynamicSubCategories([]);
-          }
-        }).catch(err => {
-          console.log("No subcategories returned from API:", err);
-          setDynamicSubCategories([]);
-        });
+        setDynamicSubCategories([]);
       }
     } else {
       setCategoryVideosList([]);
