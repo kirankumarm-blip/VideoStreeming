@@ -351,6 +351,7 @@ const UserDashboard = () => {
   // Favorites
   const [favIds, setFavIds] = useState(new Set());
   const [favoritesList, setFavoritesList] = useState([]);
+  const [watchLaterSearch, setWatchLaterSearch] = useState('');
   const [downloadsList, setDownloadsList] = useState([]);
   const [exploreVideosList, setExploreVideosList] = useState([]);
   const [hasFetchedExplore, setHasFetchedExplore] = useState(false);
@@ -366,10 +367,12 @@ const UserDashboard = () => {
   const [playlistVideosList, setPlaylistVideosList] = useState([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlistSearch, setPlaylistSearch] = useState('');
 
   // Dedicated Watch History state (calling vdUser with formstep getWatchHistory)
   const [watchHistoryList, setWatchHistoryList] = useState([]);
   const [watchHistoryLoading, setWatchHistoryLoading] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
 
   // Dynamic Categories state (calling vdUser with formstep getAllCategories)
   const [allCategoriesList, setAllCategoriesList] = useState([]);
@@ -2207,354 +2210,666 @@ const UserDashboard = () => {
             )}
 
             {/* ================= WATCH LATER VIEW ================= */}
-            {activeView === 'watch_later' && (
-              <div className="animate-fade-in">
-                <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>{t('sidebar.watchLater')}</h2>
-                {favoritesList.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
-                    {language === 'hi' ? 'कोई बुकमार्क किए गए वीडियो नहीं मिले।' : language === 'kn' ? 'ಬುಕ್ಮಾರ್ಕ್ ಮಾಡಿದ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No bookmarked videos found.'}
-                  </div>
-                ) : (
-                  <div className="youtube-video-grid">
-                    {favoritesList.map(video => (
-                      <VideoCard key={video.id} video={video} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {activeView === 'watch_later' && (() => {
+              const query = (watchLaterSearch || searchQuery || '').trim().toLowerCase();
+              const filteredFavorites = favoritesList.filter(video => {
+                if (!query) return true;
+                const title = (video.title || video.video_title || video.name || '').toLowerCase();
+                const desc = (video.description || video.desc || '').toLowerCase();
+                const instructor = (video.instructor || video.author || '').toLowerCase();
+                const cat = (video.category || video.category_name || '').toLowerCase();
+                return title.includes(query) || desc.includes(query) || instructor.includes(query) || cat.includes(query);
+              });
 
-            {/* ================= PLAYLIST VIEW (vdUser: getPlayList) ================= */}
-            {(activeView === 'playlist' || activeView === 'playlists') && (
-              <div className="animate-fade-in">
-                {selectedPlaylist ? (
-                  <div>
-                    {/* Playlist Detail Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                      <button 
-                        onClick={() => setSelectedPlaylist(null)}
-                        className="btn btn-secondary"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', fontSize: '13px' }}
-                      >
-                        <i className="fa-solid fa-arrow-left"></i> {t('user.backToPlaylists', 'Back to Playlists')}
-                      </button>
-                      <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>
-                        {selectedPlaylist.title || selectedPlaylist.name}
-                      </h2>
-                      <span className="badge badge-active" style={{ fontSize: '12px' }}>
-                        {selectedPlaylist.videos?.length || selectedPlaylist.video_count || 0} Lessons
-                      </span>
-                    </div>
-
-                    {selectedPlaylist.description && (
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', maxWidth: '800px', lineHeight: '1.6' }}>
-                        {selectedPlaylist.description}
+              return (
+                <div className="animate-fade-in">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.watchLater')}</h2>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                        {language === 'hi' ? 'आपके सहेजे गए वीडियो' : language === 'kn' ? 'ನಿಮ್ಮ ಉಳಿಸಿದ ವೀಡಿಯೊಗಳು' : 'Your saved videos to watch later'}
                       </p>
-                    )}
-
-                    {(!selectedPlaylist.videos || selectedPlaylist.videos.length === 0) ? (
-                      <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
-                        {language === 'hi' ? 'इस प्लेलिस्ट में कोई वीडियो नहीं है।' : language === 'kn' ? 'ಈ ಪ್ಲೇಪಟ್ಟಿಯಲ್ಲಿ ಯಾವುದೇ ವೀಡಿಯೊಗಳಿಲ್ಲ.' : 'No videos in this playlist yet.'}
-                      </div>
-                    ) : (
-                      <div className="youtube-video-grid">
-                        {selectedPlaylist.videos.map(video => (
-                          <VideoCard key={video.id || video.video_id} video={video} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : playlistVideosList.length > 0 ? (
-                  <div>
-                    {/* Flat Playlist Videos Grid */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.playlist', 'Playlist')}</h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
-                          {t('sidebar.subPlaylist', 'Your saved playlist videos')}
-                        </p>
-                      </div>
-                      <span className="badge badge-active" style={{ fontSize: '12px' }}>
-                        {playlistVideosList.length} Videos
-                      </span>
                     </div>
 
+                    {/* Search Input for Watch Later */}
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+                      <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '13px' }}></i>
+                      <input 
+                        type="text"
+                        placeholder={t('user.searchWatchLater', 'Search watch later videos...')}
+                        value={watchLaterSearch}
+                        onChange={(e) => setWatchLaterSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 36px 10px 40px',
+                          borderRadius: '24px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          outline: 'none',
+                          transition: 'border-color 0.2s, box-shadow 0.2s',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                      />
+                      {watchLaterSearch && (
+                        <button 
+                          onClick={() => setWatchLaterSearch('')}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            padding: '2px 4px'
+                          }}
+                          title="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {favoritesList.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                      🔖 {language === 'hi' ? 'कोई बुकमार्क किए गए वीडियो नहीं मिले।' : language === 'kn' ? 'ಬುಕ್ಮಾರ್ಕ್ ಮಾಡಿದ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No bookmarked videos found.'}
+                    </div>
+                  ) : filteredFavorites.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                      🔍 {language === 'hi' ? `"${query}" के लिए कोई वीडियो नहीं मिला।` : language === 'kn' ? `"${query}" ಗಾಗಿ ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.` : `No videos found matching "${query}".`}
+                    </div>
+                  ) : (
                     <div className="youtube-video-grid">
-                      {playlistVideosList.map(video => (
+                      {filteredFavorites.map(video => (
                         <VideoCard key={video.id || video.video_id} video={video} />
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    {/* Playlists Grid */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ================= PLAYLIST VIEW (vdUser: getPlayList) ================= */}
+            {(activeView === 'playlist' || activeView === 'playlists') && (() => {
+              const query = (playlistSearch || searchQuery || '').trim().toLowerCase();
+
+              return (
+                <div className="animate-fade-in">
+                  {selectedPlaylist ? (() => {
+                    const filteredPlaylistVideos = (selectedPlaylist.videos || []).filter(video => {
+                      if (!query) return true;
+                      const title = (video.title || video.video_title || video.name || '').toLowerCase();
+                      const desc = (video.description || video.desc || '').toLowerCase();
+                      const instructor = (video.instructor || video.author || '').toLowerCase();
+                      const cat = (video.category || video.category_name || '').toLowerCase();
+                      return title.includes(query) || desc.includes(query) || instructor.includes(query) || cat.includes(query);
+                    });
+
+                    return (
                       <div>
-                        <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.playlist', 'Playlist')}</h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
-                          {t('sidebar.subPlaylist', 'Curated & custom video playlists')}
-                        </p>
-                      </div>
-                      <span className="badge badge-active" style={{ fontSize: '12px' }}>
-                        {playlistsList.length} Playlists
-                      </span>
-                    </div>
-
-                    {playlistLoading ? (
-                      <div className="youtube-video-grid">
-                        {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
-                      </div>
-                    ) : playlistsList.length === 0 ? (
-                      <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
-                        📑 {language === 'hi' ? 'कोई प्लेलिस्ट नहीं मिली।' : language === 'kn' ? 'ಯಾವುದೇ ಪ್ಲೇಪಟ್ಟಿಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No playlists found.'}
-                      </div>
-                    ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '22px' }}>
-                        {playlistsList.map(pl => (
-                          <div 
-                            key={pl.id}
-                            onClick={() => setSelectedPlaylist(pl)}
-                            className="glass-card"
-                            style={{
-                              padding: '0',
-                              borderRadius: '16px',
-                              overflow: 'hidden',
-                              cursor: 'pointer',
-                              border: '1px solid var(--border-color)',
-                              background: 'var(--bg-secondary)',
-                              transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
-                              display: 'flex',
-                              flexDirection: 'column'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-4px)';
-                              e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.18)';
-                              e.currentTarget.style.borderColor = 'var(--accent-color, #2563eb)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = 'none';
-                              e.currentTarget.style.borderColor = 'var(--border-color)';
-                            }}
-                          >
-                            {/* Playlist Cover Image with Video Count Badge */}
-                            <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#0f172a' }}>
-                              <img 
-                                src={pl.thumbnail} 
-                                alt={pl.name}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                onError={(e) => {
-                                  e.target.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60';
-                                }}
-                              />
-                              <div style={{
-                                position: 'absolute',
-                                top: '10px',
-                                right: '10px',
-                                background: 'rgba(0, 0, 0, 0.75)',
-                                color: '#fff',
-                                padding: '4px 10px',
-                                borderRadius: '14px',
-                                fontSize: '11.5px',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                backdropFilter: 'blur(4px)'
-                              }}>
-                                <i className="fa-solid fa-list-ul"></i> {pl.video_count || pl.videos?.length || 0} Videos
-                              </div>
-                              <div style={{
-                                position: 'absolute',
-                                inset: 0,
-                                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)',
-                                display: 'flex',
-                                alignItems: 'flex-end',
-                                padding: '14px'
-                              }}>
-                                <span style={{ color: '#fff', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <i className="fa-solid fa-circle-play" style={{ color: 'var(--accent-color, #38bdf8)' }}></i> View Playlist
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Playlist Meta Details */}
-                            <div style={{ padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                              <div>
-                                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px 0', lineHeight: 1.4 }}>
-                                  {pl.title || pl.name}
-                                </h3>
-                                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                  {pl.description}
-                                </p>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-                                <span><i className="fa-regular fa-clock"></i> {pl.videos?.length || pl.video_count || 0} Lessons</span>
-                                <span style={{ color: 'var(--accent-color, #2563eb)', fontWeight: 600 }}>Open ➔</span>
-                              </div>
-                            </div>
+                        {/* Playlist Detail Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                            <button 
+                              onClick={() => {
+                                setSelectedPlaylist(null);
+                                setPlaylistSearch('');
+                              }}
+                              className="btn btn-secondary"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', borderRadius: '20px', fontSize: '13px' }}
+                            >
+                              <i className="fa-solid fa-arrow-left"></i> {t('user.backToPlaylists', 'Back to Playlists')}
+                            </button>
+                            <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>
+                              {selectedPlaylist.title || selectedPlaylist.name}
+                            </h2>
+                            <span className="badge badge-active" style={{ fontSize: '12px' }}>
+                              {selectedPlaylist.videos?.length || selectedPlaylist.video_count || 0} Lessons
+                            </span>
                           </div>
-                        ))}
+
+                          {/* Search Input for Playlist Detail */}
+                          <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+                            <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '13px' }}></i>
+                            <input 
+                              type="text"
+                              placeholder={t('user.searchPlaylistVideos', 'Search lessons in playlist...')}
+                              value={playlistSearch}
+                              onChange={(e) => setPlaylistSearch(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '10px 36px 10px 40px',
+                                borderRadius: '24px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                fontSize: '13px',
+                                outline: 'none',
+                                transition: 'border-color 0.2s, box-shadow 0.2s',
+                                boxShadow: 'var(--shadow-sm)'
+                              }}
+                              onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                            />
+                            {playlistSearch && (
+                              <button 
+                                onClick={() => setPlaylistSearch('')}
+                                style={{
+                                  position: 'absolute',
+                                  right: '12px',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--text-secondary)',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                  padding: '2px 4px'
+                                }}
+                                title="Clear search"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedPlaylist.description && (
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', maxWidth: '800px', lineHeight: '1.6' }}>
+                            {selectedPlaylist.description}
+                          </p>
+                        )}
+
+                        {(!selectedPlaylist.videos || selectedPlaylist.videos.length === 0) ? (
+                          <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                            {language === 'hi' ? 'इस प्लेलिस्ट में कोई वीडियो नहीं है।' : language === 'kn' ? 'ಈ ಪ್ಲೇಪಟ್ಟಿಯಲ್ಲಿ ಯಾವುದೇ ವೀಡಿಯೊಗಳಿಲ್ಲ.' : 'No videos in this playlist yet.'}
+                          </div>
+                        ) : filteredPlaylistVideos.length === 0 ? (
+                          <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                            🔍 {language === 'hi' ? `"${query}" के लिए कोई वीडियो नहीं मिला।` : language === 'kn' ? `"${query}" ಗಾಗಿ ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.` : `No videos found matching "${query}".`}
+                          </div>
+                        ) : (
+                          <div className="youtube-video-grid">
+                            {filteredPlaylistVideos.map(video => (
+                              <VideoCard key={video.id || video.video_id} video={video} />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                    );
+                  })() : playlistVideosList.length > 0 ? (() => {
+                    const filteredFlatVideos = playlistVideosList.filter(video => {
+                      if (!query) return true;
+                      const title = (video.title || video.video_title || video.name || '').toLowerCase();
+                      const desc = (video.description || video.desc || '').toLowerCase();
+                      const instructor = (video.instructor || video.author || '').toLowerCase();
+                      const cat = (video.category || video.category_name || '').toLowerCase();
+                      return title.includes(query) || desc.includes(query) || instructor.includes(query) || cat.includes(query);
+                    });
+
+                    return (
+                      <div>
+                        {/* Flat Playlist Videos Grid */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                          <div>
+                            <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.playlist', 'Playlist')}</h2>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                              {t('sidebar.subPlaylist', 'Your saved playlist videos')}
+                            </p>
+                          </div>
+
+                          {/* Search Input for Flat Playlist Videos */}
+                          <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+                            <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '13px' }}></i>
+                            <input 
+                              type="text"
+                              placeholder={t('user.searchPlaylistVideos', 'Search playlist videos...')}
+                              value={playlistSearch}
+                              onChange={(e) => setPlaylistSearch(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '10px 36px 10px 40px',
+                                borderRadius: '24px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                fontSize: '13px',
+                                outline: 'none',
+                                transition: 'border-color 0.2s, box-shadow 0.2s',
+                                boxShadow: 'var(--shadow-sm)'
+                              }}
+                              onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                            />
+                            {playlistSearch && (
+                              <button 
+                                onClick={() => setPlaylistSearch('')}
+                                style={{
+                                  position: 'absolute',
+                                  right: '12px',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--text-secondary)',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                  padding: '2px 4px'
+                                }}
+                                title="Clear search"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {filteredFlatVideos.length === 0 ? (
+                          <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                            🔍 {language === 'hi' ? `"${query}" के लिए कोई वीडियो नहीं मिला।` : language === 'kn' ? `"${query}" ಗಾಗಿ ಯಾವುದೇ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.` : `No videos found matching "${query}".`}
+                          </div>
+                        ) : (
+                          <div className="youtube-video-grid">
+                            {filteredFlatVideos.map(video => (
+                              <VideoCard key={video.id || video.video_id} video={video} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : (() => {
+                    const filteredPlaylists = playlistsList.filter(pl => {
+                      if (!query) return true;
+                      const title = (pl.title || pl.name || '').toLowerCase();
+                      const desc = (pl.description || '').toLowerCase();
+                      return title.includes(query) || desc.includes(query);
+                    });
+
+                    return (
+                      <div>
+                        {/* Playlists Grid */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                          <div>
+                            <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.playlist', 'Playlist')}</h2>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                              {t('sidebar.subPlaylist', 'Curated & custom video playlists')}
+                            </p>
+                          </div>
+
+                          {/* Search Input for Playlists */}
+                          <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+                            <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '13px' }}></i>
+                            <input 
+                              type="text"
+                              placeholder={t('user.searchPlaylists', 'Search playlists...')}
+                              value={playlistSearch}
+                              onChange={(e) => setPlaylistSearch(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '10px 36px 10px 40px',
+                                borderRadius: '24px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                fontSize: '13px',
+                                outline: 'none',
+                                transition: 'border-color 0.2s, box-shadow 0.2s',
+                                boxShadow: 'var(--shadow-sm)'
+                              }}
+                              onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                            />
+                            {playlistSearch && (
+                              <button 
+                                onClick={() => setPlaylistSearch('')}
+                                style={{
+                                  position: 'absolute',
+                                  right: '12px',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--text-secondary)',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                  padding: '2px 4px'
+                                }}
+                                title="Clear search"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {playlistLoading ? (
+                          <div className="youtube-video-grid">
+                            {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
+                          </div>
+                        ) : playlistsList.length === 0 ? (
+                          <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                            📑 {language === 'hi' ? 'कोई प्लेलिस्ट नहीं मिली।' : language === 'kn' ? 'ಯಾವುದೇ ಪ್ಲೇಪಟ್ಟಿಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No playlists found.'}
+                          </div>
+                        ) : filteredPlaylists.length === 0 ? (
+                          <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                            🔍 {language === 'hi' ? `"${query}" के लिए कोई प्लेलिस्ट नहीं मिली।` : language === 'kn' ? `"${query}" ಗಾಗಿ ಯಾವುದೇ ಪ್ಲೇಪಟ್ಟಿಗಳು ಕಂಡುಬಂದಿಲ್ಲ.` : `No playlists found matching "${query}".`}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '22px' }}>
+                            {filteredPlaylists.map(pl => (
+                              <div 
+                                key={pl.id}
+                                onClick={() => setSelectedPlaylist(pl)}
+                                className="glass-card"
+                                style={{
+                                  padding: '0',
+                                  borderRadius: '16px',
+                                  overflow: 'hidden',
+                                  cursor: 'pointer',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-secondary)',
+                                  transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
+                                  display: 'flex',
+                                  flexDirection: 'column'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(-4px)';
+                                  e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.18)';
+                                  e.currentTarget.style.borderColor = 'var(--accent-color, #2563eb)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                  e.currentTarget.style.boxShadow = 'none';
+                                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                                }}
+                              >
+                                {/* Playlist Cover Image with Video Count Badge */}
+                                <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#0f172a' }}>
+                                  <img 
+                                    src={pl.thumbnail} 
+                                    alt={pl.name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    onError={(e) => {
+                                      e.target.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60';
+                                    }}
+                                  />
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '10px',
+                                    right: '10px',
+                                    background: 'rgba(0, 0, 0, 0.75)',
+                                    color: '#fff',
+                                    padding: '4px 10px',
+                                    borderRadius: '14px',
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    backdropFilter: 'blur(4px)'
+                                  }}>
+                                    <i className="fa-solid fa-list-ul"></i> {pl.video_count || pl.videos?.length || 0} Videos
+                                  </div>
+                                  <div style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)',
+                                    display: 'flex',
+                                    alignItems: 'flex-end',
+                                    padding: '14px'
+                                  }}>
+                                    <span style={{ color: '#fff', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <i className="fa-solid fa-circle-play" style={{ color: 'var(--accent-color, #38bdf8)' }}></i> View Playlist
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Playlist Meta Details */}
+                                <div style={{ padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                  <div>
+                                    <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px 0', lineHeight: 1.4 }}>
+                                      {pl.title || pl.name}
+                                    </h3>
+                                    <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                      {pl.description}
+                                    </p>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                                    <span><i className="fa-regular fa-clock"></i> {pl.videos?.length || pl.video_count || 0} Lessons</span>
+                                    <span style={{ color: 'var(--accent-color, #2563eb)', fontWeight: 600 }}>Open ➔</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            })()}
 
             {/* ================= WATCH HISTORY VIEW (vdUser: getWatchHistory) ================= */}
-            {(activeView === 'watch_history' || activeView === 'history') && (
-              <div className="animate-fade-in">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
-                    <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.watchHistory', 'Watch History')}</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
-                      {t('sidebar.subWatchHistory', 'Videos and lessons you recently watched')}
-                    </p>
-                  </div>
-                  <span className="badge badge-active" style={{ fontSize: '12px' }}>
-                    {watchHistoryList.length} Watched Lessons
-                  </span>
-                </div>
+            {(activeView === 'watch_history' || activeView === 'history') && (() => {
+              const query = (historySearch || searchQuery || '').trim().toLowerCase();
+              const filteredHistory = watchHistoryList.filter(item => {
+                if (!query) return true;
+                const title = (item.title || item.video_title || item.name || '').toLowerCase();
+                const courseTitle = (item.course_title || item.courseName || '').toLowerCase();
+                const desc = (item.description || item.desc || '').toLowerCase();
+                const instructor = (item.instructor || item.author || '').toLowerCase();
+                const cat = (item.category || item.category_name || '').toLowerCase();
+                return title.includes(query) || courseTitle.includes(query) || desc.includes(query) || instructor.includes(query) || cat.includes(query);
+              });
 
-                {watchHistoryLoading ? (
-                  <div className="youtube-video-grid">
-                    {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
-                  </div>
-                ) : watchHistoryList.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
-                    🕒 {language === 'hi' ? 'कोई देखने का इतिहास नहीं मिला।' : language === 'kn' ? 'ಯಾವುದೇ ವೀಕ್ಷಣೆ ಇತಿಹಾಸ ಕಂಡುಬಂದಿಲ್ಲ.' : 'No watch history recorded yet. Start watching videos to build your history!'}
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {watchHistoryList.map(item => {
-                      const pct = Math.min(100, Math.max(0, item.completion_percentage !== undefined ? item.completion_percentage : 0));
-                      const isComplete = item.status === 'completed' || pct >= 95;
-                      const videoTargetId = item.videoId || item.video_id || item.id;
-                      const handleNavigateToWatch = () => {
-                        navigate(`/watch/${videoTargetId}`, { state: { video: item } });
-                      };
+              return (
+                <div className="animate-fade-in">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.watchHistory', 'Watch History')}</h2>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '4px 0 0 0' }}>
+                        {t('sidebar.subWatchHistory', 'Videos and lessons you recently watched')}
+                      </p>
+                    </div>
 
-                      return (
-                        <div 
-                          key={item.id}
-                          className="glass-card"
+                    {/* Search Input for Watch History */}
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+                      <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: '13px' }}></i>
+                      <input 
+                        type="text"
+                        placeholder={t('user.searchWatchHistory', 'Search watch history...')}
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 36px 10px 40px',
+                          borderRadius: '24px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          outline: 'none',
+                          transition: 'border-color 0.2s, box-shadow 0.2s',
+                          boxShadow: 'var(--shadow-sm)'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                      />
+                      {historySearch && (
+                        <button 
+                          onClick={() => setHistorySearch('')}
                           style={{
-                            display: 'flex',
-                            gap: '20px',
-                            padding: '16px',
-                            borderRadius: '16px',
-                            border: '1px solid var(--border-color)',
-                            background: 'var(--bg-secondary)',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            transition: 'all 0.2s ease'
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            padding: '2px 4px'
                           }}
+                          title="Clear search"
                         >
-                          {/* Thumbnail with duration & progress bar */}
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {watchHistoryLoading ? (
+                    <div className="youtube-video-grid">
+                      {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
+                    </div>
+                  ) : watchHistoryList.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                      🕒 {language === 'hi' ? 'कोई देखने का इतिहास नहीं मिला।' : language === 'kn' ? 'ಯಾವುದೇ ವೀಕ್ಷಣೆ ಇತಿಹಾಸ ಕಂಡುಬಂದಿಲ್ಲ.' : 'No watch history recorded yet. Start watching videos to build your history!'}
+                    </div>
+                  ) : filteredHistory.length === 0 ? (
+                    <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
+                      🔍 {language === 'hi' ? `"${query}" के लिए कोई इतिहास नहीं मिला।` : language === 'kn' ? `"${query}" ಗಾಗಿ ಯಾವುದೇ ಇತಿಹಾಸ ಕಂಡುಬಂದಿಲ್ಲ.` : `No watch history found matching "${query}".`}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {filteredHistory.map(item => {
+                        const pct = Math.min(100, Math.max(0, item.completion_percentage !== undefined ? item.completion_percentage : 0));
+                        const isComplete = item.status === 'completed' || pct >= 95;
+                        const videoTargetId = item.videoId || item.video_id || item.id;
+                        const handleNavigateToWatch = () => {
+                          navigate(`/watch/${videoTargetId}`, { state: { video: item } });
+                        };
+
+                        return (
                           <div 
-                            onClick={handleNavigateToWatch}
+                            key={item.id}
+                            className="glass-card"
                             style={{
-                              position: 'relative',
-                              width: '220px',
-                              minWidth: '200px',
-                              aspectRatio: '16/9',
-                              borderRadius: '12px',
-                              overflow: 'hidden',
-                              cursor: 'pointer',
-                              background: '#0f172a',
-                              flexShrink: 0
+                              display: 'flex',
+                              gap: '20px',
+                              padding: '16px',
+                              borderRadius: '16px',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--bg-secondary)',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              transition: 'all 0.2s ease'
                             }}
                           >
-                            <img 
-                              src={item.thumbnail} 
-                              alt={item.title}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
-                              }}
-                            />
-                            {/* Duration Badge */}
-                            {item.duration && (
-                              <div style={{
-                                position: 'absolute',
-                                bottom: '8px',
-                                right: '8px',
-                                background: 'rgba(0, 0, 0, 0.8)',
-                                color: '#fff',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 600
-                              }}>
-                                {item.duration}
-                              </div>
-                            )}
-                            {/* Progress Bar at Bottom */}
-                            <div style={{
-                              position: 'absolute',
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              height: '4px',
-                              background: 'rgba(255,255,255,0.2)'
-                            }}>
-                              <div style={{
-                                height: '100%',
-                                width: `${pct}%`,
-                                background: isComplete ? '#10b981' : '#e50914'
-                              }} />
-                            </div>
-                          </div>
-
-                          {/* Info Column */}
-                          <div style={{ flex: 1, minWidth: '240px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                              {item.category && (
-                                <span style={{
-                                  fontSize: '11px',
-                                  padding: '2px 8px',
-                                  borderRadius: '10px',
-                                  background: 'rgba(56, 189, 248, 0.15)',
-                                  color: '#38bdf8',
-                                  fontWeight: 600
-                                }}>
-                                  {item.category}
-                                </span>
-                              )}
-                              <span style={{
-                                fontSize: '11px',
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                background: isComplete ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                color: isComplete ? '#10b981' : '#f59e0b',
-                                fontWeight: 700
-                              }}>
-                                {isComplete ? '✓ Completed' : `⏳ In Progress (${Math.round(pct)}%)`}
-                              </span>
-                            </div>
-
-                            <h3 
+                            {/* Thumbnail with duration & progress bar */}
+                            <div 
                               onClick={handleNavigateToWatch}
-                              style={{ 
-                                fontSize: '16px', 
-                                fontWeight: 700, 
-                                margin: '0 0 6px 0', 
-                                color: 'var(--text-primary)', 
+                              style={{
+                                position: 'relative',
+                                width: '220px',
+                                minWidth: '200px',
+                                aspectRatio: '16/9',
+                                borderRadius: '12px',
+                                overflow: 'hidden',
                                 cursor: 'pointer',
-                                lineHeight: 1.4
+                                background: '#0f172a',
+                                flexShrink: 0
                               }}
                             >
-                              {item.title}
-                            </h3>
+                              <img 
+                                src={item.thumbnail} 
+                                alt={item.title}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => {
+                                  e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
+                                }}
+                              />
+                              {/* Duration Badge */}
+                              {item.duration && (
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: '8px',
+                                  right: '8px',
+                                  background: 'rgba(0, 0, 0, 0.8)',
+                                  color: '#fff',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 600
+                                }}>
+                                  {item.duration}
+                                </div>
+                              )}
+                              {/* Progress Bar at Bottom */}
+                              <div style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                height: '4px',
+                                background: 'rgba(255,255,255,0.2)'
+                              }}>
+                                <div style={{
+                                  height: '100%',
+                                  width: `${pct}%`,
+                                  background: isComplete ? '#10b981' : '#e50914'
+                                }} />
+                              </div>
+                            </div>
 
-                            {(item.course_title || item.chapter_title) && (
-                              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
-                                📚 {item.course_title} {item.chapter_title ? `• ${item.chapter_title}` : ''}
-                              </p>
-                            )}
+                            {/* Info Column */}
+                            <div style={{ flex: 1, minWidth: '240px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                                {item.category && (
+                                  <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    background: 'rgba(99, 102, 241, 0.1)',
+                                    color: 'var(--accent-primary)',
+                                    border: '1px solid rgba(99, 102, 241, 0.2)'
+                                  }}>
+                                    {item.category}
+                                  </span>
+                                )}
+                                {item.watched_at && (
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    {new Date(item.watched_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {item.duration && (
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    ⏱️ {item.duration}
+                                  </span>
+                                )}
+                              </div>
 
-                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                              <h3 
+                                onClick={handleNavigateToWatch}
+                                style={{ 
+                                  fontSize: '16px', 
+                                  fontWeight: 700, 
+                                  margin: '0 0 6px 0', 
+                                  cursor: 'pointer',
+                                  color: 'var(--text-primary)',
+                                  lineHeight: 1.4
+                                }}
+                              >
+                                {item.title || item.video_title}
+                              </h3>
+
+                              {item.course_title && (
+                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                                  <span style={{ fontWeight: 600 }}>Course:</span> {item.course_title}
+                                </p>
+                              )}
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '10px' }}>
+                                <span style={{
                               <span><i className="fa-regular fa-calendar"></i> {item.date || (item.watched_at && !item.watched_at.includes('T') ? item.watched_at : (item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'))}</span>
                               {item.watch_time > 0 && <span><i className="fa-regular fa-eye"></i> {Math.round(item.watch_time / 60)} mins watched</span>}
                             </div>
