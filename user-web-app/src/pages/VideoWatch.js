@@ -1318,6 +1318,69 @@ const VideoWatch = () => {
   };
 
   const [savingWatchLater, setSavingWatchLater] = useState(false);
+  const [savingPlaylist, setSavingPlaylist] = useState(false);
+
+  const handleAddToPlaylist = async () => {
+    if (savingPlaylist) return;
+    setSavingPlaylist(true);
+    try {
+      const activeVid = videoRefData.current || video || location.state?.video;
+      const vidId = idRef.current || id || activeVid?.id;
+      const res = await api.user.addPlaylist({
+        video_id: vidId,
+        title: activeVid?.title || '',
+        thumbnail: activeVid?.thumbnail || activeVid?.thumbnailUrl || activeVid?.thumbnail_url || '',
+        video_url: activeVid?.videoUrl || activeVid?.video_url || ''
+      });
+
+      if (res?.status === 431 || res?.statusCode === 431 || res?.code === 431 || res?.message?.includes('already')) {
+        setCustomAlert({
+          show: true,
+          title: 'Playlist',
+          message: 'Video is already in playlist.',
+          buttonText: 'OK',
+          type: 'info',
+          icon: '📑'
+        });
+        return;
+      }
+
+      setCustomAlert({
+        show: true,
+        title: 'Playlist',
+        message: 'Video has been added to playlist.',
+        buttonText: 'OK',
+        type: 'success',
+        icon: '✓'
+      });
+    } catch (e) {
+      console.error("Add to Playlist error:", e);
+      const statusCode = e.status || e.statusCode || e.response?.status;
+      const is431 = statusCode === 431 || String(statusCode) === '431' || String(e.message || '').includes('431');
+
+      if (is431) {
+        setCustomAlert({
+          show: true,
+          title: 'Playlist',
+          message: 'Video is already in playlist.',
+          buttonText: 'OK',
+          type: 'info',
+          icon: '📑'
+        });
+      } else {
+        setCustomAlert({
+          show: true,
+          title: 'Playlist',
+          message: e.message || 'Unable to add to playlist. Please try again.',
+          buttonText: 'OK',
+          type: 'warning',
+          icon: '⚠️'
+        });
+      }
+    } finally {
+      setSavingPlaylist(false);
+    }
+  };
 
   const handleSaveToWatchLater = async () => {
     if (savingWatchLater) return;
@@ -1897,6 +1960,29 @@ const VideoWatch = () => {
               >
                 <span>🔖</span>
                 <span>{savingWatchLater ? 'Adding...' : 'Watch Later'}</span>
+              </button>
+
+              {/* Add to Playlist button */}
+              <button 
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '20px',
+                  padding: '8px 16px',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }} 
+                onClick={handleAddToPlaylist}
+                disabled={savingPlaylist}
+              >
+                <span>📑</span>
+                <span>{savingPlaylist ? 'Adding...' : 'Add to Playlist'}</span>
               </button>
             </div>
           </div>

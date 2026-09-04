@@ -942,6 +942,21 @@ export const api = {
           ...payload
         })
       });
+    },
+    addPlaylist: (data = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'addPlaylist',
+          video_id: data.video_id || data.videoId || data.id,
+          title: data.title || '',
+          thumbnail: data.thumbnail || data.image || '',
+          video_url: data.video_url || data.videoUrl || data.url || '',
+          ...data
+        })
+      });
     }
   },
   reports: {

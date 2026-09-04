@@ -1711,6 +1711,82 @@ const handleVdUser = (req, res) => {
     });
   }
 
+  // --- ADD TO PLAYLIST API (vdUser: formstep = addPlaylist) ---
+  if (formstep === 'addPlaylist' || formstep === 'addToPlaylist' || formstep === 'addPlayList') {
+    const videoId = req.body.video_id || req.body.videoId || req.body.id;
+    const title = req.body.title || req.body.video_title || '';
+    const thumbnail = req.body.thumbnail || req.body.thumnail || req.body.image || '';
+    const videoUrl = req.body.video_url || req.body.videoUrl || req.body.url || '';
+
+    if (!videoId && !title) {
+      return res.status(400).json({ success: false, message: 'Video ID or Title is required.' });
+    }
+
+    if (!db.playlists) {
+      db.playlists = [];
+    }
+
+    // Find default or first playlist for user, or create one
+    let targetPlaylist = db.playlists.find(p => (!userId || !p.userId || String(p.userId) === String(userId)));
+    if (!targetPlaylist) {
+      targetPlaylist = {
+        id: `pl-${Date.now()}`,
+        playlist_id: `pl-${Date.now()}`,
+        userId: userId || 'u-user1',
+        name: 'My Saved Playlist',
+        title: 'My Saved Playlist',
+        playlist_name: 'My Saved Playlist',
+        description: 'Videos saved by user.',
+        thumbnail: thumbnail || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60',
+        video_count: 0,
+        videos_count: 0,
+        videos: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      db.playlists.push(targetPlaylist);
+    }
+
+    if (!Array.isArray(targetPlaylist.videos)) {
+      targetPlaylist.videos = [];
+    }
+
+    const alreadyExists = targetPlaylist.videos.some(v => String(v.id || v.video_id) === String(videoId));
+    if (alreadyExists) {
+      return res.status(431).json({
+        success: false,
+        status: 431,
+        statusCode: 431,
+        message: 'Video is already in playlist.'
+      });
+    }
+
+    targetPlaylist.videos.push({
+      id: videoId,
+      video_id: videoId,
+      title: title,
+      video_title: title,
+      thumbnail: thumbnail,
+      video_url: videoUrl,
+      videoUrl: videoUrl,
+      added_at: new Date().toISOString()
+    });
+    targetPlaylist.video_count = targetPlaylist.videos.length;
+    targetPlaylist.videos_count = targetPlaylist.videos.length;
+    targetPlaylist.updated_at = new Date().toISOString();
+
+    writeDB(db);
+
+    return res.json({
+      success: true,
+      status: 200,
+      statusCode: 200,
+      formstep: 'addPlaylist',
+      message: 'Video has been added to playlist.',
+      playlist: targetPlaylist
+    });
+  }
+
   return res.json({ success: true, message: 'vdUser processed' });
 };
 
