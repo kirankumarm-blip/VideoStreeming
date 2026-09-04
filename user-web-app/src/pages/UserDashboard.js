@@ -1622,13 +1622,19 @@ const UserDashboard = () => {
 
                 {/* Subcategories Row */}
                 {selectedCategory && (() => {
-                  const currentCatObj = allCategoriesList.find(c => 
-                    (selectedCategory && typeof selectedCategory === 'object' && (c.id === selectedCategory.id || c.name === selectedCategory.name)) ||
-                    c.id === selectedCategory || 
-                    c.name === selectedCategory ||
-                    c.title === selectedCategory ||
-                    String(c.name || '').toLowerCase() === String(selectedCategory?.name || selectedCategory || '').toLowerCase()
-                  ) || (typeof selectedCategory === 'object' ? selectedCategory : null) || (dashboardData?.categories || []).find(c => c.name === selectedCategory || c.id === selectedCategory);
+                  const selCatName = typeof selectedCategory === 'object' ? (selectedCategory.name || selectedCategory.title || selectedCategory.category_name) : selectedCategory;
+                  const selCatId = typeof selectedCategory === 'object' ? (selectedCategory.id || selectedCategory.category_id) : selectedCategory;
+                  const selCatState = typeof selectedCategory === 'object' ? (selectedCategory.source || selectedCategory.state || selectedCategory.visibility || '') : '';
+                  const selUniqueId = typeof selectedCategory === 'object' ? selectedCategory.unique_id : null;
+
+                  const currentCatObj = (selectedCategory && typeof selectedCategory === 'object' && Array.isArray(selectedCategory.sub_categories) && selectedCategory.sub_categories.length > 0)
+                    ? selectedCategory
+                    : (allCategoriesList.find(c => 
+                        (selUniqueId && c.unique_id && c.unique_id === selUniqueId) ||
+                        (String(c.name).trim().toLowerCase() === String(selCatName).trim().toLowerCase() && (selCatState ? (c.source || c.state) === selCatState : true)) ||
+                        (String(c.id) === String(selCatId) && String(c.name).trim().toLowerCase() === String(selCatName).trim().toLowerCase()) ||
+                        (String(c.name).trim().toLowerCase() === String(selCatName).trim().toLowerCase())
+                      ) || (typeof selectedCategory === 'object' ? selectedCategory : null) || (dashboardData?.categories || []).find(c => c.name === selCatName || (c.id === selCatId && c.name === selCatName)));
                   
                   let rawSubCats = (currentCatObj?.sub_categories && currentCatObj.sub_categories.length > 0) 
                     ? currentCatObj.sub_categories 
@@ -1644,7 +1650,7 @@ const UserDashboard = () => {
                   }
 
                   if (!Array.isArray(rawSubCats)) {
-                    rawSubCats = [rawSubCats];
+                    rawSubCats = rawSubCats ? [rawSubCats] : [];
                   }
 
                   let subCats = rawSubCats.map((sub, sIdx) => {
@@ -1663,7 +1669,7 @@ const UserDashboard = () => {
 
                   // If still empty, extract from any videos matching this category
                   if (subCats.length === 0) {
-                    const catNameStr = String(currentCatObj?.name || selectedCategory?.name || selectedCategory || '').toLowerCase();
+                    const catNameStr = String(selCatName || '').toLowerCase();
                     const relevantVideos = [
                       ...(categoryVideosList || []),
                       ...((dashboardData?.trending || []).filter(v => String(v.category || '').toLowerCase() === catNameStr)),
