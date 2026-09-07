@@ -55,9 +55,12 @@ const getResourceIcon = (type) => {
 };
 
 const formatResourceSize = (bytes) => {
-  if (!bytes || isNaN(bytes)) return '';
+  if (bytes === undefined || bytes === null || bytes === '') return '';
+  if (typeof bytes === 'string' && (bytes.includes('KB') || bytes.includes('MB') || bytes.includes('GB') || bytes.includes('B'))) {
+    return bytes;
+  }
   const num = Number(bytes);
-  if (num === 0) return '0 B';
+  if (isNaN(num) || num <= 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(num) / Math.log(k));
@@ -1091,7 +1094,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               title: r.title || r.name || `Resource ${rIdx + 1}`,
               fileName: r.file_name || r.fileName || r.name || (rUrl ? rUrl.split('/').pop() : 'document.pdf'),
               fileUrl: rUrl,
-              fileSize: r.file_size || r.fileSize || 0,
+              fileSize: formatResourceSize(r.file_size || r.fileSize || 0),
               type: r.type || r.file_type || getResourceFileType(r.file_name || r.name || '', ''),
               uploadStatus: rUrl ? 'success' : null,
               uploadProgress: 100
@@ -2845,7 +2848,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             title: r.title || r.name || `Resource ${rIdx + 1}`,
             fileName: r.fileName || r.file_name || r.name || (parsedResUrl ? parsedResUrl.split('/').pop() : 'document.pdf'),
             fileUrl: parsedResUrl,
-            fileSize: r.fileSize || r.file_size || 0,
+            fileSize: formatResourceSize(r.fileSize || r.file_size || 0),
             type: r.type || r.file_type || getResourceFileType(r.fileName || r.file_name || '', ''),
             uploadStatus: parsedResUrl ? 'success' : null,
             uploadProgress: 100
@@ -3442,7 +3445,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const detectedType = getResourceFileType(file.name, file.type);
     updateResourceProp(chapterId, resourceId, 'uploadStatus', 'uploading');
     updateResourceProp(chapterId, resourceId, 'fileName', file.name);
-    updateResourceProp(chapterId, resourceId, 'fileSize', file.size);
+    updateResourceProp(chapterId, resourceId, 'fileSize', formatResourceSize(file.size));
     updateResourceProp(chapterId, resourceId, 'type', detectedType);
 
     const targetCh = (chapters || []).find(c => c.id === chapterId);
@@ -3498,7 +3501,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         isNew: true,
         title: file.name.replace(/\.[^/.]+$/, ""),
         fileName: file.name,
-        fileSize: file.size,
+        fileSize: formatResourceSize(file.size),
         type: detectedType,
         fileUrl: '',
         uploadStatus: 'uploading',
@@ -3760,7 +3763,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             title: r.title || r.fileName || `Resource ${rIdx + 1}`,
             file_name: r.fileName || r.file_name || 'document.pdf',
             file_url: await encryptUrl(r.fileUrl || r.file_url || ''),
-            file_size: r.fileSize || r.file_size || 0,
+            file_size: formatResourceSize(r.fileSize || r.file_size) || '0 B',
             type: r.type || getResourceFileType(r.fileName || '', ''),
             file_type: r.type || getResourceFileType(r.fileName || '', ''),
             order: rIdx + 1
