@@ -1579,6 +1579,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         isFetchingDropdownDataRef.current = false;
         fetchDropdownDataWithClient(null, 'course');
       }
+      fetchAuthorAdminsList();
+      fetchAdminsList();
     }
     if (activeTab === 'categories') {
       fetchCategories();
@@ -2185,34 +2187,65 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const fetchAuthorAdminsList = async () => {
     setLoadingAuthorAdmins(true);
     try {
-      let res = await api.videos.getAdmins();
-      console.log('Fetched author admins response from getAdmins:', res);
       let list = [];
-      if (Array.isArray(res)) {
-        list = res;
-      } else if (res && typeof res === 'object') {
-        if (Array.isArray(res.admins)) list = res.admins;
-        else if (Array.isArray(res.data)) list = res.data;
-        else if (Array.isArray(res.result)) list = res.result;
-        else if (res.id || res.alpha_id || res.name) list = [res];
+      // 1. Try getAuthorAdmin API
+      try {
+        const resAuthor = await api.vdadmins.getAuthorAdmin();
+        console.log('Fetched author admins response from getAuthorAdmin:', resAuthor);
+        if (Array.isArray(resAuthor)) {
+          list = resAuthor;
+        } else if (resAuthor && Array.isArray(resAuthor.data)) {
+          list = resAuthor.data;
+        } else if (resAuthor && Array.isArray(resAuthor.authorAdmins)) {
+          list = resAuthor.authorAdmins;
+        } else if (resAuthor && typeof resAuthor === 'object') {
+          const arrVal = Object.values(resAuthor).find(v => Array.isArray(v));
+          if (arrVal) list = arrVal;
+          else if (resAuthor.id || resAuthor.first_name || resAuthor.name) list = [resAuthor];
+        }
+      } catch (e) {
+        console.warn('getAuthorAdmin failed, trying fallback:', e);
       }
 
+      // 2. Fallback to getAthorAdmins
       if (!list || list.length === 0) {
-        res = await api.vdadminVideos.getAthorAdmins();
-        console.log('Fetched author admins response from getAthorAdmins:', res);
-        if (Array.isArray(res)) {
-          list = res;
-        } else if (res && Array.isArray(res.data)) {
-          list = res.data;
-        } else if (res && Array.isArray(res.result)) {
-          list = res.result;
-        } else if (res && typeof res === 'object') {
-          const arrKey = Object.keys(res).find(k => Array.isArray(res[k]));
-          if (arrKey) list = res[arrKey];
+        try {
+          const resOther = await api.vdadminVideos.getAthorAdmins();
+          console.log('Fetched author admins response from getAthorAdmins:', resOther);
+          if (Array.isArray(resOther)) {
+            list = resOther;
+          } else if (resOther && Array.isArray(resOther.data)) {
+            list = resOther.data;
+          } else if (resOther && Array.isArray(resOther.result)) {
+            list = resOther.result;
+          } else if (resOther && typeof resOther === 'object') {
+            const arrKey = Object.keys(resOther).find(k => Array.isArray(resOther[k]));
+            if (arrKey) list = resOther[arrKey];
+          }
+        } catch (e) {
+          console.warn('getAthorAdmins fallback failed:', e);
         }
       }
 
-      const mapped = list.map(item => {
+      // 3. Fallback to getAdmins
+      if (!list || list.length === 0) {
+        try {
+          const resAdmins = await api.videos.getAdmins();
+          console.log('Fetched author admins response from getAdmins:', resAdmins);
+          if (Array.isArray(resAdmins)) {
+            list = resAdmins;
+          } else if (resAdmins && typeof resAdmins === 'object') {
+            if (Array.isArray(resAdmins.admins)) list = resAdmins.admins;
+            else if (Array.isArray(resAdmins.data)) list = resAdmins.data;
+            else if (Array.isArray(resAdmins.result)) list = resAdmins.result;
+            else if (resAdmins.id || resAdmins.alpha_id || resAdmins.name) list = [resAdmins];
+          }
+        } catch (e) {
+          console.warn('getAdmins fallback failed:', e);
+        }
+      }
+
+      const mapped = (list || []).map(item => {
         let jsonObj = {};
         if (item && item.json) {
           try {
@@ -2223,7 +2256,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
         const combined = { ...item, ...jsonObj };
         const idVal = String(combined.id || combined.user_id || combined.admin_id || item.id || item.user_id || item.admin_id || '');
-        const nameVal = combined.name || (combined.first_name ? `${combined.first_name} ${combined.last_name || ''}`.trim() : '') || item.name || item.author_name || combined.author_name || `Author ${idVal}`;
+        const fullName = `${combined.first_name || ''} ${combined.last_name || ''}`.trim();
+        const nameVal = combined.name || fullName || combined.username || combined.email || item.name || item.author_name || combined.author_name || `Author ${idVal}`;
         return { id: idVal, name: nameVal };
       }).filter(a => a.id && a.name);
 
@@ -2440,11 +2474,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           setPlans(normalizedPlans);
         }
 
-        if (Array.isArray(obj.admins)) {
+        if (Array.isArray(obj.admins) && obj.admins.length > 0) {
           setAdminsList(obj.admins.map(item => item.json || item));
+        } else {
+          fetchAdminsList();
         }
 
-        if (Array.isArray(obj.author_admins)) {
+        if (Array.isArray(obj.author_admins) && obj.author_admins.length > 0) {
           const mappedAuthors = obj.author_admins.map(item => {
             const combined = { ...item, ...(item.json || {}) };
             const idVal = String(combined.id || combined.user_id || combined.admin_id || '');
@@ -2452,6 +2488,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             return { id: idVal, name: nameVal };
           }).filter(a => a.id && a.name);
           setAuthorAdminsList(mappedAuthors);
+        } else {
+          fetchAuthorAdminsList();
         }
 
         const rawQuizTypes = Array.isArray(obj.quiz_types) ? obj.quiz_types : (Array.isArray(obj.question_types) ? obj.question_types : (Array.isArray(obj.question_type) ? obj.question_type : []));
@@ -6711,29 +6749,46 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Instructor / Author *</label>
                             {isRegularAdmin ? (
-                              <PremiumSelect
-                                options={(authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
-                                  id: String(a.id || a.admin_id || a.user_id || ''),
-                                  name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
-                                }))).filter(a => a.id && a.name)}
-                                value={courseForm.author_id}
-                                disabled={isCourseViewOnly || (loadingAuthorAdmins && loadingAdminsList)}
-                                onChange={(e) => {
-                                  const selectedId = e.target.value;
-                                  const availableOpts = (authorAdminsList.length > 0 ? authorAdminsList : adminsList.map(a => ({
+                              (() => {
+                                const allAuthorOpts = [
+                                  ...(authorAdminsList || []),
+                                  ...(authorAdmins || []).map(a => ({
                                     id: String(a.id || a.admin_id || a.user_id || ''),
                                     name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
-                                  }))).filter(a => a.id && a.name);
-                                  const foundAuthor = availableOpts.find(a => String(a.id) === String(selectedId));
-                                  setCourseForm(prev => ({
-                                    ...prev,
-                                    author_id: selectedId,
-                                    instructor: foundAuthor ? foundAuthor.name : selectedId
-                                  }));
-                                }}
-                                placeholder={(loadingAuthorAdmins || loadingAdminsList) ? 'Loading...' : 'Select Instructor / Author'}
-                                icon="fa-solid fa-user-tie"
-                              />
+                                  })),
+                                  ...(adminsList || []).map(a => ({
+                                    id: String(a.id || a.admin_id || a.user_id || ''),
+                                    name: a.name || (a.first_name ? `${a.first_name} ${a.last_name || ''}`.trim() : '') || a.username || a.email || String(a.id || '')
+                                  }))
+                                ].reduce((acc, item) => {
+                                  const itemId = String(item.id || '').trim();
+                                  if (!itemId || acc.some(x => String(x.id) === itemId)) return acc;
+                                  const itemName = String(item.name || '').trim();
+                                  if (itemName) {
+                                    acc.push({ id: itemId, name: itemName });
+                                  }
+                                  return acc;
+                                }, []);
+
+                                return (
+                                  <PremiumSelect
+                                    options={allAuthorOpts}
+                                    value={courseForm.author_id}
+                                    disabled={isCourseViewOnly || (loadingAuthorAdmins && allAuthorOpts.length === 0)}
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      const foundAuthor = allAuthorOpts.find(a => String(a.id) === String(selectedId));
+                                      setCourseForm(prev => ({
+                                        ...prev,
+                                        author_id: selectedId,
+                                        instructor: foundAuthor ? foundAuthor.name : selectedId
+                                      }));
+                                    }}
+                                    placeholder={loadingAuthorAdmins && allAuthorOpts.length === 0 ? 'Loading...' : 'Select Instructor / Author'}
+                                    icon="fa-solid fa-user-tie"
+                                  />
+                                );
+                              })()
                             ) : (
                               <input
                                 type="text"
