@@ -18,6 +18,52 @@ const getFormattedSeconds = (sec) => {
   return `${Math.round(s)} sec`;
 };
 
+const getResourceFileType = (filename = '', mimeType = '') => {
+  const ext = (filename || '').split('.').pop().toLowerCase();
+  const mime = (mimeType || '').toLowerCase();
+  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'].includes(ext) || mime.startsWith('audio/')) {
+    return 'audio';
+  }
+  if (ext === 'pdf' || mime.includes('pdf')) {
+    return 'pdf';
+  }
+  if (['doc', 'docx', 'odt', 'rtf', 'txt'].includes(ext) || mime.includes('word') || mime.includes('document')) {
+    return 'document';
+  }
+  if (['ppt', 'pptx', 'odp', 'key'].includes(ext) || mime.includes('presentation') || mime.includes('powerpoint')) {
+    return 'presentation';
+  }
+  if (['xls', 'xlsx', 'ods', 'csv'].includes(ext) || mime.includes('spreadsheet') || mime.includes('excel')) {
+    return 'spreadsheet';
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext) || mime.includes('zip') || mime.includes('compressed')) {
+    return 'archive';
+  }
+  return 'document';
+};
+
+const getResourceIcon = (type) => {
+  switch (type) {
+    case 'audio': return '🎵';
+    case 'pdf': return '📄';
+    case 'document': return '📝';
+    case 'presentation': return '📊';
+    case 'spreadsheet': return '📈';
+    case 'archive': return '📦';
+    default: return '📁';
+  }
+};
+
+const formatResourceSize = (bytes) => {
+  if (!bytes || isNaN(bytes)) return '';
+  const num = Number(bytes);
+  if (num === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(num) / Math.log(k));
+  return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
 const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId, onTabChange }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState(activeTabOverride || 'overview'); // overview, users_all, video_upload, etc.
@@ -1035,6 +1081,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               uploadStatus: urlVal ? 'success' : null,
               thumbStatus: thumbVal ? 'success' : null
             };
+          }),
+          resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
+            const exResId = r.id || r.resource_id || null;
+            const rUrl = decryptUrl(r.file_url || r.fileUrl || r.url || '');
+            return {
+              id: exResId || `res-${rIdx + 1}`,
+              existingId: exResId,
+              title: r.title || r.name || `Resource ${rIdx + 1}`,
+              fileName: r.file_name || r.fileName || r.name || (rUrl ? rUrl.split('/').pop() : 'document.pdf'),
+              fileUrl: rUrl,
+              fileSize: r.file_size || r.fileSize || 0,
+              type: r.type || r.file_type || getResourceFileType(r.file_name || r.name || '', ''),
+              uploadStatus: rUrl ? 'success' : null,
+              uploadProgress: 100
+            };
           })
         };
       }));
@@ -1046,7 +1107,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           description: 'Course Chapter',
           visibility: visibilities[0]?.id || '',
           order: 1,
-          videos: []
+          videos: [],
+          resources: []
         }
       ]);
     }
@@ -2774,6 +2836,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             isPreview: !!v.isPreview
           };
         }),
+        resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : [])).map((r, rIdx) => {
+          const rawResUrl = r.file_url || r.fileUrl || r.url || '';
+          const parsedResUrl = decryptUrl(rawResUrl);
+          return {
+            id: r.id || `res-${rIdx + 1}`,
+            isNew: true,
+            title: r.title || r.name || `Resource ${rIdx + 1}`,
+            fileName: r.fileName || r.file_name || r.name || (parsedResUrl ? parsedResUrl.split('/').pop() : 'document.pdf'),
+            fileUrl: parsedResUrl,
+            fileSize: r.fileSize || r.file_size || 0,
+            type: r.type || r.file_type || getResourceFileType(r.fileName || r.file_name || '', ''),
+            uploadStatus: parsedResUrl ? 'success' : null,
+            uploadProgress: 100
+          };
+        }),
         quiz: ch.quiz ? parseQuizFromApi(ch.quiz) : null
       })));
     }
@@ -2818,7 +2895,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           description: '',
           visibility: defaultVisibility,
           order: newId,
-          videos: []
+          videos: [],
+          resources: []
         }
       ];
     });
@@ -2882,6 +2960,61 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return {
         ...ch,
         videos: ch.videos.map(v => v.id === videoId ? { ...v, [prop]: val } : v)
+      };
+    }));
+  };
+
+  // Chapter Resource Helpers (Learning Aids)
+  const addResourceToChapter = (chapterId) => {
+    setChapters(prev => prev.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      const newId = `res-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      return {
+        ...ch,
+        resources: [
+          ...(ch.resources || []),
+          {
+            id: newId,
+            isNew: true,
+            title: '',
+            fileName: '',
+            fileUrl: '',
+            fileSize: 0,
+            type: 'pdf',
+            uploadStatus: null,
+            uploadProgress: 0
+          }
+        ]
+      };
+    }));
+  };
+
+  const removeResourceFromChapter = (chapterId, resourceId) => {
+    if (editingCourse) {
+      setCustomAlert({
+        show: true,
+        title: 'Coming Soon!',
+        message: 'Coming soon!',
+        type: 'info',
+        buttonText: 'OK'
+      });
+      return;
+    }
+    setChapters(prev => prev.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      return {
+        ...ch,
+        resources: (ch.resources || []).filter(r => r.id !== resourceId)
+      };
+    }));
+  };
+
+  const updateResourceProp = (chapterId, resourceId, prop, val) => {
+    setChapters(prev => prev.map(ch => {
+      if (ch.id !== chapterId) return ch;
+      return {
+        ...ch,
+        resources: (ch.resources || []).map(r => r.id === resourceId ? { ...r, [prop]: val } : r)
       };
     }));
   };
@@ -3302,6 +3435,117 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
+  const handleChapterResourceUpload = async (chapterId, resourceId, file) => {
+    if (!file) return;
+    if (await verifyFileContent(file)) return;
+
+    const detectedType = getResourceFileType(file.name, file.type);
+    updateResourceProp(chapterId, resourceId, 'uploadStatus', 'uploading');
+    updateResourceProp(chapterId, resourceId, 'fileName', file.name);
+    updateResourceProp(chapterId, resourceId, 'fileSize', file.size);
+    updateResourceProp(chapterId, resourceId, 'type', detectedType);
+
+    const targetCh = (chapters || []).find(c => c.id === chapterId);
+    const targetRes = (targetCh?.resources || []).find(r => r.id === resourceId);
+    if (!targetRes?.title || targetRes.title.trim() === '') {
+      updateResourceProp(chapterId, resourceId, 'title', file.name.replace(/\.[^/.]+$/, ""));
+    }
+
+    try {
+      const CHUNK_SIZE = 5 * 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type || 'application/octet-stream');
+      const uploadId = initRes.uploadId;
+
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const chunkFormData = new FormData();
+        chunkFormData.append('uploadId', uploadId);
+        chunkFormData.append('chunkIndex', chunkIndex);
+        chunkFormData.append('chunk', chunkBlob, file.name);
+
+        const percent = Math.round((chunkIndex / totalChunks) * 100);
+        updateResourceProp(chapterId, resourceId, 'uploadProgress', percent);
+
+        await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
+      }
+
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      
+      updateResourceProp(chapterId, resourceId, 'uploadStatus', 'success');
+      updateResourceProp(chapterId, resourceId, 'uploadProgress', 100);
+      updateResourceProp(chapterId, resourceId, 'fileUrl', completeRes.minioUrl);
+    } catch (err) {
+      console.error(err);
+      updateResourceProp(chapterId, resourceId, 'uploadStatus', 'error');
+      alert(`Failed to upload resource: ${err.message}`);
+    }
+  };
+
+  const handleBatchResourceUpload = async (chapterId, fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
+    for (const file of files) {
+      if (await verifyFileContent(file)) continue;
+      const newResId = `res-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const detectedType = getResourceFileType(file.name, file.type);
+      const newResource = {
+        id: newResId,
+        isNew: true,
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        fileName: file.name,
+        fileSize: file.size,
+        type: detectedType,
+        fileUrl: '',
+        uploadStatus: 'uploading',
+        uploadProgress: 0
+      };
+
+      setChapters(prev => prev.map(ch => {
+        if (ch.id !== chapterId) return ch;
+        return {
+          ...ch,
+          resources: [...(ch.resources || []), newResource]
+        };
+      }));
+
+      (async () => {
+        try {
+          const CHUNK_SIZE = 5 * 1024 * 1024;
+          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+          const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type || 'application/octet-stream');
+          const uploadId = initRes.uploadId;
+
+          for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunkBlob = file.slice(start, end);
+            const chunkFormData = new FormData();
+            chunkFormData.append('uploadId', uploadId);
+            chunkFormData.append('chunkIndex', chunkIndex);
+            chunkFormData.append('chunk', chunkBlob, file.name);
+
+            const percent = Math.round((chunkIndex / totalChunks) * 100);
+            updateResourceProp(chapterId, newResId, 'uploadProgress', percent);
+            await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
+          }
+
+          const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+          updateResourceProp(chapterId, newResId, 'uploadStatus', 'success');
+          updateResourceProp(chapterId, newResId, 'uploadProgress', 100);
+          updateResourceProp(chapterId, newResId, 'fileUrl', completeRes.minioUrl);
+        } catch (err) {
+          console.error(err);
+          updateResourceProp(chapterId, newResId, 'uploadStatus', 'error');
+        }
+      })();
+    }
+  };
+
   const handleCourseSubmit = async (e, isDraft = false) => {
     if (e && e.preventDefault) e.preventDefault();
 
@@ -3510,6 +3754,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           }
           return videoObj;
         }));
+
+        const encryptedResources = await Promise.all((ch.resources || []).map(async (r, rIdx) => {
+          const resObj = {
+            title: r.title || r.fileName || `Resource ${rIdx + 1}`,
+            file_name: r.fileName || r.file_name || 'document.pdf',
+            file_url: await encryptUrl(r.fileUrl || r.file_url || ''),
+            file_size: r.fileSize || r.file_size || 0,
+            type: r.type || getResourceFileType(r.fileName || '', ''),
+            file_type: r.type || getResourceFileType(r.fileName || '', ''),
+            order: rIdx + 1
+          };
+          const resId = !r.isNew ? (r.existingId || r.resource_id || r.id) : null;
+          if (resId) {
+            resObj.id = resId;
+            resObj.resource_id = resId;
+          }
+          return resObj;
+        }));
+
         const foundChVisObj = visibilities.find(v => 
           String(v.id) === String(ch.visibility) || 
           String(v.name || v.visibility || v.title || '').toLowerCase() === String(ch.visibility || '').toLowerCase()
@@ -3522,7 +3785,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           visibility: chVisId,
           visibility_id: chVisId,
           order: ch.order,
-          videos: encryptedVideos
+          videos: encryptedVideos,
+          resources: encryptedResources,
+          learning_aids: encryptedResources
         };
         const chapId = !ch.isNew ? (ch.existingId || ch.chapter_id || ch.id) : null;
         if (chapId) {
@@ -6923,6 +7188,209 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <span style={{ fontSize: '11px', color: subtitleColor }}>You can upload multiple videos at once</span>
                               </div>
                             )}
+
+                            {/* Learning Aids & Resources Section (Audio, PDF, Docs) */}
+                            <div style={{ marginTop: '20px', borderTop: `1px dashed ${borderColor}`, paddingTop: '16px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: textColor }}>
+                                    📚 Learning Aids & Resources <span style={{ fontSize: '11px', fontWeight: 'normal', color: subtitleColor }}>(Audio, PDF, Docs, PPT)</span>
+                                  </span>
+                                  {(ch.resources && ch.resources.length > 0) && (
+                                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', fontWeight: 600 }}>
+                                      {ch.resources.length} Resource{ch.resources.length === 1 ? '' : 's'} Added
+                                    </span>
+                                  )}
+                                </div>
+                                {!isCourseViewOnly && (
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <label
+                                      htmlFor={`batch-resource-${ch.id}`}
+                                      className="btn"
+                                      style={{
+                                        padding: '5px 12px',
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                        borderRadius: '6px',
+                                        backgroundColor: isLight ? '#f3f4f6' : 'rgba(255, 255, 255, 0.08)',
+                                        color: textColor,
+                                        border: `1px solid ${borderColor}`,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        margin: 0
+                                      }}
+                                    >
+                                      📂 Upload Files
+                                    </label>
+                                    <input
+                                      id={`batch-resource-${ch.id}`}
+                                      type="file"
+                                      multiple
+                                      accept="audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
+                                      style={{ display: 'none' }}
+                                      onChange={(e) => {
+                                        if (e.target.files && e.target.files.length > 0) {
+                                          handleBatchResourceUpload(ch.id, e.target.files);
+                                          e.target.value = '';
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      className="btn btn-primary"
+                                      style={{ padding: '5px 12px', fontSize: '12px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', cursor: 'pointer', borderRadius: '6px' }}
+                                      onClick={() => addResourceToChapter(ch.id)}
+                                    >
+                                      + Add Resource
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Resources Table */}
+                              <div className="table-container" style={{ marginBottom: '16px', border: `1px solid ${borderColor}`, borderRadius: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                                <table className="data-table" style={{ fontSize: '12px', width: '100%', borderCollapse: 'collapse', backgroundColor: containerBg }}>
+                                  <thead>
+                                    <tr style={{ backgroundColor: tableHeaderBg, borderBottom: `1px solid ${borderColor}` }}>
+                                      <th style={{ width: '40px', padding: '10px', color: textColor }}>#</th>
+                                      <th style={{ width: '100px', color: textColor, padding: '10px' }}>Type</th>
+                                      <th style={{ color: textColor, padding: '10px' }}>Resource Title</th>
+                                      <th style={{ color: textColor, padding: '10px' }}>Resource File</th>
+                                      <th style={{ width: '90px', color: textColor, padding: '10px' }}>File Size</th>
+                                      <th style={{ width: '50px', color: textColor, padding: '10px', textAlign: 'center' }}>Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(!ch.resources || ch.resources.length === 0) ? (
+                                      <tr>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '18px', color: subtitleColor, backgroundColor: containerBg }}>
+                                          No learning aids added yet. Click "+ Add Resource" or "Upload Files" to attach audio, PDF, or documents.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      ch.resources.map((res, resIdx) => {
+                                        const resType = res.type || getResourceFileType(res.fileName || '', '');
+                                        const resIcon = getResourceIcon(resType);
+                                        return (
+                                          <tr key={res.id} style={{ borderBottom: `1px solid ${borderColor}`, backgroundColor: containerBg }}>
+                                            <td style={{ padding: '10px', color: textColor }}>{resIdx + 1}</td>
+                                            <td style={{ padding: '10px' }}>
+                                              <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '3px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                backgroundColor: isLight ? '#e5e7eb' : 'rgba(255, 255, 255, 0.08)',
+                                                color: textColor
+                                              }}>
+                                                <span>{resIcon}</span>
+                                                <span style={{ textTransform: 'capitalize' }}>{resType}</span>
+                                              </span>
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                              <input
+                                                type="text"
+                                                className="form-input"
+                                                style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '6px' }}
+                                                placeholder="e.g. Lecture Notes, Podcast Audio, Assignment PDF"
+                                                value={res.title || ''}
+                                                onChange={(e) => updateResourceProp(ch.id, res.id, 'title', e.target.value)}
+                                                disabled={isCourseViewOnly}
+                                                readOnly={isCourseViewOnly}
+                                              />
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                {(res.fileUrl || res.file_url) ? (
+                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <a
+                                                      href={res.fileUrl || res.file_url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                    >
+                                                      📎 {res.fileName || 'View Resource'}
+                                                    </a>
+                                                    {!isCourseViewOnly && (
+                                                      <label htmlFor={`res-file-${ch.id}-${res.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
+                                                        Change
+                                                      </label>
+                                                    )}
+                                                    <input
+                                                      id={`res-file-${ch.id}-${res.id}`}
+                                                      type="file"
+                                                      accept="audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
+                                                      style={{ display: 'none' }}
+                                                      disabled={isCourseViewOnly}
+                                                      onChange={async (e) => {
+                                                        const file = e.target.files[0];
+                                                        if (file && await verifyFileContent(file)) {
+                                                          e.target.value = '';
+                                                          return;
+                                                        }
+                                                        if (file) handleChapterResourceUpload(ch.id, res.id, file);
+                                                      }}
+                                                    />
+                                                  </div>
+                                                ) : (
+                                                  <input
+                                                    type="file"
+                                                    accept="audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
+                                                    style={{ fontSize: '10px', maxWidth: '140px', color: textColor }}
+                                                    disabled={isCourseViewOnly}
+                                                    onChange={async (e) => {
+                                                      const file = e.target.files[0];
+                                                      if (file && await verifyFileContent(file)) {
+                                                        e.target.value = '';
+                                                        return;
+                                                      }
+                                                      if (file) handleChapterResourceUpload(ch.id, res.id, file);
+                                                    }}
+                                                  />
+                                                )}
+                                                {res.uploadStatus === 'uploading' && (
+                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <div style={{ width: '80px', height: '4px', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                      <div style={{ width: `${res.uploadProgress || 0}%`, height: '100%', backgroundColor: '#e50914' }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '10px', color: '#e50914' }}>{res.uploadProgress || 0}%</span>
+                                                  </div>
+                                                )}
+                                                {res.uploadStatus === 'success' && !res.fileUrl && (
+                                                  <span style={{ fontSize: '10px', color: '#10b981' }}>✔️ Uploaded</span>
+                                                )}
+                                                {res.uploadStatus === 'error' && (
+                                                  <span style={{ fontSize: '10px', color: '#ef4444' }}>❌ Error</span>
+                                                )}
+                                              </div>
+                                            </td>
+                                            <td style={{ padding: '10px', color: subtitleColor, fontSize: '11px' }}>
+                                              {formatResourceSize(res.fileSize || res.file_size)}
+                                            </td>
+                                            <td style={{ textAlign: 'center', padding: '10px' }}>
+                                              {!isCourseViewOnly && (
+                                                <button
+                                                  type="button"
+                                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }}
+                                                  onClick={() => removeResourceFromChapter(ch.id, res.id)}
+                                                >
+                                                  🗑️
+                                                </button>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
 
                             {/* Chapter Quiz Section (Optional) */}
                             <div style={{ marginTop: '20px', borderTop: `1px dashed ${borderColor}`, paddingTop: '16px' }}>
