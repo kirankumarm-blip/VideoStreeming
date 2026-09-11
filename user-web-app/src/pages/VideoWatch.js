@@ -310,21 +310,24 @@ const generateTranscriptForVideo = (videoObj, lang = 'en', totalDuration = 180) 
   };
 
   const phrases = getLanguagePhrases(lang);
-  const dur = Math.max(45, Number(totalDuration) || 180);
-  // Pace phrases naturally every 2.8 to 4.2 seconds
-  const step = dur / phrases.length;
+  const dur = Math.max(30, Number(totalDuration) || 180);
+  const phraseDuration = 2.2; // 2.2 seconds per subtitle phrase (fast, responsive YouTube speech speed)
+  const totalCuesCount = Math.max(phrases.length, Math.ceil(dur / phraseDuration));
 
-  return phrases.map((text, i) => {
-    const start = Math.round(i * step * 10) / 10;
-    const end = Math.round((i + 1) * step * 10) / 10;
-    return {
+  const cues = [];
+  for (let i = 0; i < totalCuesCount; i++) {
+    const start = Math.round(i * phraseDuration * 10) / 10;
+    const end = Math.round((i + 1) * phraseDuration * 10) / 10;
+    const text = phrases[i % phrases.length];
+    cues.push({
       id: i + 1,
       start,
       end,
       speaker: 'Instructor',
       text
-    };
-  });
+    });
+  }
+  return cues;
 };
 
 const VideoWatch = () => {
@@ -477,6 +480,27 @@ const VideoWatch = () => {
       activeCueItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [activeCue, autoScrollTranscript, activeWatchTab]);
+
+  // High-frequency live subtitle synchronization loop (60ms interval for zero-lag CC updates)
+  useEffect(() => {
+    let intervalId = null;
+    if (isPlaying) {
+      intervalId = setInterval(() => {
+        if (videoRef.current) {
+          const cur = videoRef.current.currentTime;
+          setCurrentTime(cur);
+          currentTimeRef.current = cur;
+          if (transcriptCues && transcriptCues.length > 0) {
+            const match = transcriptCues.find(c => cur >= c.start && cur < c.end);
+            setActiveCue(prev => (prev?.id !== match?.id ? (match || null) : prev));
+          }
+        }
+      }, 60);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isPlaying, transcriptCues]);
 
   useEffect(() => {
     let interval = null;
@@ -1644,6 +1668,12 @@ const VideoWatch = () => {
     if (videoRef.current) {
       isResumingRef.current = true;
       videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration || duration || 1000, targetSeconds));
+      setCurrentTime(targetSeconds);
+      currentTimeRef.current = targetSeconds;
+      if (transcriptCues && transcriptCues.length > 0) {
+        const match = transcriptCues.find(c => targetSeconds >= c.start && targetSeconds < c.end);
+        setActiveCue(match || null);
+      }
       if (!isPlaying) {
         videoRef.current.play().catch(e => console.log(e));
         setIsPlaying(true);
