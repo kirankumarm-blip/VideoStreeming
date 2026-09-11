@@ -5,6 +5,99 @@ import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
 
+const AVAILABLE_SUBTITLE_LANGUAGES = [
+  { id: 'en', name: 'English (EN)' },
+  { id: 'es', name: 'Spanish (ES)' },
+  { id: 'hi', name: 'Hindi (HI)' },
+  { id: 'fr', name: 'French (FR)' },
+  { id: 'de', name: 'German (DE)' }
+];
+
+const generateTranscriptForVideo = (videoObj, lang = 'en', totalDuration = 180) => {
+  if (!videoObj) return [];
+
+  // 1. If explicit transcript array provided on videoObj
+  if (Array.isArray(videoObj.transcript) && videoObj.transcript.length > 0) {
+    return videoObj.transcript.map((cue, idx) => ({
+      id: cue.id || idx + 1,
+      start: cue.start !== undefined ? Number(cue.start) : idx * 15,
+      end: cue.end !== undefined ? Number(cue.end) : (idx + 1) * 15,
+      speaker: cue.speaker || 'Instructor',
+      text: cue.text || cue.content || ''
+    }));
+  }
+
+  // 2. Generate synchronized dynamic narrative cues tailored to video title & topic
+  const dur = Math.max(60, Number(totalDuration) || 180);
+  const title = videoObj.title || 'Course Lesson';
+  const category = videoObj.category || 'Education';
+  const step = dur / 6;
+
+  const getLocalizedTemplates = (l) => {
+    switch (l) {
+      case 'es':
+        return [
+          `Bienvenidos a esta lección sobre ${title}. En esta sesión, cubriremos los principios fundamentales de ${category}.`,
+          `Primero, analicemos el concepto clave y cómo se aplica en situaciones prácticas de desarrollo.`,
+          `Presta atención a la estructura general, ya que sienta las bases para las técnicas avanzadas que veremos más adelante.`,
+          `Ahora demostraremos un ejemplo práctico paso a paso para que comprendas la implementación exacta.`,
+          `Las mejores prácticas a tener en cuenta incluyen escribir código limpio, modular y mantener el rendimiento óptimo.`,
+          `Para concluir esta sección de ${title}, repasemos los puntos principales y preparémonos para la evaluación práctica.`
+        ];
+      case 'hi':
+        return [
+          `इस पाठ में आपका स्वागत है: ${title}। इस सत्र में हम ${category} के मुख्य सिद्धांतों को समझेंगे।`,
+          `सबसे पहले, आइए बुनियादी अवधारणाओं और व्यावहारिक उपयोग पर ध्यान दें।`,
+          `इस संरचना को ध्यान से समझें, क्योंकि यह आगे आने वाले उन्नत विषयों की नींव है।`,
+          `अब हम चरण-दर-चरण व्यावहारिक उदाहरण देखेंगे ताकि आप इसे आसानी से लागू कर सकें।`,
+          `सर्वोत्तम प्रथाओं में कोड की गुणवत्ता, मॉड्यूलरिटी और प्रदर्शन अनुकूलन शामिल हैं।`,
+          `${title} के इस भाग को समाप्त करते हुए, आइए मुख्य बिंदुओं की समीक्षा करें और अगले चरण के लिए तैयार हों।`
+        ];
+      case 'fr':
+        return [
+          `Bienvenue dans cette leçon consacrée à ${title}. Dans cette session, nous aborderons les principes essentiels de ${category}.`,
+          `Tout d'abord, analysons le concept clé et sa mise en œuvre dans des projets réels.`,
+          `Faites bien attention à cette structure fondamentale, car elle servira de base aux techniques avancées.`,
+          `Examinons maintenant une démonstration pratique détaillée étape par étape.`,
+          `Les meilleures pratiques consistent à maintenir un code propre, modulaire et hautement performant.`,
+          `En conclusion de cette partie sur ${title}, récapitulons les points clés avant l'évaluation.`
+        ];
+      case 'de':
+        return [
+          `Willkommen zu dieser Lektion über ${title}. In dieser Sitzung behandeln wir die wesentlichen Grundlagen von ${category}.`,
+          `Zuerst analysieren wir das Kernkonzept und dessen Anwendung in realen Entwicklungsumgebungen.`,
+          `Achten Sie genau auf diese Architektur, da sie das Fundament für fortgeschrittene Techniken bildet.`,
+          `Jetzt führen wir eine schrittweise praktische Demonstration durch, um die Umsetzung zu verdeutlichen.`,
+          `Zu den Best Practices gehören sauberer, modularer Code und optimierte Performance.`,
+          `Zum Abschluss dieses Teils über ${title} fassen wir die wichtigsten Erkenntnisse zusammen.`
+        ];
+      case 'en':
+      default:
+        return [
+          `Welcome to this lesson on "${title}". In this session, we will explore the essential core concepts of ${category}.`,
+          `First, let's break down the foundational architecture and understand why this pattern is so widely adopted in modern development.`,
+          `Notice how the workflow is organized into distinct logical stages, ensuring modularity and maintainability.`,
+          `Now let's walk through a practical step-by-step demonstration to see this implementation in action.`,
+          `Key industry best practices include writing clean, testable code and following performance optimization standards.`,
+          `To summarize what we covered in "${title}", review the key takeaways below and test your knowledge in the chapter assessment.`
+        ];
+    }
+  };
+
+  const templates = getLocalizedTemplates(lang);
+  return templates.map((text, i) => {
+    const start = Math.round(i * step);
+    const end = Math.round((i + 1) * step);
+    return {
+      id: i + 1,
+      start,
+      end,
+      speaker: 'Instructor',
+      text
+    };
+  });
+};
+
 const VideoWatch = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -133,6 +226,29 @@ const VideoWatch = () => {
   const [quality, setQuality] = useState('Auto');
   const [isQualitySwitching, setIsQualitySwitching] = useState(false);
 
+  // Subtitles & Interactive Transcript States
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
+  const [subtitleLang, setSubtitleLang] = useState('en');
+  const [activeCue, setActiveCue] = useState(null);
+  const [activeWatchTab, setActiveWatchTab] = useState('overview'); // 'overview' | 'transcript' | 'resources'
+  const [transcriptSearch, setTranscriptSearch] = useState('');
+  const [autoScrollTranscript, setAutoScrollTranscript] = useState(true);
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
+  const activeCueItemRef = useRef(null);
+  const transcriptContainerRef = useRef(null);
+
+  // Synchronized transcript cues derived from video, lang and duration
+  const transcriptCues = React.useMemo(() => {
+    return generateTranscriptForVideo(video, subtitleLang, duration || 180);
+  }, [video, subtitleLang, duration]);
+
+  // Auto-scroll active cue into view in transcript panel
+  useEffect(() => {
+    if (autoScrollTranscript && activeCue && activeWatchTab === 'transcript' && activeCueItemRef.current) {
+      activeCueItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeCue, autoScrollTranscript, activeWatchTab]);
+
   useEffect(() => {
     let interval = null;
     if (isPlaying) {
@@ -203,6 +319,9 @@ const VideoWatch = () => {
         case 'm':
           handleMuteToggle();
           break;
+        case 'c':
+          setSubtitlesEnabled(prev => !prev);
+          break;
         case 'f':
           e.preventDefault();
           handleFullscreen();
@@ -232,7 +351,7 @@ const VideoWatch = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, volume, isMuted]);
+  }, [isPlaying, volume, isMuted, subtitlesEnabled]);
 
   const fetchVideoAndRecommendations = async (passedVideo = null) => {
     setLoading(true);
@@ -923,6 +1042,7 @@ const VideoWatch = () => {
           id: chapId,
           title: chapTitle,
           quiz: chap.quiz,
+          resources: chap.resources || chap.learning_aids || chap.learningAids || chap.aids || chap.files || chap.documents || [],
           lessons
         };
       });
@@ -1274,13 +1394,119 @@ const VideoWatch = () => {
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
-      currentTimeRef.current = videoRef.current.currentTime;
-      setDuration(videoRef.current.duration || video?.duration || 0);
+      const cur = videoRef.current.currentTime;
+      setCurrentTime(cur);
+      currentTimeRef.current = cur;
+      const dur = videoRef.current.duration || video?.duration || 0;
+      setDuration(dur);
       if (!videoRef.current.seeking) {
-        prevTimeRef.current = videoRef.current.currentTime;
+        prevTimeRef.current = cur;
+      }
+
+      // Synchronize active subtitle & transcript cue
+      if (transcriptCues && transcriptCues.length > 0) {
+        const match = transcriptCues.find(c => cur >= c.start && cur < c.end);
+        setActiveCue(match || null);
       }
     }
+  };
+
+  const handleSeekTo = (targetSeconds) => {
+    if (videoRef.current) {
+      isResumingRef.current = true;
+      videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration || duration || 1000, targetSeconds));
+      if (!isPlaying) {
+        videoRef.current.play().catch(e => console.log(e));
+        setIsPlaying(true);
+      }
+    }
+  };
+
+  const handleCopyTranscript = () => {
+    if (!transcriptCues || transcriptCues.length === 0) return;
+    const fullText = transcriptCues.map(c => `[${formatTime(c.start)}] ${c.speaker}: ${c.text}`).join('\n\n');
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopiedTranscript(true);
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    }).catch(err => console.error("Copy failed", err));
+  };
+
+  const handleDownloadTranscript = () => {
+    if (!transcriptCues || transcriptCues.length === 0) return;
+    const header = `Transcript: ${video?.title || 'Video'}\nLanguage: ${subtitleLang.toUpperCase()}\nGenerated on: ${new Date().toLocaleString()}\n${'='.repeat(50)}\n\n`;
+    const body = transcriptCues.map(c => `[${formatTime(c.start)} - ${formatTime(c.end)}] ${c.speaker}:\n${c.text}\n`).join('\n');
+    const blob = new Blob([header + body], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const sanitizedTitle = (video?.title || 'video').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.download = `${sanitizedTitle}_transcript_${subtitleLang}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Resolve chapter learning aids & resources for current video/chapter
+  const currentChapterResources = React.useMemo(() => {
+    const activeCourse = location.state?.course || video?.course;
+    const activeVid = videoRefData.current || video || location.state?.video;
+    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? 1;
+
+    let resList = [];
+    if (activeCourse) {
+      const chapters = getCourseChapters(activeCourse);
+      const currentChap = chapters.find(c => String(c.id) === String(chapId));
+      if (currentChap && Array.isArray(currentChap.resources) && currentChap.resources.length > 0) {
+        resList = [...currentChap.resources];
+      }
+    }
+    if (Array.isArray(activeVid?.resources) && activeVid.resources.length > 0) {
+      resList = [...resList, ...activeVid.resources];
+    }
+    if (Array.isArray(activeVid?.learning_aids) && activeVid.learning_aids.length > 0) {
+      resList = [...resList, ...activeVid.learning_aids];
+    }
+    if (Array.isArray(activeVid?.learningAids) && activeVid.learningAids.length > 0) {
+      resList = [...resList, ...activeVid.learningAids];
+    }
+    return resList;
+  }, [video, location.state]);
+
+  const formatResourceSize = (bytesOrStr) => {
+    if (!bytesOrStr) return 'N/A';
+    if (typeof bytesOrStr === 'string' && (bytesOrStr.includes('MB') || bytesOrStr.includes('KB') || bytesOrStr.includes('GB'))) {
+      return bytesOrStr;
+    }
+    const num = Number(bytesOrStr);
+    if (isNaN(num) || num <= 0) return 'File';
+    if (num < 1024) return `${num} B`;
+    if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+    return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getResourceIcon = (item) => {
+    const name = (item.name || item.fileName || item.originalName || item.url || item.file_url || '').toLowerCase();
+    const type = (item.type || item.fileType || '').toLowerCase();
+    if (name.endsWith('.pdf') || type.includes('pdf')) return { icon: '📄', color: '#ef4444', label: 'PDF Document' };
+    if (name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.aac') || name.endsWith('.m4a') || type.includes('audio')) return { icon: '🎵', color: '#8b5cf6', label: 'Audio File' };
+    if (name.endsWith('.doc') || name.endsWith('.docx') || type.includes('word')) return { icon: '📝', color: '#3b82f6', label: 'Word Document' };
+    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.tar') || name.endsWith('.7z') || type.includes('zip')) return { icon: '📦', color: '#f59e0b', label: 'Archive Zip' };
+    if (name.endsWith('.js') || name.endsWith('.ts') || name.endsWith('.py') || name.endsWith('.html') || name.endsWith('.json') || type.includes('code')) return { icon: '💻', color: '#10b981', label: 'Source Code' };
+    return { icon: '📎', color: '#6366f1', label: 'Resource File' };
+  };
+
+  const highlightSearchText = (text, query) => {
+    if (!query || !query.trim()) return text;
+    const q = query.trim();
+    const parts = text.split(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === q.toLowerCase() ? (
+        <mark key={i} style={{ background: '#fef08a', color: '#854d0e', padding: '0 3px', borderRadius: '3px', fontWeight: 700 }}>
+          {part}
+        </mark>
+      ) : part
+    );
   };
 
   const handleSeeked = () => {
@@ -1657,6 +1883,37 @@ const VideoWatch = () => {
             </div>
           )}
 
+          {/* Synchronized Subtitle Caption Overlay */}
+          {subtitlesEnabled && activeCue && (
+            <div 
+              className="video-subtitle-overlay animate-fade-in"
+              style={{
+                position: 'absolute',
+                bottom: '75px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(12, 14, 24, 0.88)',
+                color: '#ffffff',
+                padding: '8px 20px',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 600,
+                lineHeight: '1.45',
+                textAlign: 'center',
+                maxWidth: '85%',
+                zIndex: 30,
+                pointerEvents: 'none',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.65)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                backdropFilter: 'blur(6px)',
+                letterSpacing: '0.2px',
+                transition: 'all 0.15s ease-out'
+              }}
+            >
+              {activeCue.text}
+            </div>
+          )}
+
           {/* CUSTOM CONTROLS PANEL */}
           <div className="video-player-controls" style={{ flexWrap: 'wrap', gap: '12px' }}>
             
@@ -1734,6 +1991,57 @@ const VideoWatch = () => {
                 }}
               />
               <span style={{ fontSize: '12px', color: '#aaa', minWidth: '35px' }}>{formatTime(duration)}</span>
+            </div>
+
+            {/* Subtitles CC Toggle & Language Select */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}
+                style={{
+                  background: subtitlesEnabled ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  border: subtitlesEnabled ? '1px solid var(--accent-primary)' : '1px solid rgba(255,255,255,0.25)',
+                  color: subtitlesEnabled ? 'var(--accent-secondary)' : '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '11px',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  letterSpacing: '0.5px',
+                  transition: 'all 0.2s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title={subtitlesEnabled ? 'Turn off subtitles (C)' : 'Turn on subtitles (C)'}
+              >
+                <span>CC</span>
+                {subtitlesEnabled && (
+                  <span style={{ 
+                    fontSize: '9px', 
+                    background: 'var(--accent-primary)', 
+                    color: '#fff', 
+                    padding: '1px 3px', 
+                    borderRadius: '3px', 
+                    textTransform: 'uppercase' 
+                  }}>
+                    {subtitleLang}
+                  </span>
+                )}
+              </button>
+
+              {subtitlesEnabled && (
+                <PremiumSelect
+                  options={AVAILABLE_SUBTITLE_LANGUAGES}
+                  value={subtitleLang}
+                  onChange={(e) => setSubtitleLang(e.target.value)}
+                  searchable={false}
+                  size="small"
+                  icon="fa-solid fa-language"
+                  style={{ width: '92px' }}
+                  dropUp={true}
+                />
+              )}
             </div>
 
             {/* Playback Speed */}
@@ -2005,35 +2313,509 @@ const VideoWatch = () => {
             </div>
           </div>
 
-          {/* Collapsible Dark Description Box */}
+          {/* WIDESCREEN TABBED CONTENT: OVERVIEW, TRANSCRIPT & LEARNING AIDS */}
           <div style={{
             background: 'var(--bg-tertiary)',
-            borderRadius: '12px',
-            padding: '16px',
-            fontSize: '14px',
-            color: 'var(--text-primary)',
+            borderRadius: '14px',
             border: '1px solid var(--border-color)',
-            lineHeight: '1.6'
-          }} className="watch-description-box">
-            <div style={{ fontWeight: 700, marginBottom: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <span>{video.views} {t('user.viewsCount')}</span>
-              <span>•</span>
-              <span>{video.category}</span>
-              <span>•</span>
-              <span>Published by: {video.uploadedBy === 'u-superadmin' ? 'Super Admin' : 'Admin'}</span>
-            </div>
-            
-            <p style={{ margin: 0, whiteSpace: 'pre-line' }}>
-              {video.description || "No description provided for this lesson."}
-            </p>
+            overflow: 'hidden',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            {/* Tab Navigation Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid var(--border-color)',
+              background: 'rgba(0,0,0,0.15)',
+              padding: '4px 8px 0 8px',
+              gap: '4px',
+              overflowX: 'auto'
+            }}>
+              <button
+                type="button"
+                onClick={() => setActiveWatchTab('overview')}
+                style={{
+                  padding: '10px 18px',
+                  fontSize: '13px',
+                  fontWeight: activeWatchTab === 'overview' ? 700 : 500,
+                  color: activeWatchTab === 'overview' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  background: activeWatchTab === 'overview' ? 'var(--bg-tertiary)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeWatchTab === 'overview' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px'
+                }}
+              >
+                <span>📋</span>
+                <span>Overview</span>
+              </button>
 
-            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {video.tags && video.tags.map((tag, i) => (
-                <span key={i} style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>
-                  #{tag}
+              <button
+                type="button"
+                onClick={() => setActiveWatchTab('transcript')}
+                style={{
+                  padding: '10px 18px',
+                  fontSize: '13px',
+                  fontWeight: activeWatchTab === 'transcript' ? 700 : 500,
+                  color: activeWatchTab === 'transcript' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  background: activeWatchTab === 'transcript' ? 'var(--bg-tertiary)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeWatchTab === 'transcript' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px'
+                }}
+              >
+                <span>💬</span>
+                <span>Transcript</span>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  background: activeWatchTab === 'transcript' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                  color: activeWatchTab === 'transcript' ? '#ffffff' : 'var(--text-secondary)',
+                  padding: '2px 6px',
+                  borderRadius: '10px'
+                }}>
+                  {transcriptCues.length}
                 </span>
-              ))}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveWatchTab('resources')}
+                style={{
+                  padding: '10px 18px',
+                  fontSize: '13px',
+                  fontWeight: activeWatchTab === 'resources' ? 700 : 500,
+                  color: activeWatchTab === 'resources' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  background: activeWatchTab === 'resources' ? 'var(--bg-tertiary)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeWatchTab === 'resources' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px'
+                }}
+              >
+                <span>📚</span>
+                <span>Learning Aids & Resources</span>
+                {currentChapterResources.length > 0 && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#10b981',
+                    padding: '2px 6px',
+                    borderRadius: '10px'
+                  }}>
+                    {currentChapterResources.length}
+                  </span>
+                )}
+              </button>
             </div>
+
+            {/* Tab 1: OVERVIEW */}
+            {activeWatchTab === 'overview' && (
+              <div style={{ padding: '18px', fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.6' }} className="animate-fade-in">
+                <div style={{ fontWeight: 700, marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                  <span>{video.views || 0} {t('user.viewsCount')}</span>
+                  <span>•</span>
+                  <span>{video.category || 'General'}</span>
+                  <span>•</span>
+                  <span>Published by: {video.uploadedBy === 'u-superadmin' ? 'Super Admin' : (video.author || video.instructor || 'Instructor')}</span>
+                </div>
+                
+                <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-primary)' }}>
+                  {video.description || "No description provided for this lesson."}
+                </p>
+
+                {video.tags && video.tags.length > 0 && (
+                  <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {video.tags.map((tag, i) => (
+                      <span key={i} style={{ 
+                        color: 'var(--accent-secondary)', 
+                        fontWeight: 600, 
+                        background: 'rgba(99, 102, 241, 0.1)', 
+                        padding: '3px 10px', 
+                        borderRadius: '6px',
+                        fontSize: '12px' 
+                      }}>
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: INTERACTIVE TRANSCRIPT */}
+            {activeWatchTab === 'transcript' && (
+              <div style={{ display: 'flex', flexDirection: 'column' }} className="animate-fade-in">
+                {/* Transcript Control Toolbar */}
+                <div style={{
+                  padding: '12px 18px',
+                  background: 'var(--bg-secondary)',
+                  borderBottom: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  {/* Search within transcript */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 220px', maxWidth: '340px' }}>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <input
+                        type="text"
+                        placeholder="Search transcript..."
+                        value={transcriptSearch}
+                        onChange={(e) => setTranscriptSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '7px 30px 7px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          outline: 'none'
+                        }}
+                      />
+                      {transcriptSearch ? (
+                        <button
+                          type="button"
+                          onClick={() => setTranscriptSearch('')}
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      ) : (
+                        <span style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '12px',
+                          pointerEvents: 'none'
+                        }}>
+                          🔍
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right actions: Language, Auto-Scroll, Copy, Download */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    {/* Language selector */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Language:</span>
+                      <PremiumSelect
+                        options={AVAILABLE_SUBTITLE_LANGUAGES}
+                        value={subtitleLang}
+                        onChange={(e) => setSubtitleLang(e.target.value)}
+                        searchable={false}
+                        size="small"
+                        icon="fa-solid fa-language"
+                        style={{ width: '115px' }}
+                      />
+                    </div>
+
+                    {/* Auto-scroll toggle */}
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={autoScrollTranscript}
+                        onChange={(e) => setAutoScrollTranscript(e.target.checked)}
+                        style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                      />
+                      <span>Auto-scroll</span>
+                    </label>
+
+                    {/* Copy button */}
+                    <button
+                      type="button"
+                      onClick={handleCopyTranscript}
+                      style={{
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: copiedTranscript ? '#10b981' : 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Copy full transcript to clipboard"
+                    >
+                      <span>{copiedTranscript ? '✓' : '📋'}</span>
+                      <span>{copiedTranscript ? 'Copied!' : 'Copy'}</span>
+                    </button>
+
+                    {/* Download text button */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadTranscript}
+                      style={{
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      title="Download transcript as .txt file"
+                    >
+                      <span>📥</span>
+                      <span>Download</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Transcript Cues List */}
+                <div 
+                  ref={transcriptContainerRef}
+                  style={{
+                    maxHeight: '360px',
+                    overflowY: 'auto',
+                    padding: '14px 18px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}
+                >
+                  {(() => {
+                    const searchLower = transcriptSearch.trim().toLowerCase();
+                    const filtered = transcriptCues.filter(cue => 
+                      !searchLower || cue.text.toLowerCase().includes(searchLower) || cue.speaker.toLowerCase().includes(searchLower)
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                          <span style={{ fontSize: '28px', display: 'block', marginBottom: '8px' }}>🔍</span>
+                          <span style={{ fontSize: '14px', fontWeight: 600 }}>No matching dialogue found</span>
+                          <p style={{ fontSize: '12px', margin: '4px 0 0 0' }}>Try searching with a different keyword.</p>
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((cue) => {
+                      const isActive = activeCue?.id === cue.id;
+                      return (
+                        <div
+                          key={cue.id}
+                          ref={isActive ? activeCueItemRef : null}
+                          onClick={() => handleSeekTo(cue.start)}
+                          style={{
+                            display: 'flex',
+                            gap: '14px',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: isActive ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                            border: isActive ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            alignItems: 'flex-start'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          {/* Timestamp chip button */}
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            flexShrink: 0,
+                            gap: '4px'
+                          }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              fontFamily: 'monospace',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              background: isActive ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                              color: isActive ? '#ffffff' : 'var(--accent-secondary)',
+                              border: '1px solid var(--border-color)',
+                              letterSpacing: '0.4px'
+                            }}>
+                              {formatTime(cue.start)}
+                            </span>
+                            {isActive && (
+                              <span style={{ fontSize: '9px', color: 'var(--accent-primary)', fontWeight: 800 }}>
+                                ● LIVE
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Speaker and Dialogue */}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {cue.speaker}
+                            </span>
+                            <span style={{
+                              fontSize: '13px',
+                              lineHeight: '1.5',
+                              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                              fontWeight: isActive ? 600 : 400
+                            }}>
+                              {highlightSearchText(cue.text, transcriptSearch)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: LEARNING AIDS & RESOURCES */}
+            {activeWatchTab === 'resources' && (
+              <div style={{ padding: '18px' }} className="animate-fade-in">
+                {currentChapterResources.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                    {currentChapterResources.map((resItem, idx) => {
+                      const info = getResourceIcon(resItem);
+                      const resName = resItem.name || resItem.fileName || resItem.originalName || resItem.title || `Resource File ${idx + 1}`;
+                      const resUrl = resItem.url || resItem.file_url || resItem.videoUrl || resItem.video_url || '#';
+                      const resSize = formatResourceSize(resItem.size || resItem.fileSize || resItem.file_size);
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '14px',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border-color)',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              background: 'rgba(255,255,255,0.06)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '20px',
+                              flexShrink: 0
+                            }}>
+                              {info.icon}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                              <span style={{
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }} title={resName}>
+                                {resName}
+                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{resSize}</span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>•</span>
+                                <span style={{ fontSize: '10px', color: info.color, fontWeight: 700 }}>{info.label}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <a
+                            href={resUrl.startsWith('/uploads') ? `http://localhost:5000${resUrl}` : resUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              background: 'var(--accent-primary)',
+                              color: '#ffffff',
+                              textDecoration: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              flexShrink: 0
+                            }}
+                          >
+                            <span>📥</span>
+                            <span>Get</span>
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '36px 18px', color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>📁</span>
+                    <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>No Learning Aids uploaded for this lesson</span>
+                    <p style={{ fontSize: '13px', margin: '6px 0 0 0', color: 'var(--text-secondary)' }}>
+                      Supplementary PDFs, source files, and documents will appear here when attached by the course author.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
