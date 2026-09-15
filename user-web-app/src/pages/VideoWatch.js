@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { api, getCurrentUser } from '../services/api';
+import { api, getCurrentUser, decryptUrl, decryptIfNeeded } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
 
@@ -489,6 +489,26 @@ const VideoWatch = () => {
     fileSize: ''
   });
 
+  const resolveResourceUrl = (url) => {
+    if (!url || url === '#' || typeof url !== 'string') return '';
+    let clean = url.trim();
+    if (decryptIfNeeded) {
+      clean = decryptIfNeeded(clean);
+    } else if (decryptUrl && !clean.startsWith('http') && !clean.startsWith('/') && !clean.startsWith('blob:') && !clean.startsWith('data:')) {
+      try { clean = decryptUrl(clean); } catch (e) {}
+    }
+    if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('blob:') || clean.startsWith('data:')) {
+      return clean;
+    }
+    if (clean.startsWith('/uploads')) {
+      return `http://localhost:5000${clean}`;
+    }
+    if (clean.startsWith('/')) {
+      return `http://localhost:5000${clean}`;
+    }
+    return clean;
+  };
+
   // Synchronized transcript cues derived from video, lang and duration
   const transcriptCues = React.useMemo(() => {
     return generateTranscriptForVideo(video, subtitleLang, duration || 180);
@@ -498,16 +518,19 @@ const VideoWatch = () => {
   useEffect(() => {
     if (audioRef.current && activeAudioResource) {
       const rawUrl = activeAudioResource.file_url || activeAudioResource.url || activeAudioResource.fileUrl || '';
-      const src = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
-      audioRef.current.src = src;
-      audioRef.current.playbackRate = audioPlaybackRate;
-      audioRef.current.volume = isAudioMuted ? 0 : audioVolume;
-      audioRef.current.play().then(() => {
-        setIsAudioPlaying(true);
-      }).catch(err => {
-        console.log("Audio autoplay prevented:", err);
-        setIsAudioPlaying(false);
-      });
+      const src = resolveResourceUrl(rawUrl);
+      if (src) {
+        audioRef.current.src = src;
+        audioRef.current.playbackRate = audioPlaybackRate;
+        audioRef.current.volume = isAudioMuted ? 0 : audioVolume;
+        audioRef.current.load();
+        audioRef.current.play().then(() => {
+          setIsAudioPlaying(true);
+        }).catch(err => {
+          console.log("Audio autoplay prevented:", err);
+          setIsAudioPlaying(false);
+        });
+      }
     }
   }, [activeAudioResource]);
 
@@ -1293,6 +1316,26 @@ const VideoWatch = () => {
     }));
   };
 
+  const resolveResourceUrl = (url) => {
+    if (!url || url === '#' || typeof url !== 'string') return '';
+    let clean = url.trim();
+    if (decryptIfNeeded) {
+      clean = decryptIfNeeded(clean);
+    } else if (decryptUrl && !clean.startsWith('http') && !clean.startsWith('/') && !clean.startsWith('blob:') && !clean.startsWith('data:')) {
+      try { clean = decryptUrl(clean); } catch (e) {}
+    }
+    if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('blob:') || clean.startsWith('data:')) {
+      return clean;
+    }
+    if (clean.startsWith('/uploads')) {
+      return `http://localhost:5000${clean}`;
+    }
+    if (clean.startsWith('/')) {
+      return `http://localhost:5000${clean}`;
+    }
+    return clean;
+  };
+
   const getCourseChapters = (courseObj) => {
     if (!courseObj) return [];
     const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
@@ -1321,9 +1364,19 @@ const VideoWatch = () => {
       // Combine and deduplicate
       const combined = [...explicit, ...fromCourse];
       const seen = new Set();
-      return combined.filter(item => {
+      return combined.map(item => {
+        if (!item) return null;
+        const rawUrl = item.file_url || item.fileUrl || item.url || '';
+        const resolvedUrl = resolveResourceUrl(rawUrl);
+        return {
+          ...item,
+          file_url: resolvedUrl,
+          fileUrl: resolvedUrl,
+          url: resolvedUrl
+        };
+      }).filter(item => {
         if (!item) return false;
-        const key = item.id || item.file_url || item.url || item.file_name || item.name || item.title || JSON.stringify(item);
+        const key = item.id || item.file_url || item.file_name || item.name || item.title || JSON.stringify(item);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -1831,15 +1884,23 @@ const VideoWatch = () => {
       resList = [...resList, ...video.resources];
     }
 
-    // Deduplicate items
+    // Deduplicate items and ensure all URLs are properly resolved/decrypted
     const seen = new Set();
     const unique = [];
     for (const r of resList) {
       if (!r) continue;
-      const key = r.id || r.file_url || r.url || r.file_name || r.name || r.title || JSON.stringify(r);
+      const rawUrl = r.file_url || r.fileUrl || r.url || r.videoUrl || r.video_url || '';
+      const resolvedUrl = resolveResourceUrl(rawUrl);
+      const normalized = {
+        ...r,
+        file_url: resolvedUrl,
+        fileUrl: resolvedUrl,
+        url: resolvedUrl
+      };
+      const key = r.id || resolvedUrl || r.file_name || r.name || r.title || JSON.stringify(r);
       if (!seen.has(key)) {
         seen.add(key);
-        unique.push(r);
+        unique.push(normalized);
       }
     }
     return unique;
@@ -1859,31 +1920,32 @@ const VideoWatch = () => {
 
   const getResourceIcon = (item) => {
     if (!item) return { icon: '📎', color: '#6366f1', label: 'Resource File', category: 'other', canPreview: false, isAudio: false };
-    const name = (item.file_name || item.fileName || item.originalName || item.title || item.name || item.url || item.file_url || '').toLowerCase();
+    const name = (item.file_name || item.fileName || item.originalName || item.title || item.name || '').toLowerCase();
     const type = (item.file_type || item.fileType || item.type || '').toLowerCase();
+    const resolvedUrl = resolveResourceUrl(item.file_url || item.fileUrl || item.url || '').toLowerCase();
     
-    if (name.endsWith('.pdf') || type === 'pdf' || type.includes('pdf')) {
+    if (name.endsWith('.pdf') || type === 'pdf' || type.includes('pdf') || resolvedUrl.includes('.pdf')) {
       return { icon: '📄', color: '#ef4444', label: 'PDF Document', category: 'pdf', canPreview: true, isAudio: false };
     }
-    if (name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.aac') || name.endsWith('.m4a') || name.endsWith('.ogg') || type === 'audio' || type.includes('audio')) {
+    if (name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.aac') || name.endsWith('.m4a') || name.endsWith('.ogg') || type === 'audio' || type.includes('audio') || resolvedUrl.includes('.mp3') || resolvedUrl.includes('.wav') || resolvedUrl.includes('.m4a') || resolvedUrl.includes('.ogg')) {
       return { icon: '🎵', color: '#8b5cf6', label: 'Audio Track', category: 'audio', canPreview: false, isAudio: true };
     }
-    if (name.endsWith('.doc') || name.endsWith('.docx') || type.includes('word') || type.includes('doc')) {
+    if (name.endsWith('.doc') || name.endsWith('.docx') || type.includes('word') || type.includes('doc') || resolvedUrl.includes('.doc')) {
       return { icon: '📝', color: '#3b82f6', label: 'Word Document', category: 'pdf', canPreview: false, isAudio: false };
     }
-    if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv') || type.includes('excel') || type.includes('sheet')) {
+    if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv') || type.includes('excel') || type.includes('sheet') || resolvedUrl.includes('.xls') || resolvedUrl.includes('.csv')) {
       return { icon: '📊', color: '#10b981', label: 'Spreadsheet', category: 'pdf', canPreview: false, isAudio: false };
     }
-    if (name.endsWith('.ppt') || name.endsWith('.pptx') || type.includes('powerpoint') || type.includes('presentation')) {
+    if (name.endsWith('.ppt') || name.endsWith('.pptx') || type.includes('powerpoint') || type.includes('presentation') || resolvedUrl.includes('.ppt')) {
       return { icon: '📊', color: '#f97316', label: 'Presentation', category: 'pdf', canPreview: false, isAudio: false };
     }
-    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.tar') || name.endsWith('.7z') || type.includes('zip') || type.includes('archive')) {
+    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.tar') || name.endsWith('.7z') || type.includes('zip') || type.includes('archive') || resolvedUrl.includes('.zip')) {
       return { icon: '📦', color: '#f59e0b', label: 'Archive Zip', category: 'other', canPreview: false, isAudio: false };
     }
-    if (name.endsWith('.js') || name.endsWith('.ts') || name.endsWith('.py') || name.endsWith('.html') || name.endsWith('.json') || name.endsWith('.css') || type.includes('code')) {
+    if (name.endsWith('.js') || name.endsWith('.ts') || name.endsWith('.py') || name.endsWith('.html') || name.endsWith('.json') || name.endsWith('.css') || type.includes('code') || resolvedUrl.includes('.json') || resolvedUrl.includes('.js')) {
       return { icon: '💻', color: '#06b6d4', label: 'Source Code', category: 'other', canPreview: true, isAudio: false };
     }
-    if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp') || name.endsWith('.svg') || type.includes('image')) {
+    if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp') || name.endsWith('.svg') || type.includes('image') || resolvedUrl.includes('.png') || resolvedUrl.includes('.jpg') || resolvedUrl.includes('.jpeg')) {
       return { icon: '🖼️', color: '#ec4899', label: 'Image File', category: 'other', canPreview: true, isAudio: false };
     }
     return { icon: '📎', color: '#6366f1', label: 'Resource File', category: 'other', canPreview: false, isAudio: false };
@@ -1892,10 +1954,10 @@ const VideoWatch = () => {
   // Audio Playback Handler for Chapter Audio Files
   const handleTogglePlayAudio = (resItem) => {
     if (!resItem) return;
+    const resUrl = resolveResourceUrl(resItem.file_url || resItem.url || resItem.fileUrl);
     const isCurrent = activeAudioResource && (
       (resItem.id && activeAudioResource.id === resItem.id) ||
-      (resItem.file_url && activeAudioResource.file_url === resItem.file_url) ||
-      (resItem.url && activeAudioResource.url === resItem.url) ||
+      (resUrl && resolveResourceUrl(activeAudioResource.file_url || activeAudioResource.url) === resUrl) ||
       (resItem.file_name && activeAudioResource.file_name === resItem.file_name)
     );
 
@@ -1917,7 +1979,13 @@ const VideoWatch = () => {
         videoRef.current.pause();
         setIsPlaying(false);
       }
-      setActiveAudioResource(resItem);
+      const normalizedItem = {
+        ...resItem,
+        file_url: resUrl,
+        fileUrl: resUrl,
+        url: resUrl
+      };
+      setActiveAudioResource(normalizedItem);
       setAudioCurrentTime(0);
       setIsAudioPlaying(true);
     }
@@ -1957,7 +2025,7 @@ const VideoWatch = () => {
   // Robust File Downloader with fallback
   const handleDownloadFile = async (fileUrl, fileName = 'download') => {
     if (!fileUrl || fileUrl === '#') return;
-    const resolvedUrl = fileUrl.startsWith('/uploads') ? `http://localhost:5000${fileUrl}` : fileUrl;
+    const resolvedUrl = resolveResourceUrl(fileUrl);
     try {
       const res = await fetch(resolvedUrl);
       if (!res.ok) throw new Error('Fetch failed');
@@ -1984,9 +2052,9 @@ const VideoWatch = () => {
   // Document & PDF In-App Preview Handlers
   const handleOpenDocPreview = (resItem) => {
     const rawUrl = resItem.file_url || resItem.url || resItem.fileUrl || '';
-    const resolvedUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+    const resolvedUrl = resolveResourceUrl(rawUrl);
     const resName = resItem.title || resItem.file_name || resItem.fileName || resItem.name || 'Document Preview';
-    const info = getResourceIcon(resItem);
+    const info = getResourceIcon({ ...resItem, file_url: resolvedUrl });
     setDocPreviewModal({
       isOpen: true,
       title: resName,
@@ -4931,67 +4999,137 @@ const VideoWatch = () => {
             </div>
 
             {/* Modal Preview Body */}
-            <div style={{ flex: 1, backgroundColor: '#0f0f17', position: 'relative' }}>
-              {docPreviewModal.fileUrl.toLowerCase().endsWith('.pdf') || docPreviewModal.fileType.toLowerCase().includes('pdf') ? (
-                <iframe
-                  src={`${docPreviewModal.fileUrl}#toolbar=1&navpanes=0`}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
-                  title={docPreviewModal.title}
-                />
-              ) : (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  gap: '16px',
-                  color: 'var(--text-secondary, #9ca3af)',
-                  padding: '24px',
-                  textAlign: 'center'
-                }}>
-                  <span style={{ fontSize: '48px' }}>📄</span>
-                  <div>
-                    <h4 style={{ color: 'var(--text-primary, #ffffff)', margin: '0 0 6px 0', fontSize: '16px' }}>{docPreviewModal.title}</h4>
-                    <p style={{ margin: 0, fontSize: '13px' }}>Preview is best viewed in a new window or downloaded to your device.</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
-                      style={{
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: '#6366f1',
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: '13px',
-                        cursor: 'pointer'
-                      }}
+            <div style={{ flex: 1, backgroundColor: '#0f0f17', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+              {(() => {
+                const urlLower = (docPreviewModal.fileUrl || '').toLowerCase();
+                const typeLower = (docPreviewModal.fileType || '').toLowerCase();
+                const titleLower = (docPreviewModal.title || '').toLowerCase();
+                const isPdf = typeLower.includes('pdf') || titleLower.includes('.pdf') || urlLower.includes('.pdf');
+
+                if (isPdf && docPreviewModal.fileUrl) {
+                  return (
+                    <object
+                      data={docPreviewModal.fileUrl}
+                      type="application/pdf"
+                      style={{ width: '100%', height: '100%', minHeight: '550px', flex: 1 }}
                     >
-                      📥 Download Document
-                    </button>
-                    <a
-                      href={docPreviewModal.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-secondary)',
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: '13px',
-                        textDecoration: 'none'
-                      }}
-                    >
-                      Open in New Window ↗
-                    </a>
+                      <iframe
+                        src={docPreviewModal.fileUrl}
+                        style={{ width: '100%', height: '100%', minHeight: '550px', border: 'none', flex: 1 }}
+                        title={docPreviewModal.title}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '100%',
+                          gap: '16px',
+                          color: 'var(--text-secondary, #9ca3af)',
+                          padding: '24px',
+                          textAlign: 'center'
+                        }}>
+                          <span style={{ fontSize: '48px' }}>📄</span>
+                          <div>
+                            <h4 style={{ color: 'var(--text-primary, #ffffff)', margin: '0 0 6px 0', fontSize: '16px' }}>{docPreviewModal.title}</h4>
+                            <p style={{ margin: 0, fontSize: '13px' }}>Your browser does not support inline PDF viewing.</p>
+                          </div>
+                          <div style={{ display: 'flex', gap: '12px' }}>
+                            <a
+                              href={docPreviewModal.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: '#6366f1',
+                                color: '#fff',
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              Open in New Window ↗
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
+                              style={{
+                                padding: '10px 20px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-secondary)',
+                                color: '#fff',
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              📥 Download PDF
+                            </button>
+                          </div>
+                        </div>
+                      </iframe>
+                    </object>
+                  );
+                }
+
+                return (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    gap: '16px',
+                    color: 'var(--text-secondary, #9ca3af)',
+                    padding: '24px',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ fontSize: '48px' }}>📄</span>
+                    <div>
+                      <h4 style={{ color: 'var(--text-primary, #ffffff)', margin: '0 0 6px 0', fontSize: '16px' }}>{docPreviewModal.title}</h4>
+                      <p style={{ margin: 0, fontSize: '13px' }}>Preview is best viewed in a new window or downloaded to your device.</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: '#6366f1',
+                          color: '#fff',
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        📥 Download Document
+                      </button>
+                      <a
+                        href={docPreviewModal.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-secondary)',
+                          color: '#fff',
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        Open in New Window ↗
+                      </a>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>,

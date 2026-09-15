@@ -99,7 +99,7 @@ function decryptResponseData(data) {
     return data.map(item => decryptResponseData(item));
   }
   if (typeof data === 'object') {
-    const keysToDecrypt = ['videoUrl', 'video_url', 'thumbnailUrl', 'thumbnail_url', 'thumbnail', 'banner'];
+    const keysToDecrypt = ['videoUrl', 'video_url', 'thumbnailUrl', 'thumbnail_url', 'thumbnail', 'banner', 'file_url', 'fileUrl', 'url', 'download_url', 'file'];
     const result = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {

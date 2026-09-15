@@ -66,7 +66,7 @@ export function encryptPayload(plaintext) {
   }
 }
 
-function decryptUrl(ciphertextBase64) {
+export function decryptUrl(ciphertextBase64) {
   if (!ciphertextBase64) return "";
   try {
     const key = "LurnAxSecretEncryptionKey2026";
@@ -78,14 +78,14 @@ function decryptUrl(ciphertextBase64) {
   }
 }
 
-function decryptIfNeeded(val) {
+export function decryptIfNeeded(val) {
   if (typeof val !== 'string' || !val) return val;
-  if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/') || val.startsWith('data:')) {
+  if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/') || val.startsWith('data:') || val.startsWith('blob:')) {
     return val;
   }
   try {
     const decrypted = decryptUrl(val);
-    if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:'))) {
+    if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:') || decrypted.startsWith('blob:'))) {
       return decrypted;
     }
   } catch (e) {}
@@ -98,7 +98,7 @@ function decryptResponseData(data) {
     return data.map(item => decryptResponseData(item));
   }
   if (typeof data === 'object') {
-    const keysToDecrypt = ['videoUrl', 'video_url', 'thumbnailUrl', 'thumbnail_url', 'thumbnail', 'banner'];
+    const keysToDecrypt = ['videoUrl', 'video_url', 'thumbnailUrl', 'thumbnail_url', 'thumbnail', 'banner', 'file_url', 'fileUrl', 'url', 'download_url', 'file'];
     const result = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
