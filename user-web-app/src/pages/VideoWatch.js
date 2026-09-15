@@ -1316,26 +1316,6 @@ const VideoWatch = () => {
     }));
   };
 
-  const resolveResourceUrl = (url) => {
-    if (!url || url === '#' || typeof url !== 'string') return '';
-    let clean = url.trim();
-    if (decryptIfNeeded) {
-      clean = decryptIfNeeded(clean);
-    } else if (decryptUrl && !clean.startsWith('http') && !clean.startsWith('/') && !clean.startsWith('blob:') && !clean.startsWith('data:')) {
-      try { clean = decryptUrl(clean); } catch (e) {}
-    }
-    if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('blob:') || clean.startsWith('data:')) {
-      return clean;
-    }
-    if (clean.startsWith('/uploads')) {
-      return `http://localhost:5000${clean}`;
-    }
-    if (clean.startsWith('/')) {
-      return `http://localhost:5000${clean}`;
-    }
-    return clean;
-  };
-
   const getCourseChapters = (courseObj) => {
     if (!courseObj) return [];
     const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
