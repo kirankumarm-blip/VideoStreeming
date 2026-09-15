@@ -469,10 +469,47 @@ const VideoWatch = () => {
   const activeCueItemRef = useRef(null);
   const transcriptContainerRef = useRef(null);
 
+  // Chapter Learning Aids & Audio Player / Document Viewer States
+  const [activeAudioResource, setActiveAudioResource] = useState(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioVolume, setAudioVolume] = useState(1.0);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [audioPlaybackRate, setAudioPlaybackRate] = useState(1.0);
+  const audioRef = useRef(null);
+  const [resourceFilter, setResourceFilter] = useState('all'); // 'all' | 'audio' | 'pdf' | 'other'
+
+  // PDF & Document In-App Preview Modal State
+  const [docPreviewModal, setDocPreviewModal] = useState({
+    isOpen: false,
+    title: '',
+    fileUrl: '',
+    fileType: 'PDF Document',
+    fileSize: ''
+  });
+
   // Synchronized transcript cues derived from video, lang and duration
   const transcriptCues = React.useMemo(() => {
     return generateTranscriptForVideo(video, subtitleLang, duration || 180);
   }, [video, subtitleLang, duration]);
+
+  // Audio element setup and auto-play when activeAudioResource changes
+  useEffect(() => {
+    if (audioRef.current && activeAudioResource) {
+      const rawUrl = activeAudioResource.file_url || activeAudioResource.url || activeAudioResource.fileUrl || '';
+      const src = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+      audioRef.current.src = src;
+      audioRef.current.playbackRate = audioPlaybackRate;
+      audioRef.current.volume = isAudioMuted ? 0 : audioVolume;
+      audioRef.current.play().then(() => {
+        setIsAudioPlaying(true);
+      }).catch(err => {
+        console.log("Audio autoplay prevented:", err);
+        setIsAudioPlaying(false);
+      });
+    }
+  }, [activeAudioResource]);
 
   // Auto-scroll active cue into view in transcript panel
   useEffect(() => {
@@ -1259,6 +1296,39 @@ const VideoWatch = () => {
   const getCourseChapters = (courseObj) => {
     if (!courseObj) return [];
     const cId = courseObj.id || courseObj.course_id || courseObj.courseId || 0;
+    const allCourseResources = Array.isArray(courseObj.resources) ? courseObj.resources : [];
+
+    // Helper to get resources for a specific chapter
+    const getChapResources = (chapId, chapTitle, chapObj) => {
+      const explicit = Array.isArray(chapObj?.resources) ? chapObj.resources : 
+                       (Array.isArray(chapObj?.learning_aids) ? chapObj.learning_aids :
+                       (Array.isArray(chapObj?.learningAids) ? chapObj.learningAids :
+                       (Array.isArray(chapObj?.aids) ? chapObj.aids :
+                       (Array.isArray(chapObj?.files) ? chapObj.files :
+                       (Array.isArray(chapObj?.documents) ? chapObj.documents : [])))));
+      
+      const fromCourse = allCourseResources.filter(r => {
+        if (!r) return false;
+        if (r.chapter_id !== undefined && r.chapter_id !== null) {
+          return String(r.chapter_id) === String(chapId);
+        }
+        if (r.chapter) {
+          return String(r.chapter).toLowerCase() === String(chapTitle).toLowerCase();
+        }
+        return false;
+      });
+
+      // Combine and deduplicate
+      const combined = [...explicit, ...fromCourse];
+      const seen = new Set();
+      return combined.filter(item => {
+        if (!item) return false;
+        const key = item.id || item.file_url || item.url || item.file_name || item.name || item.title || JSON.stringify(item);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
 
     // 1. If courseObj.chapters is an array of objects with videos/lessons
     if (Array.isArray(courseObj.chapters) && courseObj.chapters.length > 0 && typeof courseObj.chapters[0] === 'object') {
@@ -1291,11 +1361,14 @@ const VideoWatch = () => {
             chapter: v.chapter || chapTitle
           };
         });
+
+        const chapResources = getChapResources(chapId, chapTitle, chap);
+
         return {
           id: chapId,
           title: chapTitle,
           quiz: chap.quiz,
-          resources: chap.resources || chap.learning_aids || chap.learningAids || chap.aids || chap.files || chap.documents || [],
+          resources: chapResources.length > 0 ? chapResources : (courseObj.chapters.length === 1 && allCourseResources.length > 0 ? allCourseResources : []),
           lessons
         };
       });
@@ -1338,12 +1411,17 @@ const VideoWatch = () => {
           chaptersMap.set(chapKey, {
             id: item.chapter_id,
             title: item.chapter || `Chapter ${item.chapter_id}`,
+            resources: getChapResources(item.chapter_id, item.chapter, null),
             lessons: []
           });
         }
         chaptersMap.get(chapKey).lessons.push(item);
       });
-      return Array.from(chaptersMap.values());
+      const result = Array.from(chaptersMap.values());
+      if (result.length === 1 && allCourseResources.length > 0 && result[0].resources.length === 0) {
+        result[0].resources = allCourseResources;
+      }
+      return result;
     }
 
     return [];
@@ -1369,6 +1447,10 @@ const VideoWatch = () => {
   const handlePlay = () => {
     setIsPlaying(true);
     startProgressTracking();
+    if (audioRef.current && isAudioPlaying) {
+      audioRef.current.pause();
+      setIsAudioPlaying(false);
+    }
   };
 
   const handlePause = () => {
@@ -1561,6 +1643,10 @@ const VideoWatch = () => {
       if (isPlaying) {
         videoRef.current.pause();
       } else {
+        if (audioRef.current && isAudioPlaying) {
+          audioRef.current.pause();
+          setIsAudioPlaying(false);
+        }
         videoRef.current.play().catch(e => console.log(e));
       }
     }
@@ -1710,14 +1796,26 @@ const VideoWatch = () => {
   const currentChapterResources = React.useMemo(() => {
     const activeCourse = location.state?.course || video?.course;
     const activeVid = videoRefData.current || video || location.state?.video;
-    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? 1;
+    const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id;
+    const chapTitle = activeVid?.chapter || activeVid?.chapter_name || activeVid?.chapter_title;
 
     let resList = [];
     if (activeCourse) {
       const chapters = getCourseChapters(activeCourse);
-      const currentChap = chapters.find(c => String(c.id) === String(chapId));
+      const currentChap = chapters.find(c => 
+        (chapId !== undefined && chapId !== null && String(c.id) === String(chapId)) ||
+        (chapTitle && String(c.title).toLowerCase() === String(chapTitle).toLowerCase())
+      );
       if (currentChap && Array.isArray(currentChap.resources) && currentChap.resources.length > 0) {
-        resList = [...currentChap.resources];
+        resList = [...resList, ...currentChap.resources];
+      }
+      if (Array.isArray(activeCourse.resources)) {
+        const matches = activeCourse.resources.filter(r => 
+          (chapId !== undefined && chapId !== null && String(r.chapter_id) === String(chapId)) ||
+          (chapTitle && r.chapter && String(r.chapter).toLowerCase() === String(chapTitle).toLowerCase()) ||
+          (chapters.length <= 1)
+        );
+        resList = [...resList, ...matches];
       }
     }
     if (Array.isArray(activeVid?.resources) && activeVid.resources.length > 0) {
@@ -1729,12 +1827,27 @@ const VideoWatch = () => {
     if (Array.isArray(activeVid?.learningAids) && activeVid.learningAids.length > 0) {
       resList = [...resList, ...activeVid.learningAids];
     }
-    return resList;
+    if (Array.isArray(video?.resources) && video.resources.length > 0) {
+      resList = [...resList, ...video.resources];
+    }
+
+    // Deduplicate items
+    const seen = new Set();
+    const unique = [];
+    for (const r of resList) {
+      if (!r) continue;
+      const key = r.id || r.file_url || r.url || r.file_name || r.name || r.title || JSON.stringify(r);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(r);
+      }
+    }
+    return unique;
   }, [video, location.state]);
 
   const formatResourceSize = (bytesOrStr) => {
     if (!bytesOrStr) return 'N/A';
-    if (typeof bytesOrStr === 'string' && (bytesOrStr.includes('MB') || bytesOrStr.includes('KB') || bytesOrStr.includes('GB'))) {
+    if (typeof bytesOrStr === 'string' && (bytesOrStr.includes('MB') || bytesOrStr.includes('KB') || bytesOrStr.includes('GB') || bytesOrStr.includes('B'))) {
       return bytesOrStr;
     }
     const num = Number(bytesOrStr);
@@ -1745,14 +1858,146 @@ const VideoWatch = () => {
   };
 
   const getResourceIcon = (item) => {
-    const name = (item.name || item.fileName || item.originalName || item.url || item.file_url || '').toLowerCase();
-    const type = (item.type || item.fileType || '').toLowerCase();
-    if (name.endsWith('.pdf') || type.includes('pdf')) return { icon: '📄', color: '#ef4444', label: 'PDF Document' };
-    if (name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.aac') || name.endsWith('.m4a') || type.includes('audio')) return { icon: '🎵', color: '#8b5cf6', label: 'Audio File' };
-    if (name.endsWith('.doc') || name.endsWith('.docx') || type.includes('word')) return { icon: '📝', color: '#3b82f6', label: 'Word Document' };
-    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.tar') || name.endsWith('.7z') || type.includes('zip')) return { icon: '📦', color: '#f59e0b', label: 'Archive Zip' };
-    if (name.endsWith('.js') || name.endsWith('.ts') || name.endsWith('.py') || name.endsWith('.html') || name.endsWith('.json') || type.includes('code')) return { icon: '💻', color: '#10b981', label: 'Source Code' };
-    return { icon: '📎', color: '#6366f1', label: 'Resource File' };
+    if (!item) return { icon: '📎', color: '#6366f1', label: 'Resource File', category: 'other', canPreview: false, isAudio: false };
+    const name = (item.file_name || item.fileName || item.originalName || item.title || item.name || item.url || item.file_url || '').toLowerCase();
+    const type = (item.file_type || item.fileType || item.type || '').toLowerCase();
+    
+    if (name.endsWith('.pdf') || type === 'pdf' || type.includes('pdf')) {
+      return { icon: '📄', color: '#ef4444', label: 'PDF Document', category: 'pdf', canPreview: true, isAudio: false };
+    }
+    if (name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.aac') || name.endsWith('.m4a') || name.endsWith('.ogg') || type === 'audio' || type.includes('audio')) {
+      return { icon: '🎵', color: '#8b5cf6', label: 'Audio Track', category: 'audio', canPreview: false, isAudio: true };
+    }
+    if (name.endsWith('.doc') || name.endsWith('.docx') || type.includes('word') || type.includes('doc')) {
+      return { icon: '📝', color: '#3b82f6', label: 'Word Document', category: 'pdf', canPreview: false, isAudio: false };
+    }
+    if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv') || type.includes('excel') || type.includes('sheet')) {
+      return { icon: '📊', color: '#10b981', label: 'Spreadsheet', category: 'pdf', canPreview: false, isAudio: false };
+    }
+    if (name.endsWith('.ppt') || name.endsWith('.pptx') || type.includes('powerpoint') || type.includes('presentation')) {
+      return { icon: '📊', color: '#f97316', label: 'Presentation', category: 'pdf', canPreview: false, isAudio: false };
+    }
+    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.tar') || name.endsWith('.7z') || type.includes('zip') || type.includes('archive')) {
+      return { icon: '📦', color: '#f59e0b', label: 'Archive Zip', category: 'other', canPreview: false, isAudio: false };
+    }
+    if (name.endsWith('.js') || name.endsWith('.ts') || name.endsWith('.py') || name.endsWith('.html') || name.endsWith('.json') || name.endsWith('.css') || type.includes('code')) {
+      return { icon: '💻', color: '#06b6d4', label: 'Source Code', category: 'other', canPreview: true, isAudio: false };
+    }
+    if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp') || name.endsWith('.svg') || type.includes('image')) {
+      return { icon: '🖼️', color: '#ec4899', label: 'Image File', category: 'other', canPreview: true, isAudio: false };
+    }
+    return { icon: '📎', color: '#6366f1', label: 'Resource File', category: 'other', canPreview: false, isAudio: false };
+  };
+
+  // Audio Playback Handler for Chapter Audio Files
+  const handleTogglePlayAudio = (resItem) => {
+    if (!resItem) return;
+    const isCurrent = activeAudioResource && (
+      (resItem.id && activeAudioResource.id === resItem.id) ||
+      (resItem.file_url && activeAudioResource.file_url === resItem.file_url) ||
+      (resItem.url && activeAudioResource.url === resItem.url) ||
+      (resItem.file_name && activeAudioResource.file_name === resItem.file_name)
+    );
+
+    if (isCurrent) {
+      if (isAudioPlaying) {
+        if (audioRef.current) audioRef.current.pause();
+        setIsAudioPlaying(false);
+      } else {
+        if (videoRef.current) {
+          videoRef.current.pause();
+          setIsPlaying(false);
+        }
+        if (audioRef.current) {
+          audioRef.current.play().then(() => setIsAudioPlaying(true)).catch(e => console.log(e));
+        }
+      }
+    } else {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
+      setActiveAudioResource(resItem);
+      setAudioCurrentTime(0);
+      setIsAudioPlaying(true);
+    }
+  };
+
+  const handleAudioSeek = (newTime) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setAudioCurrentTime(newTime);
+    }
+  };
+
+  const handleAudioVolumeChange = (vol) => {
+    const clamped = Math.max(0, Math.min(1, vol));
+    setAudioVolume(clamped);
+    if (clamped > 0) setIsAudioMuted(false);
+    if (audioRef.current) {
+      audioRef.current.volume = clamped;
+    }
+  };
+
+  const handleAudioMuteToggle = () => {
+    if (audioRef.current) {
+      const nextMuted = !isAudioMuted;
+      setIsAudioMuted(nextMuted);
+      audioRef.current.muted = nextMuted;
+    }
+  };
+
+  const handleAudioSpeedChange = (speed) => {
+    setAudioPlaybackRate(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  };
+
+  // Robust File Downloader with fallback
+  const handleDownloadFile = async (fileUrl, fileName = 'download') => {
+    if (!fileUrl || fileUrl === '#') return;
+    const resolvedUrl = fileUrl.startsWith('/uploads') ? `http://localhost:5000${fileUrl}` : fileUrl;
+    try {
+      const res = await fetch(resolvedUrl);
+      if (!res.ok) throw new Error('Fetch failed');
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      const a = document.createElement('a');
+      a.href = resolvedUrl;
+      a.download = fileName || 'download';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  // Document & PDF In-App Preview Handlers
+  const handleOpenDocPreview = (resItem) => {
+    const rawUrl = resItem.file_url || resItem.url || resItem.fileUrl || '';
+    const resolvedUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+    const resName = resItem.title || resItem.file_name || resItem.fileName || resItem.name || 'Document Preview';
+    const info = getResourceIcon(resItem);
+    setDocPreviewModal({
+      isOpen: true,
+      title: resName,
+      fileUrl: resolvedUrl,
+      fileType: info.label,
+      fileSize: formatResourceSize(resItem.file_size || resItem.fileSize || resItem.size)
+    });
+  };
+
+  const handleCloseDocPreview = () => {
+    setDocPreviewModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const highlightSearchText = (text, query) => {
@@ -2984,92 +3229,477 @@ const VideoWatch = () => {
             {activeWatchTab === 'resources' && (
               <div style={{ padding: '18px' }} className="animate-fade-in">
                 {currentChapterResources.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                    {currentChapterResources.map((resItem, idx) => {
-                      const info = getResourceIcon(resItem);
-                      const resName = resItem.name || resItem.fileName || resItem.originalName || resItem.title || `Resource File ${idx + 1}`;
-                      const resUrl = resItem.url || resItem.file_url || resItem.videoUrl || resItem.video_url || '#';
-                      const resSize = formatResourceSize(resItem.size || resItem.fileSize || resItem.file_size);
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Header Filters & Stats */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      paddingBottom: '12px',
+                      borderBottom: '1px solid var(--border-color)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {(() => {
+                          const total = currentChapterResources.length;
+                          const audioList = currentChapterResources.filter(r => getResourceIcon(r).isAudio);
+                          const pdfList = currentChapterResources.filter(r => getResourceIcon(r).category === 'pdf');
+                          const otherList = currentChapterResources.filter(r => !getResourceIcon(r).isAudio && getResourceIcon(r).category !== 'pdf');
 
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '14px',
-                            background: 'var(--bg-secondary)',
-                            borderRadius: '10px',
-                            border: '1px solid var(--border-color)',
-                            gap: '12px'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setResourceFilter('all')}
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: '12px',
+                                  fontWeight: resourceFilter === 'all' ? 700 : 500,
+                                  borderRadius: '20px',
+                                  border: '1px solid',
+                                  borderColor: resourceFilter === 'all' ? 'var(--accent-primary)' : 'var(--border-color)',
+                                  background: resourceFilter === 'all' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                                  color: resourceFilter === 'all' ? '#ffffff' : 'var(--text-secondary)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                All Resources ({total})
+                              </button>
+                              {audioList.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setResourceFilter('audio')}
+                                  style={{
+                                    padding: '5px 12px',
+                                    fontSize: '12px',
+                                    fontWeight: resourceFilter === 'audio' ? 700 : 500,
+                                    borderRadius: '20px',
+                                    border: '1px solid',
+                                    borderColor: resourceFilter === 'audio' ? '#8b5cf6' : 'var(--border-color)',
+                                    background: resourceFilter === 'audio' ? '#8b5cf6' : 'var(--bg-secondary)',
+                                    color: resourceFilter === 'audio' ? '#ffffff' : 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <span>🎵</span>
+                                  <span>Audio ({audioList.length})</span>
+                                </button>
+                              )}
+                              {pdfList.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setResourceFilter('pdf')}
+                                  style={{
+                                    padding: '5px 12px',
+                                    fontSize: '12px',
+                                    fontWeight: resourceFilter === 'pdf' ? 700 : 500,
+                                    borderRadius: '20px',
+                                    border: '1px solid',
+                                    borderColor: resourceFilter === 'pdf' ? '#ef4444' : 'var(--border-color)',
+                                    background: resourceFilter === 'pdf' ? '#ef4444' : 'var(--bg-secondary)',
+                                    color: resourceFilter === 'pdf' ? '#ffffff' : 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <span>📄</span>
+                                  <span>PDFs & Docs ({pdfList.length})</span>
+                                </button>
+                              )}
+                              {otherList.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setResourceFilter('other')}
+                                  style={{
+                                    padding: '5px 12px',
+                                    fontSize: '12px',
+                                    fontWeight: resourceFilter === 'other' ? 700 : 500,
+                                    borderRadius: '20px',
+                                    border: '1px solid',
+                                    borderColor: resourceFilter === 'other' ? 'var(--accent-primary)' : 'var(--border-color)',
+                                    background: resourceFilter === 'other' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                                    color: resourceFilter === 'other' ? '#ffffff' : 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  Other Files ({otherList.length})
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        Attached for: <strong style={{ color: 'var(--text-primary)' }}>{video?.chapter || video?.chapter_title || 'Current Chapter'}</strong>
+                      </div>
+                    </div>
+
+                    {/* Resources Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
+                      {currentChapterResources
+                        .filter(resItem => {
+                          const info = getResourceIcon(resItem);
+                          if (resourceFilter === 'audio') return info.isAudio;
+                          if (resourceFilter === 'pdf') return info.category === 'pdf';
+                          if (resourceFilter === 'other') return !info.isAudio && info.category !== 'pdf';
+                          return true;
+                        })
+                        .map((resItem, idx) => {
+                          const info = getResourceIcon(resItem);
+                          const resName = resItem.title || resItem.file_name || resItem.fileName || resItem.originalName || resItem.name || `Learning Aid ${idx + 1}`;
+                          const rawUrl = resItem.file_url || resItem.url || resItem.fileUrl || resItem.videoUrl || resItem.video_url || '#';
+                          const resUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+                          const resSize = formatResourceSize(resItem.file_size || resItem.fileSize || resItem.size);
+                          const isThisAudioCurrent = activeAudioResource && (
+                            (resItem.id && activeAudioResource.id === resItem.id) ||
+                            (resItem.file_url && activeAudioResource.file_url === resItem.file_url) ||
+                            (resItem.file_name && activeAudioResource.file_name === resItem.file_name)
+                          );
+                          const isThisAudioPlaying = isThisAudioCurrent && isAudioPlaying;
+
+                          return (
+                            <div
+                              key={resItem.id || idx}
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                padding: '16px',
+                                background: isThisAudioPlaying ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-secondary)',
+                                borderRadius: '12px',
+                                border: isThisAudioPlaying ? '1.5px solid #8b5cf6' : '1px solid var(--border-color)',
+                                boxShadow: isThisAudioPlaying ? '0 4px 20px rgba(139, 92, 246, 0.15)' : 'var(--shadow-sm)',
+                                transition: 'all 0.2s ease',
+                                gap: '14px'
+                              }}
+                            >
+                              {/* Top Info Header */}
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                <div style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '10px',
+                                  background: isThisAudioPlaying ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                                  border: isThisAudioPlaying ? '1px solid #8b5cf6' : '1px solid var(--border-color)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '22px',
+                                  flexShrink: 0
+                                }}>
+                                  {info.icon}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                  <div style={{
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    color: 'var(--text-primary)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    lineHeight: '1.4'
+                                  }} title={resName}>
+                                    {resName}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                    <span style={{
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      color: info.color,
+                                      background: `${info.color}15`,
+                                      border: `1px solid ${info.color}35`,
+                                      padding: '1px 6px',
+                                      borderRadius: '4px'
+                                    }}>
+                                      {info.label}
+                                    </span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>•</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>{resSize}</span>
+                                    {resItem.chapter && (
+                                      <>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>•</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{resItem.chapter}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Interactive Inline Audio Player Scrubber (if audio and currently loaded) */}
+                              {info.isAudio && isThisAudioCurrent && (
+                                <div style={{
+                                  background: 'rgba(0,0,0,0.25)',
+                                  padding: '10px 12px',
+                                  borderRadius: '8px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '6px'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                    <span>{formatTime(audioCurrentTime)}</span>
+                                    <span style={{ color: '#8b5cf6', fontWeight: 700 }}>
+                                      {isThisAudioPlaying ? 'Playing Track 🎵' : 'Paused ⏸'}
+                                    </span>
+                                    <span>{formatTime(audioDuration || 0)}</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max={audioDuration || 100}
+                                    step="0.1"
+                                    value={audioCurrentTime || 0}
+                                    onChange={(e) => handleAudioSeek(parseFloat(e.target.value))}
+                                    style={{
+                                      width: '100%',
+                                      height: '4px',
+                                      accentColor: '#8b5cf6',
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Action Buttons Row */}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '8px',
+                                paddingTop: '8px',
+                                borderTop: '1px solid var(--border-color)',
+                                marginTop: 'auto'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {info.isAudio ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTogglePlayAudio(resItem)}
+                                      style={{
+                                        padding: '7px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        background: isThisAudioPlaying ? '#8b5cf6' : 'rgba(139, 92, 246, 0.18)',
+                                        color: isThisAudioPlaying ? '#ffffff' : '#8b5cf6',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      <span>{isThisAudioPlaying ? '⏸ Pause' : '▶ Listen'}</span>
+                                    </button>
+                                  ) : info.canPreview ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenDocPreview(resItem)}
+                                      style={{
+                                        padding: '7px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      <span>👁️ Preview</span>
+                                    </button>
+                                  ) : null}
+
+                                  {info.isAudio && isThisAudioCurrent && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      {[1, 1.25, 1.5].map(rate => (
+                                        <button
+                                          key={rate}
+                                          type="button"
+                                          onClick={() => handleAudioSpeedChange(rate)}
+                                          style={{
+                                            padding: '2px 6px',
+                                            fontSize: '10px',
+                                            fontWeight: 700,
+                                            borderRadius: '4px',
+                                            border: '1px solid',
+                                            borderColor: audioPlaybackRate === rate ? '#8b5cf6' : 'var(--border-color)',
+                                            background: audioPlaybackRate === rate ? '#8b5cf6' : 'transparent',
+                                            color: audioPlaybackRate === rate ? '#fff' : 'var(--text-secondary)',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          {rate}x
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Download file button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadFile(resUrl, resItem.file_name || resName)}
+                                  style={{
+                                    padding: '7px 14px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    borderRadius: '6px',
+                                    background: 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  title={`Download ${resName}`}
+                                >
+                                  <span>📥</span>
+                                  <span>Download</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    {/* Dedicated Docked Audio Player Widget when an audio track is active */}
+                    {activeAudioResource && (
+                      <div style={{
+                        marginTop: '10px',
+                        padding: '14px 18px',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%)',
+                        border: '1.5px solid rgba(139, 92, 246, 0.4)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                             <div style={{
-                              width: '40px',
-                              height: '40px',
+                              width: '36px',
+                              height: '36px',
                               borderRadius: '8px',
-                              background: 'rgba(255,255,255,0.06)',
+                              background: '#8b5cf6',
+                              color: '#fff',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: '20px',
+                              fontSize: '18px',
                               flexShrink: 0
                             }}>
-                              {info.icon}
+                              🎵
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                              <span style={{
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{
                                 fontSize: '13px',
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 color: 'var(--text-primary)',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap'
-                              }} title={resName}>
-                                {resName}
-                              </span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{resSize}</span>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>•</span>
-                                <span style={{ fontSize: '10px', color: info.color, fontWeight: 700 }}>{info.label}</span>
+                              }}>
+                                Now Listening: {activeAudioResource.title || activeAudioResource.file_name || 'Audio Lesson'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                {activeAudioResource.chapter ? `Chapter: ${activeAudioResource.chapter}` : 'Chapter Learning Aid'}
                               </div>
                             </div>
                           </div>
 
-                          <a
-                            href={resUrl.startsWith('/uploads') ? `http://localhost:5000${resUrl}` : resUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              borderRadius: '6px',
-                              background: 'var(--accent-primary)',
-                              color: '#ffffff',
-                              textDecoration: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              flexShrink: 0
-                            }}
-                          >
-                            <span>📥</span>
-                            <span>Get</span>
-                          </a>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePlayAudio(activeAudioResource)}
+                              style={{
+                                width: '38px',
+                                height: '38px',
+                                borderRadius: '50%',
+                                border: 'none',
+                                background: '#8b5cf6',
+                                color: '#ffffff',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              title={isAudioPlaying ? "Pause" : "Play"}
+                            >
+                              {isAudioPlaying ? '⏸' : '▶'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (audioRef.current) audioRef.current.pause();
+                                setIsAudioPlaying(false);
+                                setActiveAudioResource(null);
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                fontSize: '16px',
+                                cursor: 'pointer',
+                                padding: '4px'
+                              }}
+                              title="Close audio player"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
-                      );
-                    })}
+
+                        {/* Progress Bar */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', minWidth: '40px' }}>
+                            {formatTime(audioCurrentTime)}
+                          </span>
+                          <input
+                            type="range"
+                            min="0"
+                            max={audioDuration || 100}
+                            step="0.1"
+                            value={audioCurrentTime || 0}
+                            onChange={(e) => handleAudioSeek(parseFloat(e.target.value))}
+                            style={{
+                              flex: 1,
+                              height: '4px',
+                              accentColor: '#8b5cf6',
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', minWidth: '40px', textAlign: 'right' }}>
+                            {formatTime(audioDuration || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '36px 18px', color: 'var(--text-secondary)' }}>
                     <span style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>📁</span>
-                    <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>No Learning Aids uploaded for this lesson</span>
+                    <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>No Learning Aids uploaded for this chapter</span>
                     <p style={{ fontSize: '13px', margin: '6px 0 0 0', color: 'var(--text-secondary)' }}>
-                      Supplementary PDFs, source files, and documents will appear here when attached by the course author.
+                      Supplementary audio guides, PDFs, and documents will appear here when attached by the course author.
                     </p>
                   </div>
                 )}
@@ -3340,6 +3970,149 @@ const VideoWatch = () => {
                                   </div>
                                 );
                               })}
+
+                              {/* Chapter Learning Aids & Resources in Sidebar Accordion */}
+                              {Array.isArray(chapter.resources) && chapter.resources.length > 0 && (
+                                <div style={{
+                                  marginTop: '6px',
+                                  padding: '8px 10px',
+                                  background: 'rgba(99, 102, 241, 0.05)',
+                                  borderRadius: '8px',
+                                  border: '1px dashed rgba(99, 102, 241, 0.25)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '6px'
+                                }}>
+                                  <div style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: '#6366f1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                  }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                      <span>📎</span> Chapter Aids ({chapter.resources.length})
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    {chapter.resources.map((res, rIdx) => {
+                                      const info = getResourceIcon(res);
+                                      const resTitle = res.title || res.file_name || res.fileName || res.name || `Aid ${rIdx + 1}`;
+                                      const isCurrentAudio = activeAudioResource && (
+                                        (res.id && activeAudioResource.id === res.id) ||
+                                        (res.file_url && activeAudioResource.file_url === res.file_url) ||
+                                        (res.file_name && activeAudioResource.file_name === res.file_name)
+                                      ) && isAudioPlaying;
+                                      const rawUrl = res.file_url || res.url || res.fileUrl || '';
+                                      const resolvedUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+
+                                      return (
+                                        <div
+                                          key={res.id || rIdx}
+                                          style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '6px 8px',
+                                            background: isCurrentAudio ? 'rgba(139, 92, 246, 0.15)' : 'var(--bg-primary)',
+                                            border: isCurrentAudio ? '1px solid #8b5cf6' : '1px solid var(--border-color)',
+                                            borderRadius: '6px',
+                                            gap: '6px'
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                                            <span style={{ fontSize: '12px', flexShrink: 0 }}>{info.icon}</span>
+                                            <span style={{
+                                              fontSize: '11px',
+                                              fontWeight: 600,
+                                              color: 'var(--text-primary)',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap'
+                                            }} title={resTitle}>
+                                              {resTitle}
+                                            </span>
+                                          </div>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                            {info.isAudio ? (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleTogglePlayAudio(res);
+                                                }}
+                                                style={{
+                                                  padding: '3px 8px',
+                                                  fontSize: '10px',
+                                                  fontWeight: 700,
+                                                  borderRadius: '4px',
+                                                  border: 'none',
+                                                  background: isCurrentAudio ? '#8b5cf6' : 'rgba(139, 92, 246, 0.2)',
+                                                  color: isCurrentAudio ? '#fff' : '#8b5cf6',
+                                                  cursor: 'pointer',
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  gap: '3px'
+                                                }}
+                                                title={isCurrentAudio ? "Pause Audio" : "Listen to Audio"}
+                                              >
+                                                <span>{isCurrentAudio ? '⏸' : '▶'}</span>
+                                                <span>{isCurrentAudio ? 'Pause' : 'Listen'}</span>
+                                              </button>
+                                            ) : info.canPreview ? (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenDocPreview(res);
+                                                }}
+                                                style={{
+                                                  padding: '3px 8px',
+                                                  fontSize: '10px',
+                                                  fontWeight: 700,
+                                                  borderRadius: '4px',
+                                                  border: 'none',
+                                                  background: 'rgba(239, 68, 68, 0.15)',
+                                                  color: '#ef4444',
+                                                  cursor: 'pointer',
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  gap: '3px'
+                                                }}
+                                                title="Preview Document"
+                                              >
+                                                <span>👁️</span>
+                                                <span>View</span>
+                                              </button>
+                                            ) : null}
+
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDownloadFile(resolvedUrl, res.file_name || resTitle);
+                                              }}
+                                              style={{
+                                                padding: '3px 6px',
+                                                fontSize: '10px',
+                                                borderRadius: '4px',
+                                                border: '1px solid var(--border-color)',
+                                                background: 'var(--bg-secondary)',
+                                                color: 'var(--text-secondary)',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Download file"
+                                            >
+                                              📥
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Chapter Quiz Trigger Button under Chapter */}
                               {(quizObj || location.state?.course?.quizzes) && (
@@ -3997,6 +4770,226 @@ const VideoWatch = () => {
                   >
                     Continue Course
                   </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Hidden Global Audio Element for Learning Aids */}
+      <audio
+        ref={audioRef}
+        style={{ display: 'none' }}
+        onTimeUpdate={() => {
+          if (audioRef.current) {
+            setAudioCurrentTime(audioRef.current.currentTime);
+            if (!isNaN(audioRef.current.duration) && audioRef.current.duration > 0) {
+              setAudioDuration(audioRef.current.duration);
+            }
+          }
+        }}
+        onLoadedMetadata={() => {
+          if (audioRef.current && !isNaN(audioRef.current.duration)) {
+            setAudioDuration(audioRef.current.duration);
+          }
+        }}
+        onEnded={() => {
+          setIsAudioPlaying(false);
+          setAudioCurrentTime(0);
+        }}
+        onPlay={() => setIsAudioPlaying(true)}
+        onPause={() => setIsAudioPlaying(false)}
+      />
+
+      {/* Document & PDF In-App Preview Modal */}
+      {docPreviewModal.isOpen && ReactDOM.createPortal(
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px'
+          }}
+          onClick={handleCloseDocPreview}
+        >
+          <div 
+            style={{
+              backgroundColor: 'var(--bg-primary, #12121a)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color, #2e2e3e)',
+              width: '100%',
+              maxWidth: '960px',
+              height: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '14px 20px',
+              borderBottom: '1px solid var(--border-color, #2e2e3e)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'var(--bg-secondary, #1a1a24)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <span style={{ fontSize: '20px' }}>📄</span>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: 'var(--text-primary, #ffffff)',
+                    margin: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {docPreviewModal.title}
+                  </h3>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary, #9ca3af)', marginTop: '2px', display: 'flex', gap: '8px' }}>
+                    <span>{docPreviewModal.fileType}</span>
+                    {docPreviewModal.fileSize && <span>• {docPreviewModal.fileSize}</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: '#6366f1',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>📥</span>
+                  <span>Download</span>
+                </button>
+                <a
+                  href={docPreviewModal.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color, #2e2e3e)',
+                    background: 'var(--bg-tertiary, #222230)',
+                    color: 'var(--text-primary, #ffffff)',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>↗</span>
+                  <span>New Tab</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCloseDocPreview}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary, #9ca3af)',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Preview Body */}
+            <div style={{ flex: 1, backgroundColor: '#0f0f17', position: 'relative' }}>
+              {docPreviewModal.fileUrl.toLowerCase().endsWith('.pdf') || docPreviewModal.fileType.toLowerCase().includes('pdf') ? (
+                <iframe
+                  src={`${docPreviewModal.fileUrl}#toolbar=1&navpanes=0`}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  title={docPreviewModal.title}
+                />
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  gap: '16px',
+                  color: 'var(--text-secondary, #9ca3af)',
+                  padding: '24px',
+                  textAlign: 'center'
+                }}>
+                  <span style={{ fontSize: '48px' }}>📄</span>
+                  <div>
+                    <h4 style={{ color: 'var(--text-primary, #ffffff)', margin: '0 0 6px 0', fontSize: '16px' }}>{docPreviewModal.title}</h4>
+                    <p style={{ margin: 0, fontSize: '13px' }}>Preview is best viewed in a new window or downloaded to your device.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#6366f1',
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📥 Download Document
+                    </button>
+                    <a
+                      href={docPreviewModal.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-secondary)',
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        textDecoration: 'none'
+                      }}
+                    >
+                      Open in New Window ↗
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
