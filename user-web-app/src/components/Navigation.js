@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -8,7 +8,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const user = getCurrentUser();
   const navigate = useNavigate();
   const { language, setLanguage, t } = useLanguage();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const headerSearch = searchParams.get('search') || '';
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -21,34 +21,83 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
   const [previewDuration, setPreviewDuration] = useState(0);
   
+  const [searchQuery, setSearchQuery] = useState(headerSearch);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const [searchIndex, setSearchIndex] = useState({ courses: [], videos: [], categories: [] });
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('recentSearches') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+
   const notifRef = useRef(null);
   const profileRef = useRef(null);
   const recentlyViewedRef = useRef(null);
   const previewVideoRef = useRef(null);
+  const searchContainerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-  const formatVideoTime = (secs) => {
-    if (isNaN(secs) || secs < 0) return '00:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handlePreviewSeek = (e) => {
-    const newTime = parseFloat(e.target.value);
-    setPreviewCurrentTime(newTime);
-    if (previewVideoRef.current) {
-      previewVideoRef.current.currentTime = newTime;
-    }
-  };
-
+  // Sync searchQuery when headerSearch changes in URL
   useEffect(() => {
+    setSearchQuery(headerSearch);
+  }, [headerSearch]);
+
+  // Load search index (courses, videos, categories)
+  useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
+    const loadSearchIndex = async () => {
+      try {
+        const [coursesRes, videosRes, categoriesRes] = await Promise.allSettled([
+          api.videos.getAllCourses ? api.videos.getAllCourses() : api.dashboard.getUser('getAllCourses'),
+          api.videos.list ? api.videos.list() : api.dashboard.getUser('getAllVideos'),
+          api.categories ? api.categories.list() : api.dashboard.getUser('categories')
+        ]);
+
+        const normalizeList = (res) => {
+          if (res.status !== 'fulfilled' || !res.value) return [];
+          const val = res.value;
+          if (Array.isArray(val)) return val;
+          if (val.data && Array.isArray(val.data)) return val.data;
+          if (val.json && Array.isArray(val.json)) return val.json;
+          return [];
+        };
+
+        if (isMounted) {
+          const courses = normalizeList(coursesRes).map(c => c.json || c);
+          const videos = normalizeList(videosRes).map(v => v.json || v);
+          const categories = normalizeList(categoriesRes).map(cat => cat.json || cat);
+          setSearchIndex({ courses, videos, categories });
+        }
+      } catch (err) {
+        console.warn("Failed to load global search index:", err);
+      }
+    };
+
+    loadSearchIndex();
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
-    if (user && user.role === 'user') {
-      fetchRecentlyViewedByFilter(activeFilter);
-    }
-    return () => clearInterval(interval);
-  }, []);
+    return () => { isMounted = false; };
+  }, [user]);
+
+  // Keyboard shortcut listener (/ or Ctrl+K / Cmd+K to focus search, Escape to close)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) ||
+          ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setIsSearchDropdownOpen(true);
+      }
+      if (e.key === 'Escape' && isSearchDropdownOpen) {
+        setIsSearchDropdownOpen(false);
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchDropdownOpen]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -61,6 +110,9 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       }
       if (recentlyViewedRef.current && !recentlyViewedRef.current.contains(e.target)) {
         setShowRecentlyViewed(false);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsSearchDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -158,15 +210,158 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     }
   };
 
-  const handleSearchChange = (e) => {
-    const val = e.target.value;
-    const newParams = new URLSearchParams(searchParams);
-    if (val) {
-      newParams.set('search', val);
-    } else {
-      newParams.delete('search');
+  const formatVideoTime = (seconds) => {
+    if (isNaN(seconds) || seconds === null) return '00:00';
+    const totalSecs = Math.floor(seconds);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handlePreviewSeek = (e) => {
+    const time = parseFloat(e.target.value);
+    setPreviewCurrentTime(time);
+    if (previewVideoRef.current) {
+      previewVideoRef.current.currentTime = time;
     }
-    setSearchParams(newParams);
+  };
+
+  // Compute categorized search results across courses, videos, resources, and categories
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return { courses: [], videos: [], resources: [], categories: [], total: 0 };
+
+    // Search in Courses
+    const matchedCourses = (searchIndex.courses || []).filter(c => {
+      const title = String(c.title || c.name || '').toLowerCase();
+      const desc = String(c.description || '').toLowerCase();
+      const instructor = String(c.instructor || '').toLowerCase();
+      const category = String(c.category || '').toLowerCase();
+      const tags = Array.isArray(c.tags) ? c.tags.join(' ').toLowerCase() : String(c.tags || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || instructor.includes(q) || category.includes(q) || tags.includes(q);
+    }).slice(0, 5);
+
+    // Search in Videos / Lessons
+    const matchedVideos = (searchIndex.videos || []).filter(v => {
+      const title = String(v.title || v.video_title || v.name || '').toLowerCase();
+      const desc = String(v.description || '').toLowerCase();
+      const instructor = String(v.instructor || '').toLowerCase();
+      const category = String(v.category || '').toLowerCase();
+      const tags = Array.isArray(v.tags) ? v.tags.join(' ').toLowerCase() : String(v.tags || '').toLowerCase();
+      return title.includes(q) || desc.includes(q) || instructor.includes(q) || category.includes(q) || tags.includes(q);
+    }).slice(0, 5);
+
+    // Search in Resources / Documents / PDFs
+    const matchedResources = [];
+    (searchIndex.videos || []).forEach(v => {
+      const files = v.files || v.resources || v.attachments || [];
+      if (Array.isArray(files)) {
+        files.forEach(f => {
+          const fName = String(f.file_name || f.fileName || f.name || f.title || '').toLowerCase();
+          const fType = String(f.file_type || f.type || '').toLowerCase();
+          if (fName.includes(q) || fType.includes(q)) {
+            matchedResources.push({
+              id: f.id || `${v.id}_res_${fName}`,
+              fileName: f.file_name || f.fileName || f.name || f.title || 'Resource Document',
+              fileType: f.file_type || f.type || 'PDF',
+              fileUrl: f.file_url || f.url || '',
+              videoId: v.id,
+              videoTitle: v.title || v.video_title
+            });
+          }
+        });
+      }
+    });
+
+    // Search in Categories
+    const matchedCategories = (searchIndex.categories || []).filter(cat => {
+      const name = String(typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat).toLowerCase();
+      let subNames = '';
+      if (typeof cat === 'object' && cat.sub_categories) {
+        subNames = (Array.isArray(cat.sub_categories) ? cat.sub_categories.map(s => typeof s === 'object' ? s.name : s).join(' ') : String(cat.sub_categories)).toLowerCase();
+      }
+      return name.includes(q) || subNames.includes(q);
+    }).slice(0, 4);
+
+    const total = matchedCourses.length + matchedVideos.length + matchedResources.length + matchedCategories.length;
+    return {
+      courses: matchedCourses,
+      videos: matchedVideos,
+      resources: matchedResources.slice(0, 4),
+      categories: matchedCategories,
+      total
+    };
+  }, [searchQuery, searchIndex]);
+
+  const saveRecentSearch = (term) => {
+    if (!term || !term.trim()) return;
+    const cleanTerm = term.trim();
+    setRecentSearches(prev => {
+      const filtered = prev.filter(t => t.toLowerCase() !== cleanTerm.toLowerCase());
+      const updated = [cleanTerm, ...filtered].slice(0, 6);
+      try {
+        localStorage.setItem('recentSearches', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const removeRecentSearch = (e, termToRemove) => {
+    e.stopPropagation();
+    setRecentSearches(prev => {
+      const updated = prev.filter(t => t !== termToRemove);
+      try {
+        localStorage.setItem('recentSearches', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const clearAllRecentSearches = (e) => {
+    e.stopPropagation();
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('recentSearches');
+    } catch (e) {}
+  };
+
+  const handleExecuteSearch = (term) => {
+    const finalTerm = term !== undefined ? term : searchQuery;
+    if (finalTerm) {
+      saveRecentSearch(finalTerm);
+    }
+    setIsSearchDropdownOpen(false);
+    navigate(`/?search=${encodeURIComponent(finalTerm || '')}`);
+  };
+
+  const handleSelectVideo = (video) => {
+    saveRecentSearch(video.title || video.video_title || 'Video');
+    setIsSearchDropdownOpen(false);
+    navigate(`/watch/${video.id || video.video_id}`);
+  };
+
+  const handleSelectCourse = (course) => {
+    saveRecentSearch(course.title || course.name || 'Course');
+    setIsSearchDropdownOpen(false);
+    const firstVid = course.chapters?.[0]?.lessons?.[0]?.id || course.videos?.[0]?.id || course.first_video_id || course.id;
+    navigate(`/watch/${firstVid}`);
+  };
+
+  const handleSelectCategory = (cat) => {
+    const catName = typeof cat === 'object' ? (cat.name || cat.title || cat.category_name) : cat;
+    saveRecentSearch(catName);
+    setIsSearchDropdownOpen(false);
+    navigate(`/?category=${encodeURIComponent(catName)}`);
+  };
+
+  const highlightMatch = (text, query) => {
+    if (!query || !text) return text;
+    const parts = String(text).split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() ? (
+        <strong key={i} style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{part}</strong>
+      ) : part
+    );
   };
 
   const handleNotificationClick = async (notif) => {
@@ -248,6 +443,270 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             }} 
           />
         </div>
+      </div>
+
+      {/* Global Responsive Search Bar */}
+      <div 
+        ref={searchContainerRef}
+        className="nav-global-search"
+        style={{
+          flex: '1',
+          maxWidth: '560px',
+          margin: '0 20px',
+          position: 'relative'
+        }}
+      >
+        <div className="header-search-box">
+          <svg className="header-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="header-search-input"
+            placeholder={t('nav.searchPlaceholder') || 'Search courses, lessons, documents...'}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setIsSearchDropdownOpen(true);
+            }}
+            onFocus={() => setIsSearchDropdownOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleExecuteSearch();
+              }
+            }}
+          />
+          {searchQuery && (
+            <button 
+              type="button" 
+              className="header-search-clear"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+              title={t('nav.clearSearch') || 'Clear search'}
+            >
+              ✕
+            </button>
+          )}
+          <span className="header-search-kbd">/</span>
+        </div>
+
+        {/* Live Categorized Instant Search Dropdown */}
+        {isSearchDropdownOpen && (
+          <div className="header-search-dropdown glass-card animate-fade-in">
+            {searchQuery.trim() ? (
+              searchResults.total > 0 ? (
+                <>
+                  {/* Courses section */}
+                  {searchResults.courses.length > 0 && (
+                    <div className="search-results-group">
+                      <div className="search-category-header">
+                        <span>🎓 {t('nav.searchCourses') || 'Courses'}</span>
+                        <span className="search-count-badge">{searchResults.courses.length}</span>
+                      </div>
+                      {searchResults.courses.map(course => (
+                        <div 
+                          key={course.id || course.title} 
+                          className="search-result-row"
+                          onClick={() => handleSelectCourse(course)}
+                        >
+                          <img 
+                            src={course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:5000${course.thumbnail}`) : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'} 
+                            alt={course.title}
+                            className="search-result-thumb"
+                          />
+                          <div className="search-result-info">
+                            <div className="search-result-title">{highlightMatch(course.title || course.name, searchQuery)}</div>
+                            <div className="search-result-meta">
+                              {course.instructor && <span>👨‍🏫 {course.instructor}</span>}
+                              {course.total_lessons && <span>• {course.total_lessons} lessons</span>}
+                              {course.category && <span>• {course.category}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Videos & Lessons section */}
+                  {searchResults.videos.length > 0 && (
+                    <div className="search-results-group">
+                      <div className="search-category-header">
+                        <span>🎬 {t('nav.searchVideos') || 'Videos & Lessons'}</span>
+                        <span className="search-count-badge">{searchResults.videos.length}</span>
+                      </div>
+                      {searchResults.videos.map(video => (
+                        <div 
+                          key={video.id || video.title} 
+                          className="search-result-row"
+                          onClick={() => handleSelectVideo(video)}
+                        >
+                          <img 
+                            src={video.thumbnail ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100'} 
+                            alt={video.title}
+                            className="search-result-thumb"
+                          />
+                          <div className="search-result-info">
+                            <div className="search-result-title">{highlightMatch(video.title || video.video_title, searchQuery)}</div>
+                            <div className="search-result-meta">
+                              {video.category && <span>🏷️ {video.category}</span>}
+                              {video.duration && <span>• ⏱️ {video.duration}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Resources & Documents section */}
+                  {searchResults.resources.length > 0 && (
+                    <div className="search-results-group">
+                      <div className="search-category-header">
+                        <span>📄 {t('nav.searchResources') || 'Resources & Documents'}</span>
+                        <span className="search-count-badge">{searchResults.resources.length}</span>
+                      </div>
+                      {searchResults.resources.map(res => (
+                        <div 
+                          key={res.id || res.fileName} 
+                          className="search-result-row"
+                          onClick={() => {
+                            saveRecentSearch(res.fileName);
+                            setIsSearchDropdownOpen(false);
+                            if (res.videoId) navigate(`/watch/${res.videoId}`);
+                          }}
+                        >
+                          <div className="search-result-doc-icon">📄</div>
+                          <div className="search-result-info">
+                            <div className="search-result-title">{highlightMatch(res.fileName, searchQuery)}</div>
+                            <div className="search-result-meta">
+                              <span>{res.fileType.toUpperCase()}</span>
+                              {res.videoTitle && <span>• From: {res.videoTitle}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Categories & Topics section */}
+                  {searchResults.categories.length > 0 && (
+                    <div className="search-results-group">
+                      <div className="search-category-header">
+                        <span>🏷️ {t('nav.searchCategories') || 'Categories & Topics'}</span>
+                        <span className="search-count-badge">{searchResults.categories.length}</span>
+                      </div>
+                      <div className="search-categories-tags">
+                        {searchResults.categories.map((cat, idx) => {
+                          const catName = typeof cat === 'object' ? (cat.name || cat.title) : cat;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="search-cat-tag-btn"
+                              onClick={() => handleSelectCategory(cat)}
+                            >
+                              🏷️ {highlightMatch(catName, searchQuery)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View All Search Results button */}
+                  <div className="search-footer-action">
+                    <button
+                      type="button"
+                      className="search-view-all-btn"
+                      onClick={() => handleExecuteSearch()}
+                    >
+                      {t('nav.viewAllResults') || 'View all results for'} "{searchQuery}" ➔
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="search-no-results">
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔍</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {t('nav.noSearchResults') || 'No results found for'} "{searchQuery}"
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    Try checking your spelling or searching for a different keyword
+                  </div>
+                </div>
+              )
+            ) : (
+              /* Recent Searches & Suggested Quick Searches */
+              <div className="search-recent-panel">
+                {recentSearches.length > 0 && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <div className="search-category-header">
+                      <span>🕒 {t('nav.recentSearches') || 'Recent Searches'}</span>
+                      <button 
+                        type="button" 
+                        className="search-clear-all-btn"
+                        onClick={clearAllRecentSearches}
+                      >
+                        {t('nav.clearSearch') || 'Clear'}
+                      </button>
+                    </div>
+                    <div className="search-recent-list">
+                      {recentSearches.map((term, idx) => (
+                        <div 
+                          key={idx} 
+                          className="search-recent-item"
+                          onClick={() => {
+                            setSearchQuery(term);
+                            handleExecuteSearch(term);
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>🕒</span>
+                            <span>{term}</span>
+                          </div>
+                          <button 
+                            type="button" 
+                            className="search-recent-remove"
+                            onClick={(e) => removeRecentSearch(e, term)}
+                            title="Remove"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Popular Topics shortcut tags */}
+                <div>
+                  <div className="search-category-header">
+                    <span>🔥 {t('user.categories') || 'Popular Topics'}</span>
+                  </div>
+                  <div className="search-categories-tags">
+                    {['React', 'AI & Machine Learning', 'Quantum Physics', 'Data Science', 'Technology', 'Science'].map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="search-cat-tag-btn"
+                        onClick={() => {
+                          setSearchQuery(tag);
+                          handleExecuteSearch(tag);
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>

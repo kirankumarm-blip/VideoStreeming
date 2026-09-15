@@ -4,7 +4,6 @@ const LanguageContext = createContext();
 
 const translations = {
   en: {
-    // Navigation
     'nav.brand': 'LurnAx',
     'nav.home': 'Home',
     'nav.profile': 'My Profile',
@@ -14,6 +13,17 @@ const translations = {
     'nav.language': 'Language',
     'nav.adminDashboard': 'Admin Dashboard',
     'nav.superAdminDashboard': 'Super Admin Dashboard',
+    'nav.searchPlaceholder': 'Search courses, videos, resources, topics...',
+    'nav.searchShortcut': 'Search',
+    'nav.searchResults': 'Search Results',
+    'nav.searchCourses': 'Courses',
+    'nav.searchVideos': 'Videos & Lessons',
+    'nav.searchResources': 'Resources & Documents',
+    'nav.searchCategories': 'Categories & Topics',
+    'nav.noSearchResults': 'No matching courses, videos or resources found.',
+    'nav.viewAllResults': 'View all results for',
+    'nav.recentSearches': 'Recent Searches',
+    'nav.clearSearch': 'Clear Search',
 
     // Login & Signup
     'auth.signIn': 'Sign In',
@@ -415,6 +425,17 @@ const translations = {
     'nav.language': 'भाषा',
     'nav.adminDashboard': 'एडमिन डैशबोर्ड',
     'nav.superAdminDashboard': 'सुपर एडमिन डैशबोर्ड',
+    'nav.searchPlaceholder': 'पाठ्यक्रम, वीडियो, संसाधन, विषय खोजें...',
+    'nav.searchShortcut': 'खोज',
+    'nav.searchResults': 'खोज परिणाम',
+    'nav.searchCourses': 'पाठ्यक्रम',
+    'nav.searchVideos': 'वीडियो और पाठ',
+    'nav.searchResources': 'संसाधन और दस्तावेज़',
+    'nav.searchCategories': 'श्रेणियां और विषय',
+    'nav.noSearchResults': 'कोई मेल खाता पाठ्यक्रम, वीडियो या संसाधन नहीं मिला।',
+    'nav.viewAllResults': 'सभी परिणाम देखें:',
+    'nav.recentSearches': 'हाल की खोजें',
+    'nav.clearSearch': 'खोज हटाएं',
 
     // Login & Signup
     'auth.signIn': 'साइन इन करें',
@@ -816,6 +837,17 @@ const translations = {
     'nav.language': 'ಭಾಷೆ',
     'nav.adminDashboard': 'ಅಡ್ಮಿನ್ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
     'nav.superAdminDashboard': 'ಸೂಪರ್ ಅಡ್ಮಿನ್ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
+    'nav.searchPlaceholder': 'ಕೋರ್ಸ್‌ಗಳು, ವೀಡಿಯೊಗಳು, ಸಂಪನ್ಮೂಲಗಳು, ವಿಷಯಗಳನ್ನು ಹುಡುಕಿ...',
+    'nav.searchShortcut': 'ಹುಡುಕಾಟ',
+    'nav.searchResults': 'ಹುಡುಕಾಟ ಫಲಿತಾಂಶಗಳು',
+    'nav.searchCourses': 'ಕೋರ್ಸ್‌ಗಳು',
+    'nav.searchVideos': 'ವೀಡಿಯೊಗಳು ಮತ್ತು ಪಾಠಗಳು',
+    'nav.searchResources': 'ಸಂಪನ್ಮೂಲಗಳು ಮತ್ತು ದಾಖಲೆಗಳು',
+    'nav.searchCategories': 'ವರ್ಗಗಳು ಮತ್ತು ವಿಷಯಗಳು',
+    'nav.noSearchResults': 'ಯಾವುದೇ ಹೊಂದಾಣಿಕೆಯ ಕೋರ್ಸ್‌ಗಳು, ವೀಡಿಯೊಗಳು ಅಥವಾ ಸಂಪನ್ಮೂಲಗಳು ಕಂಡುಬಂದಿಲ್ಲ.',
+    'nav.viewAllResults': 'ಎಲ್ಲಾ ಫಲಿತಾಂಶಗಳನ್ನು ವೀಕ್ಷಿಸಿ:',
+    'nav.recentSearches': 'ಇತ್ತೀಚಿನ ಹುಡುಕಾಟಗಳು',
+    'nav.clearSearch': 'ಹುಡುಕಾಟ ತೆರವುಗೊಳಿಸಿ',
 
     // Login & Signup
     'auth.signIn': 'ಸೈನ್ ಇನ್ ಮಾಡಿ',

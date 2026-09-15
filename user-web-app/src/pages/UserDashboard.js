@@ -1881,82 +1881,132 @@ const UserDashboard = () => {
                       const yourCourses = dashboardData?.yourCourses || dashboardData?.your_courses || [];
                       const recommended = dashboardData?.recommended || [];
                       const trending = dashboardData?.trending || [];
-                      const hasSpecificSections = yourCourses.length > 0 || recommended.length > 0 || trending.length > 0;
+                      
+                      const q = (urlSearchQuery || '').trim().toLowerCase();
+                      const filterByQ = (item) => {
+                        if (!q) return true;
+                        const title = String(item.title || item.name || '').toLowerCase();
+                        const desc = String(item.description || '').toLowerCase();
+                        const inst = String(item.instructor || '').toLowerCase();
+                        const cat = String(item.category || '').toLowerCase();
+                        const tags = Array.isArray(item.tags) ? item.tags.join(' ').toLowerCase() : String(item.tags || '').toLowerCase();
+                        return title.includes(q) || desc.includes(q) || inst.includes(q) || cat.includes(q) || tags.includes(q);
+                      };
 
-                      if (hasSpecificSections) {
-                        return (
-                          <>
-                            {/* Your Courses Section */}
-                            {yourCourses.length > 0 && (
-                              <div style={{ marginBottom: '40px' }}>
-                                <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
-                                  {language === 'hi' ? 'आपके पाठ्यक्रम' : language === 'kn' ? 'ನಿಮ್ಮ ಕೋರ್ಸ್‌ಗಳು' : 'Your Courses'}
-                                </h3>
-                                <div className="youtube-video-grid">
-                                  {yourCourses.map((course, idx) => (
-                                    <CourseCard key={course.id || idx} course={course} />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                      const filteredYourCourses = yourCourses.filter(filterByQ);
+                      const filteredRecommended = recommended.filter(filterByQ);
+                      const filteredTrending = trending.filter(filterByQ);
 
-                            {/* Recommended Section */}
-                            {recommended.length > 0 && (
-                              <div style={{ marginBottom: '40px' }}>
-                                <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
-                                  {language === 'hi' ? 'अनुशंसित' : language === 'kn' ? 'ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ' : 'Recommended'}
-                                </h3>
-                                <div className="youtube-video-grid">
-                                  {recommended.map((item, idx) => (
-                                    <div key={item.id || idx}>
-                                      {item.total_lessons || item.total_chapters || item.chapters ? (
-                                        <CourseCard course={item} />
-                                      ) : (
-                                        <VideoCard video={item} />
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                      const hasSpecificSections = filteredYourCourses.length > 0 || filteredRecommended.length > 0 || filteredTrending.length > 0;
 
-                            {/* Trending Section */}
-                            {trending.length > 0 && (
-                              <div style={{ marginBottom: '40px' }}>
-                                <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
-                                  {language === 'hi' ? 'ट्रेंडिंग' : language === 'kn' ? 'ಟ್ರೆಂಡಿಂಗ್' : 'Trending'}
-                                </h3>
-                                <div className="youtube-video-grid">
-                                  {trending.map((video, idx) => (
-                                    <VideoCard key={video.id || idx} video={video} />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        );
-                      }
-
-                      // Fallback to allTopicsCombined if specific lists are empty
-                      if (allTopicsCombined.length > 0) {
-                        return (
-                          <div style={{ marginBottom: '40px' }}>
-                            <div className="youtube-video-grid">
-                              {allTopicsCombined.map((item, idx) => (
-                                <div key={item.id || idx}>
-                                  {item.total_lessons || item.total_chapters || item.chapters ? (
-                                    <CourseCard course={item} />
-                                  ) : (
-                                    <VideoCard video={item} />
-                                  )}
-                                </div>
-                              ))}
+                      return (
+                        <>
+                          {urlSearchQuery && (
+                            <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', padding: '12px 18px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                              <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                🔍 {t('nav.searchResults') || 'Search Results for'}: <strong style={{ color: 'var(--accent-primary)' }}>"{urlSearchQuery}"</strong>
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const newParams = new URLSearchParams(searchParams);
+                                  newParams.delete('search');
+                                  setSearchParams(newParams);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--accent-primary)',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  fontSize: '13px'
+                                }}
+                              >
+                                {t('nav.clearSearch') || 'Clear Search'} ✕
+                              </button>
                             </div>
-                          </div>
-                        );
-                      }
+                          )}
 
-                      return null;
+                          {hasSpecificSections ? (
+                            <>
+                              {/* Your Courses Section */}
+                              {filteredYourCourses.length > 0 && (
+                                <div style={{ marginBottom: '40px' }}>
+                                  <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                    {language === 'hi' ? 'आपके पाठ्यक्रम' : language === 'kn' ? 'ನಿಮ್ಮ ಕೋರ್ಸ್‌ಗಳು' : 'Your Courses'}
+                                  </h3>
+                                  <div className="youtube-video-grid">
+                                    {filteredYourCourses.map((course, idx) => (
+                                      <CourseCard key={course.id || idx} course={course} />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Recommended Section */}
+                              {filteredRecommended.length > 0 && (
+                                <div style={{ marginBottom: '40px' }}>
+                                  <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                    {language === 'hi' ? 'अनुशंसित' : language === 'kn' ? 'ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ' : 'Recommended'}
+                                  </h3>
+                                  <div className="youtube-video-grid">
+                                    {filteredRecommended.map((item, idx) => (
+                                      <div key={item.id || idx}>
+                                        {item.total_lessons || item.total_chapters || item.chapters ? (
+                                          <CourseCard course={item} />
+                                        ) : (
+                                          <VideoCard video={item} />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Trending Section */}
+                              {filteredTrending.length > 0 && (
+                                <div style={{ marginBottom: '40px' }}>
+                                  <h3 className="video-section-title" style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)' }}>
+                                    {language === 'hi' ? 'ट्रेंडिंग' : language === 'kn' ? 'ಟ್ರೆಂಡಿಂಗ್' : 'Trending'}
+                                  </h3>
+                                  <div className="youtube-video-grid">
+                                    {filteredTrending.map((video, idx) => (
+                                      <VideoCard key={video.id || idx} video={video} />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            urlSearchQuery ? (
+                              <div className="animate-fade-in" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+                                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔍</div>
+                                <h4 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                                  {t('nav.noSearchResults') || 'No results found for'} "{urlSearchQuery}"
+                                </h4>
+                                <p style={{ fontSize: '14px', maxWidth: '400px', margin: '0 auto 16px auto' }}>
+                                  Try searching with different keywords, course titles, or topics.
+                                </p>
+                              </div>
+                            ) : (
+                              allTopicsCombined.length > 0 && (
+                                <div style={{ marginBottom: '40px' }}>
+                                  <div className="youtube-video-grid">
+                                    {allTopicsCombined.map((item, idx) => (
+                                      <div key={item.id || idx}>
+                                        {item.total_lessons || item.total_chapters || item.chapters ? (
+                                          <CourseCard course={item} />
+                                        ) : (
+                                          <VideoCard video={item} />
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            )
+                          )}
+                        </>
+                      );
                     })()}
                   </>
                 )}
