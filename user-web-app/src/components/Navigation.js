@@ -38,48 +38,46 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const previewVideoRef = useRef(null);
   const searchContainerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const hasLoadedIndexRef = useRef(false);
 
   // Sync searchQuery when headerSearch changes in URL
   useEffect(() => {
     setSearchQuery(headerSearch);
   }, [headerSearch]);
 
-  // Load search index (courses, videos, categories)
+  // Load search index on-demand once
+  const loadSearchIndex = async () => {
+    if (hasLoadedIndexRef.current) return;
+    hasLoadedIndexRef.current = true;
+    try {
+      const [coursesRes, videosRes, categoriesRes] = await Promise.allSettled([
+        api.videos.getAllCourses ? api.videos.getAllCourses() : api.dashboard.getUser('getAllCourses'),
+        api.videos.list ? api.videos.list() : api.dashboard.getUser('getAllVideos'),
+        api.categories ? api.categories.list() : api.dashboard.getUser('categories')
+      ]);
+
+      const normalizeList = (res) => {
+        if (res.status !== 'fulfilled' || !res.value) return [];
+        const val = res.value;
+        if (Array.isArray(val)) return val;
+        if (val.data && Array.isArray(val.data)) return val.data;
+        if (val.json && Array.isArray(val.json)) return val.json;
+        return [];
+      };
+
+      const courses = normalizeList(coursesRes).map(c => c.json || c);
+      const videos = normalizeList(videosRes).map(v => v.json || v);
+      const categories = normalizeList(categoriesRes).map(cat => cat.json || cat);
+      setSearchIndex({ courses, videos, categories });
+    } catch (err) {
+      console.warn("Failed to load global search index:", err);
+    }
+  };
+
+  // Fetch notifications once on initial mount
   useEffect(() => {
-    if (!user) return;
-    let isMounted = true;
-    const loadSearchIndex = async () => {
-      try {
-        const [coursesRes, videosRes, categoriesRes] = await Promise.allSettled([
-          api.videos.getAllCourses ? api.videos.getAllCourses() : api.dashboard.getUser('getAllCourses'),
-          api.videos.list ? api.videos.list() : api.dashboard.getUser('getAllVideos'),
-          api.categories ? api.categories.list() : api.dashboard.getUser('categories')
-        ]);
-
-        const normalizeList = (res) => {
-          if (res.status !== 'fulfilled' || !res.value) return [];
-          const val = res.value;
-          if (Array.isArray(val)) return val;
-          if (val.data && Array.isArray(val.data)) return val.data;
-          if (val.json && Array.isArray(val.json)) return val.json;
-          return [];
-        };
-
-        if (isMounted) {
-          const courses = normalizeList(coursesRes).map(c => c.json || c);
-          const videos = normalizeList(videosRes).map(v => v.json || v);
-          const categories = normalizeList(categoriesRes).map(cat => cat.json || cat);
-          setSearchIndex({ courses, videos, categories });
-        }
-      } catch (err) {
-        console.warn("Failed to load global search index:", err);
-      }
-    };
-
-    loadSearchIndex();
     fetchNotifications();
-    return () => { isMounted = false; };
-  }, [user]);
+  }, []);
 
   // Keyboard shortcut listener (/ or Ctrl+K / Cmd+K to focus search, Escape to close)
   useEffect(() => {
@@ -87,6 +85,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       if ((e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) ||
           ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
         e.preventDefault();
+        loadSearchIndex();
         searchInputRef.current?.focus();
         setIsSearchDropdownOpen(true);
       }
@@ -470,8 +469,12 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setIsSearchDropdownOpen(true);
+              loadSearchIndex();
             }}
-            onFocus={() => setIsSearchDropdownOpen(true)}
+            onFocus={() => {
+              setIsSearchDropdownOpen(true);
+              loadSearchIndex();
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
