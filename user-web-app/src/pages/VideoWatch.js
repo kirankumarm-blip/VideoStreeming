@@ -488,6 +488,12 @@ const VideoWatch = () => {
     fileType: 'PDF Document',
     fileSize: ''
   });
+  const [previewBlobUrl, setPreviewBlobUrl] = useState('');
+  const [previewTextContent, setPreviewTextContent] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewViewerMode, setPreviewViewerMode] = useState('auto'); // 'auto' | 'pdf' | 'text' | 'gview'
+  const [previewCopied, setPreviewCopied] = useState(false);
+  const [previewFetchError, setPreviewFetchError] = useState(null);
 
   const resolveResourceUrl = (url) => {
     if (!url || url === '#' || typeof url !== 'string') return '';
@@ -508,6 +514,86 @@ const VideoWatch = () => {
     }
     return clean;
   };
+
+  // Inspect and load document preview (handles PDF Blob, plain text, VTT, SRT, JSON)
+  useEffect(() => {
+    if (!docPreviewModal.isOpen || !docPreviewModal.fileUrl) {
+      if (previewBlobUrl) {
+        URL.revokeObjectURL(previewBlobUrl);
+      }
+      setPreviewBlobUrl('');
+      setPreviewTextContent(null);
+      setPreviewLoading(false);
+      setPreviewViewerMode('auto');
+      setPreviewFetchError(null);
+      return;
+    }
+
+    let isMounted = true;
+    const url = docPreviewModal.fileUrl;
+    setPreviewLoading(true);
+    setPreviewFetchError(null);
+    setPreviewTextContent(null);
+    setPreviewViewerMode('auto');
+
+    // If it's an image
+    const isImg = /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url) || (docPreviewModal.fileType || '').toLowerCase().includes('image');
+    if (isImg) {
+      setPreviewLoading(false);
+      return;
+    }
+
+    fetch(url)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        const blob = await res.blob();
+        if (!isMounted) return;
+
+        // Inspect header bytes
+        const headerText = await blob.slice(0, 10).text();
+        const isPdfMagic = headerText.startsWith('%PDF');
+
+        if (isPdfMagic) {
+          const blobPdf = new Blob([blob], { type: 'application/pdf' });
+          const objUrl = URL.createObjectURL(blobPdf);
+          setPreviewBlobUrl(objUrl);
+          setPreviewViewerMode('pdf');
+        } else if (
+          contentType.includes('text') || 
+          contentType.includes('json') || 
+          contentType.includes('vtt') || 
+          headerText.includes('WEBVTT') || 
+          url.includes('.txt') || 
+          url.includes('.vtt') || 
+          url.includes('.srt') || 
+          url.includes('.json') || 
+          url.includes('.csv') ||
+          (docPreviewModal.title || '').toLowerCase().includes('transcript') ||
+          !isPdfMagic
+        ) {
+          // If not PDF magic bytes, read and render as formatted text
+          const text = await blob.text();
+          setPreviewTextContent(text);
+          setPreviewViewerMode('text');
+        } else {
+          const objUrl = URL.createObjectURL(blob);
+          setPreviewBlobUrl(objUrl);
+        }
+        setPreviewLoading(false);
+      })
+      .catch((err) => {
+        console.warn("Direct preview fetch failed, using fallback:", err);
+        if (isMounted) {
+          setPreviewLoading(false);
+          setPreviewFetchError(err.message || 'Unable to fetch file directly');
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [docPreviewModal.isOpen, docPreviewModal.fileUrl]);
 
   // Synchronized transcript cues derived from video, lang and duration
   const transcriptCues = React.useMemo(() => {
@@ -2045,7 +2131,15 @@ const VideoWatch = () => {
   };
 
   const handleCloseDocPreview = () => {
+    if (previewBlobUrl) {
+      try { URL.revokeObjectURL(previewBlobUrl); } catch (e) {}
+    }
     setDocPreviewModal(prev => ({ ...prev, isOpen: false }));
+    setPreviewBlobUrl('');
+    setPreviewTextContent(null);
+    setPreviewLoading(false);
+    setPreviewViewerMode('auto');
+    setPreviewFetchError(null);
   };
 
   const highlightSearchText = (text, query) => {
@@ -4943,6 +5037,62 @@ const VideoWatch = () => {
                   style={{
                     padding: '6px 12px',
                     fontSize: '12px',
+                {previewTextContent !== null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (previewTextContent) {
+                        navigator.clipboard.writeText(previewTextContent);
+                        setPreviewCopied(true);
+                        setTimeout(() => setPreviewCopied(false), 2000);
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color, #2e2e3e)',
+                      background: previewCopied ? '#10b981' : 'var(--bg-tertiary, #222230)',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>{previewCopied ? '✓ Copied' : '📋 Copy Text'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: '#6366f1',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>📥</span>
+                  <span>Download</span>
+                </button>
+
+                <a
+                  href={docPreviewModal.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
                     fontWeight: 600,
                     borderRadius: '6px',
                     border: '1px solid var(--border-color, #2e2e3e)',
@@ -4957,6 +5107,7 @@ const VideoWatch = () => {
                   <span>↗</span>
                   <span>New Tab</span>
                 </a>
+
                 <button
                   type="button"
                   onClick={handleCloseDocPreview}
@@ -4979,82 +5130,185 @@ const VideoWatch = () => {
             </div>
 
             {/* Modal Preview Body */}
-            <div style={{ flex: 1, backgroundColor: '#0f0f17', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, backgroundColor: '#0f0f17', position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {(() => {
                 const urlLower = (docPreviewModal.fileUrl || '').toLowerCase();
                 const typeLower = (docPreviewModal.fileType || '').toLowerCase();
                 const titleLower = (docPreviewModal.title || '').toLowerCase();
-                const isPdf = typeLower.includes('pdf') || titleLower.includes('.pdf') || urlLower.includes('.pdf');
+                const isImage = /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(urlLower) || typeLower.includes('image');
+                const isPdf = typeLower.includes('pdf') || titleLower.includes('.pdf') || urlLower.includes('.pdf') || previewViewerMode === 'pdf';
 
-                if (isPdf && docPreviewModal.fileUrl) {
+                if (previewLoading) {
                   return (
-                    <object
-                      data={docPreviewModal.fileUrl}
-                      type="application/pdf"
-                      style={{ width: '100%', height: '100%', minHeight: '550px', flex: 1 }}
-                    >
-                      <iframe
-                        src={docPreviewModal.fileUrl}
-                        style={{ width: '100%', height: '100%', minHeight: '550px', border: 'none', flex: 1 }}
-                        title={docPreviewModal.title}
-                      >
-                        <div style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          height: '100%',
-                          gap: '16px',
-                          color: 'var(--text-secondary, #9ca3af)',
-                          padding: '24px',
-                          textAlign: 'center'
-                        }}>
-                          <span style={{ fontSize: '48px' }}>📄</span>
-                          <div>
-                            <h4 style={{ color: 'var(--text-primary, #ffffff)', margin: '0 0 6px 0', fontSize: '16px' }}>{docPreviewModal.title}</h4>
-                            <p style={{ margin: 0, fontSize: '13px' }}>Your browser does not support inline PDF viewing.</p>
-                          </div>
-                          <div style={{ display: 'flex', gap: '12px' }}>
-                            <a
-                              href={docPreviewModal.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: '#6366f1',
-                                color: '#fff',
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                textDecoration: 'none'
-                              }}
-                            >
-                              Open in New Window ↗
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
-                              style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: '1px solid var(--border-color)',
-                                background: 'var(--bg-secondary)',
-                                color: '#fff',
-                                fontWeight: 600,
-                                fontSize: '13px',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              📥 Download PDF
-                            </button>
-                          </div>
-                        </div>
-                      </iframe>
-                    </object>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      gap: '16px',
+                      color: 'var(--text-secondary, #9ca3af)'
+                    }}>
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        border: '3px solid rgba(99, 102, 241, 0.2)',
+                        borderTopColor: '#6366f1',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite'
+                      }} />
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>Loading document preview...</p>
+                    </div>
                   );
                 }
 
+                // Image Preview
+                if (isImage) {
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      padding: '24px',
+                      backgroundColor: '#0a0a0f'
+                    }}>
+                      <img
+                        src={docPreviewModal.fileUrl}
+                        alt={docPreviewModal.title}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                          borderRadius: '8px',
+                          boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
+                        }}
+                      />
+                    </div>
+                  );
+                }
+
+                // Formatted Text / Transcript / JSON / Subtitle Viewer
+                if (previewTextContent !== null || previewViewerMode === 'text') {
+                  const lines = (previewTextContent || '').split('\n');
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                      <div style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#181822',
+                        borderBottom: '1px solid var(--border-color, #2e2e3e)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary, #9ca3af)'
+                      }}>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                          <span>Lines: <strong>{lines.length}</strong></span>
+                          <span>Size: <strong>{previewTextContent?.length || 0} characters</strong></span>
+                        </div>
+                        {isPdf && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewViewerMode('pdf')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#6366f1',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              fontSize: '12px'
+                            }}
+                          >
+                            Switch to PDF Viewer ↗
+                          </button>
+                        )}
+                      </div>
+                      <div style={{
+                        flex: 1,
+                        overflow: 'auto',
+                        padding: '16px',
+                        fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                        fontSize: '13px',
+                        lineHeight: '1.6',
+                        color: '#e2e8f0',
+                        backgroundColor: '#0f0f17',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        userSelect: 'text'
+                      }}>
+                        {lines.map((line, idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: '16px' }}>
+                            <span style={{
+                              width: '32px',
+                              textAlign: 'right',
+                              color: '#475569',
+                              userSelect: 'none',
+                              flexShrink: 0
+                            }}>
+                              {idx + 1}
+                            </span>
+                            <span style={{ flex: 1 }}>{line || ' '}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Google Docs Viewer Mode
+                if (previewViewerMode === 'gview') {
+                  return (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{
+                        padding: '6px 16px',
+                        backgroundColor: '#181822',
+                        borderBottom: '1px solid var(--border-color, #2e2e3e)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '12px'
+                      }}>
+                        <span style={{ color: 'var(--text-secondary, #9ca3af)' }}>Google Cloud Document Viewer</span>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewViewerMode('pdf')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#6366f1',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '12px'
+                          }}
+                        >
+                          Switch back to Direct Viewer
+                        </button>
+                      </div>
+                      <iframe
+                        src={`https://docs.google.com/viewer?url=${encodeURIComponent(docPreviewModal.fileUrl)}&embedded=true`}
+                        style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
+                        title={docPreviewModal.title}
+                      />
+                    </div>
+                  );
+                }
+
+                // PDF / Document Viewer
+                if (isPdf && (previewBlobUrl || docPreviewModal.fileUrl)) {
+                  const activePdfUrl = previewBlobUrl || docPreviewModal.fileUrl;
+                  return (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <iframe
+                        src={`${activePdfUrl}#toolbar=1&navpanes=0`}
+                        style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
+                        title={docPreviewModal.title}
+                      />
+                    </div>
+                  );
+                }
+
+                // Fallback View
                 return (
                   <div style={{
                     display: 'flex',
