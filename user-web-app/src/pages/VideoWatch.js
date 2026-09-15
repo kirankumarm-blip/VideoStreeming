@@ -5010,33 +5010,6 @@ const VideoWatch = () => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleDownloadFile(docPreviewModal.fileUrl, docPreviewModal.title)}
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: '#6366f1',
-                    color: '#ffffff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <span>📥</span>
-                  <span>Download</span>
-                </button>
-                <a
-                  href={docPreviewModal.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '12px',
                 {previewTextContent !== null && (
                   <button
                     type="button"
