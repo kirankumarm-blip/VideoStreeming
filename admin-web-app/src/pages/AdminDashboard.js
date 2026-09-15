@@ -3757,7 +3757,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     }
 
-    setUploadProgress('Submitting course...');
+    setUploadProgress(editingCourse ? 'Updating course...' : (isDraft ? 'Saving draft...' : 'Submitting course...'));
     try {
       const calculatedLessons = chapters.reduce((sum, ch) => sum + (ch.videos ? ch.videos.length : 0), 0);
       const calculatedDuration = chapters.reduce((sum, ch) => {
@@ -10032,9 +10032,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           left: 0,
           width: '100vw',
           height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.45)',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -10042,14 +10042,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           pointerEvents: 'all'
         }}>
           <div className="glass-card animate-fade-in" style={{
-            padding: '36px 52px',
-            borderRadius: '16px',
-            backgroundColor: theme === 'dark' ? '#181824' : '#ffffff',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
-            border: '1px solid var(--accent-secondary)',
+            padding: '40px 60px',
+            borderRadius: '20px',
+            backgroundColor: '#161622',
+            boxShadow: '0 25px 70px rgba(0, 0, 0, 0.7), 0 0 35px rgba(229, 9, 20, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center'
+            alignItems: 'center',
+            maxWidth: '90vw',
+            minWidth: '320px'
           }}>
             <ThreeDLoader text={uploadProgress} />
           </div>

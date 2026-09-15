@@ -93,24 +93,27 @@ const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
           100% { transform: scale(1.15); box-shadow: 0 0 35px rgba(229, 9, 20, 1), 0 0 50px rgba(99, 102, 241, 0.6); }
         }
         @keyframes shimmer3dText {
-          0% { opacity: 0.6; text-shadow: 0 0 5px rgba(229, 9, 20, 0.3); }
-          100% { opacity: 1; text-shadow: 0 0 15px rgba(229, 9, 20, 0.8); }
+          0% { opacity: 0.85; text-shadow: 0 0 8px rgba(229, 9, 20, 0.4), 0 2px 4px rgba(0,0,0,0.8); }
+          100% { opacity: 1; text-shadow: 0 0 18px rgba(229, 9, 20, 0.9), 0 0 30px rgba(99, 102, 241, 0.6), 0 2px 6px rgba(0,0,0,0.9); }
         }
       `}</style>
 
       {/* Loading Label with Shimmer */}
       <div style={{
         marginTop: '28px',
-        fontSize: '15px',
+        fontSize: '16px',
         fontWeight: 700,
-        letterSpacing: '0.8px',
-        color: 'var(--text-primary, #ffffff)',
+        letterSpacing: '0.6px',
+        color: '#ffffff',
         animation: 'shimmer3dText 1.5s ease-in-out infinite alternate',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        justifyContent: 'center',
+        gap: '10px',
+        textAlign: 'center',
+        textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)'
       }}>
-        <span>⚡</span> {text}
+        <span style={{ color: '#e50914', fontSize: '18px' }}>⚡</span> {text}
       </div>
     </div>
   );
