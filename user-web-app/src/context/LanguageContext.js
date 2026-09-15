@@ -24,6 +24,7 @@ const translations = {
     'nav.viewAllResults': 'View all results for',
     'nav.recentSearches': 'Recent Searches',
     'nav.clearSearch': 'Clear Search',
+    'nav.popularTopics': 'Popular Topics',
 
     // Login & Signup
     'auth.signIn': 'Sign In',
@@ -436,6 +437,7 @@ const translations = {
     'nav.viewAllResults': 'सभी परिणाम देखें:',
     'nav.recentSearches': 'हाल की खोजें',
     'nav.clearSearch': 'खोज हटाएं',
+    'nav.popularTopics': 'लोकप्रिय विषय',
 
     // Login & Signup
     'auth.signIn': 'साइन इन करें',
@@ -848,6 +850,7 @@ const translations = {
     'nav.viewAllResults': 'ಎಲ್ಲಾ ಫಲಿತಾಂಶಗಳನ್ನು ವೀಕ್ಷಿಸಿ:',
     'nav.recentSearches': 'ಇತ್ತೀಚಿನ ಹುಡುಕಾಟಗಳು',
     'nav.clearSearch': 'ಹುಡುಕಾಟ ತೆರವುಗೊಳಿಸಿ',
+    'nav.popularTopics': 'ಜನಪ್ರಿಯ ವಿಷಯಗಳು',
 
     // Login & Signup
     'auth.signIn': 'ಸೈನ್ ಇನ್ ಮಾಡಿ',

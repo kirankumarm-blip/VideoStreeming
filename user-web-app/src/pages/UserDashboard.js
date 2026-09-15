@@ -319,6 +319,7 @@ const UserDashboard = () => {
   // URL parameters mapping
   const activeView = searchParams.get('view') || 'home';
   const urlSearchQuery = searchParams.get('search') || '';
+  const urlCategory = searchParams.get('category') || '';
 
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -343,7 +344,7 @@ const UserDashboard = () => {
   
   // Filter Explore Page and Categories state
   const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory || '');
   const [filterDifficulty, setFilterDifficulty] = useState('All');
   const [filterDuration, setFilterDuration] = useState('All');
   const [sortBy, setSortBy] = useState('views');
@@ -407,6 +408,13 @@ const UserDashboard = () => {
   useEffect(() => {
     setSearchQuery(urlSearchQuery);
   }, [urlSearchQuery]);
+
+  // Sync Header category selection with local selectedCategory
+  useEffect(() => {
+    if (urlCategory) {
+      setSelectedCategory(urlCategory);
+    }
+  }, [urlCategory]);
 
   useEffect(() => {
     fetchCategories();

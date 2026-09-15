@@ -688,7 +688,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                 {/* Popular Topics shortcut tags */}
                 <div>
                   <div className="search-category-header">
-                    <span>🔥 {t('user.categories') || 'Popular Topics'}</span>
+                    <span>🔥 {t('nav.popularTopics') || 'Popular Topics'}</span>
                   </div>
                   <div className="search-categories-tags">
                     {['React', 'AI & Machine Learning', 'Quantum Physics', 'Data Science', 'Technology', 'Science'].map(tag => (
