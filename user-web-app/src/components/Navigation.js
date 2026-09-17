@@ -336,14 +336,15 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const handleSelectVideo = (video) => {
     saveRecentSearch(video.title || video.video_title || 'Video');
     setIsSearchDropdownOpen(false);
-    navigate(`/watch/${video.id || video.video_id}`);
+    navigate(`/watch/${video.id || video.video_id}`, { state: { video } });
   };
 
   const handleSelectCourse = (course) => {
     saveRecentSearch(course.title || course.name || 'Course');
     setIsSearchDropdownOpen(false);
-    const firstVid = course.chapters?.[0]?.lessons?.[0]?.id || course.videos?.[0]?.id || course.first_video_id || course.id;
-    navigate(`/watch/${firstVid}`);
+    const firstLesson = course.chapters?.[0]?.lessons?.[0] || course.videos?.[0] || null;
+    const firstVid = firstLesson?.id || course.first_video_id || course.id;
+    navigate(`/watch/${firstVid}`, { state: { video: firstLesson, course } });
   };
 
   const handleSelectCategory = (cat) => {

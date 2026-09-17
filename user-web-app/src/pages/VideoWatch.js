@@ -5,26 +5,182 @@ import { api, getCurrentUser, decryptUrl, decryptIfNeeded } from '../services/ap
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
 
-const AVAILABLE_SUBTITLE_LANGUAGES = [
-  { id: 'en', name: 'English (EN)' },
-  { id: 'es', name: 'Spanish (ES)' },
-  { id: 'hi', name: 'Hindi (HI)' },
-  { id: 'fr', name: 'French (FR)' },
-  { id: 'de', name: 'German (DE)' }
+const SUPPORTED_SUBTITLE_LANGUAGES = [
+  { id: 'en', code: 'en', name: 'English', label: 'English', default: true },
+  { id: 'hi', code: 'hi', name: 'Hindi', label: 'Hindi', default: false },
+  { id: 'kn', code: 'kn', name: 'Kannada', label: 'Kannada', default: false },
+  { id: 'te', code: 'te', name: 'Telugu', label: 'Telugu', default: false }
 ];
+
+
+
+// Lightweight WebVTT Parser
+const parseWebVTT = (vttText) => {
+  if (!vttText || typeof vttText !== 'string') return [];
+  const lines = vttText.split(/\r?\n/);
+  const cues = [];
+  let currentCue = null;
+  const timeRegex = /(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{3})/;
+
+  const parseTime = (h, m, s, ms) => {
+    const hours = parseInt(h || '0', 10);
+    const minutes = parseInt(m, 10);
+    const seconds = parseInt(s, 10);
+    const millis = parseInt(ms, 10);
+    return hours * 3600 + minutes * 60 + seconds + millis / 1000;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('WEBVTT') || line.startsWith('NOTE')) continue;
+
+    const match = line.match(timeRegex);
+    if (match) {
+      if (currentCue && currentCue.text) cues.push(currentCue);
+      const start = parseTime(match[1], match[2], match[3], match[4]);
+      const end = parseTime(match[5], match[6], match[7], match[8]);
+      currentCue = {
+        id: cues.length + 1,
+        start: Math.round(start * 100) / 100,
+        end: Math.round(end * 100) / 100,
+        speaker: 'Instructor',
+        text: ''
+      };
+    } else if (currentCue) {
+      if (currentCue.text) currentCue.text += ' ';
+      currentCue.text += line;
+    }
+  }
+  if (currentCue && currentCue.text) cues.push(currentCue);
+  return cues;
+};
+
+// Normalize and extract complete multilingual subtitle URLs & transcript cues from API video object
+const extractVideoMultilingualData = (videoObj) => {
+  const result = {
+    subtitles: {},    // { en: url, hi: url, kn: url, te: url }
+    transcripts: {},  // { en: [cues], hi: [cues], kn: [cues], te: [cues] }
+    availableLanguages: []
+  };
+
+  if (!videoObj) return result;
+
+  // 1. Subtitles Map from videoObj.subtitles or videoObj.subtitleTracks
+  if (Array.isArray(videoObj.subtitles)) {
+    videoObj.subtitles.forEach(s => {
+      const code = (s.language_code || s.srclang || s.lang || s.code || '').toLowerCase();
+      const url = s.subtitle_url || s.src || s.url || '';
+      if (code && url) {
+        result.subtitles[code] = url;
+      }
+    });
+  } else if (videoObj.subtitles && typeof videoObj.subtitles === 'object') {
+    Object.entries(videoObj.subtitles).forEach(([k, v]) => {
+      if (typeof v === 'string' && v) {
+        result.subtitles[k.toLowerCase()] = v;
+      } else if (v && typeof v === 'object') {
+        const url = v.subtitle_url || v.src || v.url;
+        if (url) result.subtitles[k.toLowerCase()] = url;
+      }
+    });
+  }
+
+  const tracks = videoObj.subtitleTracks || videoObj.subtitle_tracks;
+  if (Array.isArray(tracks)) {
+    tracks.forEach(t => {
+      const code = (t.srclang || t.language_code || t.lang || t.code || '').toLowerCase();
+      const url = t.src || t.subtitle_url || t.url || '';
+      if (code && url && !result.subtitles[code]) {
+        result.subtitles[code] = url;
+      }
+    });
+  }
+
+  const normalizeCue = (c, idx) => {
+    const rawStart = c.start ?? c.start_time ?? c.startTime ?? idx * 3;
+    const rawEnd = c.end ?? c.end_time ?? c.endTime ?? (rawStart + 3);
+    return {
+      id: c.id ?? idx + 1,
+      start: typeof rawStart === 'number' ? rawStart : parseFloat(rawStart) || 0,
+      end: typeof rawEnd === 'number' ? rawEnd : parseFloat(rawEnd) || (rawStart + 3),
+      speaker: c.speaker || 'Instructor',
+      text: String(c.text ?? c.content ?? c.dialogue ?? '').trim()
+    };
+  };
+
+  // 2. Transcripts Map
+  if (videoObj.transcripts && typeof videoObj.transcripts === 'object' && !Array.isArray(videoObj.transcripts)) {
+    Object.entries(videoObj.transcripts).forEach(([k, v]) => {
+      const code = k.toLowerCase();
+      let list = [];
+      if (Array.isArray(v)) {
+        list = v.map(normalizeCue);
+      } else if (v && Array.isArray(v.segments)) {
+        list = v.segments.map(normalizeCue);
+      } else if (v && Array.isArray(v.transcript)) {
+        list = v.transcript.map(normalizeCue);
+      }
+      if (list.length > 0) {
+        result.transcripts[code] = list;
+      }
+    });
+  }
+
+  const rawTranscriptArray = Array.isArray(videoObj.transcripts) ? videoObj.transcripts : (Array.isArray(videoObj.transcript) ? videoObj.transcript : null);
+  if (rawTranscriptArray && rawTranscriptArray.length > 0) {
+    const firstItem = rawTranscriptArray[0];
+    if (firstItem && (firstItem.language_code || firstItem.language || firstItem.lang)) {
+      rawTranscriptArray.forEach(item => {
+        const code = (item.language_code || item.language || item.lang || '').toLowerCase();
+        let list = [];
+        if (item.transcript && Array.isArray(item.transcript.segments)) {
+          list = item.transcript.segments.map(normalizeCue);
+        } else if (Array.isArray(item.transcript)) {
+          list = item.transcript.map(normalizeCue);
+        } else if (Array.isArray(item.segments)) {
+          list = item.segments.map(normalizeCue);
+        } else if (Array.isArray(item.cues)) {
+          list = item.cues.map(normalizeCue);
+        }
+        if (code && list.length > 0) {
+          result.transcripts[code] = list;
+        }
+      });
+    } else if (firstItem && (firstItem.start !== undefined || firstItem.text !== undefined || firstItem.end !== undefined)) {
+      result.transcripts['en'] = rawTranscriptArray.map(normalizeCue);
+    }
+  }
+
+  if (!result.transcripts['en'] && videoObj.transcript && typeof videoObj.transcript === 'object' && !Array.isArray(videoObj.transcript)) {
+    if (Array.isArray(videoObj.transcript.segments)) {
+      result.transcripts['en'] = videoObj.transcript.segments.map(normalizeCue);
+    }
+  }
+
+  // 3. Determine available languages
+  SUPPORTED_SUBTITLE_LANGUAGES.forEach(lang => {
+    const hasTranscript = Array.isArray(result.transcripts[lang.code]) && result.transcripts[lang.code].length > 0;
+    const hasSubtitleUrl = Boolean(result.subtitles[lang.code]);
+    if (hasTranscript || hasSubtitleUrl) {
+      result.availableLanguages.push({
+        ...lang,
+        hasTranscript,
+        hasSubtitleUrl,
+        subtitleUrl: result.subtitles[lang.code] || null
+      });
+    }
+  });
+
+  return result;
+};
 
 const generateTranscriptForVideo = (videoObj, lang = 'en', totalDuration = 180) => {
   if (!videoObj) return [];
 
-  // 1. If explicit transcript array provided on videoObj, use it
-  if (Array.isArray(videoObj.transcript) && videoObj.transcript.length > 0) {
-    return videoObj.transcript.map((cue, idx) => ({
-      id: cue.id || idx + 1,
-      start: cue.start !== undefined ? Number(cue.start) : idx * 4,
-      end: cue.end !== undefined ? Number(cue.end) : (idx + 1) * 4,
-      speaker: cue.speaker || 'Instructor',
-      text: cue.text || cue.content || ''
-    }));
+  // Check if extracted cues exist
+  const multi = extractVideoMultilingualData(videoObj);
+  if (multi.transcripts[lang] && multi.transcripts[lang].length > 0) {
+    return multi.transcripts[lang];
   }
 
   const rawTitle = (videoObj.title || '').toLowerCase();
@@ -33,7 +189,7 @@ const generateTranscriptForVideo = (videoObj, lang = 'en', totalDuration = 180) 
   const combined = `${rawTitle} ${rawCat} ${rawDesc}`;
 
   // Detect subject matter
-  const isJava = combined.includes('java') || combined.includes('demo') || combined.includes('mobile') || combined.includes('telusko') || combined.includes('vd cc') || combined.includes('class') || combined.includes('oop');
+  const isJava = combined.includes('java') || combined.includes('demo') || combined.includes('mobile') || combined.includes('telusko') || combined.includes('vd cc') || combined.includes('class') || combined.includes('oop') || combined.includes('static');
   const isPython = combined.includes('python') || combined.includes('django') || combined.includes('flask') || combined.includes('pandas') || combined.includes('numpy') || combined.includes('ml');
   const isWeb = combined.includes('react') || combined.includes('javascript') || combined.includes('html') || combined.includes('css') || combined.includes('frontend') || combined.includes('node') || combined.includes('web');
 
@@ -94,129 +250,74 @@ const generateTranscriptForVideo = (videoObj, lang = 'en', totalDuration = 180) 
             "अगले वीडियो में हम स्टैटिक मेथड्स और कंस्ट्रक्टर्स को समझेंगे।",
             "वीडियो देखने के लिए धन्यवाद, और कोडिंग करते रहें!"
           ];
-        case 'es':
+        case 'kn':
           return [
-            "Hola a todos, bienvenidos de nuevo al canal.",
-            "En esta sesión, exploraremos las Clases y Objetos en Java en detalle.",
-            "Como pueden ver en pantalla, tenemos nuestro editor con Demo.java abierto.",
-            "Comencemos definiendo una clase llamada Mobile.",
-            "Recuerden que en POO, una clase funciona como un plano o plantilla.",
-            "Dentro de la clase Mobile, declararemos algunas variables de instancia.",
-            "Primero, declaremos String brand para almacenar la marca del teléfono.",
-            "Luego, declaremos int price para el precio del dispositivo.",
-            "Y agreguemos String network para especificar la red 4G o 5G.",
-            "Estas variables almacenarán las propiedades de cada objeto móvil.",
-            "Ahora creamos nuestra clase principal: public class Demo.",
-            "Dentro de Demo, escribimos public static void main(String[] args).",
-            "Este método main es el punto de entrada de la aplicación en la JVM.",
-            "Ahora, ¿cómo instanciamos un objeto a partir de la clase Mobile?",
-            "Utilizamos la palabra clave 'new' para crear el objeto en memoria.",
-            "Escribimos: Mobile obj1 = new Mobile();",
-            "Esto asigna espacio dinámico dentro de la memoria heap de la JVM.",
-            "obj1 es la variable de referencia que apunta a ese objeto.",
-            "Inicialicemos los valores para nuestro primer objeto móvil.",
-            "Escribimos: obj1.brand = 'Apple';",
-            "Luego: obj1.price = 1500;",
-            "Y establecemos obj1.network = '5G';",
-            "Ahora creamos un segundo objeto: Mobile obj2 = new Mobile();",
-            "Para este segundo objeto asignamos obj2.brand = 'Samsung';",
-            "Y definimos obj2.price = 1200 junto con su red.",
-            "Observen cómo obj1 y obj2 existen de forma totalmente independiente.",
-            "Si modificamos el precio de obj1, obj2 no se ve afectado.",
-            "Imprimamos estos valores usando System.out.println en la consola.",
-            "Mostramos la marca y el precio de ambos objetos por separado.",
-            "Abrimos la terminal y compilamos el archivo con javac Demo.java.",
-            "El compilador generará el bytecode en los archivos .class correspondientes.",
-            "Ejecutamos el programa con el comando java Demo.",
-            "Vean en la terminal cómo cada objeto imprime sus valores asignados.",
-            "Ahora, ¿qué ocurre si queremos una propiedad compartida por todos los teléfonos?",
-            "Por ejemplo, todos los modelos pertenecen a la categoría SmartPhone.",
-            "En lugar de duplicar la variable en cada objeto, usamos la palabra clave static.",
-            "Al declarar static String name = 'SmartPhone'...",
-            "Esta variable pertenece a la clase y es compartida por todas las instancias.",
-            "Se almacena en el área de memoria de clase y se carga una sola vez.",
-            "Para acceder a una variable estática no se necesita crear un objeto.",
-            "Podemos acceder a ella directamente escribiendo Mobile.name.",
-            "Probemos imprimiendo Mobile.name en nuestro programa.",
-            "Si cambiamos Mobile.name, el cambio se refleja en todos los objetos.",
-            "Esa es la diferencia fundamental entre miembros de instancia y miembros estáticos.",
-            "Practiquen escribiendo este código en su editor para dominar el concepto.",
-            "En la próxima lección abordaremos métodos estáticos y constructores.",
-            "¡Muchas gracias por acompañarnos y feliz programación!"
+            "ಎಲ್ಲರಿಗೂ ನಮಸ್ಕಾರ, ಈ ಜಾವಾ ಪ್ರೋಗ್ರಾಮಿಂಗ್ ತರಬೇತಿಗೆ ಸ್ವಾಗತ.",
+            "ಇಂದಿನ ಈ ವಿಡಿಯೋದಲ್ಲಿ ನಾವು ಜಾವಾದಲ್ಲಿ Classes ಮತ್ತು Objects ಬಗ್ಗೆ ಕಲಿಯೋಣ.",
+            "ಪರದೆಯ ಮೇಲೆ ನೀವು ನೋಡುತ್ತಿರುವಂತೆ ನಾವು Demo.java ಫೈಲ್ ತೆರೆದಿದ್ದೇವೆ.",
+            "ಮೊದಲು ನಾವು Mobile ಹೆಸರಿನ ಹೊಸ Class ರಚಿಸಲು ಪ್ರಾರಂಭಿಸೋಣ.",
+            "ಆಬ್ಜೆಕ್ಟ್ ಓರಿಯೆಂಟೆಡ್ ಪ್ರೋಗ್ರಾಮಿಂಗ್‌ನಲ್ಲಿ Class ಒಂದು ನೀಲನಕ್ಷೆ (Blueprint).",
+            "ಈಗ Mobile ಕ್ಲಾಸ್‌ನಲ್ಲಿ ಕೆಲವು Instance Variables ಘೋಷಿಸೋಣ.",
+            "ಮೊದಲಿಗೆ String brand ಫೋನ್ ಬ್ರಾಂಡ್ ಹೆಸರನ್ನು ಸಂಗ್ರಹಿಸಲು.",
+            "ಮುಂದೆ int price ಮೊಬೈಲ್ ಬೆಲೆಯನ್ನು ನಿಗದಿಪಡಿಸಲು.",
+            "ಮತ್ತು String network 4G ಅಥವಾ 5G ನೆಟ್‌ವರ್ಕ್ ಸೂಚಿಸಲು.",
+            "ಈಗ ನಮ್ಮ ಮುಖ್ಯ ಕ್ಲಾಸ್ public class Demo ಸಿದ್ಧಪಡಿಸೋಣ.",
+            "ಇದರೊಳಗೆ public static void main ವಿಧಾನವನ್ನು ಬರೆಯುತ್ತೇವೆ.",
+            "ಈ main ವಿಧಾನವು JVM ನ ಆರಂಭಿಕ ಹಂತವಾಗಿದೆ (Entry Point).",
+            "ಈಗ Mobile ಕ್ಲಾಸ್‌ನಿಂದ ಆಬ್ಜೆಕ್ಟ್ ಅನ್ನು ಹೇಗೆ ರಚಿಸುವುದು?",
+            "ನಾವು 'new' ಕೀವರ್ಡ್ ಬಳಸುತ್ತೇವೆ: Mobile obj1 = new Mobile();",
+            "ಇದು JVM ಹೀಪ್ ಮೆಮೊರಿಯಲ್ಲಿ ಸ್ಥಳಾವಕಾಶವನ್ನು ಕಾಯ್ದಿರಿಸುತ್ತದೆ.",
+            "obj1 ಆ ಮೆಮೊರಿಯ ರೆಫರೆನ್ಸ್ ವೇರಿಯೇಬಲ್ ಆಗಿದೆ.",
+            "ಈಗ ಮೊದಲ ಆಬ್ಜೆಕ್ಟ್‌ಗೆ ಡೇಟಾ ನೀಡೋಣ: obj1.brand = 'Apple';",
+            "ನಂತರ obj1.price = 1500 ಮತ್ತು obj1.network = '5G';",
+            "ಈಗ ಎರಡನೇ ಆಬ್ಜೆಕ್ಟ್ ರಚಿಸೋಣ: Mobile obj2 = new Mobile();",
+            "obj2.brand = 'Samsung' ಮತ್ತು obj2.price = 1200 ಸೆಟ್ ಮಾಡೋಣ.",
+            "ಈಗ obj1 ಮತ್ತು obj2 ಮೆಮೊರಿಯಲ್ಲಿ ಸ್ವತಂತ್ರವಾಗಿ ಅಸ್ತಿತ್ವದಲ್ಲಿವೆ.",
+            "ನಾವು obj1 ಬೆಲೆಯನ್ನು ಬದಲಾಯಿಸಿದರೆ, obj2 ಮೇಲೆ ಯಾವುದೇ ಪರಿಣಾಮ ಬೀರುವುದಿಲ್ಲ.",
+            "ಇವುಗಳನ್ನು System.out.println ಮೂಲಕ ಪರದೆಯ ಮೇಲೆ ಪ್ರಿಂಟ್ ಮಾಡೋಣ.",
+            "ಟರ್ಮಿನಲ್‌ನಲ್ಲಿ javac Demo.java ರನ್ ಮಾಡಿ ಕಂಪೈಲ್ ಮಾಡೋಣ.",
+            "ಈಗ java Demo ಕಮಾಂಡ್ ಮೂಲಕ ಪ್ರೋಗ್ರಾಂ ರನ್ ಮಾಡಿ.",
+            "ಎರಡೂ ಆಬ್ಜೆಕ್ಟ್‌ಗಳು ತಮ್ಮದೇ ಆದ ಔಟ್‌ಪುಟ್ ತೋರಿಸುತ್ತಿವೆ!",
+            "ಎಲ್ಲಾ ಫೋನ್‌ಗಳಿಗೂ ಸಾಮಾನ್ಯವಾದ ವೇರಿಯೇಬಲ್ ಬೇಕಾದಾಗ static ಕೀವರ್ಡ್ ಬಳಸುತ್ತೇವೆ.",
+            "static String name = 'SmartPhone' ಎಂದು ಘೋಷಿಸಿದಾಗ...",
+            "ಈ ವೇರಿಯೇಬಲ್ ಕ್ಲಾಸ್‌ಗೆ ಸೇರುತ್ತದೆ, ಪ್ರತ್ಯೇಕ ಆಬ್ಜೆಕ್ಟ್‌ಗಲ್ಲ.",
+            "ಇದನ್ನು ನೇರವಾಗಿ Mobile.name ಎಂದು ಕರೆಯಬಹುದು.",
+            "ಇದು Instance Variables ಮತ್ತು Static Members ನಡುವಿನ ಮುಖ್ಯ ವ್ಯತ್ಯಾಸವಾಗಿದೆ.",
+            "ಧನ್ಯವಾದಗಳು, ಮುಂದಿನ ವಿಡಿಯೋದಲ್ಲಿ static methods ಕಲಿಯೋಣ!"
           ];
-        case 'fr':
+        case 'te':
           return [
-            "Bonjour à tous et bienvenue dans ce tutoriel de programmation Java.",
-            "Dans cette session, nous allons étudier les classes et les objets en Java.",
-            "Comme vous le voyez à l'écran, nous avons ouvert le fichier Demo.java.",
-            "Commençons par définir une classe nommée Mobile.",
-            "En programmation orientée objet, une classe sert de modèle fondamental.",
-            "À l'intérieur de la classe Mobile, déclarons des variables d'instance.",
-            "Tout d'abord, déclarons String brand pour stocker la marque du téléphone.",
-            "Ensuite, déclarons int price pour enregistrer le prix de l'appareil.",
-            "Et ajoutons String network pour préciser le type de réseau compatible.",
-            "Ces variables d'instance contiendront l'état de chaque objet.",
-            "Créons maintenant notre classe exécutable: public class Demo.",
-            "À l'intérieur, déclarons la méthode public static void main.",
-            "C'est ici que la machine virtuelle Java commence l'exécution.",
-            "Comment instancier concrètement un objet Mobile en mémoire?",
-            "Nous utilisons le mot-clé 'new' pour allouer l'objet dans le tas (Heap).",
-            "Écrivons: Mobile obj1 = new Mobile();",
-            "obj1 devient ainsi une référence pointant vers l'objet créé.",
-            "Initialisons les propriétés de notre premier objet.",
-            "Nous écrivons: obj1.brand = 'Apple';",
-            "Puis: obj1.price = 1500;",
-            "Et enfin obj1.network = '5G';",
-            "Créons maintenant un deuxième objet: Mobile obj2 = new Mobile();",
-            "Pour obj2, définissons la marque à 'Samsung' et le prix à 1200.",
-            "Les deux objets coexistent de manière indépendante en mémoire.",
-            "Affichons leurs valeurs dans la console avec System.out.println.",
-            "Ouvrons le terminal pour compiler le code avec javac Demo.java.",
-            "Le compilateur génère les fichiers bytecode Demo.class et Mobile.class.",
-            "Exécutons ensuite le programme avec la commande java Demo.",
-            "Chaque objet affiche correctement ses valeurs respectives.",
-            "Que faire si nous voulons une propriété commune partagée par tous les mobiles?",
-            "C'est ici qu'intervient le mot-clé static en Java.",
-            "En déclarant static String name = 'SmartPhone'...",
-            "La variable est rattachée à la classe elle-même et non aux instances.",
-            "On peut y accéder directement sans créer d'objet, via Mobile.name.",
-            "C'est la différence clé entre variables d'instance et membres statiques.",
-            "Entraînez-vous à reproduire cet exemple dans votre IDE.",
-            "À très bientôt pour la suite du cours et bon code à tous!"
-          ];
-        case 'de':
-          return [
-            "Hallo zusammen und willkommen zurück zu unserem Java-Kurs.",
-            "In dieser Lektion behandeln wir Klassen und Objekte in Java.",
-            "Wie Sie auf dem Bildschirm sehen, haben wir die Datei Demo.java geöffnet.",
-            "Beginnen wir mit der Deklaration einer Klasse namens Mobile.",
-            "In der objektorientierten Programmierung ist eine Klasse ein Bauplan.",
-            "Innerhalb der Klasse Mobile deklarieren wir Instanzvariablen.",
-            "Zuerst deklarieren wir String brand für den Herstellernamen.",
-            "Als Nächstes deklarieren wir int price für den Preis des Geräts.",
-            "Und String network zur Angabe des Netzwerks wie 4G oder 5G.",
-            "Diese Variablen speichern die individuellen Zustände jedes Objekts.",
-            "Nun erstellen wir unsere Hauptklasse: public class Demo.",
-            "Darin definieren wir die Methode public static void main.",
-            "Hier startet die Java Virtual Machine die Programmausführung.",
-            "Wie erzeugen wir nun ein konkretes Mobile-Objekt im Speicher?",
-            "Wir verwenden das Schlüsselwort 'new' zur Instanziierung.",
-            "Wir schreiben: Mobile obj1 = new Mobile();",
-            "Damit wird im Heap-Speicher Speicherplatz für das Objekt reserviert.",
-            "Initialisieren wir die Werte für dieses erste Objekt.",
-            "Wir setzen obj1.brand = 'Apple' und obj1.price = 1500.",
-            "Nun erstellen wir ein zweites Objekt: Mobile obj2 = new Mobile();",
-            "Für obj2 setzen wir obj2.brand = 'Samsung' und obj2.price = 1200.",
-            "Beide Objekte existieren vollkommen unabhängig im Speicher.",
-            "Geben wir diese Werte mit System.out.println in der Konsole aus.",
-            "Im Terminal kompilieren wir den Code mit javac Demo.java.",
-            "Anschließend führen wir das Programm mit java Demo aus.",
-            "Was machen wir, wenn ein Attribut für alle Objekte identisch sein soll?",
-            "Dafür nutzen wir in Java das Schlüsselwort static.",
-            "Mit static String name = 'SmartPhone' gehört die Variable zur Klasse.",
-            "Man kann direkt über Mobile.name darauf zugreifen.",
-            "Das ist der zentrale Unterschied zwischen Instanz- und statischen Variablen.",
-            "Vielen Dank fürs Zuschauen und weiterhin viel Erfolg beim Programmieren!"
+            "అందరికీ నమస్కారం, ఈ జావా ప్రోగ్రామింగ్ ట్యుటోరియల్‌కి స్వాగతం.",
+            "ఈ వీడియోలో మనం జావాలో Classes మరియు Objects గురించి వివరంగా తెలుసుకుందాం.",
+            "స్క్రీన్‌పై మీరు చూస్తున్నట్లుగా మనం Demo.java ఫైల్ ఓపెన్ చేశాము.",
+            "ముందుగా Mobile అనే పేరుతో కొత్త Class ని క్రియేట్ చేద్దాం.",
+            "ఆబ్జెక్ట్ ఓరియెంటెడ్ ప్రోగ್ರಾమింగ్‌లో Class అనేది ఒక బ్లూప్రింట్ లాంటిది.",
+            "ఇప్పుడు Mobile క్లాస్ లోపల కొన్ని Instance Variables ని డిక్లేర్ చేద్దాం.",
+            "మొదటగా String brand ఫోన్ బ్రాండ్ పేరును స్టోర్ చేయడానికి.",
+            "తర్వాత int price మొబైల్ ధరను నిర్ణయించడానికి.",
+            "మరియు String network 4G లేదా 5G నెట్‌వర్క్ తెలపడానికి.",
+            "ఇప్పుడు మన ప్రధాన క్లాస్ public class Demo ని తయారుచేద్దాం.",
+            "దీనిలో public static void main మెథడ్ రాస్తాము.",
+            "ఈ main మెథడ్ JVM అప్లికేషన్ ప్రారంభ బిందువు (Entry Point).",
+            "ఇప్పుడు Mobile క్లాస్ నుండి ఆబ్జెక్ట్‌ను ఎలా క్రియేట్ చేయాలి?",
+            "మనం 'new' కీవర్డ్ ఉపయోగిస్తాము: Mobile obj1 = new Mobile();",
+            "దీని ద్వారా JVM హీప్ మెమరీలో స్థలాన్ని కేటాయిస్తుంది.",
+            "obj1 ఆ మెమరీకి రిఫరెన్స్ వేరియబుల్‌గా మారుతుంది.",
+            "మొదటి ఆబ్జెక్ట్‌కి డేటా ఇద్దాం: obj1.brand = 'Apple';",
+            "తర్వాత obj1.price = 1500 మరియు obj1.network = '5G';",
+            "ఇప్పుడు రెండవ ఆబ్జెక్ట్ క్రియేట్ చేద్దాం: Mobile obj2 = new Mobile();",
+            "obj2.brand = 'Samsung' మరియు obj2.price = 1200 సెట్ చేద్దాం.",
+            "ఇప్పుడు obj1 మరియు obj2 మెమరీలో స్వతంత్రంగా ఉన్నాయి.",
+            "మనం obj1 ధరను మార్చినా, obj2 పై ఎలాంటి ప్రభావం ఉండదు.",
+            "వీటిని System.out.println ఉపయోగించి ప్రింట్ చేద్దాం.",
+            "టెర్మినల్‌లో javac Demo.java రన్ చేసి కంపైల్ చేద్దాం.",
+            "ఇప్పుడు java Demo కమాండ్ ద్వారా ప్రోగ్రామ్ ఎగ్జిక్యూట్ చేయండి.",
+            "అన్ని ఫోన్‌లకు కామన్‌గా ఉండే వేరియబుల్ కోసం static కీవర్డ్ ఉపయోగిస్తాము.",
+            "static String name = 'SmartPhone' అని రాసినప్పుడు...",
+            "ఈ వేరియబుల్ క్లాస్‌కి చెందుతుంది, ఏ ఒక్క ఆబ్జెక్ట్‌కి మాత్రమే కాదు.",
+            "దీనిని నేరుగా Mobile.name అని కాల్ చేయవచ్చు.",
+            "ఇది Instance Variables మరియు Static Members మధ్య ఉన్న ముఖ్యమైన తేడా.",
+            "వీడియో చూసినందుకు ధన్యవాదాలు, హ్యాపీ కోడింగ్!"
           ];
         case 'en':
         default:
@@ -311,7 +412,7 @@ const generateTranscriptForVideo = (videoObj, lang = 'en', totalDuration = 180) 
 
   const phrases = getLanguagePhrases(lang);
   const dur = Math.max(30, Number(totalDuration) || 180);
-  const phraseDuration = 2.2; // 2.2 seconds per subtitle phrase (fast, responsive YouTube speech speed)
+  const phraseDuration = 2.2;
   const totalCuesCount = Math.max(phrases.length, Math.ceil(dur / phraseDuration));
 
   const cues = [];
@@ -461,6 +562,9 @@ const VideoWatch = () => {
   // Subtitles & Interactive Transcript States
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const [subtitleLang, setSubtitleLang] = useState('en');
+  const [showCcMenu, setShowCcMenu] = useState(false);
+  const ccMenuRef = useRef(null);
+  const [fetchedVttTranscripts, setFetchedVttTranscripts] = useState({});
   const [activeCue, setActiveCue] = useState(null);
   const [activeWatchTab, setActiveWatchTab] = useState('overview'); // 'overview' | 'transcript' | 'resources'
   const [transcriptSearch, setTranscriptSearch] = useState('');
@@ -468,6 +572,19 @@ const VideoWatch = () => {
   const [copiedTranscript, setCopiedTranscript] = useState(false);
   const activeCueItemRef = useRef(null);
   const transcriptContainerRef = useRef(null);
+
+  // Close CC popup menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ccMenuRef.current && !ccMenuRef.current.contains(e.target)) {
+        setShowCcMenu(false);
+      }
+    };
+    if (showCcMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCcMenu]);
 
   // Chapter Learning Aids & Audio Player / Document Viewer States
   const [activeAudioResource, setActiveAudioResource] = useState(null);
@@ -572,7 +689,6 @@ const VideoWatch = () => {
           (docPreviewModal.title || '').toLowerCase().includes('transcript') ||
           !isPdfMagic
         ) {
-          // If not PDF magic bytes, read and render as formatted text
           const text = await blob.text();
           setPreviewTextContent(text);
           setPreviewViewerMode('text');
@@ -595,10 +711,44 @@ const VideoWatch = () => {
     };
   }, [docPreviewModal.isOpen, docPreviewModal.fileUrl]);
 
-  // Synchronized transcript cues derived from video, lang and duration
+  // Extract multilingual subtitles & transcripts from video object
+  const multilingualData = React.useMemo(() => {
+    return extractVideoMultilingualData(video);
+  }, [video]);
+
+  // Available languages list
+  const availableLanguages = React.useMemo(() => {
+    return multilingualData.availableLanguages.length > 0
+      ? multilingualData.availableLanguages
+      : SUPPORTED_SUBTITLE_LANGUAGES;
+  }, [multilingualData]);
+
+  // Synchronized transcript cues derived from video, active language and duration
   const transcriptCues = React.useMemo(() => {
-    return generateTranscriptForVideo(video, subtitleLang, duration || 180);
-  }, [video, subtitleLang, duration]);
+    if (multilingualData.transcripts[subtitleLang] && multilingualData.transcripts[subtitleLang].length > 0) {
+      return multilingualData.transcripts[subtitleLang];
+    }
+    if (fetchedVttTranscripts[subtitleLang] && fetchedVttTranscripts[subtitleLang].length > 0) {
+      return fetchedVttTranscripts[subtitleLang];
+    }
+    return generateTranscriptForVideo(video, subtitleLang, duration || video?.duration || 180);
+  }, [multilingualData, fetchedVttTranscripts, video, subtitleLang, duration]);
+
+  // On-demand WebVTT fetcher if subtitle URL exists but transcript JSON is missing
+  useEffect(() => {
+    const vttUrl = multilingualData.subtitles[subtitleLang];
+    if (vttUrl && (!multilingualData.transcripts[subtitleLang] || multilingualData.transcripts[subtitleLang].length === 0) && !fetchedVttTranscripts[subtitleLang]) {
+      fetch(vttUrl)
+        .then(r => r.text())
+        .then(vttText => {
+          const parsed = parseWebVTT(vttText);
+          if (parsed && parsed.length > 0) {
+            setFetchedVttTranscripts(prev => ({ ...prev, [subtitleLang]: parsed }));
+          }
+        })
+        .catch(err => console.warn(`Failed to fetch VTT for ${subtitleLang}:`, err));
+    }
+  }, [multilingualData, subtitleLang, fetchedVttTranscripts]);
 
   // Audio element setup and auto-play when activeAudioResource changes
   useEffect(() => {
@@ -2639,13 +2789,13 @@ const VideoWatch = () => {
               <span style={{ fontSize: '12px', color: '#aaa', minWidth: '35px' }}>{formatTime(duration)}</span>
             </div>
 
-            {/* Subtitles CC Toggle & Language Select */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {/* Subtitles CC Button with Language Selector Menu */}
+            <div className="cc-control-wrapper" ref={ccMenuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <button
                 type="button"
-                onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}
+                onClick={() => setShowCcMenu(prev => !prev)}
                 style={{
-                  background: subtitlesEnabled ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  background: subtitlesEnabled ? 'rgba(99, 102, 241, 0.35)' : 'transparent',
                   border: subtitlesEnabled ? '1px solid var(--accent-primary)' : '1px solid rgba(255,255,255,0.25)',
                   color: subtitlesEnabled ? 'var(--accent-secondary)' : '#ffffff',
                   fontWeight: 800,
@@ -2659,7 +2809,7 @@ const VideoWatch = () => {
                   alignItems: 'center',
                   gap: '4px'
                 }}
-                title={subtitlesEnabled ? 'Turn off subtitles (C)' : 'Turn on subtitles (C)'}
+                title={subtitlesEnabled ? `Captions: ${SUPPORTED_SUBTITLE_LANGUAGES.find(l => l.code === subtitleLang)?.name || 'ON'} (Click to change)` : 'Closed Captions (CC)'}
               >
                 <span>CC</span>
                 {subtitlesEnabled && (
@@ -2667,26 +2817,120 @@ const VideoWatch = () => {
                     fontSize: '9px', 
                     background: 'var(--accent-primary)', 
                     color: '#fff', 
-                    padding: '1px 3px', 
+                    padding: '1px 4px', 
                     borderRadius: '3px', 
-                    textTransform: 'uppercase' 
+                    textTransform: 'uppercase',
+                    fontWeight: 700
                   }}>
                     {subtitleLang}
                   </span>
                 )}
               </button>
 
-              {subtitlesEnabled && (
-                <PremiumSelect
-                  options={AVAILABLE_SUBTITLE_LANGUAGES}
-                  value={subtitleLang}
-                  onChange={(e) => setSubtitleLang(e.target.value)}
-                  searchable={false}
-                  size="small"
-                  icon="fa-solid fa-language"
-                  style={{ width: '92px' }}
-                  dropUp={true}
-                />
+              {/* CC Language Selection Popover */}
+              {showCcMenu && (
+                <div 
+                  className="cc-menu-dropdown animate-fade-in"
+                  style={{
+                    position: 'absolute',
+                    bottom: '36px',
+                    left: '0',
+                    background: 'rgba(18, 18, 24, 0.96)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '8px',
+                    padding: '6px 0',
+                    minWidth: '140px',
+                    zIndex: 120,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.7)'
+                  }}
+                >
+                  <div style={{
+                    padding: '4px 12px 6px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.8px',
+                    color: 'rgba(255,255,255,0.45)',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                    marginBottom: '4px'
+                  }}>
+                    Closed Captions
+                  </div>
+
+                  {/* Off Option */}
+                  <div
+                    onClick={() => {
+                      setSubtitlesEnabled(false);
+                      setShowCcMenu(false);
+                    }}
+                    style={{
+                      padding: '7px 12px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      color: !subtitlesEnabled ? 'var(--accent-secondary)' : '#ffffff',
+                      background: !subtitlesEnabled ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                      fontWeight: !subtitlesEnabled ? 700 : 400,
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (subtitlesEnabled) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (subtitlesEnabled) e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <span>Off</span>
+                    {!subtitlesEnabled && <span style={{ color: 'var(--accent-primary)', fontSize: '13px' }}>✓</span>}
+                  </div>
+
+                  {/* Supported Language Options (English, Hindi, Kannada, Telugu) */}
+                  {availableLanguages.map(lang => {
+                    const isSelected = subtitlesEnabled && subtitleLang === lang.code;
+                    return (
+                      <div
+                        key={lang.code}
+                        onClick={() => {
+                          setSubtitleLang(lang.code);
+                          setSubtitlesEnabled(true);
+                          setShowCcMenu(false);
+                          if (videoRef.current) {
+                            const cur = videoRef.current.currentTime;
+                            const cues = (multilingualData.transcripts[lang.code] || []).length > 0
+                              ? multilingualData.transcripts[lang.code]
+                              : (fetchedVttTranscripts[lang.code] || generateTranscriptForVideo(video, lang.code, duration || 180));
+                            const match = cues.find(c => cur >= c.start && cur < c.end);
+                            setActiveCue(match || null);
+                          }
+                        }}
+                        style={{
+                          padding: '7px 12px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          color: isSelected ? 'var(--accent-secondary)' : '#ffffff',
+                          background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                          fontWeight: isSelected ? 700 : 400,
+                          transition: 'background 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <span>{lang.label || lang.name}</span>
+                        {isSelected && <span style={{ color: 'var(--accent-primary)', fontSize: '13px' }}>✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
@@ -3179,13 +3423,24 @@ const VideoWatch = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Language:</span>
                       <PremiumSelect
-                        options={AVAILABLE_SUBTITLE_LANGUAGES}
+                        options={availableLanguages}
                         value={subtitleLang}
-                        onChange={(e) => setSubtitleLang(e.target.value)}
+                        onChange={(e) => {
+                          const newLang = e.target.value;
+                          setSubtitleLang(newLang);
+                          if (videoRef.current) {
+                            const cur = videoRef.current.currentTime;
+                            const cues = (multilingualData.transcripts[newLang] || []).length > 0
+                              ? multilingualData.transcripts[newLang]
+                              : (fetchedVttTranscripts[newLang] || generateTranscriptForVideo(video, newLang, duration || 180));
+                            const match = cues.find(c => cur >= c.start && cur < c.end);
+                            setActiveCue(match || null);
+                          }
+                        }}
                         searchable={false}
                         size="small"
                         icon="fa-solid fa-language"
-                        style={{ width: '115px' }}
+                        style={{ width: '120px' }}
                       />
                     </div>
 

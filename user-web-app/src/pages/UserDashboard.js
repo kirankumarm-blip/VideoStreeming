@@ -1172,13 +1172,18 @@ const UserDashboard = () => {
         ...(dashboardData.recommended || []), 
         ...(dashboardData.trending || []), 
         ...(dashboardData.topRated || []),
+        ...(dashboardData.top_rated || []),
         ...(dashboardData.newVideos || []),
+        ...(dashboardData.new_lessons || []),
         ...(dashboardData.continueWatching || []),
         ...(dashboardData.recentlyWatched || []),
         ...(dashboardData.favorites || [])
       ];
       liveList.forEach(v => {
-        allVideosMap[v.id] = v;
+        if (v && (v.id !== undefined || v.video_id !== undefined || v.videoId !== undefined)) {
+          const key = v.id || v.video_id || v.videoId;
+          allVideosMap[key] = v;
+        }
       });
     }
 
