@@ -3427,10 +3427,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         await api.videos.uploadChunk(chunkFormData, uploadId, chunkIndex);
       }
 
-      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks, capturedDuration || 480);
       
       updateVideoProp(chapterId, videoId, 'uploadStatus', 'success');
       updateVideoProp(chapterId, videoId, 'videoUrl', completeRes.minioUrl);
+      if (completeRes.fileId || completeRes.videoId) {
+        updateVideoProp(chapterId, videoId, 'videoId', completeRes.fileId || completeRes.videoId);
+      }
+      if (completeRes.subtitles) {
+        updateVideoProp(chapterId, videoId, 'subtitles', completeRes.subtitles);
+      }
+      if (completeRes.subtitleTracks) {
+        updateVideoProp(chapterId, videoId, 'subtitleTracks', completeRes.subtitleTracks);
+        updateVideoProp(chapterId, videoId, 'subtitle_tracks', completeRes.subtitleTracks);
+      }
+      if (completeRes.transcripts) {
+        updateVideoProp(chapterId, videoId, 'transcripts', completeRes.transcripts);
+        updateVideoProp(chapterId, videoId, 'transcript', completeRes.transcripts.en || []);
+      }
     } catch (err) {
       console.error(err);
       updateVideoProp(chapterId, videoId, 'uploadStatus', 'error');
@@ -3787,7 +3801,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             thumbName: v.thumbName || 'thumbnail.png',
             thumbnailUrl: await encryptUrl(v.thumbnailUrl || ''),
             duration: v.duration,
-            isPreview: v.isPreview
+            isPreview: v.isPreview,
+            subtitles: v.subtitles || null,
+            subtitleTracks: v.subtitleTracks || v.subtitle_tracks || null,
+            subtitle_tracks: v.subtitleTracks || v.subtitle_tracks || null,
+            transcripts: v.transcripts || null,
+            transcript: v.transcript || (v.transcripts ? v.transcripts.en : null)
           };
           const vidId = !v.isNew ? (v.existingId || v.video_id || v.id) : null;
           if (vidId) {
@@ -4869,9 +4888,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (videoFile && await verifyFileContent(videoFile)) return;
     if (thumbnailFile && await verifyFileContent(thumbnailFile)) return;
 
+    let extractedSubtitles = null;
+    let extractedSubtitleTracks = null;
+    let extractedTranscripts = null;
+    let extractedVideoId = null;
+
     const uploadFileInChunks = async (file, fileRoleLabel) => {
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      let fileDuration = 480;
+      if (fileRoleLabel === 'Video') {
+        try {
+          const d = await getVideoDuration(file);
+          if (d > 0) fileDuration = d;
+        } catch (e) {}
+      }
       
       setUploadProgress(`Initiating chunked upload for ${fileRoleLabel}...`);
       const initRes = await api.videos.initiateChunkUpload(file.name, file.size, file.type);
@@ -4894,7 +4925,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       setUploadProgress(`Finalizing and assembling ${fileRoleLabel} in MinIO...`);
-      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
+      const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks, fileDuration);
+      if (fileRoleLabel === 'Video') {
+        if (completeRes.subtitles) extractedSubtitles = completeRes.subtitles;
+        if (completeRes.subtitleTracks || completeRes.subtitle_tracks) extractedSubtitleTracks = completeRes.subtitleTracks || completeRes.subtitle_tracks;
+        if (completeRes.transcripts) extractedTranscripts = completeRes.transcripts;
+        if (completeRes.fileId || completeRes.videoId) extractedVideoId = completeRes.fileId || completeRes.videoId;
+      }
       return completeRes.minioUrl;
     };
 
@@ -4963,6 +5000,33 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         thumbnailUrl: encryptedThumbnailUrl,
         formstep: editingVideo ? "editVideo" : "uploadVideo"
       };
+
+      if (extractedSubtitles) {
+        registerPayload.subtitles = extractedSubtitles;
+      } else if (editingVideo?.subtitles) {
+        registerPayload.subtitles = editingVideo.subtitles;
+      }
+
+      if (extractedSubtitleTracks) {
+        registerPayload.subtitleTracks = extractedSubtitleTracks;
+        registerPayload.subtitle_tracks = extractedSubtitleTracks;
+      } else if (editingVideo?.subtitleTracks || editingVideo?.subtitle_tracks) {
+        registerPayload.subtitleTracks = editingVideo.subtitleTracks || editingVideo.subtitle_tracks;
+        registerPayload.subtitle_tracks = editingVideo.subtitleTracks || editingVideo.subtitle_tracks;
+      }
+
+      if (extractedTranscripts) {
+        registerPayload.transcripts = extractedTranscripts;
+        registerPayload.transcript = extractedTranscripts.en || [];
+      } else if (editingVideo?.transcripts || editingVideo?.transcript) {
+        registerPayload.transcripts = editingVideo.transcripts || (editingVideo.transcript ? { en: editingVideo.transcript } : null);
+        registerPayload.transcript = editingVideo.transcript || editingVideo.transcripts?.en || [];
+      }
+
+      if (extractedVideoId) {
+        registerPayload.video_id = registerPayload.video_id || extractedVideoId;
+        registerPayload.videoId = registerPayload.videoId || extractedVideoId;
+      }
       let effectiveClientId = '0';
       if (isSuperAdmin) {
         if (isPrivate) {

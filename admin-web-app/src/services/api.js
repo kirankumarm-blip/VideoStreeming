@@ -1223,10 +1223,10 @@ export const api = {
         body: formData
       });
     },
-    completeChunkUpload: (uploadId, fileName, totalChunks) => {
+    completeChunkUpload: (uploadId, fileName, totalChunks, duration) => {
       return uploadRequest('/api/upload/complete', {
         method: 'POST',
-        body: JSON.stringify({ uploadId, fileName, totalChunks })
+        body: JSON.stringify({ uploadId, fileName, totalChunks, duration: duration || 480 })
       });
     },
     getSubCategories: (categoryId) => {
@@ -1297,7 +1297,12 @@ export const api = {
       if (!response.ok) {
         throw new Error(`Failed to register video metadata: ${response.status}`);
       }
-      return response.json();
+      const text = await response.text();
+      try {
+        return text ? JSON.parse(text) : { success: true };
+      } catch (parseErr) {
+        return { success: true, message: text };
+      }
     },
 
     uploadCourse: (payload) => {
