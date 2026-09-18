@@ -5052,7 +5052,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       const registerRes = await api.videos.registerVideo(registerPayload);
-      const createdVideoId = registerRes?.video_id || registerRes?.videoId || registerRes?.id || (registerRes && registerRes[0] ? (registerRes[0].video_id || registerRes[0].id) : null) || (editingVideo ? editingVideo.id : null) || extractedVideoId;
+      
+      // Robustly extract the created video ID from any n8n/database response structure
+      let createdVideoId = null;
+      if (registerRes) {
+        if (typeof registerRes === 'object') {
+          createdVideoId = registerRes.id || registerRes.video_id || registerRes.videoId || registerRes.vd_id || registerRes.json?.id || registerRes.json?.video_id;
+        }
+        if (!createdVideoId && Array.isArray(registerRes) && registerRes[0]) {
+          const first = registerRes[0];
+          createdVideoId = first.id || first.video_id || first.videoId || first.vd_id || first.json?.id || first.json?.video_id;
+        }
+      }
+      if (!createdVideoId && editingVideo) {
+        createdVideoId = editingVideo.video_id || editingVideo.id || editingVideo.videoId || editingVideo._id;
+      }
+      if (!createdVideoId) {
+        createdVideoId = extractedVideoId;
+      }
       
       if (createdVideoId) {
         setUploadedVideoId(createdVideoId);
@@ -5082,22 +5099,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
         (async () => {
           try {
-            console.log(`[Transcription Background] Generating speech subtitles & transcripts for video ${targetVidId}...`);
+            console.log(`[Transcription Background] Generating speech subtitles & transcripts for video ID: ${targetVidId}...`);
             const subRes = await api.videos.generateSubtitles(targetFileId, targetFileName);
             if (subRes && subRes.subtitles && subRes.transcripts) {
-              console.log(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript for video ${targetVidId}...`);
+              console.log(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript and vd_id=${targetVidId}...`);
               await api.videos.updateTranscript({
                 formstep: "transcript",
-                video_id: targetVidId,
-                videoId: targetVidId,
-                id: targetVidId,
+                vd_id: String(targetVidId),
+                video_id: String(targetVidId),
+                videoId: String(targetVidId),
+                id: String(targetVidId),
                 subtitles: subRes.subtitles,
                 subtitleTracks: subRes.subtitleTracks || subRes.subtitle_tracks,
                 subtitle_tracks: subRes.subtitleTracks || subRes.subtitle_tracks,
                 transcripts: subRes.transcripts,
                 transcript: subRes.transcript || subRes.transcripts?.en || []
               });
-              console.log(`[Transcription Background] Successfully updated subtitles and transcripts for video ${targetVidId}!`);
+              console.log(`[Transcription Background] Successfully updated subtitles and transcripts for video ID ${targetVidId}!`);
             }
           } catch (bgErr) {
             console.warn(`[Transcription Background] Warning during background subtitle sync:`, bgErr.message);

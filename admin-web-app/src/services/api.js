@@ -1299,7 +1299,13 @@ export const api = {
       }
       const text = await response.text();
       try {
-        return text ? JSON.parse(text) : { success: true };
+        let parsed = text ? JSON.parse(text) : { success: true };
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed = parsed[0]?.json || parsed[0];
+        } else if (parsed && parsed.json) {
+          parsed = parsed.json;
+        }
+        return decryptResponseData(parsed);
       } catch (parseErr) {
         return { success: true, message: text };
       }
