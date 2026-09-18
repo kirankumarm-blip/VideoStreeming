@@ -115,29 +115,50 @@ def main():
 
         total_duration = float(len(audio_data)) / float(sample_rate) if sample_rate > 0 else 0.0
 
-        # 3. Transcribe with Whisper
-        import torch
-        import whisper
-        torch.set_num_threads(min(8, os.cpu_count() or 4))
-        
-        model = whisper.load_model(args.model)
-        transcribe_result = model.transcribe(
-            audio_data,
-            fp16=False,
-            beam_size=1,
-            best_of=1,
-            temperature=0.0,
-            condition_on_previous_text=False
-        )
+        # 3. Transcribe with Ultra-Fast faster-whisper (or fallback to standard whisper)
+        raw_segments = []
+        detected_lang = 'en'
 
-        detected_lang = transcribe_result.get('language', 'en')
-        raw_segments = transcribe_result.get('segments', [])
+        try:
+            from faster_whisper import WhisperModel
+            threads = min(8, os.cpu_count() or 4)
+            model = WhisperModel(args.model, device="cpu", compute_type="int8", cpu_threads=threads)
+            segments, info = model.transcribe(
+                temp_wav,
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                vad_filter=True,
+                vad_parameters=dict(min_silence_duration_ms=500)
+            )
+            detected_lang = info.language if info and info.language else 'en'
+            for seg in segments:
+                raw_segments.append({
+                    'start': seg.start,
+                    'end': seg.end,
+                    'text': seg.text
+                })
+        except Exception as fw_err:
+            import torch
+            import whisper
+            torch.set_num_threads(min(8, os.cpu_count() or 4))
+            model = whisper.load_model(args.model)
+            transcribe_result = model.transcribe(
+                audio_data,
+                fp16=False,
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                condition_on_previous_text=False
+            )
+            detected_lang = transcribe_result.get('language', 'en')
+            raw_segments = transcribe_result.get('segments', [])
 
         source_cues = []
         for idx, seg in enumerate(raw_segments):
             start = round(float(seg.get('start', 0.0)), 2)
             end = round(float(seg.get('end', 0.0)), 2)
-            text = seg.get('text', '').strip()
+            text = (seg.get('text') or '').strip()
             if text:
                 source_cues.append({
                     'id': idx + 1,
