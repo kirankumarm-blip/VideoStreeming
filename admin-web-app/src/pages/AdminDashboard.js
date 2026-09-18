@@ -5102,13 +5102,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             console.log(`[Transcription Background] Generating speech subtitles & transcripts for video ID: ${targetVidId}...`);
             const subRes = await api.videos.generateSubtitles(targetFileId, targetFileName);
             if (subRes && subRes.subtitles && subRes.transcripts) {
-              console.log(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript and vd_id=${targetVidId}...`);
+              console.log(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript, vd_id=${targetVidId}, video_id=${extractedVideoId || targetVidId}...`);
               await api.videos.updateTranscript({
                 formstep: "transcript",
                 vd_id: String(targetVidId),
-                video_id: String(targetVidId),
-                videoId: String(targetVidId),
                 id: String(targetVidId),
+                video_id: String(extractedVideoId || targetVidId),
+                videoId: String(extractedVideoId || targetVidId),
+                fileId: String(extractedVideoId || targetVidId),
                 subtitles: subRes.subtitles,
                 subtitleTracks: subRes.subtitleTracks || subRes.subtitle_tracks,
                 subtitle_tracks: subRes.subtitleTracks || subRes.subtitle_tracks,
