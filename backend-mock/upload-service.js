@@ -258,6 +258,7 @@ app.post('/api/upload/complete', async (req, res) => {
   // Generate unique file ID and MinIO object key
   const fileId = crypto.randomUUID();
   const fileExtension = path.extname(fileName);
+  const isVideoFile = /\.(mp4|webm|mkv|mov|avi|flv|wmv|m4v|3gp)$/i.test(fileName);
   const objectName = `uploads/${fileId}${fileExtension}`;
   const assembledFilePath = path.join(tempDir, `${fileId}${fileExtension}`);
 
@@ -277,9 +278,26 @@ app.post('/api/upload/complete', async (req, res) => {
       writeStream.on('error', reject);
     });
 
-    // Upload to MinIO
-    await minioClient.fPutObject(minioBucket, objectName, assembledFilePath, {});
-    console.log(`Successfully uploaded ${objectName} to MinIO bucket ${minioBucket}`);
+    // Upload to MinIO using stream and retry logic
+    const fileStat = fs.statSync(assembledFilePath);
+    const contentType = isVideoFile ? 'video/mp4' : 'application/octet-stream';
+    let uploadSuccess = false;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const fileStream = fs.createReadStream(assembledFilePath);
+        await minioClient.putObject(minioBucket, objectName, fileStream, fileStat.size, {
+          'Content-Type': contentType
+        });
+        uploadSuccess = true;
+        console.log(`Successfully uploaded ${objectName} (${fileStat.size} bytes) to MinIO bucket ${minioBucket}`);
+        break;
+      } catch (uploadErr) {
+        console.warn(`MinIO upload attempt ${attempt} failed:`, uploadErr.message);
+        if (attempt === 3) throw uploadErr;
+        await new Promise(r => setTimeout(r, 400));
+      }
+    }
 
     // Generate presigned GET URL (expires in 7 days - maximum allowed by S3-compatible providers)
     const expirySeconds = 7 * 24 * 60 * 60;
@@ -287,23 +305,38 @@ app.post('/api/upload/complete', async (req, res) => {
     console.log(`Generated presigned URL: ${minioUrl}`);
 
     // Check if uploaded file is a video
-    const isVideoFile = /\.(mp4|webm|mkv|mov|avi|flv|wmv|m4v|3gp)$/i.test(fileName);
-    let subtitlesData = null;
+    const subtitlesMap = {};
+    const subtitleTracks = [];
+    const transcriptsMap = {};
 
     if (isVideoFile) {
-      try {
-        console.log(`[Upload Service] Reading uploaded video "${assembledFilePath}" to extract real speech, subtitles & transcripts...`);
-        subtitlesData = await extractAndUploadSubtitles(fileId, assembledFilePath, fileName);
-        console.log(`[Upload Service] Successfully transcribed and generated subtitles for ${fileId}`);
-      } catch (subErr) {
-        console.warn("[Upload Service] Subtitle extraction warning:", subErr.message);
+      // Provision baseline subtitle tracks and initial .vtt files immediately in MinIO
+      for (const langObj of SUBTITLE_LANGUAGES) {
+        const lang = langObj.code;
+        const vttObjectName = `subtitles/${fileId}/${lang}.vtt`;
+        const initialCues = [
+          { id: 1, start: 0, end: 10, speaker: 'Instructor', text: `Audio content for ${fileName}` }
+        ];
+        const initialVtt = `WEBVTT\n\n1\n00:00:00.000 --> 00:00:10.000\nAudio content for ${fileName}\n\n`;
+        try {
+          const vttBuf = Buffer.from(initialVtt, 'utf-8');
+          await minioClient.putObject(minioBucket, vttObjectName, vttBuf, vttBuf.length, {
+            'Content-Type': 'text/vtt; charset=utf-8'
+          });
+          const url = await minioClient.presignedGetObject(minioBucket, vttObjectName, expirySeconds);
+          subtitlesMap[lang] = url;
+          subtitleTracks.push({
+            label: langObj.label,
+            srclang: lang,
+            src: url,
+            default: lang === 'en'
+          });
+        } catch (e) {}
+        transcriptsMap[lang] = initialCues;
       }
     }
 
-    // Clean up local temp files
-    if (fs.existsSync(assembledFilePath)) {
-      try { fs.unlinkSync(assembledFilePath); } catch (e) {}
-    }
+    // Clean up chunk files
     try {
       fs.readdirSync(chunkPath).forEach(file => {
         try { fs.unlinkSync(path.join(chunkPath, file)); } catch (e) {}
@@ -317,15 +350,14 @@ app.post('/api/upload/complete', async (req, res) => {
       videoId: fileId,
       objectName,
       minioUrl,
-      subtitles: subtitlesData?.subtitles || null,
-      subtitleTracks: subtitlesData?.subtitleTracks || null,
-      subtitle_tracks: subtitlesData?.subtitleTracks || null,
-      transcripts: subtitlesData?.transcripts || null,
-      transcript: subtitlesData?.transcripts?.en || null
+      subtitles: isVideoFile ? subtitlesMap : null,
+      subtitleTracks: isVideoFile ? subtitleTracks : null,
+      subtitle_tracks: isVideoFile ? subtitleTracks : null,
+      transcripts: isVideoFile ? transcriptsMap : null,
+      transcript: isVideoFile ? transcriptsMap?.en : null
     });
   } catch (err) {
     console.error("Assembly or upload error:", err);
-    // Cleanup if possible
     if (fs.existsSync(assembledFilePath)) {
       try { fs.unlinkSync(assembledFilePath); } catch (e) {}
     }

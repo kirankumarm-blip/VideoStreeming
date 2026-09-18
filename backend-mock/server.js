@@ -961,6 +961,59 @@ app.delete('/api/videos/:id', authenticateToken, authorizeRoles('super_admin', '
   res.json({ message: "Video deleted successfully" });
 });
 
+// Handler for vdadminVideos and vdSuperAdminVideos (UAT & Mock Webhooks)
+const handleVdAdminVideos = (req, res) => {
+  const db = readDB();
+  const formstep = req.body?.formstep || req.body?.formStep || 'getAllVideos';
+
+  if (formstep === 'transcript') {
+    const videoId = String(req.body.video_id || req.body.videoId || req.body.id || '');
+    const video = db.videos.find(v => String(v.id) === videoId || String(v.video_id) === videoId);
+    if (video) {
+      if (req.body.subtitles) video.subtitles = req.body.subtitles;
+      if (req.body.subtitleTracks || req.body.subtitle_tracks) video.subtitleTracks = req.body.subtitleTracks || req.body.subtitle_tracks;
+      if (req.body.transcripts) video.transcripts = req.body.transcripts;
+      if (req.body.transcript) video.transcript = req.body.transcript;
+      writeDB(db);
+      return res.json({ success: true, message: "Transcripts and subtitles updated successfully", video });
+    }
+    return res.json({ success: true, message: `Transcript received for video ${videoId}` });
+  }
+
+  if (formstep === 'uploadVideo') {
+    const newId = 'v-' + Date.now();
+    const newVideo = {
+      id: newId,
+      video_id: newId,
+      title: req.body.title || 'Untitled Video',
+      description: req.body.description || '',
+      category: req.body.category || '1',
+      subcategory_id: req.body.subcategory_id || '1',
+      language_id: req.body.language_id || '1',
+      tags: req.body.tags || [],
+      visibility: req.body.visibility || '1',
+      videoUrl: req.body.videoUrl || '',
+      thumbnailUrl: req.body.thumbnailUrl || '',
+      subtitles: req.body.subtitles || null,
+      subtitleTracks: req.body.subtitleTracks || req.body.subtitle_tracks || null,
+      transcripts: req.body.transcripts || null,
+      transcript: req.body.transcript || null,
+      created_at: new Date().toISOString()
+    };
+    db.videos.unshift(newVideo);
+    writeDB(db);
+    return res.json({ success: true, video_id: newId, id: newId, videoId: newId, video: newVideo });
+  }
+
+  if (formstep === 'getAllVideos' || formstep === 'getMyVideos' || formstep === 'getAssignedVideos') {
+    return res.json(db.videos || []);
+  }
+
+  return res.json(db.videos || []);
+};
+
+app.post(['/vdadminVideos', '/api/vdadminVideos', '/webhook/vdadminVideos', '/vdSuperAdminVideos', '/api/vdSuperAdminVideos', '/webhook/vdSuperAdminVideos'], handleVdAdminVideos);
+
 app.post('/api/videos/assign', authenticateToken, authorizeRoles('super_admin'), (req, res) => {
   const { videoId, assignedAdmins } = req.body;
   if (!videoId || !assignedAdmins) return res.status(400).json({ message: "VideoId and assignedAdmins are required" });

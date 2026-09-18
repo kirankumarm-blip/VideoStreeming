@@ -134,6 +134,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   }, [activeTabOverride]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploadedVideoId, setUploadedVideoId] = useState(null);
   const isFetchingDashboardRef = useRef(false);
   const lastFetchedDashboardRef = useRef(null);
   const [loadingCourses, setLoadingCourses] = useState(false);
@@ -5050,7 +5051,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         registerPayload.videoId = vId;
       }
 
-      await api.videos.registerVideo(registerPayload);
+      const registerRes = await api.videos.registerVideo(registerPayload);
+      const createdVideoId = registerRes?.video_id || registerRes?.videoId || registerRes?.id || (registerRes && registerRes[0] ? (registerRes[0].video_id || registerRes[0].id) : null) || (editingVideo ? editingVideo.id : null) || extractedVideoId;
+      
+      if (createdVideoId) {
+        setUploadedVideoId(createdVideoId);
+      }
+
       if (!editingVideo) {
         try {
           await api.notifications.sendCampaign('all', 'New Video Added', `"${registerPayload.title || 'A new video'}" has been uploaded. Watch it now!`);
@@ -5059,13 +5066,44 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
 
-      const succMsg = editingVideo ? 'Video updated successfully!' : 'Video uploaded and registered successfully!';
+      const succMsg = editingVideo ? 'Video updated successfully!' : 'Video uploaded successfully! Subtitles and transcripts are being synced in the background.';
       setUploadSuccess(succMsg);
       showSuccess(succMsg);
       resetVideoFormToDefault();
       lastFetchedVideosRef.current = null;
       fetchVideos(selectedAdminId);
       changeTab('video_all');
+
+      // 2-Step Async: In background, generate real speech transcripts & call vdadminVideos with formstep='transcript'
+      if (videoFile && (extractedVideoId || createdVideoId)) {
+        const targetVidId = createdVideoId || extractedVideoId;
+        const targetFileId = extractedVideoId || createdVideoId;
+        const targetFileName = videoFile.name;
+
+        (async () => {
+          try {
+            console.log(`[Transcription Background] Generating speech subtitles & transcripts for video ${targetVidId}...`);
+            const subRes = await api.videos.generateSubtitles(targetFileId, targetFileName);
+            if (subRes && subRes.subtitles && subRes.transcripts) {
+              console.log(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript for video ${targetVidId}...`);
+              await api.videos.updateTranscript({
+                formstep: "transcript",
+                video_id: targetVidId,
+                videoId: targetVidId,
+                id: targetVidId,
+                subtitles: subRes.subtitles,
+                subtitleTracks: subRes.subtitleTracks || subRes.subtitle_tracks,
+                subtitle_tracks: subRes.subtitleTracks || subRes.subtitle_tracks,
+                transcripts: subRes.transcripts,
+                transcript: subRes.transcript || subRes.transcripts?.en || []
+              });
+              console.log(`[Transcription Background] Successfully updated subtitles and transcripts for video ${targetVidId}!`);
+            }
+          } catch (bgErr) {
+            console.warn(`[Transcription Background] Warning during background subtitle sync:`, bgErr.message);
+          }
+        })();
+      }
     } catch (err) {
       console.error('Failed to register/upload video:', err);
       showError(`Video ${editingVideo ? 'update' : 'upload'} failed: ${err.message || 'Server error'}`);

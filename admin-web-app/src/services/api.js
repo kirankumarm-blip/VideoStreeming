@@ -1305,6 +1305,43 @@ export const api = {
       }
     },
 
+    generateSubtitles: (videoId, fileName, filePath = null) => {
+      return uploadRequest('/api/upload/generate-subtitles', {
+        method: 'POST',
+        body: JSON.stringify({ videoId, fileName, filePath })
+      });
+    },
+
+    updateTranscript: async (payload) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
+      const token = getAccessToken();
+      const bodyObj = { ...payload };
+      bodyObj.formstep = 'transcript';
+      delete bodyObj.formStep;
+      if (token) {
+        bodyObj.token = token;
+      }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(bodyObj)
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update transcript: ${response.status}`);
+      }
+      const text = await response.text();
+      try {
+        return text ? JSON.parse(text) : { success: true };
+      } catch (parseErr) {
+        return { success: true, message: text };
+      }
+    },
+
     uploadCourse: (payload) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
