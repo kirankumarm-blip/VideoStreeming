@@ -36,20 +36,22 @@ def generate_vtt_content(cues):
         lines.append("")
     return "\n".join(lines)
 
+import concurrent.futures
+
 def batch_translate_texts(texts, target_lang):
     """Translate a list of text strings efficiently in chunks"""
     if not texts or target_lang == 'en':
         return texts
     
     results = []
-    chunk_size = 20
+    chunk_size = 25
     for i in range(0, len(texts), chunk_size):
         chunk = texts[i:i + chunk_size]
         combined = "\n".join(chunk)
         try:
             url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={target_lang}&dt=t&q={urllib.parse.quote(combined)}"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=4.0) as response:
+            with urllib.request.urlopen(req, timeout=5.0) as response:
                 res_data = json.loads(response.read().decode('utf-8'))
                 translated_text = ''.join([item[0] for item in res_data[0] if item and item[0]])
                 translated_lines = translated_text.split('\n')
@@ -114,7 +116,10 @@ def main():
         total_duration = float(len(audio_data)) / float(sample_rate) if sample_rate > 0 else 0.0
 
         # 3. Transcribe with Whisper
+        import torch
         import whisper
+        torch.set_num_threads(min(8, os.cpu_count() or 4))
+        
         model = whisper.load_model(args.model)
         transcribe_result = model.transcribe(
             audio_data,
@@ -157,23 +162,29 @@ def main():
                     'text': f"Audio section {i + 1}"
                 })
 
-        # 4. Generate en, hi, kn, te
+        # 4. Generate en, hi, kn, te in parallel
         target_languages = ['en', 'hi', 'kn', 'te']
         transcripts = {}
         vtt_files = {}
 
-        for lang in target_languages:
+        def process_lang(lang):
             if detected_lang == lang or lang == 'en':
                 cues = source_cues
             else:
                 cues = translate_cues(source_cues, lang)
             
-            transcripts[lang] = cues
             vtt_content = generate_vtt_content(cues)
             vtt_path = os.path.join(output_dir, f"{lang}.vtt")
             with open(vtt_path, 'w', encoding='utf-8') as f:
                 f.write(vtt_content)
-            vtt_files[lang] = vtt_path
+            return lang, cues, vtt_path
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_lang = {executor.submit(process_lang, lang): lang for lang in target_languages}
+            for future in concurrent.futures.as_completed(future_to_lang):
+                lang, cues, vtt_path = future.result()
+                transcripts[lang] = cues
+                vtt_files[lang] = vtt_path
 
         output = {
             "success": True,

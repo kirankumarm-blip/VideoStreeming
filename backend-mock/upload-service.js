@@ -288,36 +288,77 @@ app.post('/api/upload/complete', async (req, res) => {
 
     // Check if uploaded file is a video
     const isVideoFile = /\.(mp4|webm|mkv|mov|avi|flv|wmv|m4v|3gp)$/i.test(fileName);
-    let subtitlesData = null;
+    const subtitlesMap = {};
+    const subtitleTracks = [];
+    const transcriptsMap = {};
 
     if (isVideoFile) {
-      try {
-        console.log(`[Upload Service] Reading uploaded video "${assembledFilePath}" to extract real speech, subtitles & transcripts...`);
-        subtitlesData = await extractAndUploadSubtitles(fileId, assembledFilePath, fileName);
-        console.log(`[Upload Service] Successfully transcribed and generated subtitles for ${fileId}`);
-      } catch (subErr) {
-        console.warn("[Upload Service] Subtitle extraction warning:", subErr.message);
+      // 1. Immediately provision valid MinIO subtitle tracks and fallback cues (takes < 100ms)
+      for (const langObj of SUBTITLE_LANGUAGES) {
+        const lang = langObj.code;
+        const vttObjectName = `subtitles/${fileId}/${lang}.vtt`;
+        const initialCues = [
+          { id: 1, start: 0, end: 10, speaker: 'Instructor', text: `Audio content for ${fileName}` }
+        ];
+        const initialVtt = `WEBVTT\n\n1\n00:00:00.000 --> 00:00:10.000\nAudio content for ${fileName}\n\n`;
+        try {
+          const vttBuf = Buffer.from(initialVtt, 'utf-8');
+          await minioClient.putObject(minioBucket, vttObjectName, vttBuf, vttBuf.length, {
+            'Content-Type': 'text/vtt; charset=utf-8'
+          });
+          const url = await minioClient.presignedGetObject(minioBucket, vttObjectName, expirySeconds);
+          subtitlesMap[lang] = url;
+          subtitleTracks.push({
+            label: langObj.label,
+            srclang: lang,
+            src: url,
+            default: lang === 'en'
+          });
+        } catch (e) {}
+        transcriptsMap[lang] = initialCues;
+      }
+
+      // 2. Launch background Whisper AI extraction to enrich MinIO subtitles with high accuracy
+      setImmediate(async () => {
+        try {
+          console.log(`[Whisper AI Background] Reading uploaded video "${assembledFilePath}" to extract speech, subtitles & transcripts...`);
+          await extractAndUploadSubtitles(fileId, assembledFilePath, fileName);
+          console.log(`[Whisper AI Background] Successfully transcribed and updated subtitles for ${fileId}`);
+        } catch (bgErr) {
+          console.warn("[Whisper AI Background] Subtitle extraction warning:", bgErr.message);
+        } finally {
+          if (fs.existsSync(assembledFilePath)) {
+            try { fs.unlinkSync(assembledFilePath); } catch (e) {}
+          }
+        }
+      });
+    } else {
+      // If not a video, cleanup assembled file immediately
+      if (fs.existsSync(assembledFilePath)) {
+        try { fs.unlinkSync(assembledFilePath); } catch (e) {}
       }
     }
 
-    // Clean up local temp files
-    fs.unlinkSync(assembledFilePath);
-    fs.readdirSync(chunkPath).forEach(file => {
-      fs.unlinkSync(path.join(chunkPath, file));
-    });
-    fs.rmdirSync(chunkPath);
+    // Clean up chunk files
+    try {
+      fs.readdirSync(chunkPath).forEach(file => {
+        try { fs.unlinkSync(path.join(chunkPath, file)); } catch (e) {}
+      });
+      fs.rmdirSync(chunkPath);
+    } catch (e) {}
 
-    res.json({
+    // Return IMMEDIATELY in ~1-2 seconds!
+    return res.json({
       success: true,
       fileId,
       videoId: fileId,
       objectName,
       minioUrl,
-      subtitles: subtitlesData?.subtitles || null,
-      subtitleTracks: subtitlesData?.subtitleTracks || null,
-      subtitle_tracks: subtitlesData?.subtitleTracks || null,
-      transcripts: subtitlesData?.transcripts || null,
-      transcript: subtitlesData?.transcripts?.en || null
+      subtitles: isVideoFile ? subtitlesMap : null,
+      subtitleTracks: isVideoFile ? subtitleTracks : null,
+      subtitle_tracks: isVideoFile ? subtitleTracks : null,
+      transcripts: isVideoFile ? transcriptsMap : null,
+      transcript: isVideoFile ? transcriptsMap?.en : null
     });
   } catch (err) {
     console.error("Assembly or upload error:", err);
