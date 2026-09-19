@@ -4120,7 +4120,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
 
-      // 2-Step Course Subtitle Sync: Process returned chapter videos & update transcripts with formstep: 'transcriptCourse'
+      // 2-Step Course Subtitle Sync: Process ALL returned chapters & videos into one single payload with formstep: 'transcriptCourse'
       (async () => {
         try {
           console.log('[Course Transcription Sync] Received uploadCourse response:', courseRes);
@@ -4137,73 +4137,63 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             returnedChapters = [courseRes];
           }
 
-          const videoSyncTargets = [];
-
-          returnedChapters.forEach((chItem, chIdx) => {
-            const rawChapterId = chItem.chapter_id || chItem.chapterId || chItem.id;
-            const chapterCourseId = chItem.course_id || chItem.courseId || payload.course_id || payload.id;
-            
-            if (Array.isArray(chItem.videos) && chItem.videos.length > 0) {
-              chItem.videos.forEach((vItem, vIdx) => {
-                videoSyncTargets.push({
-                  courseId: vItem.course_id || vItem.courseId || chapterCourseId,
-                  chapterId: vItem.chapter_id || vItem.chapterId || rawChapterId,
-                  videoId: vItem.video_id || vItem.videoId || vItem.id || vItem.vd_id,
-                  videoUrl: vItem.video_url || vItem.videoUrl || vItem.url,
-                  chapterIndex: chIdx,
-                  videoIndex: vIdx
-                });
-              });
-            } else if (chItem.video_id || chItem.videoId) {
-              videoSyncTargets.push({
-                courseId: chItem.course_id || chItem.courseId || chapterCourseId,
-                chapterId: rawChapterId,
-                videoId: chItem.video_id || chItem.videoId || chItem.id || chItem.vd_id,
-                videoUrl: chItem.video_url || chItem.videoUrl || chItem.url,
-                chapterIndex: chIdx,
-                videoIndex: 0
-              });
+          // Determine overall course_id
+          let overallCourseId = payload.course_id || payload.id;
+          if (!overallCourseId && returnedChapters.length > 0) {
+            for (const ch of returnedChapters) {
+              if (ch && (ch.course_id || ch.courseId)) {
+                overallCourseId = ch.course_id || ch.courseId;
+                break;
+              }
+              if (ch && Array.isArray(ch.videos) && ch.videos.length > 0) {
+                const firstV = ch.videos.find(v => v && (v.course_id || v.courseId));
+                if (firstV) {
+                  overallCourseId = firstV.course_id || firstV.courseId;
+                  break;
+                }
+              }
             }
-          });
-
-          // Fallback if returned structure didn't contain videos array directly
-          if (videoSyncTargets.length === 0 && submittedChapters.length > 0) {
-            const fallbackCourseId = (courseRes && (courseRes.id || courseRes.course_id || courseRes.courseId)) || payload.course_id || payload.id;
-            submittedChapters.forEach((ch, chIdx) => {
-              (ch.videos || []).forEach((v, vIdx) => {
-                videoSyncTargets.push({
-                  courseId: fallbackCourseId,
-                  chapterId: ch.id || ch.chapter_id,
-                  videoId: v.id || v.video_id || v.videoId,
-                  videoUrl: v.videoUrl,
-                  chapterIndex: chIdx,
-                  videoIndex: vIdx
-                });
-              });
-            });
+          }
+          if (!overallCourseId && courseRes && typeof courseRes === 'object') {
+            overallCourseId = courseRes.course_id || courseRes.courseId || courseRes.id;
           }
 
-          console.log(`[Course Transcription Sync] Syncing transcripts for ${videoSyncTargets.length} video(s):`, videoSyncTargets);
+          const processedChapters = [];
 
-          for (const target of videoSyncTargets) {
-            try {
-              const origChapter = submittedChapters[target.chapterIndex];
-              const origVideo = origChapter?.videos ? origChapter.videos[target.videoIndex] : null;
+          // Process each chapter returned or submitted
+          const totalChaps = Math.max(returnedChapters.length, submittedChapters.length);
 
+          for (let chIdx = 0; chIdx < totalChaps; chIdx++) {
+            const chItem = returnedChapters[chIdx] || {};
+            const origChapter = submittedChapters[chIdx] || {};
+            const rawChapterId = chItem.chapter_id || chItem.chapterId || chItem.id || origChapter.id || origChapter.chapter_id || String(chIdx + 1);
+
+            const vList = (Array.isArray(chItem.videos) && chItem.videos.length > 0) 
+              ? chItem.videos 
+              : (origChapter.videos || []);
+
+            const processedVideos = [];
+
+            for (let vIdx = 0; vIdx < vList.length; vIdx++) {
+              const vItem = vList[vIdx] || {};
+              const origVideo = origChapter.videos ? origChapter.videos[vIdx] : null;
+              const rawVideoId = vItem.video_id || vItem.videoId || vItem.id || vItem.vd_id || origVideo?.videoId || origVideo?.video_id || origVideo?.id || String(vIdx + 1);
+
+              // Match transcript entry
               let matchEntry = null;
-              if (target.videoUrl && storedTranscripts[target.videoUrl]) {
-                matchEntry = storedTranscripts[target.videoUrl];
+              if (origChapter && origVideo && storedTranscripts[`${origChapter.id}_${origVideo.id}`]) {
+                matchEntry = storedTranscripts[`${origChapter.id}_${origVideo.id}`];
+              } else if (vItem.video_url && storedTranscripts[vItem.video_url]) {
+                matchEntry = storedTranscripts[vItem.video_url];
               } else if (origVideo && origVideo.videoUrl && storedTranscripts[origVideo.videoUrl]) {
                 matchEntry = storedTranscripts[origVideo.videoUrl];
               } else if (origVideo && origVideo.videoId && storedTranscripts[String(origVideo.videoId)]) {
                 matchEntry = storedTranscripts[String(origVideo.videoId)];
-              } else if (origChapter && origVideo && storedTranscripts[`${origChapter.id}_${origVideo.id}`]) {
-                matchEntry = storedTranscripts[`${origChapter.id}_${origVideo.id}`];
               }
 
-              if (!matchEntry && origVideo) {
+              if (!matchEntry && origChapter && origVideo) {
                 matchEntry = Object.values(storedTranscripts).find(e => 
-                  e.chapterId === origChapter?.id && e.videoId === origVideo?.id
+                  e.chapterId === origChapter.id && e.videoId === origVideo.id
                 );
               }
 
@@ -4212,7 +4202,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 if (matchEntry.data) {
                   subData = matchEntry.data;
                 } else if (matchEntry.promise) {
-                  console.log(`[Course Transcription Sync] Awaiting transcription for Course ${target.courseId}, Chapter ${target.chapterId}, Video ${target.videoId}...`);
+                  console.log(`[Course Transcription Sync] Awaiting transcription for Chapter ${rawChapterId}, Video ${rawVideoId}...`);
                   subData = await matchEntry.promise;
                 }
               }
@@ -4221,36 +4211,42 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               const targetFileName = matchEntry?.fileName || origVideo?.fileName;
               if (!subData && targetFileId && targetFileName) {
                 console.log(`[Course Transcription Sync] Generating subtitles on-demand for target fileId ${targetFileId}...`);
-                subData = await api.videos.generateSubtitles(targetFileId, targetFileName);
+                try {
+                  subData = await api.videos.generateSubtitles(targetFileId, targetFileName);
+                } catch (genErr) {
+                  console.warn(`[Course Transcription Sync] generateSubtitles fallback error:`, genErr.message);
+                }
               }
 
-              if (subData && (subData.subtitles || subData.transcripts)) {
-                console.log(`[Course Transcription Sync] Submitting transcriptCourse for Course ${target.courseId}, Chapter ${target.chapterId}, Video ${target.videoId}...`);
-                const transcriptCoursePayload = {
-                  formstep: "transcriptCourse",
-                  course_id: String(target.courseId || ''),
-                  courseId: String(target.courseId || ''),
-                  chapter_id: String(target.chapterId || ''),
-                  chapterId: String(target.chapterId || ''),
-                  video_id: String(target.videoId || ''),
-                  videoId: String(target.videoId || ''),
-                  vd_id: String(target.videoId || ''),
-                  subtitles: subData.subtitles || {},
-                  subtitleTracks: subData.subtitleTracks || subData.subtitle_tracks || [],
-                  subtitle_tracks: subData.subtitleTracks || subData.subtitle_tracks || [],
-                  transcripts: subData.transcripts || {},
-                  transcript: subData.transcript || subData.transcripts?.en || []
-                };
-
-                await api.videos.updateTranscriptCourse(transcriptCoursePayload);
-                console.log(`[Course Transcription Sync] Successfully updated transcript for Course ${target.courseId}, Chapter ${target.chapterId}, Video ${target.videoId}!`);
-              } else {
-                console.log(`[Course Transcription Sync] No subtitles available for Video ${target.videoId}`);
-              }
-            } catch (itemErr) {
-              console.warn(`[Course Transcription Sync] Warning updating transcript for Video ${target.videoId}:`, itemErr.message);
+              processedVideos.push({
+                video_id: rawVideoId,
+                videoId: rawVideoId,
+                vd_id: rawVideoId,
+                subtitles: subData?.subtitles || {},
+                subtitleTracks: subData?.subtitleTracks || subData?.subtitle_tracks || [],
+                subtitle_tracks: subData?.subtitleTracks || subData?.subtitle_tracks || [],
+                transcripts: subData?.transcripts || {},
+                transcript: subData?.transcript || subData?.transcripts?.en || []
+              });
             }
+
+            processedChapters.push({
+              chapter_id: String(rawChapterId),
+              chapterId: String(rawChapterId),
+              videos: processedVideos
+            });
           }
+
+          const transcriptCoursePayload = {
+            formstep: "transcriptCourse",
+            course_id: String(overallCourseId || ''),
+            courseId: String(overallCourseId || ''),
+            chapters: processedChapters
+          };
+
+          console.log('[Course Transcription Sync] Sending combined transcriptCourse payload for all chapters:', transcriptCoursePayload);
+          await api.videos.updateTranscriptCourse(transcriptCoursePayload);
+          console.log('[Course Transcription Sync] Successfully updated transcriptCourse for all chapters & videos!');
         } catch (syncAllErr) {
           console.warn('[Course Transcription Sync] Error in course transcript sync flow:', syncAllErr.message);
         }
