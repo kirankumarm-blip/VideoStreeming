@@ -1348,6 +1348,36 @@ export const api = {
       }
     },
 
+    updateTranscriptCourse: async (payload) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
+      const token = getAccessToken();
+      const bodyObj = { ...payload };
+      bodyObj.formstep = 'transcriptCourse';
+      delete bodyObj.formStep;
+      if (token) {
+        bodyObj.token = token;
+      }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(bodyObj)
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update course transcript: ${response.status}`);
+      }
+      const text = await response.text();
+      try {
+        return text ? JSON.parse(text) : { success: true };
+      } catch (parseErr) {
+        return { success: true, message: text };
+      }
+    },
+
     uploadCourse: (payload) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
@@ -1365,7 +1395,8 @@ export const api = {
       delete bodyObj.message;
       return request(endpoint, {
         method: 'POST',
-        body: JSON.stringify(bodyObj)
+        body: JSON.stringify(bodyObj),
+        expectArray: true
       });
     },
 

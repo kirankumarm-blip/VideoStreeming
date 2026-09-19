@@ -732,6 +732,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [loadingCourseDrafts, setLoadingCourseDrafts] = useState(false);
   const isFetchingCourseDraftsRef = useRef(false);
   const lastFetchedCourseDraftRef = useRef(null);
+  const courseTranscriptsRef = useRef({});
   const [editingCourse, setEditingCourse] = useState(null);
   const [isCourseViewOnly, setIsCourseViewOnly] = useState(false);
 
@@ -3432,19 +3433,52 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       
       updateVideoProp(chapterId, videoId, 'uploadStatus', 'success');
       updateVideoProp(chapterId, videoId, 'videoUrl', completeRes.minioUrl);
-      if (completeRes.fileId || completeRes.videoId) {
-        updateVideoProp(chapterId, videoId, 'videoId', completeRes.fileId || completeRes.videoId);
+      const targetFileId = completeRes.fileId || completeRes.videoId;
+      if (targetFileId) {
+        updateVideoProp(chapterId, videoId, 'videoId', targetFileId);
       }
-      if (completeRes.subtitles) {
-        updateVideoProp(chapterId, videoId, 'subtitles', completeRes.subtitles);
+
+      // Background subtitle & transcription generation for course chapter video
+      const transcriptPromise = (async () => {
+        try {
+          console.log(`[Course Transcription Background] Generating speech subtitles & transcripts for chapter ${chapterId}, video ${videoId} (fileId: ${targetFileId}, file: ${file.name})...`);
+          const subRes = await api.videos.generateSubtitles(targetFileId, file.name);
+          if (subRes && subRes.subtitles && subRes.transcripts) {
+            console.log(`[Course Transcription Background] Ready: subtitles & transcripts for chapter ${chapterId}, video ${videoId}`);
+            const currentEntry = courseTranscriptsRef.current[`${chapterId}_${videoId}`];
+            if (currentEntry) {
+              currentEntry.data = subRes;
+            }
+            return subRes;
+          }
+        } catch (subErr) {
+          console.warn(`[Course Transcription Background] Subtitle generation warning for chapter ${chapterId}, video ${videoId}:`, subErr.message);
+        }
+        return null;
+      })();
+
+      const transcriptEntry = {
+        chapterId,
+        videoId,
+        fileId: targetFileId,
+        fileName: file.name,
+        videoUrl: completeRes.minioUrl,
+        promise: transcriptPromise,
+        data: (completeRes.subtitles && completeRes.transcripts) ? {
+          subtitles: completeRes.subtitles,
+          subtitleTracks: completeRes.subtitleTracks || completeRes.subtitle_tracks,
+          subtitle_tracks: completeRes.subtitleTracks || completeRes.subtitle_tracks,
+          transcripts: completeRes.transcripts,
+          transcript: completeRes.transcript || completeRes.transcripts?.en || []
+        } : null
+      };
+
+      courseTranscriptsRef.current[`${chapterId}_${videoId}`] = transcriptEntry;
+      if (completeRes.minioUrl) {
+        courseTranscriptsRef.current[completeRes.minioUrl] = transcriptEntry;
       }
-      if (completeRes.subtitleTracks) {
-        updateVideoProp(chapterId, videoId, 'subtitleTracks', completeRes.subtitleTracks);
-        updateVideoProp(chapterId, videoId, 'subtitle_tracks', completeRes.subtitleTracks);
-      }
-      if (completeRes.transcripts) {
-        updateVideoProp(chapterId, videoId, 'transcripts', completeRes.transcripts);
-        updateVideoProp(chapterId, videoId, 'transcript', completeRes.transcripts.en || []);
+      if (targetFileId) {
+        courseTranscriptsRef.current[String(targetFileId)] = transcriptEntry;
       }
     } catch (err) {
       console.error(err);
@@ -3802,12 +3836,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             thumbName: v.thumbName || 'thumbnail.png',
             thumbnailUrl: await encryptUrl(v.thumbnailUrl || ''),
             duration: v.duration,
-            isPreview: v.isPreview,
-            subtitles: v.subtitles || null,
-            subtitleTracks: v.subtitleTracks || v.subtitle_tracks || null,
-            subtitle_tracks: v.subtitleTracks || v.subtitle_tracks || null,
-            transcripts: v.transcripts || null,
-            transcript: v.transcript || (v.transcripts ? v.transcripts.en : null)
+            isPreview: v.isPreview
           };
           const vidId = !v.isNew ? (v.existingId || v.video_id || v.id) : null;
           if (vidId) {
@@ -4078,7 +4107,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         payload.formstep = defaultStep;
       }
 
-      await api.videos.uploadCourse(payload);
+      // Snapshot current chapters and transcripts map before form reset
+      const submittedChapters = [...chapters];
+      const storedTranscripts = { ...courseTranscriptsRef.current };
+
+      const courseRes = await api.videos.uploadCourse(payload);
       if (!editingCourse && !isDraft) {
         try {
           await api.notifications.sendCampaign('all', 'New Course Published', `"${payload.title || 'A new course'}" has been published. Check it out now!`);
@@ -4086,6 +4119,142 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           console.warn("Course notification call warning:", notifErr);
         }
       }
+
+      // 2-Step Course Subtitle Sync: Process returned chapter videos & update transcripts with formstep: 'transcriptCourse'
+      (async () => {
+        try {
+          console.log('[Course Transcription Sync] Received uploadCourse response:', courseRes);
+          let returnedChapters = [];
+          if (Array.isArray(courseRes)) {
+            returnedChapters = courseRes;
+          } else if (courseRes && Array.isArray(courseRes.chapters)) {
+            returnedChapters = courseRes.chapters;
+          } else if (courseRes && Array.isArray(courseRes.json)) {
+            returnedChapters = courseRes.json;
+          } else if (courseRes && Array.isArray(courseRes.data)) {
+            returnedChapters = courseRes.data;
+          } else if (courseRes && typeof courseRes === 'object') {
+            returnedChapters = [courseRes];
+          }
+
+          const videoSyncTargets = [];
+
+          returnedChapters.forEach((chItem, chIdx) => {
+            const rawChapterId = chItem.chapter_id || chItem.chapterId || chItem.id;
+            const chapterCourseId = chItem.course_id || chItem.courseId || payload.course_id || payload.id;
+            
+            if (Array.isArray(chItem.videos) && chItem.videos.length > 0) {
+              chItem.videos.forEach((vItem, vIdx) => {
+                videoSyncTargets.push({
+                  courseId: vItem.course_id || vItem.courseId || chapterCourseId,
+                  chapterId: vItem.chapter_id || vItem.chapterId || rawChapterId,
+                  videoId: vItem.video_id || vItem.videoId || vItem.id || vItem.vd_id,
+                  videoUrl: vItem.video_url || vItem.videoUrl || vItem.url,
+                  chapterIndex: chIdx,
+                  videoIndex: vIdx
+                });
+              });
+            } else if (chItem.video_id || chItem.videoId) {
+              videoSyncTargets.push({
+                courseId: chItem.course_id || chItem.courseId || chapterCourseId,
+                chapterId: rawChapterId,
+                videoId: chItem.video_id || chItem.videoId || chItem.id || chItem.vd_id,
+                videoUrl: chItem.video_url || chItem.videoUrl || chItem.url,
+                chapterIndex: chIdx,
+                videoIndex: 0
+              });
+            }
+          });
+
+          // Fallback if returned structure didn't contain videos array directly
+          if (videoSyncTargets.length === 0 && submittedChapters.length > 0) {
+            const fallbackCourseId = (courseRes && (courseRes.id || courseRes.course_id || courseRes.courseId)) || payload.course_id || payload.id;
+            submittedChapters.forEach((ch, chIdx) => {
+              (ch.videos || []).forEach((v, vIdx) => {
+                videoSyncTargets.push({
+                  courseId: fallbackCourseId,
+                  chapterId: ch.id || ch.chapter_id,
+                  videoId: v.id || v.video_id || v.videoId,
+                  videoUrl: v.videoUrl,
+                  chapterIndex: chIdx,
+                  videoIndex: vIdx
+                });
+              });
+            });
+          }
+
+          console.log(`[Course Transcription Sync] Syncing transcripts for ${videoSyncTargets.length} video(s):`, videoSyncTargets);
+
+          for (const target of videoSyncTargets) {
+            try {
+              const origChapter = submittedChapters[target.chapterIndex];
+              const origVideo = origChapter?.videos ? origChapter.videos[target.videoIndex] : null;
+
+              let matchEntry = null;
+              if (target.videoUrl && storedTranscripts[target.videoUrl]) {
+                matchEntry = storedTranscripts[target.videoUrl];
+              } else if (origVideo && origVideo.videoUrl && storedTranscripts[origVideo.videoUrl]) {
+                matchEntry = storedTranscripts[origVideo.videoUrl];
+              } else if (origVideo && origVideo.videoId && storedTranscripts[String(origVideo.videoId)]) {
+                matchEntry = storedTranscripts[String(origVideo.videoId)];
+              } else if (origChapter && origVideo && storedTranscripts[`${origChapter.id}_${origVideo.id}`]) {
+                matchEntry = storedTranscripts[`${origChapter.id}_${origVideo.id}`];
+              }
+
+              if (!matchEntry && origVideo) {
+                matchEntry = Object.values(storedTranscripts).find(e => 
+                  e.chapterId === origChapter?.id && e.videoId === origVideo?.id
+                );
+              }
+
+              let subData = null;
+              if (matchEntry) {
+                if (matchEntry.data) {
+                  subData = matchEntry.data;
+                } else if (matchEntry.promise) {
+                  console.log(`[Course Transcription Sync] Awaiting transcription for Course ${target.courseId}, Chapter ${target.chapterId}, Video ${target.videoId}...`);
+                  subData = await matchEntry.promise;
+                }
+              }
+
+              const targetFileId = matchEntry?.fileId || origVideo?.videoId || origVideo?.fileId;
+              const targetFileName = matchEntry?.fileName || origVideo?.fileName;
+              if (!subData && targetFileId && targetFileName) {
+                console.log(`[Course Transcription Sync] Generating subtitles on-demand for target fileId ${targetFileId}...`);
+                subData = await api.videos.generateSubtitles(targetFileId, targetFileName);
+              }
+
+              if (subData && (subData.subtitles || subData.transcripts)) {
+                console.log(`[Course Transcription Sync] Submitting transcriptCourse for Course ${target.courseId}, Chapter ${target.chapterId}, Video ${target.videoId}...`);
+                const transcriptCoursePayload = {
+                  formstep: "transcriptCourse",
+                  course_id: String(target.courseId || ''),
+                  courseId: String(target.courseId || ''),
+                  chapter_id: String(target.chapterId || ''),
+                  chapterId: String(target.chapterId || ''),
+                  video_id: String(target.videoId || ''),
+                  videoId: String(target.videoId || ''),
+                  vd_id: String(target.videoId || ''),
+                  subtitles: subData.subtitles || {},
+                  subtitleTracks: subData.subtitleTracks || subData.subtitle_tracks || [],
+                  subtitle_tracks: subData.subtitleTracks || subData.subtitle_tracks || [],
+                  transcripts: subData.transcripts || {},
+                  transcript: subData.transcript || subData.transcripts?.en || []
+                };
+
+                await api.videos.updateTranscriptCourse(transcriptCoursePayload);
+                console.log(`[Course Transcription Sync] Successfully updated transcript for Course ${target.courseId}, Chapter ${target.chapterId}, Video ${target.videoId}!`);
+              } else {
+                console.log(`[Course Transcription Sync] No subtitles available for Video ${target.videoId}`);
+              }
+            } catch (itemErr) {
+              console.warn(`[Course Transcription Sync] Warning updating transcript for Video ${target.videoId}:`, itemErr.message);
+            }
+          }
+        } catch (syncAllErr) {
+          console.warn('[Course Transcription Sync] Error in course transcript sync flow:', syncAllErr.message);
+        }
+      })();
       const courseSuccMsg = isDraft ? 'Course saved as draft!' : (editingCourse ? 'Course updated successfully!' : 'Course created successfully!');
       setUploadSuccess(courseSuccMsg);
       showSuccess(courseSuccMsg);
