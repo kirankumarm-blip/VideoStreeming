@@ -3464,13 +3464,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         fileName: file.name,
         videoUrl: completeRes.minioUrl,
         promise: transcriptPromise,
-        data: (completeRes.subtitles && completeRes.transcripts) ? {
-          subtitles: completeRes.subtitles,
-          subtitleTracks: completeRes.subtitleTracks || completeRes.subtitle_tracks,
-          subtitle_tracks: completeRes.subtitleTracks || completeRes.subtitle_tracks,
-          transcripts: completeRes.transcripts,
-          transcript: completeRes.transcript || completeRes.transcripts?.en || []
-        } : null
+        data: null
       };
 
       courseTranscriptsRef.current[`${chapterId}_${videoId}`] = transcriptEntry;
@@ -4199,18 +4193,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               let subData = null;
               if (matchEntry) {
-                if (matchEntry.data) {
+                if (matchEntry.promise) {
+                  console.log(`[Course Transcription Sync] Awaiting real Whisper AI speech transcription for Chapter ${rawChapterId}, Video ${rawVideoId}...`);
+                  try {
+                    const promisedData = await matchEntry.promise;
+                    if (promisedData && (promisedData.subtitles || promisedData.transcripts)) {
+                      subData = promisedData;
+                    }
+                  } catch (pErr) {
+                    console.warn(`[Course Transcription Sync] Promise await warning:`, pErr.message);
+                  }
+                }
+                if (!subData && matchEntry.data && (matchEntry.data.subtitles || matchEntry.data.transcripts)) {
                   subData = matchEntry.data;
-                } else if (matchEntry.promise) {
-                  console.log(`[Course Transcription Sync] Awaiting transcription for Chapter ${rawChapterId}, Video ${rawVideoId}...`);
-                  subData = await matchEntry.promise;
                 }
               }
 
               const targetFileId = matchEntry?.fileId || origVideo?.videoId || origVideo?.fileId;
               const targetFileName = matchEntry?.fileName || origVideo?.fileName;
               if (!subData && targetFileId && targetFileName) {
-                console.log(`[Course Transcription Sync] Generating subtitles on-demand for target fileId ${targetFileId}...`);
+                console.log(`[Course Transcription Sync] Generating real Whisper subtitles on-demand for target fileId ${targetFileId}...`);
                 try {
                   subData = await api.videos.generateSubtitles(targetFileId, targetFileName);
                 } catch (genErr) {

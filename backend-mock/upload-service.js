@@ -165,7 +165,8 @@ const extractAndUploadSubtitles = async (videoId, videoFilePath, fileName) => {
       videoId,
       subtitles: subtitlesMap,
       subtitleTracks,
-      transcripts: transcriptsMap
+      transcripts: transcriptsMap,
+      transcript: transcriptsMap?.en || []
     };
 
   } catch (err) {
@@ -202,7 +203,8 @@ const extractAndUploadSubtitles = async (videoId, videoFilePath, fileName) => {
       videoId,
       subtitles: subtitlesMap,
       subtitleTracks,
-      transcripts: transcriptsMap
+      transcripts: transcriptsMap,
+      transcript: transcriptsMap?.en || []
     };
   }
 };
