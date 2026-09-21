@@ -1574,7 +1574,27 @@ const UserDashboard = () => {
                             className="btn btn-primary"
                             onClick={() => {
                               if (isCourse) {
-                                setSelectedCourse(featured);
+                                const courseTitle = featured.title || featured.course_name || featured.name || '';
+                                const chapters = Array.isArray(featured.chapters) ? featured.chapters : [];
+                                const firstChapter = chapters[0];
+                                const firstVideo = (firstChapter && Array.isArray(firstChapter.videos)) ? firstChapter.videos[0] : null;
+                                if (firstVideo) {
+                                  const videoPayload = {
+                                    ...firstVideo,
+                                    visibility: firstVideo.visibility ?? firstVideo.visibility_id ?? featured.visibility ?? featured.visibility_id,
+                                    id: firstVideo.id || firstVideo.videoUrl || firstVideo.video_url || `${featured.id}-v0`,
+                                    title: firstVideo.title || firstVideo.name || 'Lesson 1',
+                                    videoUrl: firstVideo.videoUrl || firstVideo.video_url || '',
+                                    thumbnail: firstVideo.thumbnailUrl || firstVideo.thumbnail_url || featured.thumbnail || '',
+                                    category: featured.category || '',
+                                    description: firstVideo.description || featured.description || '',
+                                    course_name: courseTitle,
+                                    courseTitle: courseTitle
+                                  };
+                                  handleVideoCardClick(videoPayload, { ...featured, title: courseTitle });
+                                } else {
+                                  handleVideoCardClick(featured, { ...featured, title: courseTitle });
+                                }
                               } else {
                                 handleVideoCardClick(featured);
                               }
