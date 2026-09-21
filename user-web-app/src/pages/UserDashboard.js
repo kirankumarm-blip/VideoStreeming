@@ -1538,81 +1538,45 @@ const UserDashboard = () => {
                     );
                   })()
                 ) : (
-                  (() => {
-                    const yourCoursesList = dashboardData?.yourCourses || dashboardData?.your_courses || [];
-                    const allList = [...yourCoursesList, ...(dashboardData?.recommended || []), ...(dashboardData?.trending || [])];
-                    const featured = dashboardData?.featured || dashboardData?.featured_course || (allList.length > 0 ? allList[0] : null);
-                    if (!featured) return null;
-                    const isCourse = Boolean(featured.total_lessons || featured.total_chapters || featured.chapters);
-                    return (
-                      <div className="hero-banner animate-fade-in" style={featured.thumbnail ? { backgroundImage: `linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 100%), url(${featured.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
-                        <div className="hero-content">
-                          <span style={{
-                            background: 'var(--accent-secondary)',
-                            color: '#fff',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            display: 'inline-block',
-                            marginBottom: '12px'
-                          }}>
-                            {isCourse 
-                              ? (language === 'hi' ? 'विशेष पाठ' : language === 'kn' ? 'ವಿಶೇಷ ಪಾಠ' : 'Featured Course')
-                              : (language === 'hi' ? 'विशेष वीडियो' : language === 'kn' ? 'ವಿಶೇಷ ವೀಡಿಯೊ' : 'Featured Video')}
-                          </span>
-                          <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px', color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                            {featured.title || featured.name}
-                          </h1>
-                          {featured.description && (
-                            <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.4' }}>
-                              {featured.description}
-                            </p>
-                          )}
-                          <button 
-                            className="btn btn-primary"
-                            onClick={() => {
-                              if (isCourse) {
-                                const courseTitle = featured.title || featured.course_name || featured.name || '';
-                                const chapters = Array.isArray(featured.chapters) ? featured.chapters : [];
-                                const firstChapter = chapters[0];
-                                const firstVideo = (firstChapter && Array.isArray(firstChapter.videos)) ? firstChapter.videos[0] : null;
-                                if (firstVideo) {
-                                  const videoPayload = {
-                                    ...firstVideo,
-                                    visibility: firstVideo.visibility ?? firstVideo.visibility_id ?? featured.visibility ?? featured.visibility_id,
-                                    id: firstVideo.id || firstVideo.videoUrl || firstVideo.video_url || `${featured.id}-v0`,
-                                    title: firstVideo.title || firstVideo.name || 'Lesson 1',
-                                    videoUrl: firstVideo.videoUrl || firstVideo.video_url || '',
-                                    thumbnail: firstVideo.thumbnailUrl || firstVideo.thumbnail_url || featured.thumbnail || '',
-                                    category: featured.category || '',
-                                    description: firstVideo.description || featured.description || '',
-                                    course_name: courseTitle,
-                                    courseTitle: courseTitle
-                                  };
-                                  handleVideoCardClick(videoPayload, { ...featured, title: courseTitle });
-                                } else {
-                                  handleVideoCardClick(featured, { ...featured, title: courseTitle });
-                                }
-                              } else {
-                                handleVideoCardClick(featured);
-                              }
-                            }}
-                            style={{
-                              padding: '12px 28px',
-                              borderRadius: '24px',
-                              fontWeight: 'bold',
-                              fontSize: '14px',
-                              boxShadow: '0 4px 15px rgba(229, 9, 20, 0.4)'
-                            }}
-                          >
-                            {language === 'hi' ? 'सीखना शुरू करें' : language === 'kn' ? 'ಕಲಿಕೆ ಆರಂಭಿಸಿ' : 'Start Learning'} 🚀
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()
+                  <div className="hero-banner animate-fade-in">
+                    <div className="hero-content">
+                      <span style={{
+                        background: 'var(--accent-secondary)',
+                        color: '#fff',
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        display: 'inline-block',
+                        marginBottom: '12px'
+                      }}>
+                        {language === 'hi' ? 'विशेष पाठ' : language === 'kn' ? 'ವಿಶೇಷ ಪಾಠ' : 'Featured Course'}
+                      </span>
+                      <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px', color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                        {language === 'hi' ? 'क्वांटम कंप्यूटिंग की खोज' : language === 'kn' ? 'ಕ್ವಾಂಟಮ್ ಕಂಪ್ಯೂಟಿಂಗ್ ಅನ್ವೇಷಣೆ' : 'Explore Quantum Computing'}
+                      </h1>
+                      <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.4' }}>
+                        {language === 'hi' ? 'क्वांटम यांत्रिकी, सुपरपोजिशन और उलझाव में गहराई से गोता लगाएँ। आज ही अपना सीखने का सफर शुरू करें!' : language === 'kn' ? 'ಕ್ವಾಂಟಮ್ ಮೆಕ್ಯಾನಿಕ್ಸ್, ಸೂಪರ್ಪೋಸಿಷನ್ ಮತ್ತು ಎಂಟ್ಯಾಂಗಲ್ಮೆಂಟ್ ಬಗ್ಗೆ ಆಳವಾಗಿ ತಿಳಿಯಿರಿ. ಇಂದೇ ಕಲಿಕೆ ಆರಂಭಿಸಿ!' : 'Dive deep into quantum mechanics, superposition, and entanglement. Start your learning path today!'}
+                      </p>
+                      <button 
+                        className="btn btn-primary"
+                        onClick={() => {
+                          const firstRec = dashboardData?.recommended?.[0] || dashboardData?.trending?.[0];
+                          if (firstRec) handleVideoCardClick(firstRec);
+                        }}
+                        style={{
+                          padding: '12px 28px',
+                          borderRadius: '24px',
+                          fontWeight: 'bold',
+                          fontSize: '14px',
+                          boxShadow: '0 4px 15px rgba(229, 9, 20, 0.4)'
+                        }}
+                      >
+                        {language === 'hi' ? 'सीखना शुरू करें' : language === 'kn' ? 'ಕಲಿಕೆ ಆರಂಭಿಸಿ' : 'Start Learning'} 🚀
+                      </button>
+                    </div>
+                  </div>
                 )}
 
                 {/* Category Chips with Icons */}
