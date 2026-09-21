@@ -124,14 +124,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    if (activeTabOverride) {
-      if (activeTabOverride === 'video_upload') {
-        resetVideoFormToDefault();
-      }
-      setActiveTab(activeTabOverride);
-    }
-  }, [activeTabOverride]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploadedVideoId, setUploadedVideoId] = useState(null);
@@ -693,7 +685,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [adminsList, setAdminsList] = useState([]);
   const [loadingAdminsList, setLoadingAdminsList] = useState(false);
   const isFetchingAdminsListRef = useRef(false);
+  const adminsListPromiseRef = useRef(null);
+  const isFetchingAuthorAdminsListRef = useRef(false);
+  const authorAdminsPromiseRef = useRef(null);
   const isFetchingDropdownDataRef = useRef(false);
+  const lastFetchedDropdownRef = useRef(null);
+  const dropdownPromiseRef = useRef(null);
   const isFetchingStatesRef = useRef(false);
   const isFetchingGendersRef = useRef(false);
   const [videoFile, setVideoFile] = useState(null);
@@ -1571,18 +1568,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (activeTab === 'video_upload') {
       if (!editingVideo) {
         resetVideoFormToDefault();
-        isFetchingDropdownDataRef.current = false;
         fetchDropdownDataWithClient(null);
       }
     }
     if (activeTab === 'course_upload') {
       if (!editingCourse) {
         resetCourseFormToDefault();
-        isFetchingDropdownDataRef.current = false;
         fetchDropdownDataWithClient(null, 'course');
       }
-      fetchAuthorAdminsList();
-      fetchAdminsList();
     }
     if (activeTab === 'categories') {
       fetchCategories();
@@ -1618,9 +1611,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   useEffect(() => {
     if (activeTab === 'video_upload' && String(uploadForm.visibility || '').toLowerCase() === 'private') {
-      fetchAdminsList();
+      if (adminsList.length === 0) {
+        fetchAdminsList();
+      }
     }
-  }, [uploadForm.visibility, activeTab]);
+  }, [uploadForm.visibility, activeTab, adminsList.length]);
 
   useEffect(() => {
     if (showUserModal || showAuthorAdminModal) {
@@ -2186,93 +2181,100 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchAuthorAdminsList = async () => {
+  const fetchAuthorAdminsList = async (force = false) => {
+    if (!force && authorAdminsList && authorAdminsList.length > 0) return authorAdminsList;
+    if (authorAdminsPromiseRef.current) return authorAdminsPromiseRef.current;
+    if (isFetchingAuthorAdminsListRef.current) return authorAdminsList;
+    isFetchingAuthorAdminsListRef.current = true;
     setLoadingAuthorAdmins(true);
-    try {
-      let list = [];
-      // 1. Try getAuthorAdmin API
+
+    const promise = (async () => {
       try {
-        const resAuthor = await api.vdadmins.getAuthorAdmin();
-        console.log('Fetched author admins response from getAuthorAdmin:', resAuthor);
-        if (Array.isArray(resAuthor)) {
-          list = resAuthor;
-        } else if (resAuthor && Array.isArray(resAuthor.data)) {
-          list = resAuthor.data;
-        } else if (resAuthor && Array.isArray(resAuthor.authorAdmins)) {
-          list = resAuthor.authorAdmins;
-        } else if (resAuthor && typeof resAuthor === 'object') {
-          const arrVal = Object.values(resAuthor).find(v => Array.isArray(v));
-          if (arrVal) list = arrVal;
-          else if (resAuthor.id || resAuthor.first_name || resAuthor.name) list = [resAuthor];
-        }
-      } catch (e) {
-        console.warn('getAuthorAdmin failed, trying fallback:', e);
-      }
-
-      // 2. Fallback to getAthorAdmins
-      if (!list || list.length === 0) {
+        let list = [];
+        // 1. Try getAuthorAdmin API
         try {
-          const resOther = await api.vdadminVideos.getAthorAdmins();
-          console.log('Fetched author admins response from getAthorAdmins:', resOther);
-          if (Array.isArray(resOther)) {
-            list = resOther;
-          } else if (resOther && Array.isArray(resOther.data)) {
-            list = resOther.data;
-          } else if (resOther && Array.isArray(resOther.result)) {
-            list = resOther.result;
-          } else if (resOther && typeof resOther === 'object') {
-            const arrKey = Object.keys(resOther).find(k => Array.isArray(resOther[k]));
-            if (arrKey) list = resOther[arrKey];
+          const resAuthor = await api.vdadmins.getAuthorAdmin();
+          if (Array.isArray(resAuthor)) {
+            list = resAuthor;
+          } else if (resAuthor && Array.isArray(resAuthor.data)) {
+            list = resAuthor.data;
+          } else if (resAuthor && Array.isArray(resAuthor.authorAdmins)) {
+            list = resAuthor.authorAdmins;
+          } else if (resAuthor && typeof resAuthor === 'object') {
+            const arrVal = Object.values(resAuthor).find(v => Array.isArray(v));
+            if (arrVal) list = arrVal;
+            else if (resAuthor.id || resAuthor.first_name || resAuthor.name) list = [resAuthor];
           }
         } catch (e) {
-          console.warn('getAthorAdmins fallback failed:', e);
+          console.warn('getAuthorAdmin failed, trying fallback:', e);
         }
-      }
 
-      // 3. Fallback to getAdmins
-      if (!list || list.length === 0) {
-        try {
-          const resAdmins = await api.videos.getAdmins();
-          console.log('Fetched author admins response from getAdmins:', resAdmins);
-          if (Array.isArray(resAdmins)) {
-            list = resAdmins;
-          } else if (resAdmins && typeof resAdmins === 'object') {
-            if (Array.isArray(resAdmins.admins)) list = resAdmins.admins;
-            else if (Array.isArray(resAdmins.data)) list = resAdmins.data;
-            else if (Array.isArray(resAdmins.result)) list = resAdmins.result;
-            else if (resAdmins.id || resAdmins.alpha_id || resAdmins.name) list = [resAdmins];
-          }
-        } catch (e) {
-          console.warn('getAdmins fallback failed:', e);
-        }
-      }
-
-      const mapped = (list || []).map(item => {
-        let jsonObj = {};
-        if (item && item.json) {
+        // 2. Fallback to getAthorAdmins
+        if (!list || list.length === 0) {
           try {
-            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
-          } catch (err) {
-            jsonObj = {};
+            const resOther = await api.vdadminVideos.getAthorAdmins();
+            if (Array.isArray(resOther)) {
+              list = resOther;
+            } else if (resOther && Array.isArray(resOther.data)) {
+              list = resOther.data;
+            } else if (resOther && Array.isArray(resOther.result)) {
+              list = resOther.result;
+            } else if (resOther && typeof resOther === 'object') {
+              const arrKey = Object.keys(resOther).find(k => Array.isArray(resOther[k]));
+              if (arrKey) list = resOther[arrKey];
+            }
+          } catch (e) {
+            console.warn('getAthorAdmins fallback failed:', e);
           }
         }
-        const combined = { ...item, ...jsonObj };
-        const idVal = String(combined.id || combined.user_id || combined.admin_id || item.id || item.user_id || item.admin_id || '');
-        const fullName = `${combined.first_name || ''} ${combined.last_name || ''}`.trim();
-        const nameVal = combined.name || fullName || combined.username || combined.email || item.name || item.author_name || combined.author_name || `Author ${idVal}`;
-        return { id: idVal, name: nameVal };
-      }).filter(a => a.id && a.name);
 
-      console.log('Mapped authorAdminsList:', mapped);
-      setAuthorAdminsList(mapped);
-      return mapped;
-    } catch (err) {
-      console.error('Failed to fetch author admins list:', err);
-      setAuthorAdminsList([]);
-      return [];
-    } finally {
-      setLoadingAuthorAdmins(false);
-    }
+        // 3. Fallback to getAdmins
+        if (!list || list.length === 0) {
+          try {
+            const resAdmins = await api.videos.getAdmins();
+            if (Array.isArray(resAdmins)) {
+              list = resAdmins;
+            } else if (resAdmins && typeof resAdmins === 'object') {
+              if (Array.isArray(resAdmins.admins)) list = resAdmins.admins;
+              else if (Array.isArray(resAdmins.data)) list = resAdmins.data;
+              else if (Array.isArray(resAdmins.result)) list = resAdmins.result;
+              else if (resAdmins.id || resAdmins.alpha_id || resAdmins.name) list = [resAdmins];
+            }
+          } catch (e) {
+            console.warn('getAdmins fallback failed:', e);
+          }
+        }
+
+        const mapped = (list || []).map(item => {
+          let jsonObj = {};
+          if (item && item.json) {
+            try {
+              jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+            } catch (err) {
+              jsonObj = {};
+            }
+          }
+          const combined = { ...item, ...jsonObj };
+          const idVal = String(combined.id || combined.user_id || combined.admin_id || item.id || item.user_id || item.admin_id || '');
+          const fullName = `${combined.first_name || ''} ${combined.last_name || ''}`.trim();
+          const nameVal = combined.name || fullName || combined.username || combined.email || item.name || item.author_name || combined.author_name || `Author ${idVal}`;
+          return { id: idVal, name: nameVal };
+        }).filter(a => a.id && a.name);
+
+        setAuthorAdminsList(mapped);
+        return mapped;
+      } catch (err) {
+        console.error('Failed to fetch author admins list:', err);
+        return [];
+      } finally {
+        isFetchingAuthorAdminsListRef.current = false;
+        setLoadingAuthorAdmins(false);
+        authorAdminsPromiseRef.current = null;
+      }
+    })();
+
+    authorAdminsPromiseRef.current = promise;
+    return promise;
   };
 
   const fetchQuizTypesList = async () => {
@@ -2376,203 +2378,233 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchAdminsList = async () => {
+  const fetchAdminsList = async (force = false) => {
+    if (!force && adminsList && adminsList.length > 0) return adminsList;
+    if (adminsListPromiseRef.current) return adminsListPromiseRef.current;
     if (isFetchingAdminsListRef.current) return adminsList;
     isFetchingAdminsListRef.current = true;
     setLoadingAdminsList(true);
-    try {
-      const res = await api.videos.getAdmins();
-      let rawList = [];
-      if (Array.isArray(res)) {
-        rawList = res;
-      } else if (res && typeof res === 'object') {
-        if (Array.isArray(res.admins)) {
-          rawList = res.admins;
-        } else if (Array.isArray(res.data)) {
-          rawList = res.data;
-        } else if (res.id || res.alpha_id || res.name || res.username) {
-          rawList = [res];
+
+    const promise = (async () => {
+      try {
+        const res = await api.videos.getAdmins();
+        let rawList = [];
+        if (Array.isArray(res)) {
+          rawList = res;
+        } else if (res && typeof res === 'object') {
+          if (Array.isArray(res.admins)) {
+            rawList = res.admins;
+          } else if (Array.isArray(res.data)) {
+            rawList = res.data;
+          } else if (res.id || res.alpha_id || res.name || res.username) {
+            rawList = [res];
+          }
         }
+        const admList = rawList.map(item => item.json || item);
+        setAdminsList(admList);
+        if (admList.length > 0) {
+          const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
+          setUploadForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
+          setCourseForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
+        }
+        return admList;
+      } catch (e) {
+        console.error('Failed to fetch admins list:', e);
+        setAdminsList([]);
+        return [];
+      } finally {
+        isFetchingAdminsListRef.current = false;
+        setLoadingAdminsList(false);
+        adminsListPromiseRef.current = null;
       }
-      const admList = rawList.map(item => item.json || item);
-      setAdminsList(admList);
-      if (admList.length > 0) {
-        const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
-        setUploadForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
-        setCourseForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
-      }
-      return admList;
-    } catch (e) {
-      console.error('Failed to fetch admins list:', e);
-      setAdminsList([]);
-      return [];
-    } finally {
-      isFetchingAdminsListRef.current = false;
-      setLoadingAdminsList(false);
-    }
+    })();
+
+    adminsListPromiseRef.current = promise;
+    return promise;
   };
 
-  const fetchDropdownDataWithClient = async (clientId = null, type = null, isEdit = false) => {
-    if (isFetchingDropdownDataRef.current) return;
-    isFetchingDropdownDataRef.current = true;
-    try {
-      const res = await api.vdcategories.getDropdownData(clientId, type);
-      let obj = res;
-      if (Array.isArray(res) && res.length > 0) {
-        obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
-      } else if (res && res.data) {
-        obj = res.data;
-      }
-      if (obj && typeof obj === 'object') {
-        const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
-        const normalizedCats = rawCats.map(item => {
-          const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
-          return {
-            ...item,
-            ...j,
-            id: String(item.id || j.id || item.category_id || j.category_id || ''),
-            name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
-          };
-        });
-        setCategories(normalizedCats);
+  const fetchDropdownDataWithClient = async (clientId = null, type = null, isEdit = false, force = false) => {
+    const refKey = `${clientId || 'default'}_${type || 'default'}_${isEdit ? '1' : '0'}`;
+    if (!force && lastFetchedDropdownRef.current === refKey && categories.length > 0) {
+      return {
+        categories,
+        languages,
+        visibilities,
+        levels,
+        plans
+      };
+    }
+    if (dropdownPromiseRef.current && isFetchingDropdownDataRef.current === refKey) {
+      return dropdownPromiseRef.current;
+    }
+    if (isFetchingDropdownDataRef.current === refKey) return;
+    isFetchingDropdownDataRef.current = refKey;
+    lastFetchedDropdownRef.current = refKey;
 
-        const rawLangs = Array.isArray(obj.languages) ? obj.languages : (Array.isArray(obj.language) ? obj.language : []);
-        const normalizedLangs = rawLangs.map(item => ({
-          ...item,
-          id: String(item.id || item.language_id || item.code || item.name || ''),
-          name: item.name || item.language_name || item.title || String(item.id || '')
-        }));
-        setLanguages(normalizedLangs);
-
-        const rawVis = Array.isArray(obj.visibility) ? obj.visibility : (Array.isArray(obj.visibilities) ? obj.visibilities : []);
-        const normalizedVis = rawVis.map(item => ({
-          ...item,
-          id: String(item.id !== undefined && item.id !== null ? item.id : (item.visibility_id || item.vis_id || item.name || item.visibility || '')),
-          name: String(item.name || item.visibility || item.label || item.id || '')
-        }));
-        setVisibilities(normalizedVis);
-
-        const rawLevels = Array.isArray(obj.course_levels) ? obj.course_levels : (Array.isArray(obj.levels) ? obj.levels : (Array.isArray(obj.course_level) ? obj.course_level : []));
-        if (rawLevels.length > 0) {
-          const normalizedLevels = rawLevels.map(item => ({
-            id: String(item.id !== undefined && item.id !== null ? item.id : (item.level_id || item.level || item.name || '')),
-            name: item.name || item.level || item.title || String(item.id || '')
-          }));
-          setLevels(normalizedLevels);
+    const promise = (async () => {
+      try {
+        const res = await api.vdcategories.getDropdownData(clientId, type);
+        let obj = res;
+        if (Array.isArray(res) && res.length > 0) {
+          obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
+        } else if (res && res.data) {
+          obj = res.data;
         }
-
-        const rawPlans = Array.isArray(obj.plans) ? obj.plans : (Array.isArray(obj.plan) ? obj.plan : (Array.isArray(obj.plan_types) ? obj.plan_types : []));
-        let normalizedPlans = [];
-        if (rawPlans.length > 0) {
-          normalizedPlans = rawPlans.map(item => {
-            const itemObj = (item && typeof item === 'object') ? (item.json || item) : { name: String(item), id: String(item) };
-            const planId = String(itemObj.id !== undefined && itemObj.id !== null ? itemObj.id : (itemObj.plan_id || itemObj.name || itemObj.plan || ''));
-            const planName = itemObj.name || itemObj.title || itemObj.plan_name || itemObj.plan || planId;
+        if (obj && typeof obj === 'object') {
+          const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
+          const normalizedCats = rawCats.map(item => {
+            const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
             return {
-              id: planId,
-              name: planName
+              ...item,
+              ...j,
+              id: String(item.id || j.id || item.category_id || j.category_id || ''),
+              name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
             };
           });
-          setPlans(normalizedPlans);
-        }
+          setCategories(normalizedCats);
 
-        if (Array.isArray(obj.admins) && obj.admins.length > 0) {
-          setAdminsList(obj.admins.map(item => item.json || item));
-        } else {
-          fetchAdminsList();
-        }
-
-        if (Array.isArray(obj.author_admins) && obj.author_admins.length > 0) {
-          const mappedAuthors = obj.author_admins.map(item => {
-            const combined = { ...item, ...(item.json || {}) };
-            const idVal = String(combined.id || combined.user_id || combined.admin_id || '');
-            const nameVal = combined.name || (combined.first_name ? `${combined.first_name} ${combined.last_name || ''}`.trim() : '') || combined.author_name || `Author ${idVal}`;
-            return { id: idVal, name: nameVal };
-          }).filter(a => a.id && a.name);
-          setAuthorAdminsList(mappedAuthors);
-        } else {
-          fetchAuthorAdminsList();
-        }
-
-        const rawQuizTypes = Array.isArray(obj.quiz_types) ? obj.quiz_types : (Array.isArray(obj.question_types) ? obj.question_types : (Array.isArray(obj.question_type) ? obj.question_type : []));
-        if (rawQuizTypes.length > 0) {
-          const normalizedQuizTypes = rawQuizTypes.map(item => ({
-            id: String(item.id !== undefined && item.id !== null ? item.id : (item.type_id || item.code || item.name || '')),
-            name: item.name || item.label || item.type || item.title || String(item.id || '')
+          const rawLangs = Array.isArray(obj.languages) ? obj.languages : (Array.isArray(obj.language) ? obj.language : []);
+          const normalizedLangs = rawLangs.map(item => ({
+            ...item,
+            id: String(item.id || item.language_id || item.code || item.name || ''),
+            name: item.name || item.language_name || item.title || String(item.id || '')
           }));
-          setQuizTypesList(normalizedQuizTypes);
-        }
+          setLanguages(normalizedLangs);
 
-        const firstCatId = normalizedCats.length > 0 ? normalizedCats[0].id : '';
-        const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
-        const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
+          const rawVis = Array.isArray(obj.visibility) ? obj.visibility : (Array.isArray(obj.visibilities) ? obj.visibilities : []);
+          const normalizedVis = rawVis.map(item => ({
+            ...item,
+            id: String(item.id !== undefined && item.id !== null ? item.id : (item.visibility_id || item.vis_id || item.name || item.visibility || '')),
+            name: String(item.name || item.visibility || item.label || item.id || '')
+          }));
+          setVisibilities(normalizedVis);
 
-        if (type === 'course') {
-          if (!isEdit) {
-            let currentCourseCat = courseForm.category;
-            if (currentCourseCat) {
-              const found = normalizedCats.find(c =>
-                String(c.id).toLowerCase() === String(currentCourseCat).toLowerCase() ||
-                String(c.name || '').trim().toLowerCase() === String(currentCourseCat).trim().toLowerCase()
-              );
-              currentCourseCat = found ? String(found.id) : (firstCatId || currentCourseCat);
-            } else {
-              currentCourseCat = firstCatId;
-            }
-
-            setCourseForm(prev => ({
-              ...prev,
-              category: currentCourseCat,
-              language: prev.language || firstLangId,
-              visibility: prev.visibility || firstVisId,
-              level: prev.level || (obj.levels && obj.levels[0]?.id) || 'Beginner'
+          const rawLevels = Array.isArray(obj.course_levels) ? obj.course_levels : (Array.isArray(obj.levels) ? obj.levels : (Array.isArray(obj.course_level) ? obj.course_level : []));
+          if (rawLevels.length > 0) {
+            const normalizedLevels = rawLevels.map(item => ({
+              id: String(item.id !== undefined && item.id !== null ? item.id : (item.level_id || item.level || item.name || '')),
+              name: item.name || item.level || item.title || String(item.id || '')
             }));
+            setLevels(normalizedLevels);
+          }
 
-            if (currentCourseCat) {
-              fetchSubCategories(currentCourseCat, clientId);
+          const rawPlans = Array.isArray(obj.plans) ? obj.plans : (Array.isArray(obj.plan) ? obj.plan : (Array.isArray(obj.plan_types) ? obj.plan_types : []));
+          let normalizedPlans = [];
+          if (rawPlans.length > 0) {
+            normalizedPlans = rawPlans.map(item => {
+              const itemObj = (item && typeof item === 'object') ? (item.json || item) : { name: String(item), id: String(item) };
+              const planId = String(itemObj.id !== undefined && itemObj.id !== null ? itemObj.id : (itemObj.plan_id || itemObj.name || itemObj.plan || ''));
+              const planName = itemObj.name || itemObj.title || itemObj.plan_name || itemObj.plan || planId;
+              return {
+                id: planId,
+                name: planName
+              };
+            });
+            setPlans(normalizedPlans);
+          }
+
+          if (Array.isArray(obj.admins) && obj.admins.length > 0) {
+            setAdminsList(obj.admins.map(item => item.json || item));
+          } else {
+            fetchAdminsList();
+          }
+
+          if (Array.isArray(obj.author_admins) && obj.author_admins.length > 0) {
+            const mappedAuthors = obj.author_admins.map(item => {
+              const combined = { ...item, ...(item.json || {}) };
+              const idVal = String(combined.id || combined.user_id || combined.admin_id || '');
+              const nameVal = combined.name || (combined.first_name ? `${combined.first_name} ${combined.last_name || ''}`.trim() : '') || combined.author_name || `Author ${idVal}`;
+              return { id: idVal, name: nameVal };
+            }).filter(a => a.id && a.name);
+            setAuthorAdminsList(mappedAuthors);
+          } else {
+            fetchAuthorAdminsList();
+          }
+
+          const rawQuizTypes = Array.isArray(obj.quiz_types) ? obj.quiz_types : (Array.isArray(obj.question_types) ? obj.question_types : (Array.isArray(obj.question_type) ? obj.question_type : []));
+          if (rawQuizTypes.length > 0) {
+            const normalizedQuizTypes = rawQuizTypes.map(item => ({
+              id: String(item.id !== undefined && item.id !== null ? item.id : (item.type_id || item.code || item.name || '')),
+              name: item.name || item.label || item.type || item.title || String(item.id || '')
+            }));
+            setQuizTypesList(normalizedQuizTypes);
+          }
+
+          const firstCatId = normalizedCats.length > 0 ? normalizedCats[0].id : '';
+          const firstLangId = normalizedLangs.length > 0 ? normalizedLangs[0].id : '';
+          const firstVisId = normalizedVis.length > 0 ? normalizedVis[0].id : '';
+
+          if (type === 'course') {
+            if (!isEdit) {
+              let currentCourseCat = courseForm.category;
+              if (currentCourseCat) {
+                const found = normalizedCats.find(c =>
+                  String(c.id).toLowerCase() === String(currentCourseCat).toLowerCase() ||
+                  String(c.name || '').trim().toLowerCase() === String(currentCourseCat).trim().toLowerCase()
+                );
+                currentCourseCat = found ? String(found.id) : (firstCatId || currentCourseCat);
+              } else {
+                currentCourseCat = firstCatId;
+              }
+
+              setCourseForm(prev => ({
+                ...prev,
+                category: currentCourseCat,
+                language: prev.language || firstLangId,
+                visibility: prev.visibility || firstVisId,
+                level: prev.level || (obj.levels && obj.levels[0]?.id) || 'Beginner'
+              }));
+
+              if (currentCourseCat) {
+                fetchSubCategories(currentCourseCat, clientId);
+              }
+            }
+          } else {
+            if (!isEdit) {
+              let currentCat = uploadForm.category;
+              if (currentCat) {
+                const found = normalizedCats.find(c =>
+                  String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
+                  String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
+                );
+                currentCat = found ? String(found.id) : (firstCatId || currentCat);
+              } else {
+                currentCat = firstCatId;
+              }
+
+              setUploadForm(prev => ({
+                ...prev,
+                category: currentCat,
+                languageId: prev.languageId || firstLangId,
+                visibility: prev.visibility || firstVisId
+              }));
+
+              if (currentCat) {
+                fetchSubCategories(currentCat, clientId);
+              }
             }
           }
-        } else {
-          if (!isEdit) {
-            let currentCat = uploadForm.category;
-            if (currentCat) {
-              const found = normalizedCats.find(c =>
-                String(c.id).toLowerCase() === String(currentCat).toLowerCase() ||
-                String(c.name || '').trim().toLowerCase() === String(currentCat).trim().toLowerCase()
-              );
-              currentCat = found ? String(found.id) : (firstCatId || currentCat);
-            } else {
-              currentCat = firstCatId;
-            }
 
-            setUploadForm(prev => ({
-              ...prev,
-              category: currentCat,
-              languageId: prev.languageId || firstLangId,
-              visibility: prev.visibility || firstVisId
-            }));
-
-            if (currentCat) {
-              fetchSubCategories(currentCat, clientId);
-            }
-          }
+          return {
+            categories: normalizedCats,
+            languages: normalizedLangs,
+            visibilities: normalizedVis,
+            levels: obj.levels,
+            plans: normalizedPlans
+          };
         }
-
-        return {
-          categories: normalizedCats,
-          languages: normalizedLangs,
-          visibilities: normalizedVis,
-          levels: obj.levels,
-          plans: normalizedPlans
-        };
+        return [];
+      } catch (err) {
+        console.error('Failed to fetch dropdown data with client', err);
+        return [];
+      } finally {
+        isFetchingDropdownDataRef.current = false;
+        dropdownPromiseRef.current = null;
       }
-      return [];
-    } catch (err) {
-      console.error('Failed to fetch dropdown data with client', err);
-      return [];
-    } finally {
-      isFetchingDropdownDataRef.current = false;
-    }
+    })();
+
+    dropdownPromiseRef.current = promise;
+    return promise;
   };
 
   const fetchLevels = async () => {
