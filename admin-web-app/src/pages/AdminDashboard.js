@@ -3469,6 +3469,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (targetFileId) {
         updateVideoProp(chapterId, videoId, 'videoId', targetFileId);
       }
+      updateVideoProp(chapterId, videoId, 'isNewlyUploaded', true);
+      updateVideoProp(chapterId, videoId, 'hasChanged', true);
 
       // Background subtitle & transcription generation for course chapter video
       const transcriptPromise = (async () => {
@@ -4134,6 +4136,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       // Snapshot current chapters and transcripts map before form reset
+      const isEditMode = Boolean(editingCourse);
       const submittedChapters = [...chapters];
       const storedTranscripts = { ...courseTranscriptsRef.current };
 
@@ -4146,7 +4149,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
 
-      // 2-Step Course Subtitle Sync: Process ALL returned chapters & videos into one single payload with formstep: 'transcriptCourse'
+      // 2-Step Course Subtitle Sync: Process returned chapters & videos with formstep: 'transcriptCourse'
       (async () => {
         try {
           console.log('[Course Transcription Sync] Received uploadCourse response:', courseRes);
@@ -4223,27 +4226,43 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 );
               }
 
+              // On Edit Course: Only process videos that were changed (re-uploaded) or newly added in this edit session
+              const isVideoChangedOrNew = Boolean(
+                matchEntry ||
+                origVideo?.isNewlyUploaded ||
+                origVideo?.hasChanged ||
+                (!origVideo?.existingId && origVideo?.uploadStatus === 'success')
+              );
+
+              if (isEditMode && !isVideoChangedOrNew) {
+                continue;
+              }
+
               let subData = null;
               if (matchEntry) {
                 if (matchEntry.promise) {
                   console.log(`[Course Transcription Sync] Awaiting real Whisper AI speech transcription for Chapter ${rawChapterId}, Video ${rawVideoId}...`);
                   try {
                     const promisedData = await matchEntry.promise;
-                    if (promisedData && (promisedData.subtitles || promisedData.transcripts)) {
+                    if (promisedData && (promisedData.subtitles || promisedData.transcripts || promisedData.transcript)) {
                       subData = promisedData;
                     }
                   } catch (pErr) {
                     console.warn(`[Course Transcription Sync] Promise await warning:`, pErr.message);
                   }
                 }
-                if (!subData && matchEntry.data && (matchEntry.data.subtitles || matchEntry.data.transcripts)) {
+                if (!subData && matchEntry.data && (matchEntry.data.subtitles || matchEntry.data.transcripts || matchEntry.data.transcript)) {
                   subData = matchEntry.data;
                 }
               }
 
+              if (!subData && origVideo && (origVideo.subtitles || origVideo.transcripts || origVideo.transcript)) {
+                subData = origVideo;
+              }
+
               const targetFileId = matchEntry?.fileId || origVideo?.videoId || origVideo?.fileId;
               const targetFileName = matchEntry?.fileName || origVideo?.fileName;
-              if (!subData && targetFileId && targetFileName) {
+              if (!subData && targetFileId && targetFileName && isVideoChangedOrNew) {
                 console.log(`[Course Transcription Sync] Generating real Whisper subtitles on-demand for target fileId ${targetFileId}...`);
                 try {
                   subData = await api.videos.generateSubtitles(targetFileId, targetFileName);
@@ -4252,23 +4271,39 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 }
               }
 
+              const finalSubtitles = (subData && typeof subData.subtitles === 'object') ? subData.subtitles : {};
+              const finalTracks = (subData && (subData.subtitleTracks || subData.subtitle_tracks)) || [];
+              let finalTranscripts = (subData && typeof subData.transcripts === 'object') ? subData.transcripts : {};
+              let finalTranscript = (subData && Array.isArray(subData.transcript)) ? subData.transcript : (finalTranscripts.en || []);
+              if (Array.isArray(finalTranscript) && finalTranscript.length > 0 && Object.keys(finalTranscripts).length === 0) {
+                finalTranscripts = { en: finalTranscript };
+              }
+
               processedVideos.push({
                 video_id: rawVideoId,
                 videoId: rawVideoId,
                 vd_id: rawVideoId,
-                subtitles: subData?.subtitles || {},
-                subtitleTracks: subData?.subtitleTracks || subData?.subtitle_tracks || [],
-                subtitle_tracks: subData?.subtitleTracks || subData?.subtitle_tracks || [],
-                transcripts: subData?.transcripts || {},
-                transcript: subData?.transcript || subData?.transcripts?.en || []
+                subtitles: finalSubtitles,
+                subtitleTracks: finalTracks,
+                subtitle_tracks: finalTracks,
+                transcripts: finalTranscripts,
+                transcript: finalTranscript
               });
             }
 
-            processedChapters.push({
-              chapter_id: String(rawChapterId),
-              chapterId: String(rawChapterId),
-              videos: processedVideos
-            });
+            // Only add chapter if it has processedVideos
+            if (processedVideos.length > 0) {
+              processedChapters.push({
+                chapter_id: String(rawChapterId),
+                chapterId: String(rawChapterId),
+                videos: processedVideos
+              });
+            }
+          }
+
+          if (isEditMode && processedChapters.length === 0) {
+            console.log('[Course Transcription Sync] Edit course completed with no changed or newly added videos. Skipping transcriptCourse sync.');
+            return;
           }
 
           const transcriptCoursePayload = {
@@ -4278,9 +4313,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             chapters: processedChapters
           };
 
-          console.log('[Course Transcription Sync] Sending combined transcriptCourse payload for all chapters:', transcriptCoursePayload);
+          console.log('[Course Transcription Sync] Sending transcriptCourse payload:', transcriptCoursePayload);
           await api.videos.updateTranscriptCourse(transcriptCoursePayload);
-          console.log('[Course Transcription Sync] Successfully updated transcriptCourse for all chapters & videos!');
+          console.log('[Course Transcription Sync] Successfully updated transcriptCourse!');
         } catch (syncAllErr) {
           console.warn('[Course Transcription Sync] Error in course transcript sync flow:', syncAllErr.message);
         }

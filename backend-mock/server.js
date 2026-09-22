@@ -980,6 +980,30 @@ const handleVdAdminVideos = (req, res) => {
     return res.json({ success: true, message: `Transcript received for video ${videoId}` });
   }
 
+  if (formstep === 'transcriptCourse') {
+    const courseId = String(req.body.course_id || req.body.courseId || req.body.id || '');
+    console.log('[Mock Backend] Received transcriptCourse for courseId:', courseId, 'chapters:', req.body.chapters);
+    const course = (db.courses || []).find(c => String(c.id) === courseId || String(c.course_id) === courseId);
+    if (course && Array.isArray(req.body.chapters)) {
+      req.body.chapters.forEach(ch => {
+        const matchingChapter = (course.chapters || []).find(cCh => String(cCh.id || cCh.chapter_id) === String(ch.chapter_id || ch.id));
+        if (matchingChapter && Array.isArray(ch.videos)) {
+          ch.videos.forEach(v => {
+            const matchingVid = (matchingChapter.videos || []).find(cV => String(cV.id || cV.video_id) === String(v.video_id || v.id));
+            if (matchingVid) {
+              if (v.subtitles) matchingVid.subtitles = v.subtitles;
+              if (v.subtitleTracks || v.subtitle_tracks) matchingVid.subtitleTracks = v.subtitleTracks || v.subtitle_tracks;
+              if (v.transcripts) matchingVid.transcripts = v.transcripts;
+              if (v.transcript) matchingVid.transcript = v.transcript;
+            }
+          });
+        }
+      });
+      writeDB(db);
+    }
+    return res.json({ success: true, message: `transcriptCourse received for course ${courseId}` });
+  }
+
   if (formstep === 'uploadVideo') {
     const newId = 'v-' + Date.now();
     const newVideo = {

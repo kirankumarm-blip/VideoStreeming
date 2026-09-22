@@ -1349,9 +1349,6 @@ export const api = {
     },
 
     updateTranscriptCourse: async (payload) => {
-      const user = getCurrentUser();
-      const isSuperAdmin = user && user.role === 'super_admin';
-      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
       const token = getAccessToken();
       const bodyObj = { ...payload };
       bodyObj.formstep = 'transcriptCourse';
@@ -1359,7 +1356,32 @@ export const api = {
       if (token) {
         bodyObj.token = token;
       }
-      const response = await fetch(url, {
+      
+      const primaryUrl = `${getBaseUrl()}/vdadminVideos`;
+      try {
+        const response = await fetch(primaryUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
+          body: JSON.stringify(bodyObj)
+        });
+        if (response.ok) {
+          const text = await response.text();
+          try {
+            return text ? JSON.parse(text) : { success: true };
+          } catch (parseErr) {
+            return { success: true, message: text };
+          }
+        }
+      } catch (err) {
+        console.warn('updateTranscriptCourse vdadminVideos call failed, trying vdSuperAdminVideos:', err);
+      }
+
+      // Fallback
+      const fallbackUrl = `${getBaseUrl()}/vdSuperAdminVideos`;
+      const fallbackRes = await fetch(fallbackUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1367,14 +1389,14 @@ export const api = {
         },
         body: JSON.stringify(bodyObj)
       });
-      if (!response.ok) {
-        throw new Error(`Failed to update course transcript: ${response.status}`);
+      if (!fallbackRes.ok) {
+        throw new Error(`Failed to update course transcript: ${fallbackRes.status}`);
       }
-      const text = await response.text();
+      const textFallback = await fallbackRes.text();
       try {
-        return text ? JSON.parse(text) : { success: true };
+        return textFallback ? JSON.parse(textFallback) : { success: true };
       } catch (parseErr) {
-        return { success: true, message: text };
+        return { success: true, message: textFallback };
       }
     },
 
