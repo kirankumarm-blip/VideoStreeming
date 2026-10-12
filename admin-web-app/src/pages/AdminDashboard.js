@@ -8,6 +8,7 @@ import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActi
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
+import logoImg from '../assets/logo.png';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -5590,7 +5591,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           >
             ✕
           </button>
-          <img src="/logo.png" alt="XLurn" style={{ height: '40px', objectFit: 'contain' }} />
+          <img src={logoImg} alt="XLurn" style={{ height: '40px', objectFit: 'contain' }} />
         </div>
         )}
 

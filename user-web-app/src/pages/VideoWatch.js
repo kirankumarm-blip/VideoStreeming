@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api, getCurrentUser, decryptUrl, decryptIfNeeded } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
+import logoImg from '../assets/logo.png';
 
 const SUPPORTED_SUBTITLE_LANGUAGES = [
   { id: 'en', code: 'en', name: 'English', label: 'English', default: true },
@@ -2603,7 +2604,7 @@ const VideoWatch = () => {
           >
             {/* Logo Watermark (Direct on video, no blur container) */}
             <img 
-              src="/logo.png" 
+              src={logoImg} 
               alt="XLurn" 
               style={{ 
                 height: '34px', 

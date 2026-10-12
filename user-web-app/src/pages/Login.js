@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
+import logoImg from '../assets/logo.png';
 
 // 6-Digit Pin Input Component
 const SixDigitOtpInput = ({ value, onChange, disabled }) => {
@@ -400,7 +401,7 @@ const Login = ({ initialAuthMode }) => {
         left: '24px',
         zIndex: 100
       }}>
-        <img src="/logo.png" alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src={logoImg} alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Theme Toggle */}

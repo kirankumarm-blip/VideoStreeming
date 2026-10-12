@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from './PremiumSelect';
+import logoImg from '../assets/logo.png';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const user = getCurrentUser();
@@ -218,7 +219,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           }}
         >
           <img 
-            src="/logo.png" 
+            src={logoImg} 
             alt="XLurn" 
             className="nav-brand-logo"
             style={{ 

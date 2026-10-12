@@ -5,6 +5,7 @@ import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
+import logoImg from '../assets/logo.png';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -233,7 +234,7 @@ const Signup = () => {
         left: '24px',
         zIndex: 100
       }}>
-        <img src="/logo.png" alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src={logoImg} alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Theme Toggle */}
