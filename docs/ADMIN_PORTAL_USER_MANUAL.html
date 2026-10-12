@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XLurn Admin Portal - User Manual & Operations Guide</title>
+  <style>
+    :root {
+      --primary: #8b5cf6;
+      --primary-dark: #7c3aed;
+      --accent: #e50914;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 50px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 30px;
+      margin-bottom: 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .header-title h1 {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .header-title p {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+    .print-btn {
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+    .print-btn:hover {
+      opacity: 0.9;
+    }
+    .toc {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+    .toc h3 {
+      font-size: 18px;
+      margin-bottom: 14px;
+      color: #c084fc;
+    }
+    .toc ul {
+      list-style-type: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .toc a {
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .toc a:hover {
+      color: #ec4899;
+      text-decoration: underline;
+    }
+    section {
+      margin-bottom: 50px;
+      padding-top: 10px;
+    }
+    h2 {
+      font-size: 24px;
+      color: #e2e8f0;
+      border-left: 4px solid var(--primary);
+      padding-left: 14px;
+      margin-bottom: 16px;
+    }
+    h3 {
+      font-size: 18px;
+      color: #cbd5e1;
+      margin: 18px 0 10px 0;
+    }
+    p, li {
+      color: #94a3b8;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 16px;
+    }
+    .image-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .image-card img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .image-card .caption {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 10px;
+      font-style: italic;
+    }
+    .callout {
+      background: rgba(139, 92, 246, 0.1);
+      border-left: 4px solid var(--primary);
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+    .callout strong {
+      color: #c084fc;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: rgba(255,255,255,0.04);
+      color: #f1f5f9;
+      font-weight: 600;
+    }
+    td {
+      color: #cbd5e1;
+    }
+    @media print {
+      body {
+        background: white;
+        color: black;
+        padding: 0;
+      }
+      .container {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        background: white;
+      }
+      .print-btn {
+        display: none;
+      }
+      h1, h2, h3 {
+        color: black !important;
+        -webkit-text-fill-color: initial !important;
+      }
+      p, li, td, th {
+        color: #333 !important;
+      }
+      .image-card {
+        background: none;
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+      }
+      .toc {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="header-title">
+      <h1>XLurn Enterprise Video Streaming Platform</h1>
+      <p>Admin Portal Operations Manual & User Guide</p>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save to PDF</button>
+  </header>
+
+  <div class="toc">
+    <h3>📖 Table of Contents</h3>
+    <ul>
+      <li><a href="#overview">1. System Overview & Architecture</a></li>
+      <li><a href="#auth">2. Authentication & Session Security</a></li>
+      <li><a href="#dashboard">3. Dashboard Command Center</a></li>
+      <li><a href="#authors">4. Author & Instructor Management</a></li>
+      <li><a href="#users">5. User Management & Security</a></li>
+      <li><a href="#video-upload">6. Single Video Publishing</a></li>
+      <li><a href="#course-upload">7. Comprehensive Course Builder</a></li>
+      <li><a href="#catalog">8. Catalog & Categories</a></li>
+      <li><a href="#analytics">9. Telemetry & Analytics Hub</a></li>
+      <li><a href="#reports">10. Reports Generation & Export</a></li>
+      <li><a href="#settings">11. Platform Settings & Languages</a></li>
+      <li><a href="#ai">12. AI Predictive Insights</a></li>
+    </ul>
+  </div>
+
+  <!-- 1. Overview -->
+  <section id="overview">
+    <h2>1. System Overview & Architecture</h2>
+    <p>The XLurn Admin Portal provides unified administrative control over the enterprise video streaming and course authoring ecosystem. The platform supports tiered role administration with clear boundary separations between Super Admins and Author Admins.</p>
+    <table>
+      <thead>
+        <tr><th>Role</th><th>Access Level</th><th>Key Capabilities</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Super Admin</strong></td><td>Global</td><td>Platform configuration, author accounts, user directories, global catalog, billing, and system logs.</td></tr>
+        <tr><td><strong>Author Admin</strong></td><td>Scoped</td><td>Video uploads, multi-chapter course authoring, student engagement monitoring, and curriculum management.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 2. Auth -->
+  <section id="auth">
+    <h2>2. Authentication & Session Security</h2>
+    <p>The system enforces role-based authorization, RC4-encrypted credentials, and automated session timeouts.</p>
+    <div class="image-card">
+      <img src="./assets/01_login_portal.png" alt="Login Portal Screenshot">
+      <div class="caption">Figure 2.1: XLurn Administrative Login Screen with Multi-Factor OTP and Role Shielding</div>
+    </div>
+    <div class="callout">
+      <strong>Inactivity Guard:</strong> If no keyboard or mouse interactions are detected across open tabs for <strong>10 minutes</strong>, the session is terminated and redirects to the login screen.
+    </div>
+  </section>
+
+  <!-- 3. Dashboard -->
+  <section id="dashboard">
+    <h2>3. Dashboard Command Center</h2>
+    <p>High-level mission control displaying real-time platform telemetry, active video counts, enrolled learners, and resource consumption.</p>
+    <div class="image-card">
+      <img src="./assets/02_dashboard_overview.png" alt="Dashboard Command Center">
+      <div class="caption">Figure 3.1: Super Admin Command & Control Hub</div>
+    </div>
+  </section>
+
+  <!-- 4. Authors -->
+  <section id="authors">
+    <h2>4. Author & Instructor Management</h2>
+    <p>Allows Super Administrators to onboard and oversee content authors and organizational departments.</p>
+    <div class="image-card">
+      <img src="./assets/03_author_management.png" alt="Author Management">
+      <div class="caption">Figure 4.1: Author Admin directory and profile provisioning</div>
+    </div>
+  </section>
+
+  <!-- 5. Users -->
+  <section id="users">
+    <h2>5. User Management & Security</h2>
+    <p>Manage registered learners, audit login histories, and isolate compromised or suspended accounts.</p>
+    <div class="image-card">
+      <img src="./assets/04_user_management.png" alt="User Management">
+      <div class="caption">Figure 5.1: Learner directory with search, filtering, and role badging</div>
+    </div>
+  </section>
+
+  <!-- 6. Video Upload -->
+  <section id="video-upload">
+    <h2>6. Single Video Publishing</h2>
+    <p>Publish standalone video lessons with resumable chunked uploading, live card preview, and automated Whisper AI speech-to-text subtitles.</p>
+    <div class="image-card">
+      <img src="./assets/05_upload_video.png" alt="Upload Video">
+      <div class="caption">Figure 6.1: Video upload form with chunked 5MB upload buffer and live learner preview</div>
+    </div>
+  </section>
+
+  <!-- 7. Course Upload -->
+  <section id="course-upload">
+    <h2>7. Comprehensive Course Builder</h2>
+    <p>Create rich, multi-chapter curricula with modular chapters, ordered video lessons, and downloadable supplemental files (PDFs, ZIPs, slides).</p>
+    <div class="image-card">
+      <img src="./assets/06_upload_course.png" alt="Upload Course">
+      <div class="caption">Figure 7.1: Multi-chapter course builder with incremental background transcript sync</div>
+    </div>
+    <div class="callout">
+      <strong>Smart Incremental Sync:</strong> When editing an existing course, only modified or newly uploaded chapter videos are sent during background subtitle sync, drastically minimizing network and compute overhead.
+    </div>
+  </section>
+
+  <!-- 8. Catalog -->
+  <section id="catalog">
+    <h2>8. Catalog & Categories</h2>
+    <p>Organize courses and standalone videos into structured categories and subcategories.</p>
+    <div class="image-card">
+      <img src="./assets/07_all_courses.png" alt="All Courses Catalog">
+      <div class="caption">Figure 8.1: Master Course Catalog with quick search and status filters</div>
+    </div>
+    <div class="image-card">
+      <img src="./assets/08_categories.png" alt="Categories">
+      <div class="caption">Figure 8.2: Video & Course Category management</div>
+    </div>
+  </section>
+
+  <!-- 9. Analytics -->
+  <section id="analytics">
+    <h2>9. Telemetry & Analytics Hub</h2>
+    <p>Track student engagement, watch duration, completion ratios, and playback drop-off metrics.</p>
+    <div class="image-card">
+      <img src="./assets/09_analytics.png" alt="User Analytics">
+      <div class="caption">Figure 9.1: User and video playback behavior telemetry</div>
+    </div>
+  </section>
+
+  <!-- 10. Reports -->
+  <section id="reports">
+    <h2>10. Reports Generation & Export</h2>
+    <p>Extract operational data in one click to CSV, Excel (.xlsx), or PDF format.</p>
+    <div class="image-card">
+      <img src="./assets/10_reports.png" alt="Reports Center">
+      <div class="caption">Figure 10.1: Export Center with date range selectors and format export buttons</div>
+    </div>
+  </section>
+
+  <!-- 11. Settings -->
+  <section id="settings">
+    <h2>11. Platform Settings & Languages</h2>
+    <p>Configure streaming resolution profiles, CDN distribution, and multilingual support.</p>
+    <div class="image-card">
+      <img src="./assets/11_platform_settings.png" alt="Platform Settings">
+      <div class="caption">Figure 11.1: Platform settings with CDN toggles and default resolution</div>
+    </div>
+  </section>
+
+  <!-- 12. AI -->
+  <section id="ai">
+    <h2>12. AI Predictive Insights</h2>
+    <p>Utilize machine learning models for churn prediction, trending topics detection, and optimal upload scheduling.</p>
+    <div class="image-card">
+      <img src="./assets/12_ai_insights.png" alt="AI Predictive Insights">
+      <div class="caption">Figure 12.1: AI Insights and predictive telemetry modules</div>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>
