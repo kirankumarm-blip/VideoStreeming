@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
+import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 
 const LiveClassroom = () => {
   const { id } = useParams();
@@ -30,32 +31,146 @@ const LiveClassroom = () => {
   const videoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const chatEndRef = useRef(null);
+  const broadcastChannelRef = useRef(null);
 
-  // Fetch initial class details
+  // Helper to broadcast socket message
+  const sendSocketMessage = (payload) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify(payload));
+      } catch (e) {
+        console.warn('WS send failed:', e);
+      }
+    }
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage(payload);
+      } catch (e) {
+        console.warn('BroadcastChannel postMessage failed:', e);
+      }
+    }
+  };
+
+  // Central handler for incoming messages from WS or BroadcastChannel
+  const handleIncomingMessage = (msg) => {
+    if (!msg || typeof msg !== 'object') return;
+    try {
+      if (msg.type === 'LIVE_CLASS_STATE') {
+        setAttendeesCount(msg.liveClass.attendeesCount || 0);
+        setActivePoll(msg.liveClass.activePoll || null);
+        setChatMessages(msg.liveClass.chatMessages || []);
+      } else if (msg.type === 'ATTENDEE_UPDATE') {
+        if (typeof msg.attendeesCount === 'number') {
+          setAttendeesCount(msg.attendeesCount);
+        }
+      } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === msg.message.id || (m.timestamp && m.timestamp === msg.message.timestamp))) return prev;
+          return [...prev, msg.message];
+        });
+      } else if (msg.type === 'HAND_QUEUE_UPDATED') {
+        if (currentUser.id) {
+          const raised = (msg.handRaises || []).some(h => String(h.studentId) === String(currentUser.id));
+          setIsHandRaised(raised);
+        }
+      } else if (msg.type === 'POLL_LAUNCHED') {
+        setActivePoll(msg.poll);
+        setHasVoted(false);
+        setSelectedOptionId(null);
+      } else if (msg.type === 'POLL_UPDATED') {
+        setActivePoll(msg.poll);
+      } else if (msg.type === 'POLL_CLOSED') {
+        setActivePoll(msg.poll);
+      } else if (msg.type === 'CLASS_STATUS_CHANGED') {
+        setLiveClass(prev => prev ? { ...prev, status: msg.status } : prev);
+      } else if (msg.type === 'BROADCASTER_READY') {
+        sendSocketMessage({
+          type: 'REQUEST_STREAM',
+          classId: id,
+          studentId: currentUser.id || `u-${Date.now()}`
+        });
+      } else if (msg.type === 'WEBRTC_OFFER' && msg.offer) {
+        handleReceiveOffer(msg.offer, msg.from);
+      } else if (msg.type === 'WEBRTC_ICE_CANDIDATE' && msg.candidate) {
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(e => {});
+        }
+      } else if (msg.type === 'BROADCASTER_STOPPED') {
+        if (peerConnectionRef.current) {
+          try { peerConnectionRef.current.close(); } catch (e) {}
+          peerConnectionRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          let fallbackVideo = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+          if (liveClass?.streamUrl && liveClass.streamUrl.startsWith('http')) {
+            fallbackVideo = liveClass.streamUrl;
+          }
+          videoRef.current.src = fallbackVideo;
+          videoRef.current.play().catch(e => {});
+        }
+        setIsLiveWebcamActive(false);
+      }
+    } catch (err) {
+      console.error('Incoming message parse error', err);
+    }
+  };
+
+  // Cross-tab BroadcastChannel listener
+  useEffect(() => {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('virtual_classroom_channel');
+        broadcastChannelRef.current = bc;
+        bc.onmessage = (event) => {
+          handleIncomingMessage(event.data);
+        };
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel not supported:', e);
+    }
+    return () => {
+      try { broadcastChannelRef.current?.close(); } catch (e) {}
+    };
+  }, []);
+
+  // Fetch initial class details with fallback support
   const fetchClassDetails = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5000/api/live-classes/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLiveClass(data);
-        setAttendeesCount(data.attendeesCount || 0);
-        setActivePoll(data.activePoll || null);
-        setChatMessages(data.chatMessages || []);
+      const isHttps = window.location.protocol === 'https:';
+      if (!isHttps || window.location.hostname === 'localhost') {
+        const res = await fetch(`http://localhost:5000/api/live-classes/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLiveClass(data);
+          setAttendeesCount(data.attendeesCount || 0);
+          setActivePoll(data.activePoll || null);
+          setChatMessages(data.chatMessages || []);
 
-        // Check if current user already raised hand
-        if (data.handRaises && currentUser.id) {
-          const raised = data.handRaises.some(h => String(h.studentId) === String(currentUser.id));
-          setIsHandRaised(raised);
+          if (data.handRaises && currentUser.id) {
+            const raised = data.handRaises.some(h => String(h.studentId) === String(currentUser.id));
+            setIsHandRaised(raised);
+          }
+          return;
         }
-      } else {
-        setError(t('liveClass.notFound', 'Classroom session not found or concluded.'));
       }
     } catch (err) {
-      console.error('Failed to fetch class', err);
-      setError(t('liveClass.networkError', 'Failed to connect to the live classroom.'));
+      console.warn('Backend live class unreachable, using fallback session:', err);
     } finally {
       setLoading(false);
+    }
+
+    // Fallback: match by ID or use first session
+    const fallback = FALLBACK_LIVE_CLASSES.find(c => c.id === id) || FALLBACK_LIVE_CLASSES[0];
+    if (fallback) {
+      setLiveClass(fallback);
+      setAttendeesCount(fallback.attendeesCount || 42);
+      setActivePoll(fallback.activePoll || null);
+      setChatMessages(fallback.chatMessages || []);
+      setError('');
+    } else {
+      setError(t('liveClass.notFound', 'Classroom session not found or concluded.'));
     }
   };
 
@@ -89,14 +204,14 @@ const LiveClassroom = () => {
       };
 
       pc.onicecandidate = (event) => {
-        if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
+        if (event.candidate) {
+          sendSocketMessage({
             type: 'WEBRTC_ICE_CANDIDATE',
             classId: id,
             to: instructorId,
             from: currentUser.id || 'student-guest',
             candidate: event.candidate
-          }));
+          });
         }
       };
 
@@ -104,143 +219,104 @@ const LiveClassroom = () => {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: 'WEBRTC_ANSWER',
-          classId: id,
-          to: instructorId,
-          from: currentUser.id || 'student-guest',
-          answer
-        }));
-      }
+      sendSocketMessage({
+        type: 'WEBRTC_ANSWER',
+        classId: id,
+        to: instructorId,
+        from: currentUser.id || 'student-guest',
+        answer
+      });
     } catch (err) {
       console.error('Error handling WebRTC offer:', err);
     }
   };
 
-  // WebSocket Connection
+  // WebSocket Connection (guarded against SecurityErrors on HTTPS)
   useEffect(() => {
     if (!id) return;
 
-    const wsUrl = `ws://${window.location.hostname || 'localhost'}:5000`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    const isHttps = window.location.protocol === 'https:';
+    if (isHttps && window.location.hostname !== 'localhost') {
+      return;
+    }
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: 'JOIN_LIVE_CLASS',
-        classId: id,
-        user: {
-          id: currentUser.id || `u-${Date.now()}`,
-          name: currentUser.name || currentUser.username || 'Learner',
-          role: 'student',
-          avatar: '🧑‍🎓'
+    try {
+      const wsUrl = `ws://${window.location.hostname || 'localhost'}:5000`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        sendSocketMessage({
+          type: 'JOIN_LIVE_CLASS',
+          classId: id,
+          user: {
+            id: currentUser.id || `u-${Date.now()}`,
+            name: currentUser.name || currentUser.username || 'Learner',
+            role: 'student',
+            avatar: '🧑‍🎓'
+          }
+        });
+
+        sendSocketMessage({
+          type: 'REQUEST_STREAM',
+          classId: id,
+          studentId: currentUser.id || `u-${Date.now()}`
+        });
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleIncomingMessage(msg);
+        } catch (err) {
+          console.error('WS parse error', err);
         }
-      }));
+      };
 
-      // In case instructor is already broadcasting live, request the stream
-      ws.send(JSON.stringify({
-        type: 'REQUEST_STREAM',
-        classId: id,
-        studentId: currentUser.id || `u-${Date.now()}`
-      }));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'LIVE_CLASS_STATE') {
-          setAttendeesCount(msg.liveClass.attendeesCount || 0);
-          setActivePoll(msg.liveClass.activePoll || null);
-          setChatMessages(msg.liveClass.chatMessages || []);
-        } else if (msg.type === 'ATTENDEE_UPDATE') {
-          if (typeof msg.attendeesCount === 'number') {
-            setAttendeesCount(msg.attendeesCount);
-          }
-        } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
-          setChatMessages(prev => [...prev, msg.message]);
-        } else if (msg.type === 'HAND_QUEUE_UPDATED') {
-          if (currentUser.id) {
-            const raised = (msg.handRaises || []).some(h => String(h.studentId) === String(currentUser.id));
-            setIsHandRaised(raised);
-          }
-        } else if (msg.type === 'POLL_LAUNCHED') {
-          setActivePoll(msg.poll);
-          setHasVoted(false);
-          setSelectedOptionId(null);
-        } else if (msg.type === 'POLL_UPDATED') {
-          setActivePoll(msg.poll);
-        } else if (msg.type === 'POLL_CLOSED') {
-          setActivePoll(msg.poll);
-        } else if (msg.type === 'CLASS_STATUS_CHANGED') {
-          setLiveClass(prev => prev ? { ...prev, status: msg.status } : prev);
-        } else if (msg.type === 'BROADCASTER_READY') {
-          ws.send(JSON.stringify({
-            type: 'REQUEST_STREAM',
-            classId: id,
-            studentId: currentUser.id || `u-${Date.now()}`
-          }));
-        } else if (msg.type === 'WEBRTC_OFFER' && msg.offer) {
-          handleReceiveOffer(msg.offer, msg.from);
-        } else if (msg.type === 'WEBRTC_ICE_CANDIDATE' && msg.candidate) {
-          if (peerConnectionRef.current) {
-            peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(e => {});
-          }
-        } else if (msg.type === 'BROADCASTER_STOPPED') {
-          if (peerConnectionRef.current) {
-            try { peerConnectionRef.current.close(); } catch (e) {}
-            peerConnectionRef.current = null;
-          }
-          if (videoRef.current) {
-            videoRef.current.srcObject = null;
-            videoRef.current.src = liveClass?.streamUrl ? `http://localhost:5000${liveClass.streamUrl}` : '/uploads/video-1783335443739-730573726.mp4';
-            videoRef.current.play().catch(e => {});
-          }
-          setIsLiveWebcamActive(false);
+      return () => {
+        if (peerConnectionRef.current) {
+          try { peerConnectionRef.current.close(); } catch (e) {}
+          peerConnectionRef.current = null;
         }
-      } catch (err) {
-        console.error('WS parse error', err);
-      }
-    };
-
-    return () => {
-      if (peerConnectionRef.current) {
-        try { peerConnectionRef.current.close(); } catch (e) {}
-        peerConnectionRef.current = null;
-      }
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      };
+    } catch (wsErr) {
+      console.warn('WebSocket could not be established:', wsErr);
+    }
   }, [id, liveClass?.streamUrl]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatEndRef.current && typeof chatEndRef.current.scrollIntoView === 'function') {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [chatMessages]);
 
   // Raise / Lower Hand toggle
   const toggleHandRaise = () => {
-    if (!wsRef.current || !id) return;
+    if (!id) return;
 
     if (isHandRaised) {
-      wsRef.current.send(JSON.stringify({
+      sendSocketMessage({
         type: 'LOWER_HAND',
         classId: id,
         studentId: currentUser.id || 'u-guest'
-      }));
+      });
       setIsHandRaised(false);
       setHandRaiseNotice(t('liveClass.handLoweredNotice', 'Hand lowered.'));
     } else {
-      wsRef.current.send(JSON.stringify({
+      const studentObj = {
+        id: currentUser.id || `u-${Date.now()}`,
+        name: currentUser.name || currentUser.username || 'Learner',
+        role: 'student',
+        avatar: '🧑‍🎓'
+      };
+      sendSocketMessage({
         type: 'RAISE_HAND',
         classId: id,
-        user: {
-          id: currentUser.id || `u-${Date.now()}`,
-          name: currentUser.name || currentUser.username || 'Learner',
-          role: 'student',
-          avatar: '🧑‍🎓'
-        }
-      }));
+        user: studentObj
+      });
       setIsHandRaised(true);
       setHandRaiseNotice(t('liveClass.handRaisedSuccess', '✋ Hand raised! Instructor will invite you to ask your question.'));
     }
@@ -254,14 +330,31 @@ const LiveClassroom = () => {
     setSelectedOptionId(optionId);
     setHasVoted(true);
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'VOTE_POLL',
-        classId: id,
-        optionId,
-        user: { id: currentUser.id || 'u-guest' }
-      }));
-    } else {
+    // Update poll locally first for snappy UI
+    setActivePoll(prev => {
+      if (!prev) return prev;
+      const updatedOptions = (prev.options || []).map(opt => {
+        if (opt.id === optionId) {
+          return { ...opt, votes: (opt.votes || 0) + 1 };
+        }
+        return opt;
+      });
+      return {
+        ...prev,
+        options: updatedOptions,
+        totalVotes: (prev.totalVotes || 0) + 1
+      };
+    });
+
+    sendSocketMessage({
+      type: 'VOTE_POLL',
+      classId: id,
+      optionId,
+      user: { id: currentUser.id || 'u-guest' }
+    });
+
+    const isHttps = window.location.protocol === 'https:';
+    if (!isHttps || window.location.hostname === 'localhost') {
       try {
         await fetch(`http://localhost:5000/api/live-classes/${id}/poll/vote`, {
           method: 'POST',
@@ -269,7 +362,7 @@ const LiveClassroom = () => {
           body: JSON.stringify({ optionId })
         });
       } catch (err) {
-        console.error('Vote failed', err);
+        console.warn('Vote backend sync skipped:', err);
       }
     }
   };
@@ -277,18 +370,30 @@ const LiveClassroom = () => {
   // Send Chat message
   const handleSendChat = (e) => {
     e.preventDefault();
-    if (!chatInput.trim() || !wsRef.current || !id) return;
+    if (!chatInput.trim() || !id) return;
 
-    wsRef.current.send(JSON.stringify({
-      type: 'LIVE_CHAT_MESSAGE',
-      classId: id,
+    const chatMsg = {
+      id: `chat-${Date.now()}`,
       text: chatInput.trim(),
       user: {
         id: currentUser.id || `u-${Date.now()}`,
         name: currentUser.name || currentUser.username || 'Learner',
-        role: 'student'
-      }
-    }));
+        role: 'student',
+        avatar: '🧑‍🎓'
+      },
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    // Add locally immediately
+    setChatMessages(prev => [...prev, chatMsg]);
+
+    sendSocketMessage({
+      type: 'LIVE_CHAT_MESSAGE',
+      classId: id,
+      text: chatInput.trim(),
+      message: chatMsg,
+      user: chatMsg.user
+    });
     setChatInput('');
   };
 
@@ -532,7 +637,13 @@ const LiveClassroom = () => {
           }}>
             <video
               ref={videoRef}
-              src={isLiveWebcamActive ? undefined : `http://localhost:5000${liveClass.streamUrl || '/uploads/video-1783335443739-730573726.mp4'}`}
+              src={isLiveWebcamActive ? undefined : (
+                liveClass.streamUrl && liveClass.streamUrl.startsWith('http')
+                  ? liveClass.streamUrl
+                  : (window.location.protocol !== 'https:'
+                      ? `http://localhost:5000${liveClass.streamUrl || '/uploads/video-1783335443739-730573726.mp4'}`
+                      : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')
+              )}
               autoPlay
               controls
               playsInline

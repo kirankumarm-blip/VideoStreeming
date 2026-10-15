@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
+import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 
 const LiveClasses = () => {
   const navigate = useNavigate();
@@ -15,16 +16,23 @@ const LiveClasses = () => {
   const fetchClasses = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:5000/api/live-classes');
-      if (res.ok) {
-        const data = await res.json();
-        setClasses(data);
+      const isHttps = window.location.protocol === 'https:';
+      if (!isHttps || window.location.hostname === 'localhost') {
+        const res = await fetch('http://localhost:5000/api/live-classes');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setClasses(data);
+            return;
+          }
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch live classes', err);
+      console.warn('Backend live classes unavailable, activating fallback sessions:', err);
     } finally {
       setLoading(false);
     }
+    setClasses(FALLBACK_LIVE_CLASSES);
   };
 
   useEffect(() => {

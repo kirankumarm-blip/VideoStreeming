@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
+import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 
 const LiveWebcasts = ({ theme }) => {
   const { t } = useLanguage();
@@ -48,42 +49,173 @@ const LiveWebcasts = ({ theme }) => {
   const peerConnectionsRef = useRef(new Map());
   const wsRef = useRef(null);
   const chatEndRef = useRef(null);
+  const broadcastChannelRef = useRef(null);
 
-  // Fetch classes from backend
-  const fetchClasses = async () => {
+  // Broadcast to WebSocket and cross-tab BroadcastChannel
+  const sendSocketMessage = (payload) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify(payload));
+      } catch (e) {
+        console.warn('WS send failed:', e);
+      }
+    }
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage(payload);
+      } catch (e) {
+        console.warn('BroadcastChannel postMessage failed:', e);
+      }
+    }
+  };
+
+  // Central handler for incoming socket / broadcast messages
+  const handleIncomingMessage = (msg) => {
+    if (!msg || typeof msg !== 'object') return;
     try {
-      setLoading(true);
-      const res = await fetch('http://localhost:5000/api/live-classes');
-      if (res.ok) {
-        const data = await res.json();
-        setClasses(data);
-        if (!selectedClass && data.length > 0) {
-          // Default to first live or first class
-          const liveOne = data.find(c => c.status === 'live') || data[0];
-          loadClassDetails(liveOne.id);
+      if (msg.type === 'LIVE_CLASS_STATE') {
+        setAttendeesCount(msg.liveClass.attendeesCount || 0);
+        setHandRaises(msg.liveClass.handRaises || []);
+        setActivePoll(msg.liveClass.activePoll || null);
+        setChatMessages(msg.liveClass.chatMessages || []);
+      } else if (msg.type === 'ATTENDEE_UPDATE') {
+        if (typeof msg.attendeesCount === 'number') {
+          setAttendeesCount(msg.attendeesCount);
+        }
+      } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === msg.message.id || (m.timestamp && m.timestamp === msg.message.timestamp))) return prev;
+          return [...prev, msg.message];
+        });
+      } else if (msg.type === 'RAISE_HAND') {
+        setHandRaises(prev => {
+          if (prev.some(h => h.studentId === msg.student.studentId)) return prev;
+          return [...prev, msg.student];
+        });
+      } else if (msg.type === 'LOWER_HAND') {
+        setHandRaises(prev => prev.filter(h => h.studentId !== msg.studentId));
+      } else if (msg.type === 'HAND_QUEUE_UPDATED') {
+        setHandRaises(msg.handRaises || []);
+      } else if (msg.type === 'POLL_LAUNCHED') {
+        setActivePoll(msg.poll);
+      } else if (msg.type === 'POLL_UPDATED' || msg.type === 'VOTE_POLL') {
+        if (msg.poll) setActivePoll(msg.poll);
+      } else if (msg.type === 'POLL_CLOSED') {
+        setActivePoll(msg.poll);
+      } else if (msg.type === 'CLASS_STATUS_CHANGED') {
+        setSelectedClass(prev => prev ? { ...prev, status: msg.status } : prev);
+        setIsBroadcasting(msg.status === 'live');
+      } else if (msg.type === 'REQUEST_STREAM') {
+        const studentId = msg.studentId || msg.from;
+        if (studentId && mediaStreamRef.current) {
+          handleStudentStreamRequest(studentId);
+        }
+      } else if (msg.type === 'WEBRTC_ANSWER') {
+        const studentId = msg.from;
+        const pc = peerConnectionsRef.current.get(studentId);
+        if (pc && msg.answer) {
+          pc.setRemoteDescription(new RTCSessionDescription(msg.answer)).catch(err => {
+            console.warn('Set remote description error:', err);
+          });
+        }
+      } else if (msg.type === 'WEBRTC_ICE_CANDIDATE') {
+        const studentId = msg.from;
+        const pc = peerConnectionsRef.current.get(studentId);
+        if (pc && msg.candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(err => {
+            console.warn('Add ice candidate error:', err);
+          });
         }
       }
     } catch (err) {
-      console.error('Failed to fetch live classes', err);
+      console.error('Incoming message handle error', err);
+    }
+  };
+
+  // Cross-tab BroadcastChannel listener
+  useEffect(() => {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('virtual_classroom_channel');
+        broadcastChannelRef.current = bc;
+        bc.onmessage = (event) => {
+          handleIncomingMessage(event.data);
+        };
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel not supported in this browser:', e);
+    }
+    return () => {
+      try { broadcastChannelRef.current?.close(); } catch (e) {}
+    };
+  }, []);
+
+  // Fetch classes from backend with automatic fallback
+  const fetchClasses = async () => {
+    try {
+      setLoading(true);
+      const isHttps = window.location.protocol === 'https:';
+      if (!isHttps || window.location.hostname === 'localhost') {
+        const res = await fetch('http://localhost:5000/api/live-classes');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setClasses(data);
+            if (!selectedClass) {
+              const liveOne = data.find(c => c.status === 'live') || data[0];
+              loadClassDetails(liveOne.id);
+            }
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Backend live classes unavailable, activating fallback session list:', err);
     } finally {
       setLoading(false);
+    }
+
+    // Fallback: Use built-in interactive demo classes
+    setClasses(FALLBACK_LIVE_CLASSES);
+    if (!selectedClass && FALLBACK_LIVE_CLASSES.length > 0) {
+      const defaultCls = FALLBACK_LIVE_CLASSES[0];
+      setSelectedClass(defaultCls);
+      setAttendeesCount(defaultCls.attendeesCount || 42);
+      setHandRaises(defaultCls.handRaises || []);
+      setActivePoll(defaultCls.activePoll || null);
+      setChatMessages(defaultCls.chatMessages || []);
+      setIsBroadcasting(defaultCls.status === 'live');
     }
   };
 
   const loadClassDetails = async (classId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/live-classes/${classId}`);
-      if (res.ok) {
-        const cls = await res.json();
-        setSelectedClass(cls);
-        setAttendeesCount(cls.attendeesCount || 0);
-        setHandRaises(cls.handRaises || []);
-        setActivePoll(cls.activePoll || null);
-        setChatMessages(cls.chatMessages || []);
-        setIsBroadcasting(cls.status === 'live');
+      const isHttps = window.location.protocol === 'https:';
+      if (!isHttps || window.location.hostname === 'localhost') {
+        const res = await fetch(`http://localhost:5000/api/live-classes/${classId}`);
+        if (res.ok) {
+          const cls = await res.json();
+          setSelectedClass(cls);
+          setAttendeesCount(cls.attendeesCount || 0);
+          setHandRaises(cls.handRaises || []);
+          setActivePoll(cls.activePoll || null);
+          setChatMessages(cls.chatMessages || []);
+          setIsBroadcasting(cls.status === 'live');
+          return;
+        }
       }
     } catch (err) {
-      console.error('Failed to load class details', err);
+      console.warn('Backend class detail unreachable, using local session:', err);
+    }
+
+    const fallbackFound = FALLBACK_LIVE_CLASSES.find(c => c.id === classId) || FALLBACK_LIVE_CLASSES[0];
+    if (fallbackFound) {
+      setSelectedClass(fallbackFound);
+      setAttendeesCount(fallbackFound.attendeesCount || 42);
+      setHandRaises(fallbackFound.handRaises || []);
+      setActivePoll(fallbackFound.activePoll || null);
+      setChatMessages(fallbackFound.chatMessages || []);
+      setIsBroadcasting(fallbackFound.status === 'live');
     }
   };
 
@@ -91,88 +223,57 @@ const LiveWebcasts = ({ theme }) => {
     fetchClasses();
   }, []);
 
-  // WebSocket Connection
+  // WebSocket Connection (guarded against SecurityErrors on HTTPS)
   useEffect(() => {
     if (!selectedClass) return;
 
-    const wsUrl = `ws://${window.location.hostname || 'localhost'}:5000`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    const isHttps = window.location.protocol === 'https:';
+    // Do not attempt unencrypted ws:// on https page to prevent Mixed Content security error
+    if (isHttps && window.location.hostname !== 'localhost') {
+      return;
+    }
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: 'JOIN_LIVE_CLASS',
-        classId: selectedClass.id,
-        user: {
-          id: currentUser.id || 'admin-host',
-          name: currentUser.name || 'Instructor',
-          role: 'instructor',
-          avatar: '👨‍🏫'
+    try {
+      const wsUrl = `ws://${window.location.hostname || 'localhost'}:5000`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        sendSocketMessage({
+          type: 'JOIN_LIVE_CLASS',
+          classId: selectedClass.id,
+          user: {
+            id: currentUser.id || 'admin-host',
+            name: currentUser.name || 'Instructor',
+            role: 'instructor',
+            avatar: '👨‍🏫'
+          }
+        });
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleIncomingMessage(msg);
+        } catch (err) {
+          console.error('WS parse error', err);
         }
-      }));
-    };
+      };
 
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'LIVE_CLASS_STATE') {
-          setAttendeesCount(msg.liveClass.attendeesCount || 0);
-          setHandRaises(msg.liveClass.handRaises || []);
-          setActivePoll(msg.liveClass.activePoll || null);
-          setChatMessages(msg.liveClass.chatMessages || []);
-        } else if (msg.type === 'ATTENDEE_UPDATE') {
-          if (typeof msg.attendeesCount === 'number') {
-            setAttendeesCount(msg.attendeesCount);
-          }
-        } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
-          setChatMessages(prev => [...prev, msg.message]);
-        } else if (msg.type === 'HAND_QUEUE_UPDATED') {
-          setHandRaises(msg.handRaises || []);
-        } else if (msg.type === 'POLL_LAUNCHED') {
-          setActivePoll(msg.poll);
-        } else if (msg.type === 'POLL_UPDATED') {
-          setActivePoll(msg.poll);
-        } else if (msg.type === 'POLL_CLOSED') {
-          setActivePoll(msg.poll);
-        } else if (msg.type === 'CLASS_STATUS_CHANGED') {
-          setSelectedClass(prev => prev ? { ...prev, status: msg.status } : prev);
-          setIsBroadcasting(msg.status === 'live');
-        } else if (msg.type === 'REQUEST_STREAM') {
-          const studentId = msg.studentId || msg.from;
-          if (studentId && mediaStreamRef.current) {
-            handleStudentStreamRequest(studentId);
-          }
-        } else if (msg.type === 'WEBRTC_ANSWER') {
-          const studentId = msg.from;
-          const pc = peerConnectionsRef.current.get(studentId);
-          if (pc && msg.answer) {
-            pc.setRemoteDescription(new RTCSessionDescription(msg.answer)).catch(err => {
-              console.warn('Set remote description error:', err);
-            });
-          }
-        } else if (msg.type === 'WEBRTC_ICE_CANDIDATE') {
-          const studentId = msg.from;
-          const pc = peerConnectionsRef.current.get(studentId);
-          if (pc && msg.candidate) {
-            pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(err => {
-              console.warn('Add ice candidate error:', err);
-            });
-          }
+      return () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
         }
-      } catch (err) {
-        console.error('WS parse error', err);
-      }
-    };
-
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
+      };
+    } catch (wsErr) {
+      console.warn('WebSocket could not be established:', wsErr);
+    }
   }, [selectedClass?.id]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatEndRef.current && typeof chatEndRef.current.scrollIntoView === 'function') {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [chatMessages]);
 
   // Camera, Screen Share & Video Preview sync
@@ -194,9 +295,14 @@ const LiveWebcasts = ({ theme }) => {
       if (videoEl.srcObject) {
         videoEl.srcObject = null;
       }
-      const streamSource = selectedClass?.streamUrl 
-        ? `http://localhost:5000${selectedClass.streamUrl}` 
-        : '/uploads/video-1783335443739-730573726.mp4';
+      let streamSource = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      if (selectedClass?.streamUrl) {
+        if (selectedClass.streamUrl.startsWith('http')) {
+          streamSource = selectedClass.streamUrl;
+        } else if (window.location.protocol !== 'https:') {
+          streamSource = `http://localhost:5000${selectedClass.streamUrl}`;
+        }
+      }
       videoEl.src = streamSource;
       videoEl.muted = !isMicOn;
       videoEl.play().catch(err => {
@@ -238,27 +344,27 @@ const LiveWebcasts = ({ theme }) => {
       });
 
       pc.onicecandidate = (event) => {
-        if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
+        if (event.candidate && selectedClass) {
+          sendSocketMessage({
             type: 'WEBRTC_ICE_CANDIDATE',
             classId: selectedClass.id,
             to: studentId,
             from: currentUser.id || 'admin-host',
             candidate: event.candidate
-          }));
+          });
         }
       };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      wsRef.current.send(JSON.stringify({
+      sendSocketMessage({
         type: 'WEBRTC_OFFER',
         classId: selectedClass.id,
         to: studentId,
         from: currentUser.id || 'admin-host',
         offer
-      }));
+      });
     } catch (err) {
       console.error('Error handling student WebRTC stream request:', err);
     }
@@ -274,11 +380,11 @@ const LiveWebcasts = ({ theme }) => {
       peerConnectionsRef.current.forEach(pc => pc.close());
       peerConnectionsRef.current.clear();
       setIsCameraOn(false);
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && selectedClass) {
-        wsRef.current.send(JSON.stringify({
+      if (selectedClass) {
+        sendSocketMessage({
           type: 'BROADCASTER_STOPPED',
           classId: selectedClass.id
-        }));
+        });
       }
     } else {
       try {
@@ -292,11 +398,11 @@ const LiveWebcasts = ({ theme }) => {
         mediaStreamRef.current = stream;
         setIsCameraOn(true);
         setIsScreenSharing(false);
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && selectedClass) {
-          wsRef.current.send(JSON.stringify({
+        if (selectedClass) {
+          sendSocketMessage({
             type: 'BROADCASTER_READY',
             classId: selectedClass.id
-          }));
+          });
         }
       } catch (err) {
         console.warn('Camera access denied or unavailable', err);
@@ -315,11 +421,11 @@ const LiveWebcasts = ({ theme }) => {
       peerConnectionsRef.current.forEach(pc => pc.close());
       peerConnectionsRef.current.clear();
       setIsScreenSharing(false);
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && selectedClass) {
-        wsRef.current.send(JSON.stringify({
+      if (selectedClass) {
+        sendSocketMessage({
           type: 'BROADCASTER_STOPPED',
           classId: selectedClass.id
-        }));
+        });
       }
     } else {
       try {
@@ -332,20 +438,20 @@ const LiveWebcasts = ({ theme }) => {
           setIsScreenSharing(false);
           peerConnectionsRef.current.forEach(pc => pc.close());
           peerConnectionsRef.current.clear();
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && selectedClass) {
-            wsRef.current.send(JSON.stringify({
+          if (selectedClass) {
+            sendSocketMessage({
               type: 'BROADCASTER_STOPPED',
               classId: selectedClass.id
-            }));
+            });
           }
         };
         setIsScreenSharing(true);
         setIsCameraOn(false);
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && selectedClass) {
-          wsRef.current.send(JSON.stringify({
+        if (selectedClass) {
+          sendSocketMessage({
             type: 'BROADCASTER_READY',
             classId: selectedClass.id
-          }));
+          });
         }
       } catch (err) {
         console.warn('Screen share cancelled', err);
@@ -358,58 +464,77 @@ const LiveWebcasts = ({ theme }) => {
   const toggleBroadcast = async () => {
     if (!selectedClass) return;
     const nextStatus = isBroadcasting ? 'completed' : 'live';
+    setIsBroadcasting(nextStatus === 'live');
+    setSelectedClass(prev => ({ ...prev, status: nextStatus }));
+    sendSocketMessage({
+      type: 'CLASS_STATUS_CHANGED',
+      classId: selectedClass.id,
+      status: nextStatus
+    });
+
     try {
-      const res = await fetch(`http://localhost:5000/api/live-classes/${selectedClass.id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus })
-      });
-      if (res.ok) {
-        setIsBroadcasting(nextStatus === 'live');
-        setSelectedClass(prev => ({ ...prev, status: nextStatus }));
-        fetchClasses();
+      if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
+        await fetch(`http://localhost:5000/api/live-classes/${selectedClass.id}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus })
+        });
       }
     } catch (err) {
-      console.error('Failed to change broadcast status', err);
+      console.warn('Backend broadcast status update skipped:', err);
     }
   };
 
   // Chat message send
   const sendChatMessage = (e) => {
     e.preventDefault();
-    if (!chatInput.trim() || !wsRef.current || !selectedClass) return;
+    if (!chatInput.trim() || !selectedClass) return;
 
-    wsRef.current.send(JSON.stringify({
+    const newMsg = {
+      id: Date.now(),
+      sender: currentUser.name || 'Dr. Alice Carter',
+      role: 'instructor',
+      text: chatInput.trim(),
+      timestamp: Date.now(),
+      timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setChatMessages(prev => [...prev, newMsg]);
+    sendSocketMessage({
       type: 'LIVE_CHAT_MESSAGE',
       classId: selectedClass.id,
-      text: chatInput.trim(),
-      user: {
-        id: currentUser.id || 'admin-host',
-        name: currentUser.name || 'Dr. Alice Carter',
-        role: 'instructor'
-      }
-    }));
+      message: newMsg
+    });
     setChatInput('');
   };
 
   // Hand raise moderation
   const lowerHand = (studentId) => {
-    if (!wsRef.current || !selectedClass) return;
-    wsRef.current.send(JSON.stringify({
+    if (!selectedClass) return;
+    setHandRaises(prev => prev.filter(h => h.studentId !== studentId));
+    sendSocketMessage({
       type: 'LOWER_HAND',
       classId: selectedClass.id,
       studentId
-    }));
+    });
   };
 
   const allowStudentToSpeak = (student) => {
-    if (!wsRef.current || !selectedClass) return;
-    wsRef.current.send(JSON.stringify({
+    if (!selectedClass) return;
+    const announcement = {
+      id: Date.now(),
+      sender: 'Virtual Classroom System',
+      role: 'system',
+      text: `🎤 Instructor Dr. Alice Carter invited ${student.studentName} to speak!`,
+      timestamp: Date.now(),
+      timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setChatMessages(prev => [...prev, announcement]);
+    sendSocketMessage({
       type: 'LIVE_CHAT_MESSAGE',
       classId: selectedClass.id,
-      text: `🎤 Instructor Dr. Alice Carter invited ${student.studentName} to speak!`,
-      user: { id: 'sys', name: 'Virtual Classroom System', role: 'system' }
-    }));
+      message: announcement
+    });
     lowerHand(student.studentId);
   };
 
@@ -423,57 +548,89 @@ const LiveWebcasts = ({ theme }) => {
       return;
     }
 
+    const newPoll = {
+      id: `poll-${Date.now()}`,
+      question: pollQuestion.trim(),
+      options: cleanOptions.map((opt, idx) => ({
+        id: `opt-${idx + 1}`,
+        text: opt,
+        votes: 0
+      })),
+      totalVotes: 0,
+      status: 'active'
+    };
+
+    setActivePoll(newPoll);
+    setShowPollModal(false);
+    setPollQuestion('');
+    setPollOptions(['', '']);
+    setActiveTab('polls');
+
+    sendSocketMessage({
+      type: 'POLL_LAUNCHED',
+      classId: selectedClass.id,
+      poll: newPoll
+    });
+
     try {
-      const res = await fetch(`http://localhost:5000/api/live-classes/${selectedClass.id}/poll`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: pollQuestion.trim(),
-          options: cleanOptions
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setActivePoll(data.poll);
-        setShowPollModal(false);
-        setPollQuestion('');
-        setPollOptions(['', '']);
-        setActiveTab('polls');
+      if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
+        await fetch(`http://localhost:5000/api/live-classes/${selectedClass.id}/poll`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: pollQuestion.trim(), options: cleanOptions })
+        });
       }
     } catch (err) {
-      console.error('Failed to launch poll', err);
+      console.warn('Backend poll sync skipped:', err);
     }
   };
 
   const closeActivePoll = () => {
-    if (!wsRef.current || !selectedClass) return;
-    wsRef.current.send(JSON.stringify({
-      type: 'CLOSE_POLL',
-      classId: selectedClass.id
-    }));
+    if (!selectedClass || !activePoll) return;
+    const closed = { ...activePoll, status: 'closed' };
+    setActivePoll(closed);
+    sendSocketMessage({
+      type: 'POLL_CLOSED',
+      classId: selectedClass.id,
+      poll: closed
+    });
   };
 
   // Schedule Webcast
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
+    const newSession = {
+      id: `LIVE-${Math.floor(100 + Math.random() * 900)}`,
+      ...scheduleForm,
+      status: 'upcoming',
+      attendeesCount: 0,
+      attendees: [],
+      handRaises: [],
+      activePoll: null,
+      chatMessages: []
+    };
+    setClasses(prev => [newSession, ...prev]);
+    setShowScheduleModal(false);
+
     try {
-      const res = await fetch('http://localhost:5000/api/live-classes/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(scheduleForm)
-      });
-      if (res.ok) {
-        setShowScheduleModal(false);
-        fetchClasses();
+      if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
+        await fetch('http://localhost:5000/api/live-classes/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scheduleForm)
+        });
       }
     } catch (err) {
-      console.error('Failed to schedule class', err);
+      console.warn('Backend schedule save skipped:', err);
     }
   };
 
   const copyStudentLink = () => {
     if (!selectedClass) return;
-    const url = `http://localhost:3001/#/live/${selectedClass.id}`;
+    const isLiveHosted = window.location.hostname.includes('github.io');
+    const url = isLiveHosted
+      ? `${window.location.origin}/VideoStreeming/#/live/${selectedClass.id}`
+      : `http://localhost:3001/#/live/${selectedClass.id}`;
     navigator.clipboard.writeText(url);
     setCopySuccess(t('liveClass.linkCopied', 'Copied Student Link!'));
     setTimeout(() => setCopySuccess(''), 3000);

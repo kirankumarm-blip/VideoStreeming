@@ -267,11 +267,13 @@ function App() {
   }, [theme]);
 
   return (
-    <LanguageProvider>
-      <Router>
-        <AppLayout theme={theme} setTheme={setTheme} />
-      </Router>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <Router>
+          <AppLayout theme={theme} setTheme={setTheme} />
+        </Router>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 
