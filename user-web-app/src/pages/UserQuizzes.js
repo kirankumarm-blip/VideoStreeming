@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import PaginatedTable from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
+import { useLanguage } from '../context/LanguageContext';
 
 const UserQuizzes = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,14 +168,14 @@ const UserQuizzes = () => {
   });
 
   const tableHeaders = [
-    { label: 'Quiz', style: { width: '20%' } },
-    { label: 'Course', style: { width: '20%' } },
-    { label: 'Chapter', style: { width: '12%' } },
-    { label: 'Score', style: { width: '14%', textAlign: 'right' } },
-    { label: 'Result', style: { width: '12%' } },
-    { label: 'Attempt', style: { width: '8%', textAlign: 'right' } },
-    { label: 'Date', style: { width: '18%' } },
-    { label: 'Action', style: { width: '10%', textAlign: 'center' } }
+    { label: t('quiz.colQuiz', 'Quiz'), style: { width: '20%' } },
+    { label: t('quiz.colCourse', 'Course'), style: { width: '20%' } },
+    { label: t('quiz.colChapter', 'Chapter'), style: { width: '12%' } },
+    { label: t('quiz.colScore', 'Score'), style: { width: '14%', textAlign: 'right' } },
+    { label: t('quiz.colResult', 'Result'), style: { width: '12%' } },
+    { label: t('quiz.colAttempt', 'Attempt'), style: { width: '8%', textAlign: 'right' } },
+    { label: t('quiz.colDate', 'Date'), style: { width: '18%' } },
+    { label: t('quiz.colAction', 'Action'), style: { width: '10%', textAlign: 'center' } }
   ];
 
   const renderQuizRow = (item, index) => {
@@ -208,7 +210,7 @@ const UserQuizzes = () => {
             color: isPassed ? '#10b981' : '#ef4444',
             border: `1px solid ${isPassed ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
           }}>
-            {isPassed ? '🟢 Passed' : '🔴 Failed'}
+            {isPassed ? `🟢 ${t('quiz.passed', 'Passed')}` : `🔴 ${t('quiz.failed', 'Failed')}`}
           </span>
         </td>
 
@@ -241,7 +243,7 @@ const UserQuizzes = () => {
               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
             >
-              👁 View
+              👁 {t('quiz.view', 'View')}
             </button>
           ) : (
             <button
@@ -262,7 +264,7 @@ const UserQuizzes = () => {
                 transition: 'all 0.2s'
               }}
             >
-              🔄 Retake
+              🔄 {t('quiz.retake', 'Retake')}
             </button>
           )}
         </td>
@@ -288,10 +290,10 @@ const UserQuizzes = () => {
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>📝</span> Quiz Performance & History
+            <span>📝</span> {t('quiz.title', 'Quiz Performance & History')}
           </h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Track your chapter assessment scores, results, and attempts across all enrolled courses.
+            {t('quiz.subtitle', 'Track your chapter assessment scores, results, and attempts across all enrolled courses.')}
           </p>
         </div>
 
@@ -312,7 +314,7 @@ const UserQuizzes = () => {
             gap: '8px'
           }}
         >
-          🔄 Refresh History
+          🔄 {t('quiz.refresh', 'Refresh History')}
         </button>
       </div>
 
@@ -333,7 +335,7 @@ const UserQuizzes = () => {
         <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
           <input
             type="text"
-            placeholder="Search quiz, course, chapter..."
+            placeholder={t('quiz.searchPlaceholder', 'Search quiz, course, chapter...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -355,27 +357,30 @@ const UserQuizzes = () => {
 
         {/* Result Filter Tabs */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {['All', 'Passed', 'Failed'].map(status => (
-            <button
-              key={status}
-              onClick={() => setFilterResult(status)}
-              style={{
-                padding: '7px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: filterResult === status ? 700 : 600,
-                border: '1px solid',
-                borderColor: filterResult === status ? 'var(--accent-primary)' : 'var(--border-color)',
-                backgroundColor: filterResult === status ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-                color: filterResult === status ? '#ffffff' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {status === 'Passed' ? '🟢 Passed' : status === 'Failed' ? '🔴 Failed' : 'All Quizzes'}
-            </button>
-          ))}
+          {['All', 'Passed', 'Failed'].map(status => {
+            const statusLabel = status === 'Passed' ? `🟢 ${t('quiz.filterPassed', 'Passed')}` : status === 'Failed' ? `🔴 ${t('quiz.filterFailed', 'Failed')}` : t('quiz.filterAll', 'All');
+            return (
+              <button
+                key={status}
+                onClick={() => setFilterResult(status)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: filterResult === status ? 700 : 600,
+                  border: '1px solid',
+                  borderColor: filterResult === status ? 'var(--accent-primary)' : 'var(--border-color)',
+                  backgroundColor: filterResult === status ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                  color: filterResult === status ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {statusLabel}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -476,16 +481,16 @@ const UserQuizzes = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Completed On:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.completedOn', 'Completed On:')}</span>
                   <span style={{ fontWeight: 600 }}>{selectedQuizDetail.date}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Total Attempt Count:</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.attemptCount', 'Total Attempt Count:')}</span>
                   <span style={{ fontWeight: 600 }}>{selectedQuizDetail.attempt}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Performance Rating:</span>
-                  <span style={{ fontWeight: 600, color: '#10b981' }}>Excellent</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.rating', 'Performance Rating:')}</span>
+                  <span style={{ fontWeight: 600, color: '#10b981' }}>{t('quiz.ratingExcellent', 'Excellent')}</span>
                 </div>
               </div>
             </div>
@@ -501,7 +506,7 @@ const UserQuizzes = () => {
                 className="btn btn-primary"
                 style={{ padding: '8px 24px', fontSize: '13px', borderRadius: '8px' }}
               >
-                Close
+                {t('quiz.close', 'Close')}
               </button>
             </div>
           </div>

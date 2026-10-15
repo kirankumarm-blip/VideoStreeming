@@ -10,9 +10,13 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const searchParams = new URLSearchParams(location.search);
 
-  const activeView = location.pathname === '/quizzes' 
-    ? 'quiz' 
-    : (location.pathname === '/certificates' ? 'certificates' : (location.pathname === '/' ? (searchParams.get('view') || 'home') : ''));
+  const activeView = (location.pathname === '/live-classes' || location.pathname.startsWith('/live/'))
+    ? 'live_classes'
+    : (location.pathname === '/study-rooms'
+      ? 'study_rooms'
+      : (location.pathname === '/quizzes' 
+        ? 'quiz' 
+        : (location.pathname === '/certificates' ? 'certificates' : (location.pathname === '/' ? (searchParams.get('view') || 'home') : ''))));
 
   const menuItems = [
     {
@@ -77,6 +81,38 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: () => (
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      )
+    },
+    {
+      id: 'study_rooms',
+      label: t('sidebar.studyRooms', 'Study Rooms'),
+      subLabel: t('sidebar.subStudyRooms', 'Watch party & learn together'),
+      path: '/study-rooms',
+      badge: 'LIVE',
+      icon: () => (
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      )
+    },
+    {
+      id: 'live_classes',
+      label: t('sidebar.liveClasses', 'Virtual Classroom'),
+      subLabel: t('sidebar.subLiveClasses', 'Live webcasts & interactive lectures'),
+      path: '/live-classes',
+      badge: 'LIVE',
+      badgeColor: '#ef4444',
+      icon: () => (
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path>
+          <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path>
+          <circle cx="12" cy="12" r="2"></circle>
+          <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path>
+          <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"></path>
         </svg>
       )
     },

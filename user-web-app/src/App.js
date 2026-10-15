@@ -10,6 +10,9 @@ import Profile from './pages/Profile';
 import UserQuizzes from './pages/UserQuizzes';
 import Certificates from './pages/Certificates';
 import Plans from './pages/Plans';
+import StudyRooms from './pages/StudyRooms';
+import LiveClasses from './pages/LiveClasses';
+import LiveClassroom from './pages/LiveClassroom';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -171,6 +174,24 @@ const AppLayout = ({ theme, setTheme }) => {
           <Route path="/certificates" element={
             <RoleRoute allowedRoles={['user']}>
               <Certificates />
+            </RoleRoute>
+          } />
+
+          <Route path="/study-rooms" element={
+            <RoleRoute allowedRoles={['user']}>
+              <StudyRooms />
+            </RoleRoute>
+          } />
+
+          <Route path="/live-classes" element={
+            <RoleRoute allowedRoles={['user']}>
+              <LiveClasses />
+            </RoleRoute>
+          } />
+
+          <Route path="/live/:id" element={
+            <RoleRoute allowedRoles={['user']}>
+              <LiveClassroom />
             </RoleRoute>
           } />
 

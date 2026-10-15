@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser, decryptUrl, decryptIfNeeded } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
@@ -528,6 +528,217 @@ const VideoWatch = () => {
       .catch(err => console.log("Failed to fetch IP, using fallback", err));
   }, []);
 
+  // ----------------------------------------------------
+  // VIRTUAL STUDY ROOM / WATCH PARTY REAL-TIME SYNC
+  // ----------------------------------------------------
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roomQueryParam = searchParams.get('room');
+
+  const [activeStudyRoom, setActiveStudyRoom] = useState(null);
+  const [studyRoomMessages, setStudyRoomMessages] = useState([]);
+  const [studyRoomMembers, setStudyRoomMembers] = useState([]);
+  const [showStudyRoomDrawer, setShowStudyRoomDrawer] = useState(false);
+  const [showStudyRoomModal, setShowStudyRoomModal] = useState(false);
+  const [studySyncBanner, setStudySyncBanner] = useState('');
+  const [studyInputMessage, setStudyInputMessage] = useState('');
+  const [studyJoinCodeInput, setStudyJoinCodeInput] = useState('');
+  const [studyCreatingRoom, setStudyCreatingRoom] = useState(false);
+  const [studyInviteCopied, setStudyInviteCopied] = useState(false);
+
+  const studyWsRef = useRef(null);
+  const isRemoteSyncRef = useRef(false);
+  const studySyncBannerTimerRef = useRef(null);
+
+  const triggerStudyBanner = (msg) => {
+    if (studySyncBannerTimerRef.current) clearTimeout(studySyncBannerTimerRef.current);
+    setStudySyncBanner(msg);
+    studySyncBannerTimerRef.current = setTimeout(() => {
+      setStudySyncBanner('');
+    }, 3200);
+  };
+
+  useEffect(() => {
+    const targetRoomId = roomQueryParam || (activeStudyRoom?.roomId);
+    if (!targetRoomId) return;
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname || 'localhost';
+    const socket = new WebSocket(`${wsProtocol}//${wsHost}:5000`);
+    studyWsRef.current = socket;
+
+    socket.onopen = () => {
+      const username = currentUser?.username || currentUser?.name || (userEmail.split('@')[0]) || 'Learner';
+      socket.send(JSON.stringify({
+        type: 'JOIN_ROOM',
+        roomId: targetRoomId,
+        user: {
+          id: currentUser?.id || 'learner_' + Math.random().toString(36).substring(2, 7),
+          username: username,
+          email: userEmail
+        }
+      }));
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'ROOM_STATE') {
+          setActiveStudyRoom(data.room);
+          setStudyRoomMessages(data.room.chatMessages || []);
+          setStudyRoomMembers(data.room.activeMembers || []);
+          setShowStudyRoomDrawer(true);
+          
+          if (videoRef.current && data.room.currentTime !== undefined) {
+            if (Math.abs(videoRef.current.currentTime - data.room.currentTime) > 1.5) {
+              isRemoteSyncRef.current = true;
+              videoRef.current.currentTime = data.room.currentTime;
+              setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
+            }
+            if (data.room.isPlaying) {
+              videoRef.current.play().catch(e => console.log('Autoplay sync notice:', e));
+            } else {
+              videoRef.current.pause();
+            }
+          }
+        } else if (data.type === 'SYNC_PLAY') {
+          isRemoteSyncRef.current = true;
+          if (videoRef.current) {
+            if (Math.abs(videoRef.current.currentTime - data.currentTime) > 1.5) {
+              videoRef.current.currentTime = data.currentTime;
+            }
+            videoRef.current.play().catch(e => console.log(e));
+          }
+          triggerStudyBanner(`▶️ ${data.senderName || 'Peer'} resumed playback`);
+          setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
+        } else if (data.type === 'SYNC_PAUSE') {
+          isRemoteSyncRef.current = true;
+          if (videoRef.current) {
+            if (Math.abs(videoRef.current.currentTime - data.currentTime) > 1.5) {
+              videoRef.current.currentTime = data.currentTime;
+            }
+            videoRef.current.pause();
+          }
+          triggerStudyBanner(`⏸️ ${data.senderName || 'Peer'} paused the video`);
+          setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
+        } else if (data.type === 'SYNC_SEEK') {
+          isRemoteSyncRef.current = true;
+          if (videoRef.current) {
+            videoRef.current.currentTime = data.currentTime;
+          }
+          const min = Math.floor(data.currentTime / 60);
+          const sec = Math.floor(data.currentTime % 60);
+          const formatted = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+          triggerStudyBanner(`⏩ ${data.senderName || 'Peer'} seeked to ${formatted}`);
+          setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
+        } else if (data.type === 'CHAT_MESSAGE') {
+          setStudyRoomMessages(prev => [...prev, data.message]);
+        } else if (data.type === 'MEMBER_JOINED') {
+          setStudyRoomMembers(data.activeMembers || []);
+          triggerStudyBanner(`👋 ${data.user?.username || 'A learner'} joined study party`);
+        } else if (data.type === 'MEMBER_LEFT') {
+          setStudyRoomMembers(data.activeMembers || []);
+        } else if (data.type === 'ERROR') {
+          triggerStudyBanner(`⚠️ ${data.message || 'Room error'}`);
+        }
+      } catch (err) {
+        console.error('Error handling Study Room WS message:', err);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.log('Study Room WS error:', err);
+    };
+
+    socket.onclose = () => {
+      console.log('Study Room WS closed');
+    };
+
+    return () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
+      studyWsRef.current = null;
+    };
+  }, [roomQueryParam, activeStudyRoom?.roomId]);
+
+  const handleSendStudyMessage = (customText = null) => {
+    const textToSend = (typeof customText === 'string' ? customText : studyInputMessage).trim();
+    if (!textToSend || !studyWsRef.current || studyWsRef.current.readyState !== WebSocket.OPEN) return;
+    studyWsRef.current.send(JSON.stringify({
+      type: 'CHAT_MESSAGE',
+      text: textToSend
+    }));
+    setStudyInputMessage('');
+  };
+
+  const handleLeaveStudyRoom = () => {
+    if (studyWsRef.current) {
+      studyWsRef.current.close();
+      studyWsRef.current = null;
+    }
+    setActiveStudyRoom(null);
+    setShowStudyRoomDrawer(false);
+    setStudyRoomMessages([]);
+    setStudyRoomMembers([]);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('room');
+    setSearchParams(nextParams);
+    triggerStudyBanner('🚪 Left study party');
+  };
+
+  const handleCreateWatchPartyNow = async () => {
+    setStudyCreatingRoom(true);
+    try {
+      const activeCourse = location.state?.course;
+      const res = await fetch('http://localhost:5000/api/study-rooms/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${video?.title || 'Lesson'} Watch Party`,
+          courseId: video?.course_id || activeCourse?.id || 1,
+          courseTitle: activeCourse?.title || video?.course_name || 'Active Course',
+          videoId: id || video?.id || 1,
+          hostName: currentUser?.username || currentUser?.name || (userEmail.split('@')[0]) || 'Learner',
+          userEmail: userEmail
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.room) {
+        setShowStudyRoomModal(false);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('room', data.room.roomId);
+        setSearchParams(nextParams);
+        setActiveStudyRoom(data.room);
+        setShowStudyRoomDrawer(true);
+        triggerStudyBanner(`🎉 Study Room ${data.room.roomId} is ready!`);
+      }
+    } catch (err) {
+      console.error('Failed to create instant watch party:', err);
+      alert('Failed to create study room. Please make sure backend is running.');
+    } finally {
+      setStudyCreatingRoom(false);
+    }
+  };
+
+  const handleJoinWatchPartyByCode = (code) => {
+    const trimmed = (code || studyJoinCodeInput).trim().toUpperCase();
+    if (!trimmed) return;
+    setShowStudyRoomModal(false);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('room', trimmed);
+    setSearchParams(nextParams);
+    setShowStudyRoomDrawer(true);
+  };
+
+  const handleCopyStudyInvite = () => {
+    const targetRoomId = activeStudyRoom?.roomId || roomQueryParam;
+    const inviteUrl = `${window.location.origin}/watch/${id}?room=${targetRoomId}`;
+    navigator.clipboard.writeText(inviteUrl);
+    setStudyInviteCopied(true);
+    triggerStudyBanner('📋 Invite link copied to clipboard!');
+    setTimeout(() => setStudyInviteCopied(false), 2500);
+  };
+
   const getDeviceType = () => {
     const ua = navigator.userAgent;
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
@@ -573,6 +784,19 @@ const VideoWatch = () => {
   const [copiedTranscript, setCopiedTranscript] = useState(false);
   const activeCueItemRef = useRef(null);
   const transcriptContainerRef = useRef(null);
+
+  // AI Video Copilot States
+  const [aiMessages, setAiMessages] = useState([
+    {
+      id: 1,
+      sender: 'ai',
+      text: '👋 **Hello! I am your AI Video Copilot.**\n\nI am synced to your lesson in real-time. Whenever a concept seems tricky, ask me anything or click one of the quick doubt buttons below!',
+      timestamp: null
+    }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const aiChatScrollRef = useRef(null);
 
   // Close CC popup menu on outside click
   useEffect(() => {
@@ -918,11 +1142,11 @@ const VideoWatch = () => {
       if (!videoData) {
         videoData = {
           id: id,
-          title: `Lesson ${id}`,
+          title: `Course Lesson ${id}`,
           thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
-          category: 'General',
-          video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
-          videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+          category: 'Technology',
+          video_url: 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4',
+          videoUrl: 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4',
           description: 'Streaming lesson player.'
         };
       } else {
@@ -1721,6 +1945,13 @@ const VideoWatch = () => {
       audioRef.current.pause();
       setIsAudioPlaying(false);
     }
+    // Broadcast play to Study Room party
+    if (studyWsRef.current && studyWsRef.current.readyState === WebSocket.OPEN && !isRemoteSyncRef.current && activeStudyRoom) {
+      studyWsRef.current.send(JSON.stringify({
+        type: 'SYNC_PLAY',
+        currentTime: videoRef.current?.currentTime || 0
+      }));
+    }
   };
 
   const handlePause = () => {
@@ -1728,6 +1959,13 @@ const VideoWatch = () => {
     stopProgressTracking();
     if (videoRef.current && !videoRef.current.seeking && videoRef.current.currentTime < videoRef.current.duration) {
       trackingDataRef.current.pausedCount += 1;
+    }
+    // Broadcast pause to Study Room party
+    if (studyWsRef.current && studyWsRef.current.readyState === WebSocket.OPEN && !isRemoteSyncRef.current && activeStudyRoom) {
+      studyWsRef.current.send(JSON.stringify({
+        type: 'SYNC_PAUSE',
+        currentTime: videoRef.current?.currentTime || 0
+      }));
     }
   };
 
@@ -2037,6 +2275,76 @@ const VideoWatch = () => {
     }
   };
 
+  const handleAskAiCopilot = async (customQuery) => {
+    const query = customQuery || aiInput;
+    if (!query || !query.trim() || aiLoading) return;
+
+    const curTime = currentTime || (videoRef.current ? videoRef.current.currentTime : 0);
+    const userMsg = {
+      id: Date.now(),
+      sender: 'user',
+      text: query.trim(),
+      timestamp: curTime
+    };
+
+    setAiMessages(prev => [...prev, userMsg]);
+    if (!customQuery) setAiInput('');
+    setAiLoading(true);
+
+    // Get surrounding transcript cues
+    const nearbyCues = transcriptCues.filter(c => c.start >= Math.max(0, curTime - 60) && c.start <= (curTime + 60));
+    const surroundingText = nearbyCues.map(c => c.text).join(' ');
+
+    const chapters = getCourseChapters(location.state?.course);
+    const currentChap = (chapters || []).find(c => (c.lessons || []).some(l => 
+      String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url)
+    ));
+
+    try {
+      const response = await fetch('http://localhost:5000/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query.trim(),
+          timestamp: curTime,
+          videoTitle: video?.title || 'Lesson',
+          chapterTitle: currentChap?.title || 'Current Chapter',
+          surroundingText,
+          language: subtitleLang || 'en'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAiMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          sender: 'ai',
+          text: data.answer,
+          timestamp: curTime
+        }]);
+      } else {
+        throw new Error('API unavailable');
+      }
+    } catch (e) {
+      const formatted = formatTime(curTime);
+      const fallbackText = `🤖 **Insight at ${formatted}:**\n\nAround this moment in **"${currentChap?.title || video?.title || 'this lesson'}"**, the focus is on understanding the core concept.\n\n${surroundingText ? `• *Instructor said:* "${surroundingText.slice(0, 200)}..."\n\n` : ''}• **Key Takeaway:** Pay close attention to how this technique simplifies application flow and prepares you for the chapter assessment!\n\n*(Click timestamp to re-watch if needed)*`;
+      
+      setAiMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        sender: 'ai',
+        text: fallbackText,
+        timestamp: curTime
+      }]);
+    } finally {
+      setAiLoading(false);
+      setTimeout(() => {
+        if (aiChatScrollRef.current) {
+          aiChatScrollRef.current.scrollTop = aiChatScrollRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  };
+
   const handleCopyTranscript = () => {
     if (!transcriptCues || transcriptCues.length === 0) return;
     const fullText = transcriptCues.map(c => `[${formatTime(c.start)}] ${c.speaker}: ${c.text}`).join('\n\n');
@@ -2321,6 +2629,14 @@ const VideoWatch = () => {
         trackingDataRef.current.backwardCount += 1;
       }
       prevTimeRef.current = current;
+
+      // Broadcast seek to Study Room party
+      if (studyWsRef.current && studyWsRef.current.readyState === WebSocket.OPEN && !isRemoteSyncRef.current && activeStudyRoom) {
+        studyWsRef.current.send(JSON.stringify({
+          type: 'SYNC_SEEK',
+          currentTime: current
+        }));
+      }
     }
   };
 
@@ -2539,15 +2855,23 @@ const VideoWatch = () => {
 
   const srcUrl = (() => {
     const url = video.videoUrl || video.video_url;
-    if (!url || url.includes('commondatastorage.googleapis.com') || url.startsWith('/videos/')) {
-      return 'https://www.w3schools.com/html/mov_bbb.mp4';
+    const REAL_COURSE_VIDEO = 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4';
+
+    if (!url) {
+      return REAL_COURSE_VIDEO;
     }
     if (url.startsWith('/uploads')) {
       const ext = url.split('.').pop().toLowerCase();
       if (['mp4', 'webm', 'ogg'].includes(ext)) {
         return `http://localhost:5000${url}`;
       }
-      return 'https://www.w3schools.com/html/mov_bbb.mp4';
+      return REAL_COURSE_VIDEO;
+    }
+    if (url.startsWith('/videos/')) {
+      return REAL_COURSE_VIDEO;
+    }
+    if (url.includes('commondatastorage.googleapis.com') || url.includes('mov_bbb.mp4')) {
+      return REAL_COURSE_VIDEO;
     }
     return url;
   })();
@@ -2630,6 +2954,73 @@ const VideoWatch = () => {
               </span>
             )}
           </div>
+
+          {/* Top-Left Live Study Room Indicator */}
+          {activeStudyRoom && (
+            <div 
+              onClick={() => setShowStudyRoomDrawer(v => !v)}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                left: '18px',
+                zIndex: 35,
+                background: 'rgba(15, 23, 42, 0.88)',
+                border: '1px solid rgba(16, 185, 129, 0.6)',
+                borderRadius: '20px',
+                padding: '6px 14px',
+                color: '#34d399',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                backdropFilter: 'blur(8px)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
+                transition: 'all 0.2s ease'
+              }}
+              title="Click to toggle Study Room Chat & Members"
+            >
+              <span style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                background: '#10b981',
+                boxShadow: '0 0 8px #10b981'
+              }} />
+              <span>{activeStudyRoom.roomId}</span>
+              <span style={{ color: 'var(--text-secondary, #9ca3af)', fontSize: '11px', fontWeight: 500 }}>
+                ({studyRoomMembers.length || 1} online)
+              </span>
+            </div>
+          )}
+
+          {/* Real-Time Sync Action Banner */}
+          {studySyncBanner && (
+            <div style={{
+              position: 'absolute',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 45,
+              background: 'rgba(15, 23, 42, 0.94)',
+              border: '1px solid #6366f1',
+              color: '#ffffff',
+              padding: '8px 20px',
+              borderRadius: '24px',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 6px 24px rgba(99, 102, 241, 0.45)',
+              backdropFilter: 'blur(10px)',
+              pointerEvents: 'none'
+            }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }} />
+              {studySyncBanner}
+            </div>
+          )}
 
           {/* Buffering quality overlay spinner */}
           {isQualitySwitching && (
@@ -3122,6 +3513,55 @@ const VideoWatch = () => {
                 </button>
               </div>
 
+              {/* Study Together / Watch Party Button */}
+              <button 
+                style={{
+                  background: activeStudyRoom 
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.35))' 
+                    : 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.25))',
+                  border: activeStudyRoom ? '1px solid #10b981' : '1px solid rgba(99, 102, 241, 0.45)',
+                  borderRadius: '20px',
+                  padding: '8px 16px',
+                  color: activeStudyRoom ? '#34d399' : '#a5b4fc',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  boxShadow: activeStudyRoom ? '0 0 14px rgba(16, 185, 129, 0.3)' : '0 0 10px rgba(99, 102, 241, 0.2)',
+                  transition: 'all 0.2s ease'
+                }} 
+                onClick={() => {
+                  if (activeStudyRoom) {
+                    setShowStudyRoomDrawer(prev => !prev);
+                  } else {
+                    setShowStudyRoomModal(true);
+                  }
+                }}
+                title={activeStudyRoom ? "Toggle Study Room Chat & Members" : "Watch together with batchmates in real-time sync"}
+              >
+                <span>{activeStudyRoom ? '🟢' : '👥'}</span>
+                <span>
+                  {activeStudyRoom 
+                    ? `Study Party (${studyRoomMembers.length || 1})` 
+                    : t('studyRooms.studyTogether', 'Study Together')}
+                </span>
+                {activeStudyRoom && (
+                  <span style={{ 
+                    fontSize: '10px', 
+                    background: '#10b981', 
+                    color: '#fff', 
+                    padding: '1px 6px', 
+                    borderRadius: '10px', 
+                    marginLeft: '2px',
+                    fontWeight: 700 
+                  }}>
+                    LIVE
+                  </span>
+                )}
+              </button>
+
               {/* Share button */}
               <button style={{
                 background: 'var(--bg-tertiary)',
@@ -3136,7 +3576,7 @@ const VideoWatch = () => {
                 gap: '6px',
                 cursor: 'pointer'
               }} onClick={() => alert("Link copied to clipboard (Simulated)")}>
-                🔗 Share
+                🔗 {t('watch.share', 'Share')}
               </button>
 
               {/* Download button */}
@@ -3153,7 +3593,7 @@ const VideoWatch = () => {
                 gap: '6px',
                 cursor: 'pointer'
               }} onClick={handleDownloadVideo}>
-                📥 Download
+                📥 {t('watch.download', 'Download')}
               </button>
 
               {/* Watch Later button */}
@@ -3176,7 +3616,7 @@ const VideoWatch = () => {
                 disabled={savingWatchLater}
               >
                 <span>🔖</span>
-                <span>{savingWatchLater ? 'Adding...' : 'Watch Later'}</span>
+                <span>{savingWatchLater ? t('watch.adding', 'Adding...') : t('watch.watchLater', 'Watch Later')}</span>
               </button>
 
               {/* Add to Playlist button */}
@@ -3199,7 +3639,7 @@ const VideoWatch = () => {
                 disabled={savingPlaylist}
               >
                 <span>📑</span>
-                <span>{savingPlaylist ? 'Adding...' : 'Add to Playlist'}</span>
+                <span>{savingPlaylist ? t('watch.adding', 'Adding...') : t('watch.addToPlaylist', 'Add to Playlist')}</span>
               </button>
             </div>
           </div>
@@ -3243,7 +3683,7 @@ const VideoWatch = () => {
                 }}
               >
                 <span>📋</span>
-                <span>Overview</span>
+                <span>{t('watch.videoOverview', 'Overview')}</span>
               </button>
 
               <button
@@ -3267,7 +3707,7 @@ const VideoWatch = () => {
                 }}
               >
                 <span>💬</span>
-                <span>Transcript</span>
+                <span>{t('watch.transcript', 'Transcript')}</span>
                 <span style={{
                   fontSize: '10px',
                   fontWeight: 700,
@@ -3301,7 +3741,7 @@ const VideoWatch = () => {
                 }}
               >
                 <span>📚</span>
-                <span>Learning Aids & Resources</span>
+                <span>{t('watch.learningAids', 'Learning Aids & Resources')}</span>
                 {currentChapterResources.length > 0 && (
                   <span style={{
                     fontSize: '10px',
@@ -3314,6 +3754,41 @@ const VideoWatch = () => {
                     {currentChapterResources.length}
                   </span>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveWatchTab('ai_copilot')}
+                style={{
+                  padding: '10px 18px',
+                  fontSize: '13px',
+                  fontWeight: activeWatchTab === 'ai_copilot' ? 700 : 500,
+                  color: activeWatchTab === 'ai_copilot' ? '#a855f7' : 'var(--text-secondary)',
+                  background: activeWatchTab === 'ai_copilot' ? 'rgba(168, 85, 247, 0.12)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeWatchTab === 'ai_copilot' ? '2px solid #a855f7' : '2px solid transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px'
+                }}
+              >
+                <span>🤖</span>
+                <span>{t('watch.aiCopilot', 'AI Copilot')}</span>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                  color: '#ffffff',
+                  padding: '2px 7px',
+                  borderRadius: '10px',
+                  letterSpacing: '0.4px'
+                }}>
+                  NEW
+                </span>
               </button>
             </div>
 
@@ -4103,6 +4578,396 @@ const VideoWatch = () => {
                 )}
               </div>
             )}
+
+            {/* Tab 4: AI COPILOT */}
+            {activeWatchTab === 'ai_copilot' && (
+              <div style={{ display: 'flex', flexDirection: 'column', height: '480px' }} className="animate-fade-in">
+                {/* Copilot Header Status Bar */}
+                <div style={{
+                  padding: '12px 18px',
+                  background: 'linear-gradient(90deg, rgba(124, 58, 237, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%)',
+                  borderBottom: '1px solid var(--border-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>🤖</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                        XLurn AI Video Copilot
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#a855f7', fontWeight: 600 }}>
+                        {t('watch.aiListeningAt', 'Synced with lesson at')} {formatTime(currentTime)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setAiMessages([
+                      {
+                        id: Date.now(),
+                        sender: 'ai',
+                        text: '🧹 Chat cleared! How can I assist you with this video?',
+                        timestamp: null
+                      }
+                    ])}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border-color)',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      color: 'var(--text-secondary)',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    {t('watch.aiClear', 'Clear Chat')}
+                  </button>
+                </div>
+
+                {/* Quick 1-Click Prompt Chips */}
+                <div style={{
+                  padding: '10px 16px',
+                  background: 'var(--bg-secondary)',
+                  borderBottom: '1px solid var(--border-color)',
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  flexShrink: 0
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => handleAskAiCopilot("Explain what the instructor just said in simple terms")}
+                    disabled={aiLoading}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(168, 85, 247, 0.35)',
+                      background: 'rgba(168, 85, 247, 0.1)',
+                      color: '#a855f7',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    💡 {t('watch.aiPromptExplain', 'Explain what was just said')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAskAiCopilot("Summarize the last 2 minutes of this video")}
+                    disabled={aiLoading}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(59, 130, 246, 0.35)',
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      color: '#3b82f6',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    📝 {t('watch.aiPromptSummary', 'Summarize last 2 mins')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAskAiCopilot("Give me a real-world practical analogy for this concept")}
+                    disabled={aiLoading}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      color: '#10b981',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    🧪 {t('watch.aiPromptAnalogy', 'Real-world analogy')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAskAiCopilot("Explain this part in Hindi")}
+                    disabled={aiLoading}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      background: 'rgba(245, 158, 11, 0.1)',
+                      color: '#f59e0b',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    🌐 {t('watch.aiPromptHindi', 'Explain in Hindi')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAskAiCopilot("Explain this part in Kannada")}
+                    disabled={aiLoading}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    🌐 {t('watch.aiPromptKannada', 'Explain in Kannada')}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAskAiCopilot("Quiz me on this timestamp concept")}
+                    disabled={aiLoading}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(139, 92, 246, 0.35)',
+                      background: 'rgba(139, 92, 246, 0.1)',
+                      color: '#8b5cf6',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    🎯 {t('watch.aiPromptQuiz', 'Test me on this')}
+                  </button>
+                </div>
+
+                {/* Message Scrollable Stream */}
+                <div 
+                  ref={aiChatScrollRef}
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    background: 'var(--bg-tertiary)'
+                  }}
+                >
+                  {aiMessages.map((msg) => (
+                    <div 
+                      key={msg.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                        maxWidth: '100%'
+                      }}
+                    >
+                      {msg.sender === 'user' ? (
+                        <div style={{
+                          background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                          color: '#ffffff',
+                          padding: '10px 14px',
+                          borderRadius: '16px 16px 4px 16px',
+                          fontSize: '13px',
+                          maxWidth: '85%',
+                          lineHeight: '1.5',
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
+                        }}>
+                          {msg.text}
+                          {msg.timestamp !== null && (
+                            <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px', textAlign: 'right' }}>
+                              📍 {formatTime(msg.timestamp)}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          maxWidth: '92%'
+                        }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '16px',
+                            flexShrink: 0
+                          }}>
+                            🤖
+                          </div>
+                          <div style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '16px 16px 16px 4px',
+                            padding: '12px 16px',
+                            fontSize: '13px',
+                            color: 'var(--text-primary)',
+                            lineHeight: '1.6',
+                            whiteSpace: 'pre-line',
+                            boxShadow: '0 4px 14px rgba(0,0,0,0.06)'
+                          }}>
+                            {msg.text}
+                            {msg.timestamp !== null && (
+                              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSeekTo(msg.timestamp)}
+                                  style={{
+                                    background: 'rgba(99, 102, 241, 0.15)',
+                                    color: '#6366f1',
+                                    border: 'none',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  ▶ Jump to {formatTime(msg.timestamp)}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {aiLoading && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                        flexShrink: 0
+                      }}>
+                        🤖
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '16px',
+                        padding: '10px 16px',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                        fontStyle: 'italic',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span>Analyzing lesson context...</span>
+                        <span style={{ fontSize: '14px' }}>⏳</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Controls Bar */}
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAskAiCopilot();
+                  }}
+                  style={{
+                    padding: '12px 16px',
+                    background: 'var(--bg-secondary)',
+                    borderTop: '1px solid var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={aiInput}
+                    onChange={(e) => setAiInput(e.target.value)}
+                    placeholder={t('watch.aiPlaceholder', 'Ask anything about this moment in the lesson...')}
+                    disabled={aiLoading}
+                    style={{
+                      flex: 1,
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={aiLoading || !aiInput.trim()}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: aiInput.trim() ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : 'var(--bg-tertiary)',
+                      color: aiInput.trim() ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: aiInput.trim() ? 'pointer' : 'default',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: aiInput.trim() ? '0 4px 12px rgba(124, 58, 237, 0.3)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <span>Send</span>
+                    <span>➔</span>
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
 
@@ -4139,10 +5004,10 @@ const VideoWatch = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div>
                       <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '15px' }}>📖</span> Course Content
+                        <span style={{ fontSize: '15px' }}>📖</span> {t('watch.courseContent', 'Course Content')}
                       </h3>
                       <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '2px' }}>
-                        {courseChapters.length} {courseChapters.length === 1 ? 'Chapter' : 'Chapters'} • {courseLessons.length} {courseLessons.length === 1 ? 'Lesson' : 'Lessons'}
+                        {courseChapters.length} {courseChapters.length === 1 ? t('watch.chapter', 'Chapter') : t('watch.chapters', 'Chapters')} • {courseLessons.length} {courseLessons.length === 1 ? t('watch.lesson', 'Lesson') : t('watch.lessons', 'Lessons')}
                       </div>
                     </div>
                     {/* Percentage badge */}
@@ -4160,7 +5025,7 @@ const VideoWatch = () => {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      {completedCount} of {courseLessons.length} completed
+                      {completedCount} of {courseLessons.length} {t('watch.completedOf', 'completed')}
                     </div>
                     <button
                       type="button"
@@ -4182,7 +5047,7 @@ const VideoWatch = () => {
                         padding: 0
                       }}
                     >
-                      {courseChapters.every((c, i) => (expandedChapters[`chap_${c.id || i}`] ?? true) === true) ? 'Collapse all' : 'Expand all'}
+                      {courseChapters.every((c, i) => (expandedChapters[`chap_${c.id || i}`] ?? true) === true) ? t('watch.collapseAll', 'Collapse all') : t('watch.expandAll', 'Expand all')}
                     </button>
                   </div>
                   <div style={{ width: '100%', height: '4px', background: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -4362,7 +5227,7 @@ const VideoWatch = () => {
                                       </div>
                                       <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span><i className="fa-solid fa-circle-play" style={{ fontSize: '9px', marginRight: '3px' }} />{lessonDuration}</span>
-                                        {isLessonActive && <span style={{ color: '#6366f1', fontWeight: 700 }}>• Playing</span>}
+                                        {isLessonActive && <span style={{ color: '#6366f1', fontWeight: 700 }}>• {t('watch.playing', 'Playing')}</span>}
                                       </div>
                                     </div>
                                   </div>
@@ -4556,7 +5421,7 @@ const VideoWatch = () => {
                                     padding: '2px 8px',
                                     borderRadius: '10px'
                                   }}>
-                                    Take Quiz
+                                    {t('watch.takeQuiz', 'Take Quiz')}
                                   </span>
                                 </div>
                               )}
@@ -5597,6 +6462,496 @@ const VideoWatch = () => {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* ----------------------------------------------------
+          LIVE STUDY ROOM CHAT & SYNC DRAWER
+          ---------------------------------------------------- */}
+      {showStudyRoomDrawer && activeStudyRoom && (
+        <div style={{
+          position: 'fixed',
+          right: '24px',
+          bottom: '24px',
+          width: '380px',
+          height: '560px',
+          maxWidth: 'calc(100vw - 48px)',
+          maxHeight: 'calc(100vh - 100px)',
+          background: 'rgba(15, 23, 42, 0.95)',
+          border: '1px solid rgba(99, 102, 241, 0.4)',
+          borderRadius: '16px',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(99, 102, 241, 0.25)',
+          backdropFilter: 'blur(16px)',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 9999,
+          overflow: 'hidden'
+        }}>
+          {/* Drawer Header */}
+          <div style={{
+            padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.15))',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>👥</span>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{activeStudyRoom.title || t('studyRooms.liveDrawerTitle', 'Virtual Study Room')}</span>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Code: <strong style={{ color: '#a5b4fc', letterSpacing: '0.5px' }}>{activeStudyRoom.roomId}</strong></span>
+                  <button 
+                    onClick={handleCopyStudyInvite}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: studyInviteCopied ? '#34d399' : '#818cf8',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      padding: 0,
+                      fontWeight: 600
+                    }}
+                  >
+                    {studyInviteCopied ? '✓ Copied' : '📋 Copy Link'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                onClick={() => setShowStudyRoomDrawer(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  color: '#94a3b8',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Minimize Drawer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Sync status strip */}
+          <div style={{
+            padding: '8px 14px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            borderBottom: '1px solid rgba(16, 185, 129, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '11px',
+            color: '#34d399'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚡</span>
+              <span>{t('studyRooms.syncNotice', 'Playback sync active. Play & pause mirrored.')}</span>
+            </div>
+            <button
+              onClick={handleLeaveStudyRoom}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#f87171',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+            >
+              Leave
+            </button>
+          </div>
+
+          {/* Active Members Bar */}
+          <div style={{
+            padding: '8px 14px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            overflowX: 'auto',
+            background: 'rgba(0, 0, 0, 0.2)'
+          }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', fontWeight: 600 }}>
+              Online ({studyRoomMembers.length || 1}):
+            </span>
+            {(studyRoomMembers.length > 0 ? studyRoomMembers : [{ username: currentUser?.username || 'You', isHost: true }]).map((m, idx) => (
+              <span
+                key={idx}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  color: '#e2e8f0',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                <span>{m.username}</span>
+                {m.isHost && <span title="Host" style={{ fontSize: '10px' }}>👑</span>}
+              </span>
+            ))}
+          </div>
+
+          {/* Chat Messages Stream */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            {studyRoomMessages.length === 0 ? (
+              <div style={{
+                textAlign: 'center',
+                margin: 'auto',
+                color: '#64748b',
+                padding: '20px'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#94a3b8' }}>Virtual Study Chat Ready</div>
+                <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                  Ask questions, discuss doubts, or say hello! Playback pauses & seeks sync in real-time.
+                </div>
+              </div>
+            ) : (
+              studyRoomMessages.map((msg, i) => {
+                const isMe = msg.senderName === (currentUser?.username || currentUser?.name || (userEmail.split('@')[0]));
+                const isDoubt = msg.text && (msg.text.includes('?') || msg.text.includes('Doubt') || msg.text.includes('doubt'));
+                return (
+                  <div
+                    key={msg.id || i}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: isMe ? 'flex-end' : 'flex-start'
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '2px',
+                      fontSize: '10px',
+                      color: '#64748b'
+                    }}>
+                      <span style={{ fontWeight: 600, color: isMe ? '#818cf8' : '#94a3b8' }}>
+                        {msg.senderName}
+                      </span>
+                      <span>{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                    </div>
+                    <div style={{
+                      maxWidth: '85%',
+                      padding: '8px 12px',
+                      borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                      background: isMe 
+                        ? 'linear-gradient(135deg, #4f46e5, #6366f1)' 
+                        : (isDoubt ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255, 255, 255, 0.08)'),
+                      border: isDoubt ? '1px solid rgba(234, 179, 8, 0.4)' : (isMe ? 'none' : '1px solid rgba(255, 255, 255, 0.05)'),
+                      color: isDoubt ? '#fef08a' : '#fff',
+                      fontSize: '12px',
+                      lineHeight: '1.4',
+                      wordBreak: 'break-word',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                    }}>
+                      {msg.text}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Quick Doubt & Reaction Chips */}
+          <div style={{
+            padding: '6px 12px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            display: 'flex',
+            gap: '6px',
+            overflowX: 'auto',
+            background: 'rgba(0,0,0,0.25)'
+          }}>
+            {[
+              { label: '✋ Doubt here!', text: '✋ Doubt here! Could we pause and discuss?' },
+              { label: '👍 Got it!', text: '👍 Got it! Clear concept.' },
+              { label: '⏸️ Please pause', text: '⏸️ Please pause the video for a second.' },
+              { label: '🤯 Mind blown!', text: '🤯 That explanation was awesome!' }
+            ].map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSendStudyMessage(chip.text)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.07)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '3px 8px',
+                  color: '#cbd5e1',
+                  fontSize: '11px',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Chat Input Box */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendStudyMessage();
+            }}
+            style={{
+              padding: '10px 12px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(15, 23, 42, 0.98)',
+              display: 'flex',
+              gap: '8px'
+            }}
+          >
+            <input
+              type="text"
+              value={studyInputMessage}
+              onChange={(e) => setStudyInputMessage(e.target.value)}
+              placeholder={t('studyRooms.typeMessage', 'Ask a doubt or message...')}
+              style={{
+                flex: 1,
+                background: 'rgba(255, 255, 255, 0.07)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                color: '#fff',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!studyInputMessage.trim()}
+              style={{
+                background: studyInputMessage.trim() ? '#4f46e5' : 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: studyInputMessage.trim() ? 'pointer' : 'default',
+                transition: 'background 0.2s ease'
+              }}
+            >
+              {t('studyRooms.send', 'Send')}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------
+          STUDY TOGETHER LAUNCH MODAL (Instant Host / Join)
+          ---------------------------------------------------- */}
+      {showStudyRoomModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary, #ffffff)',
+            border: '1px solid var(--border-color, #e2e8f0)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '520px',
+            overflow: 'hidden',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid var(--border-color, #e2e8f0)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.08))'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>👥</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', color: 'var(--text-primary, #0f172a)', fontWeight: 700 }}>
+                    {t('studyRooms.modalTitle', 'Virtual Study Room & Watch Party')}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary, #64748b)' }}>
+                    Watch together in real-time sync with friends
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStudyRoomModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary, #64748b)',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {/* Option 1: Instant Host */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '12px',
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1.5px solid rgba(99, 102, 241, 0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>🚀</span>
+                  <strong style={{ color: 'var(--text-primary, #0f172a)', fontSize: '14px', fontWeight: 700 }}>
+                    Host Watch Party for this Video
+                  </strong>
+                </div>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary, #334155)', lineHeight: '1.4' }}>
+                  Start a synchronized room right now for <strong>"{video?.title || 'this lesson'}"</strong>. Anyone with your room code or link can join and discuss doubts.
+                </p>
+                <button
+                  onClick={handleCreateWatchPartyNow}
+                  disabled={studyCreatingRoom}
+                  style={{
+                    marginTop: '4px',
+                    padding: '11px 16px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: studyCreatingRoom ? 'default' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)'
+                  }}
+                >
+                  <span>{studyCreatingRoom ? '⏳ Creating Party...' : '✨ Create & Enter Watch Party'}</span>
+                </button>
+              </div>
+
+              {/* Option 2: Join with Code */}
+              <div style={{
+                padding: '16px',
+                borderRadius: '12px',
+                background: 'var(--bg-tertiary, #f8fafc)',
+                border: '1.5px solid var(--border-color, #e2e8f0)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>🔑</span>
+                  <strong style={{ color: 'var(--text-primary, #0f172a)', fontSize: '14px', fontWeight: 700 }}>
+                    Join with Room Code
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={studyJoinCodeInput}
+                    onChange={(e) => setStudyJoinCodeInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. STUDY-REACT or STUDY-9821"
+                    style={{
+                      flex: 1,
+                      padding: '11px 14px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-secondary, #ffffff)',
+                      border: '1.5px solid var(--border-color, #cbd5e1)',
+                      color: 'var(--text-primary, #0f172a)',
+                      fontSize: '13px',
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={() => handleJoinWatchPartyByCode()}
+                    disabled={!studyJoinCodeInput.trim()}
+                    style={{
+                      padding: '11px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: studyJoinCodeInput.trim() ? '#10b981' : 'rgba(16, 185, 129, 0.3)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: studyJoinCodeInput.trim() ? 'pointer' : 'default',
+                      boxShadow: studyJoinCodeInput.trim() ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
+                    }}
+                  >
+                    Join
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Explore Hub */}
+              <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStudyRoomModal(false);
+                    navigate('/study-rooms');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6366f1',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  👥 Explore all public Study Rooms & Watch Parties →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

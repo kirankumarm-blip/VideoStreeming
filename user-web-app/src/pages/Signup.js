@@ -9,7 +9,7 @@ import logoImg from '../assets/logo.png';
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [genderId, setGenderId] = useState('');
@@ -237,33 +237,71 @@ const Signup = () => {
         <img src={logoImg} alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
-      {/* Floating Theme Toggle */}
-      <button 
-        onClick={toggleTheme}
-        style={{
-          position: 'absolute',
-          top: '24px',
-          right: '24px',
+      {/* Floating Controls: Language Switcher & Theme Toggle */}
+      <div style={{
+        position: 'absolute',
+        top: '24px',
+        right: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        zIndex: 100
+      }}>
+        <div style={{
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-color)',
-          borderRadius: '50%',
-          width: '40px',
-          height: '40px',
+          borderRadius: '20px',
+          padding: '2px 10px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          color: 'var(--text-primary)',
-          fontSize: '20px',
-          zIndex: 100,
+          gap: '6px',
           boxShadow: 'var(--shadow-md)',
-          transition: 'all 0.2s'
-        }}
-        title="Toggle Theme"
-        type="button"
-      >
-        {theme === 'dark' ? '☀️' : '🌙'}
-      </button>
+          height: '40px',
+          boxSizing: 'border-box'
+        }}>
+          <span style={{ fontSize: '15px' }}>🌐</span>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-primary)',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="en" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>English</option>
+            <option value="hi" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>हिन्दी</option>
+            <option value="kn" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>ಕನ್ನಡ</option>
+          </select>
+        </div>
+
+        <button 
+          onClick={toggleTheme}
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+            fontSize: '20px',
+            boxShadow: 'var(--shadow-md)',
+            transition: 'all 0.2s'
+          }}
+          title="Toggle Theme"
+          type="button"
+        >
+          {theme === 'dark' ? '☀️' : '🌙'}
+        </button>
+      </div>
 
       {/* Form Container */}
       <div className="auth-card glass-card animate-fade-in" style={{ position: 'relative', zIndex: 10, maxWidth: '640px' }}>

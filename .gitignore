@@ -48,3 +48,4 @@ videoStreaming_project.zip
 # Media Uploads & Temp Chunks
 backend-mock/public/uploads/
 backend-mock/temp_chunks/
+scratch/

@@ -5,6 +5,8 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const http = require('http');
+const { WebSocketServer, WebSocket } = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -1162,20 +1164,19 @@ app.get('/api/videos/favorites', authenticateToken, (req, res) => {
 
 app.get('/api/videos/:id', authenticateToken, (req, res) => {
   const db = readDB();
-  const video = db.videos.find(v => v.id === req.params.id);
-  if (!video) return res.status(404).json({ message: "Video not found" });
-
-  // Access control check
-  if (req.user.role === 'admin' && video.uploadedBy !== req.user.id && !(video.assignedAdmins || []).includes(req.user.id)) {
-    return res.status(403).json({ message: "Unauthorized access to this video" });
-  } else if (req.user.role === 'user') {
-    const adminId = req.user.createdBy;
-    if (adminId !== 'self' && adminId !== 'super_admin' && adminId !== 'u-superadmin') {
-      if (!(video.assignedAdmins || []).includes(adminId)) {
-        return res.status(403).json({ message: "This video is not assigned to you" });
-      }
+  const rawId = req.params.id;
+  let video = db.videos.find(v => String(v.id) === String(rawId) || v.id === `v-${rawId}`);
+  
+  if (!video) {
+    const numIdx = parseInt(rawId, 10);
+    if (!isNaN(numIdx) && numIdx > 0 && numIdx <= db.videos.length) {
+      video = db.videos[numIdx - 1];
+    } else {
+      video = db.videos.find(v => v.videoUrl && v.videoUrl.startsWith('/uploads/')) || db.videos[0];
     }
   }
+
+  if (!video) return res.status(404).json({ message: "Video not found" });
 
   res.json(video);
 });
@@ -2476,7 +2477,720 @@ app.put('/api/settings', authenticateToken, authorizeRoles('super_admin'), (req,
   res.json({ message: "Settings updated successfully", settings: db.settings });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Mock Backend server running on http://localhost:${PORT}`);
+// 9. AI Video Copilot Endpoint
+app.post('/api/ai/ask', (req, res) => {
+  const { query, timestamp, videoTitle, chapterTitle, surroundingText, language } = req.body;
+  
+  const timeFormatted = typeof timestamp === 'number' 
+    ? `${Math.floor(timestamp / 60)}:${String(Math.floor(timestamp % 60)).padStart(2, '0')}`
+    : (timestamp || 'current time');
+
+  // Intelligent Context Synthesis
+  let answer = "";
+  const lang = (language || 'en').toLowerCase();
+  const cleanQuery = (query || '').toLowerCase().trim();
+
+  if (cleanQuery.includes('summarize') || cleanQuery.includes('summary')) {
+    if (lang === 'hi') {
+      answer = `📌 **समय ${timeFormatted} का सारांश:**\n\nइस भाग में, प्रशिक्षक "${chapterTitle || videoTitle || 'पाठ'}" के मुख्य अवधारणाओं पर चर्चा कर रहे हैं।\n\n• **मुख्य बिंदु:** ${surroundingText ? surroundingText.slice(0, 180) + '...' : 'पाठ के मुख्य चरण और व्यावहारिक तकनीकें।'}\n• **अभ्यास:** इन सिद्धांतों को दोहराएं और अगले खंड पर आगे बढ़ें।`;
+    } else if (lang === 'kn') {
+      answer = `📌 **ಸಮಯ ${timeFormatted} ರ ಸಾರಾಂಶ:**\n\nಈ ವಿಭಾಗದಲ್ಲಿ, ಬೋಧಕರು "${chapterTitle || videoTitle || 'ಪಾಠ'}" ದ ಪ್ರಮುಖ ಪರಿಕಲ್ಪನೆಗಳನ್ನು ವಿವರಿಸುತ್ತಿದ್ದಾರೆ.\n\n• **ಪ್ರಮುಖ ಅಂಶಗಳು:** ${surroundingText ? surroundingText.slice(0, 180) + '...' : 'ಪಾಠದ ಪ್ರಮುಖ ಹಂತಗಳು ಮತ್ತು ಪ್ರಾಯೋಗಿಕ ತಂತ್ರಗಳು.'}\n• **ಅಭ್ಯಾಸ:** ಈ ತತ್ವಗಳನ್ನು ಪುನರಾವರ್ತಿಸಿ ಮತ್ತು ಮುಂದಿನ ಅಧ್ಯಾಯಕ್ಕೆ ಸಾಗಿ.`;
+    } else {
+      answer = `📌 **Summary at ${timeFormatted}:**\n\nIn this section of "${chapterTitle || videoTitle || 'this lesson'}", the instructor highlights the core fundamentals:\n\n• **Key Takeaway:** ${surroundingText ? surroundingText.slice(0, 200) + '...' : 'Understanding the architectural flow and applying it step-by-step.'}\n• **Action Item:** Make sure to review this timestamp if you are taking the upcoming chapter quiz!`;
+    }
+  } else if (cleanQuery.includes('analogy') || cleanQuery.includes('example')) {
+    answer = `💡 **Real-World Analogy (Timestamp ${timeFormatted}):**\n\nThink of this concept like an airport baggage routing system. Instead of checking every suitcase manually, the conveyor uses unique barcodes (indexes) to instantly route bags to the right flight without delay.\n\nHere, "${chapterTitle || videoTitle || 'the concept'}" operates on the exact same logic—organizing data flow so processing stays fast and predictable!`;
+  } else if (cleanQuery.includes('hindi') || cleanQuery.includes('हिंदी')) {
+    answer = `🌐 **हिंदी में स्पष्टीकरण (समय ${timeFormatted}):**\n\nइस समय प्रशिक्षक समझा रहे हैं:\n"${surroundingText ? surroundingText.slice(0, 220) : 'इस विषय की मुख्य प्रक्रिया और इसके व्यावहारिक उपयोग।'}"\n\nसरल शब्दों में: यह विधि जटिल कार्यों को छोटे, आसान चरणों में विभाजित करके उन्हें कुशलतापूर्वक पूरा करने में मदद करती है।`;
+  } else if (cleanQuery.includes('kannada') || cleanQuery.includes('ಕನ್ನಡ')) {
+    answer = `🌐 **ಕನ್ನಡ ವಿವರಣೆ (ಸಮಯ ${timeFormatted}):**\n\nಈ ಸಮಯದಲ್ಲಿ ಬೋಧಕರು ವಿವರಿಸುತ್ತಿದ್ದಾರೆ:\n"${surroundingText ? surroundingText.slice(0, 220) : 'ಈ ವಿಷಯದ ಪ್ರಮುಖ ಪ್ರಕ್ರಿಯೆ ಮತ್ತು ಪ್ರಾಯೋಗಿಕ ಬಳಕೆ.'}"\n\nಸರಳವಾಗಿ ಹೇಳುವುದಾದರೆ: ಈ ತಂತ್ರಜ್ಞಾನವು ಸಂಕೀರ್ಣ ಕೆಲಸಗಳನ್ನು ಸಣ್ಣ, ಸುಲಭ ಹಂತಗಳಾಗಿ ವಿಂಗಡಿಸಿ ತ್ವರಿತವಾಗಿ ಪೂರ್ಣಗೊಳಿಸಲು ನೆರವಾಗುತ್ತದೆ.`;
+  } else if (cleanQuery.includes('quiz') || cleanQuery.includes('test')) {
+    answer = `🎯 **Quick Checkpoint Question for ${timeFormatted}:**\n\n**Q:** In "${chapterTitle || videoTitle || 'this concept'}", what is the primary purpose of the technique demonstrated around this timestamp?\n\nA) To increase redundancy\nB) To optimize execution and prevent bottlenecks (Correct)\nC) To bypass validation\n\n*Review this section to prepare for the end-of-chapter assessment!*`;
+  } else {
+    answer = `🤖 **Explanation at ${timeFormatted}:**\n\n${surroundingText ? `Around this moment, the instructor explains: "*${surroundingText.slice(0, 250)}...*"` : `Here the instructor focuses on **${chapterTitle || videoTitle || 'the lesson concept'}**.`}\n\n**Core Insight:**\n1. This step establishes the essential foundation for subsequent chapters.\n2. Notice how this directly influences performance and error-free execution.\n\n*Tip: Click the timestamp button to replay this exact segment.*`;
+  }
+
+  res.json({
+    answer,
+    timestamp: timeFormatted,
+    rawTimestamp: timestamp,
+    chapter: chapterTitle || videoTitle
+  });
 });
+
+// ==========================================
+// 10. Real-Time Virtual Study Rooms & Watch Party
+// ==========================================
+
+const studyRooms = new Map();
+
+// Seed initial active study rooms for discovery
+studyRooms.set('STUDY-REACT', {
+  id: 'STUDY-REACT',
+  title: 'React Hooks & State Group Revision',
+  courseId: '1',
+  courseTitle: 'Full Stack Web Development with React & Node',
+  videoId: 'v-1',
+  thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
+  hostName: 'Rahul Verma',
+  hostId: 'u-101',
+  members: [
+    { id: 'u-101', name: 'Rahul Verma', avatar: '👨‍💻', isHost: true },
+    { id: 'u-102', name: 'Priya Sharma', avatar: '👩‍💻', isHost: false }
+  ],
+  currentTime: 120,
+  isPlaying: false,
+  messages: [
+    { id: 1, sender: 'Rahul Verma', text: 'Hey Priya, let us review the useEffect hook dependencies section!', timestamp: 60, timeStr: '10:15 AM' },
+    { id: 2, sender: 'Priya Sharma', text: 'Yes! Timestamp 02:45 is where the cleanup function is explained.', timestamp: 120, timeStr: '10:16 AM' }
+  ],
+  createdAt: Date.now()
+});
+
+studyRooms.set('STUDY-PYTHON', {
+  id: 'STUDY-PYTHON',
+  title: 'Python for Beginners - Weekend Study Circle',
+  courseId: '2',
+  courseTitle: 'Complete Python Bootcamp 2026',
+  videoId: 'v-2',
+  thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600',
+  hostName: 'Amit Patel',
+  hostId: 'u-201',
+  members: [
+    { id: 'u-201', name: 'Amit Patel', avatar: '🚀', isHost: true },
+    { id: 'u-202', name: 'Sneha Rao', avatar: '✨', isHost: false },
+    { id: 'u-203', name: 'Deepak Joshi', avatar: '🎯', isHost: false }
+  ],
+  currentTime: 45,
+  isPlaying: true,
+  messages: [
+    { id: 1, sender: 'Amit Patel', text: 'Starting the list comprehensions demo now.', timestamp: 30, timeStr: '11:00 AM' }
+  ],
+  createdAt: Date.now()
+});
+
+// REST: Get all active study rooms
+app.get('/api/study-rooms', (req, res) => {
+  const rooms = [];
+  studyRooms.forEach((room) => {
+    rooms.push({
+      id: room.id,
+      title: room.title,
+      courseId: room.courseId,
+      courseTitle: room.courseTitle,
+      videoId: room.videoId,
+      thumbnail: room.thumbnail,
+      hostName: room.hostName,
+      membersCount: room.members.length,
+      currentTime: room.currentTime,
+      isPlaying: room.isPlaying,
+      createdAt: room.createdAt
+    });
+  });
+  res.json(rooms);
+});
+
+// REST: Create a study room
+app.post('/api/study-rooms/create', (req, res) => {
+  const { title, courseId, courseTitle, videoId, thumbnail, userName, userId } = req.body;
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const roomId = `STUDY-${randomSuffix}`;
+
+  const newRoom = {
+    id: roomId,
+    title: title || `Study Room: ${courseTitle || 'Lesson'}`,
+    courseId: courseId || '1',
+    courseTitle: courseTitle || 'Course',
+    videoId: String(videoId || '1'),
+    thumbnail: thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600',
+    hostName: userName || 'Learner',
+    hostId: userId || 'u-guest',
+    members: [{ id: userId || 'u-guest', name: userName || 'Learner', isHost: true }],
+    currentTime: 0,
+    isPlaying: false,
+    messages: [
+      { id: Date.now(), sender: 'System', text: `Welcome to study room ${roomId}! Play, pause, or seek will synchronize for all members.`, timestamp: 0, timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+    ],
+    createdAt: Date.now()
+  };
+
+  studyRooms.set(roomId, newRoom);
+  res.json({ success: true, room: newRoom, roomId });
+});
+
+// REST: Get single room details
+app.get('/api/study-rooms/:roomId', (req, res) => {
+  const { roomId } = req.params;
+  const room = studyRooms.get(roomId);
+  if (!room) {
+    return res.status(404).json({ message: "Study room not found or expired" });
+  }
+  res.json(room);
+});
+
+// ==========================================
+// VIRTUAL CLASS ROOM & LIVE WEBCASTS SYSTEM
+// ==========================================
+const liveClasses = new Map();
+
+// Pre-seed realistic live webcasts
+liveClasses.set('LIVE-101', {
+  id: 'LIVE-101',
+  title: 'Masterclass: Modern Full-Stack AI & Cloud Architecture',
+  instructor: 'Dr. Alice Carter',
+  instructorRole: 'Lead Architect @ XLurn',
+  category: 'Technology',
+  status: 'live',
+  scheduledAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+  durationMinutes: 60,
+  streamUrl: '/uploads/video-1783335443739-730573726.mp4',
+  thumbnail: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800',
+  description: 'Deep dive into real-time collaborative state, WebSocket architectures, React 19 Server Actions, and deploying intelligent agent workflows.',
+  attendeesCount: 42,
+  attendees: [
+    { id: 'u-1', name: 'Surya', avatar: '👨‍💻' },
+    { id: 'u-2', name: 'Rohan Sharma', avatar: '🧑‍🎓' },
+    { id: 'u-3', name: 'Ananya Roy', avatar: '👩‍💻' }
+  ],
+  handRaises: [
+    { id: 'hr-1', studentId: 'u-2', studentName: 'Rohan Sharma', avatar: '🧑‍🎓', time: '11:15 AM' }
+  ],
+  activePoll: {
+    id: 'poll-101',
+    question: 'Which WebSocket client architecture do you prefer for real-time apps?',
+    options: [
+      { id: 'opt-1', text: 'Native WebSocket with Heartbeat', votes: 18 },
+      { id: 'opt-2', text: 'Socket.IO / Engine.IO', votes: 15 },
+      { id: 'opt-3', text: 'GraphQL Subscriptions / SSE', votes: 9 }
+    ],
+    totalVotes: 42,
+    status: 'active'
+  },
+  chatMessages: [
+    { id: 1, sender: 'Dr. Alice Carter', role: 'instructor', text: 'Welcome everyone! We are live. Feel free to ask questions in the chat or raise your hand ✋.', timestamp: Date.now() - 14 * 60 * 1000, timeStr: '11:01 AM' },
+    { id: 2, sender: 'Rohan Sharma', role: 'student', text: 'Excited for today’s session! Audio and video are crystal clear.', timestamp: Date.now() - 10 * 60 * 1000, timeStr: '11:05 AM' },
+    { id: 3, sender: 'Ananya Roy', role: 'student', text: 'Can we discuss error handling with disconnected sockets later?', timestamp: Date.now() - 5 * 60 * 1000, timeStr: '11:10 AM' }
+  ]
+});
+
+liveClasses.set('LIVE-102', {
+  id: 'LIVE-102',
+  title: 'Quantum Computing: Qubits, Superposition & Post-Quantum Crypto',
+  instructor: 'Prof. Vikram Sen',
+  instructorRole: 'Quantum Research Fellow',
+  category: 'Science',
+  status: 'upcoming',
+  scheduledAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+  durationMinutes: 90,
+  streamUrl: '/uploads/video-1783160868201-113435163.mp4',
+  thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800',
+  description: 'Explore quantum gates, Bloch spheres, entanglement, and how quantum key distribution is revolutionizing cybersecurity.',
+  attendeesCount: 28,
+  attendees: [],
+  handRaises: [],
+  activePoll: null,
+  chatMessages: []
+});
+
+liveClasses.set('LIVE-103', {
+  id: 'LIVE-103',
+  title: 'UI/UX Design Systems & Motion Physics Workshop',
+  instructor: 'Sarah Jenkins',
+  instructorRole: 'Principal UX Director',
+  category: 'Design',
+  status: 'completed',
+  scheduledAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+  durationMinutes: 75,
+  streamUrl: '/uploads/video-1783335443739-730573726.mp4',
+  thumbnail: 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800',
+  description: 'Recorded session: crafting cohesive design tokens, fluid spring physics, and accessible contrast patterns.',
+  attendeesCount: 94,
+  attendees: [],
+  handRaises: [],
+  activePoll: null,
+  chatMessages: []
+});
+
+// REST: Get all live classes
+app.get('/api/live-classes', (req, res) => {
+  const classesList = [];
+  liveClasses.forEach((cls) => {
+    classesList.push({
+      id: cls.id,
+      title: cls.title,
+      instructor: cls.instructor,
+      instructorRole: cls.instructorRole,
+      category: cls.category,
+      status: cls.status,
+      scheduledAt: cls.scheduledAt,
+      durationMinutes: cls.durationMinutes,
+      thumbnail: cls.thumbnail,
+      attendeesCount: cls.attendeesCount,
+      description: cls.description,
+      streamUrl: cls.streamUrl,
+      hasActivePoll: !!cls.activePoll,
+      handRaisesCount: cls.handRaises ? cls.handRaises.length : 0
+    });
+  });
+  res.json(classesList);
+});
+
+// REST: Get single live class details
+app.get('/api/live-classes/:id', (req, res) => {
+  const { id } = req.params;
+  const cls = liveClasses.get(id);
+  if (!cls) {
+    return res.status(404).json({ message: "Live classroom session not found" });
+  }
+  res.json(cls);
+});
+
+// REST: Create new live class
+app.post('/api/live-classes/create', (req, res) => {
+  const { title, instructor, instructorRole, category, scheduledAt, durationMinutes, description, streamUrl, thumbnail } = req.body;
+  const newId = `LIVE-${Math.floor(100 + Math.random() * 900)}`;
+  const newClass = {
+    id: newId,
+    title: title || 'New Live Webcast',
+    instructor: instructor || 'Admin Instructor',
+    instructorRole: instructorRole || 'Instructor',
+    category: category || 'Technology',
+    status: 'upcoming',
+    scheduledAt: scheduledAt || new Date().toISOString(),
+    durationMinutes: Number(durationMinutes) || 60,
+    thumbnail: thumbnail || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800',
+    description: description || 'Interactive live session with real-time Q&A and polls.',
+    streamUrl: streamUrl || '/uploads/video-1783335443739-730573726.mp4',
+    attendeesCount: 0,
+    attendees: [],
+    handRaises: [],
+    activePoll: null,
+    chatMessages: []
+  };
+
+  liveClasses.set(newId, newClass);
+  res.json({ success: true, liveClass: newClass });
+});
+
+// REST: Update class status
+app.put('/api/live-classes/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const cls = liveClasses.get(id);
+  if (!cls) return res.status(404).json({ message: "Class not found" });
+
+  cls.status = status;
+  broadcastToLiveClass(id, {
+    type: 'CLASS_STATUS_CHANGED',
+    status: cls.status,
+    classId: id
+  });
+
+  res.json({ success: true, liveClass: cls });
+});
+
+// REST: Launch a poll
+app.post('/api/live-classes/:id/poll', (req, res) => {
+  const { id } = req.params;
+  const { question, options } = req.body;
+  const cls = liveClasses.get(id);
+  if (!cls) return res.status(404).json({ message: "Class not found" });
+
+  const pollId = `poll-${Date.now()}`;
+  const formattedOptions = (options || []).map((opt, idx) => ({
+    id: `opt-${idx + 1}`,
+    text: typeof opt === 'string' ? opt : opt.text,
+    votes: 0
+  }));
+
+  cls.activePoll = {
+    id: pollId,
+    question,
+    options: formattedOptions,
+    totalVotes: 0,
+    status: 'active'
+  };
+
+  broadcastToLiveClass(id, {
+    type: 'POLL_LAUNCHED',
+    poll: cls.activePoll
+  });
+
+  res.json({ success: true, poll: cls.activePoll });
+});
+
+// REST: Vote on poll
+app.post('/api/live-classes/:id/poll/vote', (req, res) => {
+  const { id } = req.params;
+  const { optionId } = req.body;
+  const cls = liveClasses.get(id);
+  if (!cls || !cls.activePoll) return res.status(404).json({ message: "Active poll not found" });
+
+  const opt = cls.activePoll.options.find(o => o.id === optionId);
+  if (opt) {
+    opt.votes += 1;
+    cls.activePoll.totalVotes += 1;
+    broadcastToLiveClass(id, {
+      type: 'POLL_UPDATED',
+      poll: cls.activePoll
+    });
+  }
+
+  res.json({ success: true, poll: cls.activePoll });
+});
+
+// Create HTTP server and bind WebSocket server
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+// Map to track client socket -> { roomId, classId, user }
+const socketClients = new Map();
+
+function broadcastToRoom(roomId, data, excludeWs = null) {
+  const json = JSON.stringify(data);
+  for (const [clientWs, clientMeta] of socketClients.entries()) {
+    if (clientMeta.roomId === roomId && clientWs.readyState === WebSocket.OPEN && clientWs !== excludeWs) {
+      clientWs.send(json);
+    }
+  }
+}
+
+function broadcastToLiveClass(classId, data, excludeWs = null) {
+  const json = JSON.stringify(data);
+  for (const [clientWs, clientMeta] of socketClients.entries()) {
+    if (clientMeta.classId === classId && clientWs.readyState === WebSocket.OPEN && clientWs !== excludeWs) {
+      clientWs.send(json);
+    }
+  }
+}
+
+wss.on('connection', (ws) => {
+  ws.on('message', (messageRaw) => {
+    try {
+      const data = JSON.parse(messageRaw);
+      const { type, roomId, classId, user, action, time, text, optionId, poll } = data;
+      const clientInfo = socketClients.get(ws) || {};
+      const targetRoomId = roomId || clientInfo.roomId;
+      const targetClassId = classId || clientInfo.classId;
+      const clientUser = user || clientInfo.user || {};
+      const senderName = clientUser.username || clientUser.name || 'Peer';
+      const effectiveTime = typeof time === 'number' ? time : (typeof data.currentTime === 'number' ? data.currentTime : 0);
+
+      // ==========================
+      // LIVE CLASSROOM WS HANDLERS
+      // ==========================
+      if (type === 'JOIN_LIVE_CLASS') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls) {
+          socketClients.set(ws, { ...clientInfo, classId: targetClassId, user: clientUser });
+          cls.attendeesCount = Math.max(cls.attendeesCount, (cls.attendees ? cls.attendees.length : 0) + 1);
+
+          // Add to attendees list if user info present
+          if (clientUser && clientUser.id) {
+            cls.attendees = cls.attendees || [];
+            if (!cls.attendees.some(a => String(a.id) === String(clientUser.id))) {
+              cls.attendees.push({
+                id: clientUser.id,
+                name: senderName,
+                avatar: clientUser.avatar || '🧑‍🎓',
+                role: clientUser.role || 'student'
+              });
+            }
+          }
+
+          // Send current state to newly joined member
+          ws.send(JSON.stringify({
+            type: 'LIVE_CLASS_STATE',
+            classId: cls.id,
+            liveClass: cls
+          }));
+
+          // Broadcast attendee count
+          broadcastToLiveClass(targetClassId, {
+            type: 'ATTENDEE_UPDATE',
+            attendeesCount: cls.attendeesCount,
+            attendees: cls.attendees,
+            message: `${senderName} joined the live webcast.`
+          });
+        }
+      }
+
+      else if (type === 'LIVE_CHAT_MESSAGE') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls) {
+          const chatMsg = {
+            id: Date.now(),
+            sender: senderName,
+            role: clientUser.role || 'student',
+            avatar: clientUser.avatar || '',
+            text: text || data.message || '',
+            timestamp: Date.now(),
+            timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+          cls.chatMessages = cls.chatMessages || [];
+          cls.chatMessages.push(chatMsg);
+          broadcastToLiveClass(targetClassId, {
+            type: 'LIVE_CHAT_MESSAGE',
+            message: chatMsg
+          });
+        }
+      }
+
+      else if (type === 'RAISE_HAND') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls) {
+          cls.handRaises = cls.handRaises || [];
+          const existing = cls.handRaises.find(h => String(h.studentId) === String(clientUser.id));
+          if (!existing) {
+            const handItem = {
+              id: `hr-${Date.now()}`,
+              studentId: clientUser.id || `u-${Date.now()}`,
+              studentName: senderName,
+              avatar: clientUser.avatar || '✋',
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            cls.handRaises.push(handItem);
+            broadcastToLiveClass(targetClassId, {
+              type: 'HAND_QUEUE_UPDATED',
+              handRaises: cls.handRaises,
+              latest: handItem,
+              message: `${senderName} raised a hand ✋`
+            });
+          }
+        }
+      }
+
+      else if (type === 'LOWER_HAND') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls) {
+          const targetStudentId = data.studentId || clientUser.id;
+          cls.handRaises = (cls.handRaises || []).filter(h => String(h.studentId) !== String(targetStudentId));
+          broadcastToLiveClass(targetClassId, {
+            type: 'HAND_QUEUE_UPDATED',
+            handRaises: cls.handRaises
+          });
+        }
+      }
+
+      else if (type === 'LAUNCH_POLL') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls && poll) {
+          cls.activePoll = {
+            id: `poll-${Date.now()}`,
+            question: poll.question,
+            options: (poll.options || []).map((o, i) => ({
+              id: `opt-${i + 1}`,
+              text: typeof o === 'string' ? o : o.text,
+              votes: 0
+            })),
+            totalVotes: 0,
+            status: 'active'
+          };
+          broadcastToLiveClass(targetClassId, {
+            type: 'POLL_LAUNCHED',
+            poll: cls.activePoll
+          });
+        }
+      }
+
+      else if (type === 'VOTE_POLL') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls && cls.activePoll) {
+          const opt = cls.activePoll.options.find(o => o.id === optionId);
+          if (opt) {
+            opt.votes += 1;
+            cls.activePoll.totalVotes += 1;
+            broadcastToLiveClass(targetClassId, {
+              type: 'POLL_UPDATED',
+              poll: cls.activePoll
+            });
+          }
+        }
+      }
+
+      else if (type === 'CLOSE_POLL') {
+        const cls = liveClasses.get(targetClassId);
+        if (cls && cls.activePoll) {
+          cls.activePoll.status = 'closed';
+          broadcastToLiveClass(targetClassId, {
+            type: 'POLL_CLOSED',
+            poll: cls.activePoll
+          });
+        }
+      }
+
+      // ==========================
+      // LIVE WEBRTC BROADCAST SIGNALING
+      // ==========================
+      else if (type === 'REQUEST_STREAM' || type === 'WEBRTC_OFFER' || type === 'WEBRTC_ANSWER' || type === 'WEBRTC_ICE_CANDIDATE' || type === 'BROADCASTER_READY' || type === 'BROADCASTER_STOPPED') {
+        if (data.to) {
+          // Route message directly to the target socket
+          for (const [clientWs, clientMeta] of socketClients.entries()) {
+            if (clientWs.readyState === WebSocket.OPEN && clientMeta.user && String(clientMeta.user.id) === String(data.to)) {
+              clientWs.send(JSON.stringify(data));
+              break;
+            }
+          }
+        } else {
+          // Broadcast to everyone in this live classroom session (excluding sender)
+          broadcastToLiveClass(targetClassId, data, ws);
+        }
+      }
+
+      // ==========================
+      // STUDY ROOM WS HANDLERS
+      // ==========================
+      else if (type === 'JOIN_ROOM') {
+        const room = studyRooms.get(targetRoomId);
+        if (room) {
+          socketClients.set(ws, { ...clientInfo, roomId: targetRoomId, user: clientUser });
+          // Check if already in member list
+          const existingIdx = room.members.findIndex(m => String(m.id) === String(clientUser.id));
+          if (existingIdx === -1) {
+            room.members.push({ 
+              id: clientUser.id || Date.now(), 
+              name: senderName, 
+              username: senderName, 
+              isHost: room.members.length === 0 
+            });
+          }
+
+          // Send current state and chat history to the newly joined peer
+          ws.send(JSON.stringify({
+            type: 'ROOM_STATE',
+            room: {
+              id: room.id,
+              roomId: room.id,
+              title: room.title,
+              currentTime: room.currentTime,
+              isPlaying: room.isPlaying,
+              activeMembers: room.members,
+              members: room.members,
+              chatMessages: room.messages,
+              messages: room.messages
+            }
+          }));
+
+          // Notify everyone in the room
+          const joinNotification = {
+            type: 'MEMBER_JOINED',
+            user: clientUser,
+            activeMembers: room.members,
+            members: room.members,
+            message: `${senderName} joined the study room.`
+          };
+          broadcastToRoom(targetRoomId, joinNotification);
+        } else {
+          ws.send(JSON.stringify({ type: 'ERROR', message: 'Room not found' }));
+        }
+      }
+
+      else if (type === 'SYNC_PLAY') {
+        const room = studyRooms.get(targetRoomId);
+        if (room) {
+          room.isPlaying = true;
+          room.currentTime = effectiveTime;
+          broadcastToRoom(targetRoomId, {
+            type: 'SYNC_PLAY',
+            time: room.currentTime,
+            currentTime: room.currentTime,
+            senderName,
+            user: clientUser
+          }, ws); // exclude sender
+        }
+      }
+
+      else if (type === 'SYNC_PAUSE') {
+        const room = studyRooms.get(targetRoomId);
+        if (room) {
+          room.isPlaying = false;
+          room.currentTime = effectiveTime;
+          broadcastToRoom(targetRoomId, {
+            type: 'SYNC_PAUSE',
+            time: room.currentTime,
+            currentTime: room.currentTime,
+            senderName,
+            user: clientUser
+          }, ws); // exclude sender
+        }
+      }
+
+      else if (type === 'SYNC_SEEK') {
+        const room = studyRooms.get(targetRoomId);
+        if (room) {
+          room.currentTime = effectiveTime;
+          broadcastToRoom(targetRoomId, {
+            type: 'SYNC_SEEK',
+            time: room.currentTime,
+            currentTime: room.currentTime,
+            senderName,
+            user: clientUser
+          }, ws); // exclude sender
+        }
+      }
+
+      else if (type === 'CHAT_MESSAGE') {
+        const room = studyRooms.get(targetRoomId);
+        if (room) {
+          const chatMsg = {
+            id: Date.now(),
+            sender: senderName,
+            senderName,
+            senderId: clientUser.id,
+            text: text || data.message || '',
+            timestamp: Date.now(),
+            timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+          room.messages.push(chatMsg);
+          broadcastToRoom(targetRoomId, {
+            type: 'CHAT_MESSAGE',
+            message: chatMsg
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[WS Error]', err);
+    }
+  });
+
+  ws.on('close', () => {
+    const client = socketClients.get(ws);
+    if (client) {
+      const { roomId, classId, user } = client;
+      if (roomId) {
+        const room = studyRooms.get(roomId);
+        if (room) {
+          room.members = room.members.filter(m => String(m.id) !== String(user?.id));
+          broadcastToRoom(roomId, {
+            type: 'MEMBER_LEFT',
+            user,
+            activeMembers: room.members,
+            members: room.members,
+            message: `${user?.username || user?.name || 'A learner'} left the study room.`
+          });
+        }
+      }
+      if (classId) {
+        const cls = liveClasses.get(classId);
+        if (cls) {
+          cls.attendeesCount = Math.max(0, cls.attendeesCount - 1);
+          if (user && user.id && cls.attendees) {
+            cls.attendees = cls.attendees.filter(a => String(a.id) !== String(user.id));
+          }
+          broadcastToLiveClass(classId, {
+            type: 'ATTENDEE_UPDATE',
+            attendeesCount: cls.attendeesCount,
+            attendees: cls.attendees
+          });
+        }
+      }
+      socketClients.delete(ws);
+    }
+  });
+});
+
+// Start Server with WebSockets
+server.listen(PORT, () => {
+  console.log(`Mock Backend server & WebSockets running on http://localhost:${PORT}`);
+});
+

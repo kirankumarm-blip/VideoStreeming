@@ -2099,28 +2099,28 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
               {(() => {
-                if (activeTab === 'author_admin') return 'Author Management';
-                if (activeTab === 'video_edit') return 'Edit Video';
-                if (activeTab === 'video_upload') return 'Upload Video';
-                if (activeTab === 'course_upload') return 'Upload Course';
-                if (activeTab === 'content_videos') return 'All Videos';
-                if (activeTab === 'course_all') return 'All Courses';
-                if (activeTab === 'course_draft') return 'Course Draft';
-                if (activeTab === 'admins_all') return 'All Admins';
-                if (activeTab === 'users_all') return 'All Users';
-                if (activeTab === 'categories') return 'Categories';
-                if (activeTab === 'sub_categories') return 'Sub Category';
-                if (activeTab === 'client_management') return 'Client Management';
-                if (activeTab === 'rep_export' || activeTab.startsWith('rep_')) return 'Reports';
-                return activeTab.replace(/_/g, ' ');
+                if (activeTab === 'author_admin') return t('admin.menu.author_admin', 'Author Management');
+                if (activeTab === 'video_edit') return t('admin.menu.video_edit', 'Edit Video');
+                if (activeTab === 'video_upload') return t('admin.menu.video_upload', 'Upload Video');
+                if (activeTab === 'course_upload') return t('admin.menu.course_upload', 'Upload Course');
+                if (activeTab === 'content_videos') return t('admin.menu.content_videos', 'All Videos');
+                if (activeTab === 'course_all') return t('admin.menu.course_all', 'All Courses');
+                if (activeTab === 'course_draft') return t('admin.menu.course_draft', 'Course Draft');
+                if (activeTab === 'admins_all') return t('admin.menu.admins_all', 'All Admins');
+                if (activeTab === 'users_all') return t('admin.menu.users_all', 'All Users');
+                if (activeTab === 'categories') return t('admin.menu.categories', 'Categories');
+                if (activeTab === 'sub_categories') return t('admin.menu.sub_categories', 'Sub Category');
+                if (activeTab === 'client_management') return t('admin.menu.client_management', 'Client Management');
+                if (activeTab === 'rep_export' || activeTab.startsWith('rep_')) return t('admin.menu.reports', 'Reports');
+                return t('admin.menu.' + activeTab, activeTab.replace(/_/g, ' '));
               })()}
             </h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Super Admin Command & Control Hub</p>
+            <p style={{ color: 'var(--text-secondary)' }}>{t('admin.superAdminHub', 'Super Admin Command & Control Hub')}</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
             {!['video_upload', 'video_edit', 'content_upload', 'course_upload', 'categories', 'categories_all', 'sub_categories', 'client_management'].includes(activeTab) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Client:</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('admin.clientLabel', 'Client:')}</span>
                 <PremiumSelect
                   options={dropdownClients.map(client => ({
                     id: String(client.id ?? client.client_id ?? '0'),

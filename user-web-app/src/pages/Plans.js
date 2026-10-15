@@ -198,11 +198,11 @@ const Plans = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <span style={{ fontSize: '26px' }}>👑</span>
             <h1 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-              Upgrade Your Plan
+              {t('plans.title', 'Upgrade Your Plan')}
             </h1>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
-            Choose a plan that fits your entertainment and learning needs.
+            {t('plans.subtitle', 'Choose a plan that fits your entertainment and learning needs.')}
           </p>
         </div>
 
@@ -231,7 +231,7 @@ const Plans = () => {
               transition: 'all 0.2s ease'
             }}
           >
-            Monthly
+            {t('plans.monthly', 'Monthly')}
           </button>
 
           <button
@@ -252,7 +252,7 @@ const Plans = () => {
               transition: 'all 0.2s ease'
             }}
           >
-            <span>Yearly</span>
+            <span>{t('plans.yearly', 'Yearly')}</span>
             <span style={{
               fontSize: '10px',
               fontWeight: 800,
@@ -262,7 +262,7 @@ const Plans = () => {
               color: '#ffffff',
               letterSpacing: '0.3px'
             }}>
-              20% OFF
+              {t('plans.discount', '20% OFF')}
             </span>
           </button>
         </div>
@@ -301,7 +301,7 @@ const Plans = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {plan.icon && <span style={{ fontSize: '18px' }}>{plan.icon}</span>}
                   <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                    {plan.name}
+                    {t(`plans.${plan.id}`, plan.name)}
                   </h3>
                 </div>
 
@@ -316,14 +316,14 @@ const Plans = () => {
                     letterSpacing: '0.5px',
                     textTransform: 'uppercase'
                   }}>
-                    POPULAR
+                    {t('plans.popular', 'POPULAR')}
                   </span>
                 )}
               </div>
 
               {/* Subtitle */}
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px 0', minHeight: '38px', lineHeight: '1.4' }}>
-                {plan.subtitle}
+                {t(`plans.${plan.id}Sub`, plan.subtitle)}
               </p>
 
               {/* Price Row */}
@@ -332,7 +332,7 @@ const Plans = () => {
                   ₹{displayPrice}
                 </span>
                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  {cycleLabel}
+                  {billingCycle === 'yearly' ? `/${t('plans.yearly', 'year').toLowerCase()}` : `/${t('plans.monthly', 'month').toLowerCase()}`}
                 </span>
               </div>
 
@@ -364,7 +364,7 @@ const Plans = () => {
                 onMouseEnter={e => !plan.isCurrent && (e.currentTarget.style.transform = 'scale(1.02)')}
                 onMouseLeave={e => !plan.isCurrent && (e.currentTarget.style.transform = 'scale(1)')}
               >
-                {plan.isCurrent ? 'Current Plan' : 'Upgrade'}
+                {plan.isCurrent ? t('plans.currentPlan', 'Current Plan') : t('plans.upgrade', 'Upgrade')}
               </button>
 
               {/* Divider */}
@@ -421,10 +421,10 @@ const Plans = () => {
 
           <div>
             <h4 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 4px 0', color: '#ffffff' }}>
-              Special Offer!
+              {t('plans.specialOffer', 'Special Offer!')}
             </h4>
             <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.75)', margin: 0, lineHeight: '1.4' }}>
-              Upgrade to Premium yearly plan and get 20% OFF! Limited time offer. Cancel anytime.
+              {t('plans.specialOfferSub', 'Upgrade to Premium yearly plan and get 20% OFF! Limited time offer. Cancel anytime.')}
             </p>
           </div>
         </div>
@@ -450,7 +450,7 @@ const Plans = () => {
           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
         >
-          Upgrade Now
+          {t('plans.upgradeNow', 'Upgrade Now')}
         </button>
       </div>
 
@@ -458,10 +458,10 @@ const Plans = () => {
       <div style={{ marginTop: '32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
-            Frequently Asked Questions
+            {t('plans.faqs', 'Frequently Asked Questions')}
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
-            Got questions about our plans and billing? We've got answers.
+            {t('plans.faqsSub', "Got questions about our plans and billing? We've got answers.")}
           </p>
         </div>
 
@@ -568,7 +568,7 @@ const Plans = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '20px' }}>{selectedPlanModal.icon || '👑'}</span>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
-                  Confirm Upgrade to {selectedPlanModal.name}
+                  {t('plans.modalTitle', 'Confirm Upgrade to')} {t(`plans.${selectedPlanModal.id}`, selectedPlanModal.name)}
                 </h3>
               </div>
               <button
@@ -593,10 +593,10 @@ const Plans = () => {
               }}>
                 <div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
-                    Billing Summary
+                    {t('plans.billingSummary', 'Billing Summary')}
                   </div>
                   <div style={{ fontSize: '16px', fontWeight: 800, marginTop: '2px' }}>
-                    {selectedPlanModal.name} Plan ({billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})
+                    {t(`plans.${selectedPlanModal.id}`, selectedPlanModal.name)} ({billingCycle === 'yearly' ? t('plans.yearly', 'Yearly') : t('plans.monthly', 'Monthly')})
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -604,13 +604,13 @@ const Plans = () => {
                     ₹{billingCycle === 'yearly' ? selectedPlanModal.priceYearly : selectedPlanModal.priceMonthly}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {billingCycle === 'yearly' ? 'Billed annually' : 'Billed monthly'}
+                    {billingCycle === 'yearly' ? t('plans.billedAnnually', 'Billed annually') : t('plans.billedMonthly', 'Billed monthly')}
                   </div>
                 </div>
               </div>
 
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '0 0 24px 0' }}>
-                You will get immediate access to all {selectedPlanModal.name} features, 4K HD streaming, and full downloads. Cancel anytime.
+                {t('plans.accessGuarantee', 'You will get immediate access to all features, 4K HD streaming, and full downloads. Cancel anytime.')}
               </p>
 
               {/* Action Buttons */}
@@ -629,7 +629,7 @@ const Plans = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  Cancel
+                  {t('plans.cancel', 'Cancel')}
                 </button>
 
                 <button
@@ -648,7 +648,7 @@ const Plans = () => {
                     boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
                   }}
                 >
-                  {isProcessing ? 'Activating...' : 'Confirm & Activate'}
+                  {isProcessing ? t('plans.activating', 'Activating...') : t('plans.confirmActivate', 'Confirm & Activate')}
                 </button>
               </div>
             </div>

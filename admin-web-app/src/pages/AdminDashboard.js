@@ -9,6 +9,7 @@ import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
+import LiveWebcasts from './LiveWebcasts';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -5433,6 +5434,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       )
     },
     {
+      title: 'Virtual Classroom',
+      iconClass: 'fa-solid fa-tower-broadcast',
+      iconColor: '#ef4444',
+      items: []
+    },
+    {
       title: 'Analytics',
       iconClass: 'fa-solid fa-chart-line',
       iconColor: '#10b981',
@@ -5507,17 +5514,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   });
 
   const getActiveTabLabel = () => {
-    if (editingVideo) return 'Edit Video';
-    if (editingCourse) return 'Edit Course';
+    if (editingVideo) return t('admin.menu.video_edit', 'Edit Video');
+    if (editingCourse) return t('admin.menu.course_edit', 'Edit Course');
     for (const section of visibleMenuStructure) {
-      if ((section.title === 'Author Management' || section.title === 'Author Admin') && activeTab === 'author_admin') return 'Author Management';
+      if ((section.title === 'Author Management' || section.title === 'Author Admin') && activeTab === 'author_admin') return t('admin.menu.author_admin', 'Author Management');
       const item = section.items.find(i => i.id === activeTab);
-      if (item) return item.label;
+      if (item) return t('admin.menu.' + item.id, item.label);
     }
-    if (activeTab === 'author_admin') return 'Author Management';
-    if (activeTab === 'users_all') return 'Users';
-    if (activeTab === 'rep_export') return 'Reports';
-    return activeTab.replace(/_/g, ' ');
+    if (activeTab === 'author_admin') return t('admin.menu.author_admin', 'Author Management');
+    if (activeTab === 'users_all') return t('admin.menu.users_all', 'Users');
+    if (activeTab === 'rep_export') return t('admin.menu.reports', 'Reports');
+    return t('admin.menu.' + activeTab, activeTab.replace(/_/g, ' '));
   };
 
   return (
@@ -5599,9 +5606,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           const isDashboard = section.title === 'Dashboard';
           const isAuthorAdmin = section.title === 'Author Management' || section.title === 'Author Admin';
           const isReports = section.title === 'Reports';
+          const isVirtualClassroom = section.title === 'Virtual Classroom';
           const isSelected = (isDashboard && activeTab === 'overview') || 
                              (isAuthorAdmin && activeTab === 'author_admin') || 
-                             (isReports && activeTab === 'rep_export');
+                             (isReports && activeTab === 'rep_export') ||
+                             (isVirtualClassroom && activeTab === 'live_webcasts');
           return (
             <div key={section.title} style={{ marginBottom: '6px', marginTop: '0px' }}>
               <button 
@@ -5622,6 +5631,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     }
                   } else if (isReports) {
                     setActiveTab('rep_export');
+                    setError('');
+                    setUploadSuccess('');
+                    if (isSidebarOpen && toggleSidebar) {
+                      toggleSidebar();
+                    }
+                  } else if (isVirtualClassroom) {
+                    setActiveTab('live_webcasts');
                     setError('');
                     setUploadSuccess('');
                     if (isSidebarOpen && toggleSidebar) {
@@ -5732,18 +5748,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <h1 style={{ fontSize: '28px', fontWeight: 800 }}>
                 {getActiveTabLabel()}
               </h1>
-              <p style={{ color: 'var(--text-secondary)' }}>Welcome to the Admin Command Control center.</p>
+              <p style={{ color: 'var(--text-secondary)' }}>{t('admin.welcomeHub', 'Welcome to the Admin Command Control center.')}</p>
             </div>
             {activeTab === 'rep_export' && (
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <button onClick={() => handleExport('csv')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                  Export CSV
+                  {t('admin.exportCsv', 'Export CSV')}
                 </button>
                 <button onClick={() => handleExport('excel')} className="btn btn-secondary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                  Export Excel
+                  {t('admin.exportExcel', 'Export Excel')}
                 </button>
                 <button onClick={() => handleExport('pdf')} className="btn btn-primary" style={{ fontSize: '13px', padding: '8px 16px' }}>
-                  Export PDF
+                  {t('admin.exportPdf', 'Export PDF')}
                 </button>
               </div>
             )}
@@ -5760,6 +5776,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           <ThreeDLoader text="Loading telemetry data..." />
         ) : (
           <>
+            {/* VIRTUAL CLASSROOM & LIVE WEBCASTS STUDIO */}
+            {activeTab === 'live_webcasts' && (
+              <div className="animate-fade-in" style={{ width: '100%' }}>
+                <LiveWebcasts theme={theme} />
+              </div>
+            )}
+
             {/* OVERVIEW CONTENT VIEW */}
             {activeTab === 'overview' && (
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>

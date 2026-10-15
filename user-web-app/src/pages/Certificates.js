@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 
 const Certificates = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [certificates] = useState([
     {
       id: 1,
@@ -25,7 +27,22 @@ const Certificates = () => {
   ]);
 
   const handleDownloadCertificate = (cert) => {
-    alert(`Downloading certificate for "${cert.title}" (Credential ID: ${cert.credentialId})`);
+    alert(`${t('cert.downloading', 'Downloading certificate for')} "${cert.title}" (${t('cert.credentialId', 'Credential ID')}: ${cert.credentialId})`);
+  };
+
+  const handleAddToLinkedIn = (cert) => {
+    const orgName = 'XLurn Learning Academy';
+    const certName = cert.title;
+    const certId = cert.credentialId;
+    const certUrl = window.location.origin;
+
+    const date = new Date(cert.issueDate || Date.now());
+    const year = isNaN(date.getFullYear()) ? new Date().getFullYear() : date.getFullYear();
+    const month = isNaN(date.getMonth()) ? new Date().getMonth() + 1 : date.getMonth() + 1;
+
+    const linkedInUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(certName)}&organizationName=${encodeURIComponent(orgName)}&issueYear=${year}&issueMonth=${month}&certId=${encodeURIComponent(certId)}&certUrl=${encodeURIComponent(certUrl)}`;
+    
+    window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -39,10 +56,10 @@ const Certificates = () => {
       {/* Header Banner */}
       <div style={{ marginBottom: '28px' }}>
         <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span>📜</span> Earned Certificates & Credentials
+          <span>📜</span> {t('cert.title', 'Earned Certificates & Credentials')}
         </h1>
         <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
-          View and download your official course completion certificates and skill verification badges.
+          {t('cert.subtitle', 'View and download your official course completion certificates and skill verification badges.')}
         </p>
       </div>
 
@@ -91,53 +108,100 @@ const Certificates = () => {
                   color: '#6366f1',
                   border: '1px solid rgba(99, 102, 241, 0.3)'
                 }}>
-                  Verified Score: {cert.score}
+                  {t('cert.verifiedScore', 'Verified Score')}: {cert.score}
                 </span>
               </div>
 
               <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700 }}>
                 {cert.title}
               </h3>
-              <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Issued by {cert.issuer} • {cert.issueDate}
+              <p style={{ margin: '0 0 14px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {t('cert.issuedBy', 'Issued by')} {cert.issuer} • {cert.issueDate}
               </p>
 
-              <div style={{
-                fontSize: '11px',
-                fontFamily: 'monospace',
-                backgroundColor: 'var(--bg-primary)',
-                padding: '6px 10px',
-                borderRadius: '6px',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-color)',
-                display: 'inline-block'
-              }}>
-                Credential ID: {cert.credentialId}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                <div style={{
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  backgroundColor: 'var(--bg-primary)',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  display: 'inline-block'
+                }}>
+                  {t('cert.credentialId', 'Credential ID')}: {cert.credentialId}
+                </div>
+
+                <span style={{
+                  fontSize: '11px',
+                  color: '#10b981',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  ✓ {t('cert.tamperProof', 'Cryptographically Verified')}
+                </span>
               </div>
             </div>
 
-            <button
-              onClick={() => handleDownloadCertificate(cert)}
-              style={{
-                width: '100%',
-                padding: '10px 16px',
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
-                transition: 'all 0.2s'
-              }}
-            >
-              📥 Download Certificate (PDF)
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                onClick={() => handleDownloadCertificate(cert)}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                📥 {t('cert.downloadPdf', 'Download Certificate (PDF)')}
+              </button>
+
+              <button
+                onClick={() => handleAddToLinkedIn(cert)}
+                style={{
+                  width: '100%',
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(10, 102, 194, 0.1)',
+                  color: '#0a66c2',
+                  border: '1px solid rgba(10, 102, 194, 0.35)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#0a66c2';
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'rgba(10, 102, 194, 0.1)';
+                  e.currentTarget.style.color = '#0a66c2';
+                }}
+                title="Add this verified credential to your LinkedIn profile"
+              >
+                <i className="fa-brands fa-linkedin" style={{ fontSize: '15px' }} />
+                <span>{t('cert.addToLinkedIn', 'Add to LinkedIn Profile')}</span>
+              </button>
+            </div>
           </div>
         ))}
       </div>

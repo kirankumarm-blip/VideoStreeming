@@ -223,7 +223,7 @@
       "description": "An introductory guide to quantum physics, exploring wave-particle duality, superposition, and quantum entanglement.",
       "category": "Science",
       "thumbnail": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800",
-      "videoUrl": "/videos/sample1.mp4",
+      "videoUrl": "/uploads/video-1783160868201-113435163.mp4",
       "tags": [
         "quantum",
         "physics",
@@ -246,7 +246,7 @@
       "description": "Learn the basics of React, including components, props, state, hooks, and virtual DOM concepts.",
       "category": "Technology",
       "thumbnail": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800",
-      "videoUrl": "/videos/sample2.mp4",
+      "videoUrl": "/uploads/video-1783335443739-730573726.mp4",
       "tags": [
         "react",
         "javascript",
@@ -269,7 +269,7 @@
       "description": "A comprehensive guide on how compound interest works, the rule of 72, and personal finance strategies.",
       "category": "Finance",
       "thumbnail": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800",
-      "videoUrl": "/videos/sample1.mp4",
+      "videoUrl": "/uploads/video-1783335988093-238108433.mp4",
       "tags": [
         "finance",
         "money",

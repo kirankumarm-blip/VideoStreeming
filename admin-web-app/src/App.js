@@ -5,6 +5,7 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
+import LiveWebcasts from './pages/LiveWebcasts';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -177,6 +178,13 @@ const AppLayout = ({ theme, setTheme }) => {
           <Route path="/super-admin" element={
             <RoleRoute allowedRoles={['super_admin']}>
               <SuperAdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
+            </RoleRoute>
+          } />
+
+          {/* Live Webcast Studio Path */}
+          <Route path="/live-webcasts" element={
+            <RoleRoute allowedRoles={['admin', 'super_admin', 'author_admin']}>
+              <LiveWebcasts theme={theme} />
             </RoleRoute>
           } />
 
