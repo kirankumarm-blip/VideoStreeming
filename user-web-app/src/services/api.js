@@ -26,13 +26,23 @@ export const clearTokens = () => {
 
 export const getCurrentUser = () => {
   try {
-    return JSON.parse(localStorage.getItem('user'));
+    const learnerUser = JSON.parse(localStorage.getItem('learner_user'));
+    if (learnerUser) return learnerUser;
+    const u = JSON.parse(localStorage.getItem('user'));
+    if (!u) return null;
+    const role = String(u.role || u.role_id || '').toLowerCase();
+    // If the active user in localStorage is an admin, it's not a learner session
+    if (role === 'admin' || role === 'super_admin' || role === 'author_admin' || role === 'author admin' || role === '4' || role === '1') {
+      return null;
+    }
+    return u;
   } catch (e) {
     return null;
   }
 };
 
 export const setCurrentUser = (user) => {
+  localStorage.setItem('learner_user', JSON.stringify(user));
   localStorage.setItem('user', JSON.stringify(user));
 };
 

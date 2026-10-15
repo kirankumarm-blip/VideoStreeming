@@ -4,21 +4,26 @@ const getBaseUrl = () => {
 
 // Helper to get tokens
 export const getAccessToken = () => {
-  let t = localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
+  let t = localStorage.getItem('admin_accessToken') || localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
   if (!t) {
     try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      const u = JSON.parse(localStorage.getItem('admin_user') || localStorage.getItem('user') || '{}');
       t = u.token || u.accessToken || u.jwt;
     } catch (e) {}
   }
   return t || null;
 };
-export const getRefreshToken = () => localStorage.getItem('refreshToken');
+export const getRefreshToken = () => localStorage.getItem('admin_refreshToken') || localStorage.getItem('refreshToken');
 export const setTokens = (accessToken, refreshToken) => {
+  localStorage.setItem('admin_accessToken', accessToken);
+  localStorage.setItem('admin_refreshToken', refreshToken);
   localStorage.setItem('accessToken', accessToken);
   localStorage.setItem('refreshToken', refreshToken);
 };
 export const clearTokens = () => {
+  localStorage.removeItem('admin_accessToken');
+  localStorage.removeItem('admin_refreshToken');
+  localStorage.removeItem('admin_user');
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
@@ -26,13 +31,23 @@ export const clearTokens = () => {
 
 export const getCurrentUser = () => {
   try {
-    return JSON.parse(localStorage.getItem('user'));
+    const adminUser = JSON.parse(localStorage.getItem('admin_user'));
+    if (adminUser) return adminUser;
+    const u = JSON.parse(localStorage.getItem('user'));
+    if (!u) return null;
+    const role = String(u.role || u.role_id || '').toLowerCase();
+    // If the session in localStorage is a student/learner, it doesn't apply to admin portal
+    if (role === 'user' || role === 'student' || role === 'end_user') {
+      return null;
+    }
+    return u;
   } catch (e) {
     return null;
   }
 };
 
 export const setCurrentUser = (user) => {
+  localStorage.setItem('admin_user', JSON.stringify(user));
   localStorage.setItem('user', JSON.stringify(user));
 };
 

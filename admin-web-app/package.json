@@ -2,7 +2,7 @@
   "name": "admin-web-app",
   "version": "0.1.0",
   "private": true,
-  "homepage": ".",
+  "homepage": "/VideoStreeming/admin",
   "dependencies": {
     "@capacitor/android": "^4.8.2",
     "@capacitor/cli": "^4.8.2",

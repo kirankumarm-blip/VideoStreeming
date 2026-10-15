@@ -9,6 +9,79 @@ import LiveWebcasts from './pages/LiveWebcasts';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 
+// Error boundary to prevent white screens if any subcomponent errors
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0a0a0c',
+          color: '#ffffff',
+          fontFamily: 'sans-serif',
+          padding: '24px',
+          textAlign: 'center'
+        }}>
+          <h2 style={{ fontSize: '24px', marginBottom: '12px', color: '#e50914' }}>
+            Something went wrong
+          </h2>
+          <p style={{ color: '#a0a0ab', marginBottom: '24px', maxWidth: '500px' }}>
+            An unexpected error occurred while loading this view. You can reload or reset your session.
+          </p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                background: '#e50914',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              Reload Page
+            </button>
+            <button
+              onClick={() => {
+                localStorage.clear();
+                window.location.href = window.location.origin + window.location.pathname + '#/login';
+                window.location.reload();
+              }}
+              style={{
+                background: '#1b1b22',
+                color: '#a0a0ab',
+                border: '1px solid #333',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Clear Session & Login
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Route protection for authenticated users
 const ProtectedRoute = ({ children }) => {
   const user = getCurrentUser();
@@ -26,10 +99,6 @@ const RoleRoute = ({ children, allowedRoles }) => {
   }
   const userRole = String(user.role || user.role_id || '').toLowerCase();
   if (userRole === 'user' || userRole === 'student' || userRole === 'end_user') {
-    alert('Access Denied: End users cannot log into the Admin Portal.');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
     return <Navigate to="/login" replace />;
   }
   const isAllowed = allowedRoles.some(r => {
@@ -42,10 +111,6 @@ const RoleRoute = ({ children, allowedRoles }) => {
     return r === userRole;
   });
   if (!isAllowed) {
-    alert('Access Denied: Insufficient permissions for this portal.');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -220,11 +285,13 @@ function App() {
   }, [theme]);
 
   return (
-    <LanguageProvider>
-      <Router>
-        <AppLayout theme={theme} setTheme={setTheme} />
-      </Router>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <Router>
+          <AppLayout theme={theme} setTheme={setTheme} />
+        </Router>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 
