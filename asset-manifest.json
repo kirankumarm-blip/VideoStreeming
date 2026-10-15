@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "./static/css/main.c7fa3775.css",
-    "main.js": "./static/js/main.831c2e86.js",
-    "static/js/453.214be96b.chunk.js": "./static/js/453.214be96b.chunk.js",
-    "static/media/logo.png": "./static/media/logo.fcb7ce57028a12cb7ad6.png",
-    "index.html": "./index.html",
-    "main.c7fa3775.css.map": "./static/css/main.c7fa3775.css.map",
-    "main.831c2e86.js.map": "./static/js/main.831c2e86.js.map",
-    "453.214be96b.chunk.js.map": "./static/js/453.214be96b.chunk.js.map"
+    "main.css": "/VideoStreeming/static/css/main.c7fa3775.css",
+    "main.js": "/VideoStreeming/static/js/main.734a2317.js",
+    "static/js/453.214be96b.chunk.js": "/VideoStreeming/static/js/453.214be96b.chunk.js",
+    "static/media/logo.png": "/VideoStreeming/static/media/logo.fcb7ce57028a12cb7ad6.png",
+    "index.html": "/VideoStreeming/index.html",
+    "main.c7fa3775.css.map": "/VideoStreeming/static/css/main.c7fa3775.css.map",
+    "main.734a2317.js.map": "/VideoStreeming/static/js/main.734a2317.js.map",
+    "453.214be96b.chunk.js.map": "/VideoStreeming/static/js/453.214be96b.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.c7fa3775.css",
-    "static/js/main.831c2e86.js"
+    "static/js/main.734a2317.js"
   ]
 }

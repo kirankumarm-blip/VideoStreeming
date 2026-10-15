@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "./static/css/main.08c1f9b3.css",
-    "main.js": "./static/js/main.5544e3ce.js",
-    "static/js/453.3e98c867.chunk.js": "./static/js/453.3e98c867.chunk.js",
-    "static/media/logo.png": "./static/media/logo.fcb7ce57028a12cb7ad6.png",
-    "index.html": "./index.html",
-    "main.08c1f9b3.css.map": "./static/css/main.08c1f9b3.css.map",
-    "main.5544e3ce.js.map": "./static/js/main.5544e3ce.js.map",
-    "453.3e98c867.chunk.js.map": "./static/js/453.3e98c867.chunk.js.map"
+    "main.css": "/VideoStreeming/admin/static/css/main.08c1f9b3.css",
+    "main.js": "/VideoStreeming/admin/static/js/main.327e95df.js",
+    "static/js/453.3e98c867.chunk.js": "/VideoStreeming/admin/static/js/453.3e98c867.chunk.js",
+    "static/media/logo.png": "/VideoStreeming/admin/static/media/logo.fcb7ce57028a12cb7ad6.png",
+    "index.html": "/VideoStreeming/admin/index.html",
+    "main.08c1f9b3.css.map": "/VideoStreeming/admin/static/css/main.08c1f9b3.css.map",
+    "main.327e95df.js.map": "/VideoStreeming/admin/static/js/main.327e95df.js.map",
+    "453.3e98c867.chunk.js.map": "/VideoStreeming/admin/static/js/453.3e98c867.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.08c1f9b3.css",
-    "static/js/main.5544e3ce.js"
+    "static/js/main.327e95df.js"
   ]
 }
