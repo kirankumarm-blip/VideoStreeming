@@ -114,28 +114,100 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
       body.classList.add('dark-theme');
     }
 
-    // 2. Palette CSS Variables
-    root.style.setProperty('--accent-primary', settings.palette?.primary || settings.colorTheme);
-    root.style.setProperty('--accent-secondary', settings.palette?.secondary || '#8b5cf6');
-    root.style.setProperty('--box-accent', settings.boxAccent || '#3b49df');
-    root.style.setProperty('--color-success', settings.palette?.success || '#16a34a');
-    root.style.setProperty('--color-warning', settings.palette?.warning || '#d97706');
-    root.style.setProperty('--color-error', settings.palette?.error || '#dc2626');
+    const primaryColor = settings.palette?.primary || settings.colorTheme || '#2563eb';
+    const secondaryColor = settings.palette?.secondary || '#8b5cf6';
+    const boxAccent = settings.boxAccent || '#3b49df';
+    const successColor = settings.palette?.success || '#16a34a';
+    const warningColor = settings.palette?.warning || '#d97706';
+    const errorColor = settings.palette?.error || '#dc2626';
 
-    // Accent glows and highlights
-    root.style.setProperty('--accent-glow', `${settings.palette?.primary || settings.colorTheme}40`);
-    root.style.setProperty('--menu-active-color', settings.palette?.primary || settings.colorTheme);
-
-    // 3. Typography: Font Family
     const selectedFont = FONT_FAMILIES.find(f => f.id === settings.fontFamily) || FONT_FAMILIES[0];
-    root.style.setProperty('--font-family-base', selectedFont.css);
-    body.style.fontFamily = selectedFont.css;
-
-    // 4. Typography: Font Size
     const selectedSize = FONT_SIZES.find(s => s.id === settings.fontSize) || FONT_SIZES[1];
+
+    // 2. Palette CSS Variables directly on elements
+    root.style.setProperty('--accent-primary', primaryColor);
+    root.style.setProperty('--accent-secondary', secondaryColor);
+    root.style.setProperty('--box-accent', boxAccent);
+    root.style.setProperty('--color-success', successColor);
+    root.style.setProperty('--color-warning', warningColor);
+    root.style.setProperty('--color-error', errorColor);
+    root.style.setProperty('--accent-glow', `${primaryColor}40`);
+    root.style.setProperty('--menu-active-color', primaryColor);
+    root.style.setProperty('--font-family-base', selectedFont.css);
     root.style.setProperty('--base-font-size', selectedSize.basePx);
     root.style.setProperty('--font-scale', selectedSize.scale);
+
+    body.style.fontFamily = selectedFont.css;
     root.style.fontSize = selectedSize.basePx;
+
+    // 3. Inject / Update Dynamic High-Priority StyleSheet to guarantee immediate live updates
+    let styleTag = document.getElementById('dynamic-theme-customizer');
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = 'dynamic-theme-customizer';
+      document.head.appendChild(styleTag);
+    }
+
+    styleTag.innerHTML = `
+      :root, html, body, body.light-theme, body.dark-theme {
+        --accent-primary: ${primaryColor} !important;
+        --accent-secondary: ${secondaryColor} !important;
+        --box-accent: ${boxAccent} !important;
+        --color-success: ${successColor} !important;
+        --color-warning: ${warningColor} !important;
+        --color-error: ${errorColor} !important;
+        --menu-active-color: ${primaryColor} !important;
+        --menu-active-bg: ${primaryColor}22 !important;
+        --accent-glow: ${primaryColor}40 !important;
+        --font-family-base: ${selectedFont.css} !important;
+        --base-font-size: ${selectedSize.basePx} !important;
+      }
+
+      /* Global typography override */
+      *, html, body, div, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea, label {
+        font-family: ${selectedFont.css} !important;
+      }
+
+      html, body {
+        font-size: ${selectedSize.basePx} !important;
+      }
+
+      /* Dynamic Box Accent Tinting across cards and containers */
+      .glass-card, .dashboard-card, .video-card, .plan-card, .quiz-card, .stat-card, .cert-card {
+        border-color: ${boxAccent}50 !important;
+      }
+
+      /* Sidebar & active navigation items */
+      .nav-item.active, .sidebar-item.active, .premium-sidebar-item.active {
+        background: ${boxAccent}26 !important;
+        border-left: 3px solid ${primaryColor} !important;
+        color: ${primaryColor} !important;
+      }
+
+      .nav-item.active svg, .sidebar-item.active svg, .premium-sidebar-item.active svg {
+        color: ${primaryColor} !important;
+      }
+
+      /* Primary buttons & CTA buttons */
+      .btn-primary, button.primary-btn, .primary-button {
+        background-color: ${primaryColor} !important;
+        border-color: ${primaryColor} !important;
+        color: #ffffff !important;
+      }
+
+      /* Interactive links, tags and chips */
+      .category-chip.active, .tab.active, .active-tab {
+        background-color: ${primaryColor} !important;
+        color: #ffffff !important;
+        border-color: ${primaryColor} !important;
+      }
+
+      /* Focus outlines */
+      input:focus, select:focus, textarea:focus {
+        border-color: ${primaryColor} !important;
+        box-shadow: 0 0 0 2px ${primaryColor}30 !important;
+      }
+    `;
 
   }, [settings, setExternalTheme]);
 

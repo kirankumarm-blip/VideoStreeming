@@ -25,7 +25,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const profileRef = useRef(null);
   const recentlyViewedRef = useRef(null);
   const paletteBtnRef = useRef(null);
-  const { isPopoverOpen, setIsPopoverOpen } = useThemeCustomizer();
+  const { isPopoverOpen, setIsPopoverOpen, settings, updateSetting } = useThemeCustomizer();
 
   const isAdminUser = Boolean(
     user && (
@@ -455,6 +455,34 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           {/* Appearance Dropdown Popover */}
           <AppearancePopover anchorRef={paletteBtnRef} />
         </div>
+
+        {/* Quick Dark & Light Mode Switcher in Header */}
+        <button 
+          className="nav-theme-switcher"
+          onClick={() => {
+            const nextMode = settings?.mode === 'dark' ? 'light' : 'dark';
+            updateSetting('mode', nextMode);
+          }}
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-color)',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+            fontSize: '17px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+          title={settings?.mode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle Dark and Light Mode"
+        >
+          {settings?.mode === 'dark' ? '☀️' : '🌙'}
+        </button>
 
         {/* Notifications (Users & Authors) */}
         {user && !isAdminUser && (
