@@ -163,9 +163,18 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
         --base-font-size: ${selectedSize.basePx} !important;
       }
 
-      /* Global typography override */
-      *, html, body, div, p, span, h1, h2, h3, h4, h5, h6, a, button, input, select, textarea, label {
+      /* Global typography override - strictly exempting icon fonts */
+      html, body, p, h1, h2, h3, h4, h5, h6, a, button:not([class*="fa-"]), input, select, textarea, label {
         font-family: ${selectedFont.css} !important;
+      }
+
+      span:not([class*="fa-"]):not(.fa), div:not([class*="fa-"]):not(.fa) {
+        font-family: ${selectedFont.css};
+      }
+
+      /* Explicit protection for Font Awesome icon glyphs */
+      .fa, .fas, .far, .fal, .fad, .fab, .fa-solid, .fa-regular, .fa-brands, [class*="fa-"], [class^="fa-"], i.fa, i[class*="fa-"] {
+        font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome" !important;
       }
 
       html, body {
