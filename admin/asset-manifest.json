@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "/VideoStreeming/admin/static/css/main.08c1f9b3.css",
-    "main.js": "/VideoStreeming/admin/static/js/main.a0b2e847.js",
+    "main.css": "/VideoStreeming/admin/static/css/main.0e4bdb79.css",
+    "main.js": "/VideoStreeming/admin/static/js/main.d657fa03.js",
     "static/js/453.3e98c867.chunk.js": "/VideoStreeming/admin/static/js/453.3e98c867.chunk.js",
     "static/media/logo.png": "/VideoStreeming/admin/static/media/logo.fcb7ce57028a12cb7ad6.png",
     "index.html": "/VideoStreeming/admin/index.html",
-    "main.08c1f9b3.css.map": "/VideoStreeming/admin/static/css/main.08c1f9b3.css.map",
-    "main.a0b2e847.js.map": "/VideoStreeming/admin/static/js/main.a0b2e847.js.map",
+    "main.0e4bdb79.css.map": "/VideoStreeming/admin/static/css/main.0e4bdb79.css.map",
+    "main.d657fa03.js.map": "/VideoStreeming/admin/static/js/main.d657fa03.js.map",
     "453.3e98c867.chunk.js.map": "/VideoStreeming/admin/static/js/453.3e98c867.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.08c1f9b3.css",
-    "static/js/main.a0b2e847.js"
+    "static/css/main.0e4bdb79.css",
+    "static/js/main.d657fa03.js"
   ]
 }
