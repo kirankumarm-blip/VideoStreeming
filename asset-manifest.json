@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/VideoStreeming/static/css/main.d2ff5c24.css",
-    "main.js": "/VideoStreeming/static/js/main.9d7edb64.js",
+    "main.js": "/VideoStreeming/static/js/main.8b56a14a.js",
     "static/js/453.214be96b.chunk.js": "/VideoStreeming/static/js/453.214be96b.chunk.js",
     "static/media/logo.png": "/VideoStreeming/static/media/logo.fcb7ce57028a12cb7ad6.png",
     "index.html": "/VideoStreeming/index.html",
     "main.d2ff5c24.css.map": "/VideoStreeming/static/css/main.d2ff5c24.css.map",
-    "main.9d7edb64.js.map": "/VideoStreeming/static/js/main.9d7edb64.js.map",
+    "main.8b56a14a.js.map": "/VideoStreeming/static/js/main.8b56a14a.js.map",
     "453.214be96b.chunk.js.map": "/VideoStreeming/static/js/453.214be96b.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.d2ff5c24.css",
-    "static/js/main.9d7edb64.js"
+    "static/js/main.8b56a14a.js"
   ]
 }
