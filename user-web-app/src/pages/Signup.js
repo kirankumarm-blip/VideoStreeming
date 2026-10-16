@@ -552,6 +552,33 @@ const Signup = () => {
               {t('auth.signIn')}
             </Link>
           </div>
+
+          {/* Legal Agreement Notice */}
+          <div style={{
+            marginTop: '20px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border-color)',
+            textAlign: 'center',
+            fontSize: '12px',
+            color: 'var(--text-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <div>
+              By creating an account, you agree to XLURN's{' '}
+              <Link to="/terms" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</Link>.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '2px' }}>
+              <Link to="/faq" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Help & FAQ</Link>
+              <span>•</span>
+              <Link to="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Privacy Policy</Link>
+              <span>•</span>
+              <Link to="/terms" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Terms & Conditions</Link>
+            </div>
+          </div>
         </form>
       </div>
 

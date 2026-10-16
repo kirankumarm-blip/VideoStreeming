@@ -782,6 +782,33 @@ const Login = ({ initialAuthMode }) => {
             </div>
           </form>
         )}
+
+        {/* Legal & Help Footer Links */}
+        <div style={{
+          marginTop: '24px',
+          paddingTop: '16px',
+          borderTop: '1px solid var(--border-color)',
+          textAlign: 'center',
+          fontSize: '12px',
+          color: 'var(--text-secondary)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px'
+        }}>
+          <div>
+            By continuing, you agree to our{' '}
+            <Link to="/terms" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Terms</Link>
+            {' '}&{' '}
+            <Link to="/privacy" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Privacy Policy</Link>.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '2px' }}>
+            <Link to="/faq" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Help & FAQ</Link>
+            <span>•</span>
+            <Link to="/privacy" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Privacy Policy</Link>
+            <span>•</span>
+            <Link to="/terms" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Terms & Conditions</Link>
+          </div>
+        </div>
       </div>
 
       {/* --- CUSTOM ALERT MODAL --- */}

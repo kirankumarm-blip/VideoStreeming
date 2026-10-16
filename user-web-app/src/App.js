@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
@@ -13,6 +13,10 @@ import Plans from './pages/Plans';
 import StudyRooms from './pages/StudyRooms';
 import LiveClasses from './pages/LiveClasses';
 import LiveClassroom from './pages/LiveClassroom';
+import FAQ from './pages/FAQ';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsConditions from './pages/TermsConditions';
+import logoImg from './assets/logo.png';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider } from './context/ThemeCustomizerContext';
@@ -47,6 +51,7 @@ const AppLayout = ({ theme, setTheme }) => {
   
   // Hide global navigation on Login / Signup / Reset Password screens
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
+  const isLegalOrPublicPage = ['/faq', '/privacy', '/terms'].includes(location.pathname);
 
   // 10 minutes inactivity auto-logout listener with Cross-Tab Sync
   useEffect(() => {
@@ -121,6 +126,7 @@ const AppLayout = ({ theme, setTheme }) => {
   }, [location.pathname]);
 
   const showSidebar = !isAuthPage && user && user.role === 'user';
+  const isFullWidthPage = isAuthPage || isLegalOrPublicPage || (user && user.role === 'user');
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
@@ -131,7 +137,38 @@ const AppLayout = ({ theme, setTheme }) => {
           setTheme={setTheme} 
         />
       )}
-      <div style={{ flex: 1, display: 'flex', position: 'relative', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+      {!user && isLegalOrPublicPage && (
+        <header style={{
+          height: '60px',
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-color)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 24px',
+          boxSizing: 'border-box',
+          zIndex: 100
+        }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+            <img src={logoImg} alt="XLURN" style={{ height: '32px' }} />
+            <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>XLURN</span>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Link to="/login" style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              background: 'var(--accent-primary, #2563eb)',
+              color: '#ffffff',
+              textDecoration: 'none',
+              fontSize: '13px',
+              fontWeight: 600
+            }}>
+              Sign In
+            </Link>
+          </div>
+        </header>
+      )}
+      <div style={{ flex: 1, display: 'flex', position: 'relative', height: (user || isLegalOrPublicPage) && !isAuthPage ? 'calc(100vh - 60px)' : '100vh', overflow: 'hidden' }}>
         {showSidebar && (
           <Sidebar 
             isOpen={isSidebarOpen} 
@@ -140,7 +177,7 @@ const AppLayout = ({ theme, setTheme }) => {
         )}
         <div style={{ 
           flex: 1, 
-          padding: !isAuthPage ? (user && user.role === 'user' ? '0' : '40px') : '0',
+          padding: isFullWidthPage ? '0' : '40px',
           position: 'relative',
           minWidth: 0,
           height: '100%',
@@ -152,6 +189,11 @@ const AppLayout = ({ theme, setTheme }) => {
           <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <Login initialAuthMode="forgot" />} />
           <Route path="/reset-password" element={user ? <Navigate to="/" replace /> : <Login initialAuthMode="reset" />} />
           <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
+
+          {/* Public Legal & Info routes */}
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsConditions />} />
 
           {/* Protected routes */}
           <Route path="/profile" element={

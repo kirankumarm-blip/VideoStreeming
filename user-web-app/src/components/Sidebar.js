@@ -16,7 +16,11 @@ const Sidebar = ({ isOpen, onClose }) => {
       ? 'study_rooms'
       : (location.pathname === '/quizzes' 
         ? 'quiz' 
-        : (location.pathname === '/certificates' ? 'certificates' : (location.pathname === '/' ? (searchParams.get('view') || 'home') : ''))));
+        : (location.pathname === '/certificates' 
+          ? 'certificates' 
+          : (location.pathname === '/faq'
+            ? 'faq'
+            : (location.pathname === '/' ? (searchParams.get('view') || 'home') : '')))));
 
   const menuItems = [
     {
@@ -175,6 +179,19 @@ const Sidebar = ({ isOpen, onClose }) => {
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      )
+    },
+    {
+      id: 'faq',
+      label: t('sidebar.faq', 'Help & FAQ'),
+      subLabel: t('sidebar.subFaq', 'Guides & Answers'),
+      path: '/faq',
+      icon: () => (
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
         </svg>
       )
     }
@@ -410,6 +427,58 @@ const Sidebar = ({ isOpen, onClose }) => {
             <span>Upgrade Now</span>
             <span style={{ fontSize: '13px' }}>➔</span>
           </button>
+        </div>
+
+        {/* Sidebar Footer Legal Links */}
+        <div style={{
+          marginTop: '16px',
+          padding: '12px 6px 0',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '6px 10px',
+            fontSize: '11px',
+            color: 'var(--text-secondary)'
+          }}>
+            <button
+              type="button"
+              onClick={() => handleItemClick({ path: '/faq' })}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', fontSize: '11px', fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'inherit'}
+            >
+              FAQ
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => handleItemClick({ path: '/privacy' })}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', fontSize: '11px', fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'inherit'}
+            >
+              Privacy
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => handleItemClick({ path: '/terms' })}
+              style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', cursor: 'pointer', fontSize: '11px', fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'inherit'}
+            >
+              Terms
+            </button>
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', opacity: 0.7 }}>
+            © 2026 XLURN Stream & Learn
+          </div>
         </div>
 
         {/* Bottom Language Selector Card (Mobile Only) */}
