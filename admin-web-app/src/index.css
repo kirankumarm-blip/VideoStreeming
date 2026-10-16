@@ -1,15 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root {
+  --font-family-base: 'Roboto', sans-serif;
+  --base-font-size: 14.5px;
+  --box-accent: #3b49df;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+
   /* Default: Dark Theme (Netflix Inspired) */
   --bg-primary: #0a0a0c;
   --bg-secondary: #121217;
   --bg-tertiary: #1b1b22;
   --text-primary: #ffffff;
   --text-secondary: #a0a0ab;
-  --accent-primary: #e50914; /* Netflix Red */
+  --accent-primary: #2563eb; /* Royal Blue */
   --accent-secondary: #8b5cf6; /* Royal Violet */
-  --accent-glow: rgba(229, 9, 20, 0.4);
+  --accent-glow: rgba(37, 99, 235, 0.4);
   
   --border-color: rgba(255, 255, 255, 0.08);
   --glass-bg: rgba(18, 18, 23, 0.7);
@@ -69,16 +76,27 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-family-base, 'Roboto', sans-serif);
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  font-family: var(--font-family-base, 'Roboto', sans-serif);
   overflow-x: hidden;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Custom Scrollbars */

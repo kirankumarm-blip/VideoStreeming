@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
+import { AppearancePopover } from './AppearanceCustomizer';
 import PremiumSelect from './PremiumSelect';
 import logoImg from '../assets/logo.png';
 
@@ -22,6 +24,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const notifRef = useRef(null);
   const profileRef = useRef(null);
   const recentlyViewedRef = useRef(null);
+  const paletteBtnRef = useRef(null);
+  const { isPopoverOpen, setIsPopoverOpen } = useThemeCustomizer();
 
   const isAdminUser = Boolean(
     user && (
@@ -420,26 +424,37 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           />
         </div>
 
-        {/* Theme Switcher */}
-        <button 
-          className="nav-theme-switcher"
-          onClick={toggleTheme}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-primary)',
-            fontSize: '20px',
-            padding: '4px'
-          }}
-          title={t('nav.theme')}
-        >
-          {theme === 'dark' ? (
-            <i className="fa-solid fa-sun" style={{ color: '#f59e0b', fontSize: '18px' }}></i>
-          ) : (
-            <i className="fa-solid fa-moon" style={{ color: '#6366f1', fontSize: '18px' }}></i>
-          )}
-        </button>
+        {/* Appearance Settings Popover */}
+        <div style={{ position: 'relative' }} className="nav-appearance-wrapper">
+          <button 
+            ref={paletteBtnRef}
+            className="nav-palette-btn"
+            onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: isPopoverOpen ? 'var(--bg-secondary)' : 'var(--bg-tertiary)',
+              border: isPopoverOpen ? '2px solid var(--accent-primary, #2563eb)' : '1px solid var(--border-color)',
+              cursor: 'pointer',
+              color: 'var(--text-primary)',
+              fontSize: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+              boxShadow: isPopoverOpen ? '0 0 12px rgba(37, 99, 235, 0.25)' : 'none',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+            title={t('nav.theme', 'Appearance Settings')}
+            aria-label="Appearance Settings"
+          >
+            🎨
+          </button>
+
+          {/* Appearance Dropdown Popover */}
+          <AppearancePopover anchorRef={paletteBtnRef} />
+        </div>
 
         {/* Notifications (Users & Authors) */}
         {user && !isAdminUser && (

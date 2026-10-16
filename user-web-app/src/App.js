@@ -15,6 +15,8 @@ import LiveClasses from './pages/LiveClasses';
 import LiveClassroom from './pages/LiveClassroom';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
+import { ThemeCustomizerProvider } from './context/ThemeCustomizerContext';
+import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
 // Route protection for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -269,9 +271,13 @@ function App() {
   return (
     <ErrorBoundary>
       <LanguageProvider>
-        <Router>
-          <AppLayout theme={theme} setTheme={setTheme} />
-        </Router>
+        <ThemeCustomizerProvider externalTheme={theme} setExternalTheme={setTheme}>
+          <Router>
+            <AppLayout theme={theme} setTheme={setTheme} />
+            <ThemeCustomizerDrawer />
+            <ScreenIdChip />
+          </Router>
+        </ThemeCustomizerProvider>
       </LanguageProvider>
     </ErrorBoundary>
   );
