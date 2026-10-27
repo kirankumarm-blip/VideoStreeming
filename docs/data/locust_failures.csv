@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,Telemetry Heartbeat,CatchResponseError('Telemetry failed: 401'),442,2026-10-27T07:26:14Z,2026-10-27T07:26:32Z
