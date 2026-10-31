@@ -2091,7 +2091,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         width: 'calc(100% - 260px)',
         height: 'calc(100vh - 60px)',
         overflowY: 'auto',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        backgroundColor: 'var(--bg-primary)',
+        color: 'var(--text-primary)'
       }} className="admin-content-container">
         
         {/* Top Header Row */}

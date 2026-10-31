@@ -14,6 +14,13 @@ const PORT = process.env.PORT || 5050;
 app.use(cors());
 app.use(express.json());
 
+// Serve uploaded files statically so previews and downloads work directly
+const staticUploadsDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(staticUploadsDir)) {
+  fs.mkdirSync(staticUploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(staticUploadsDir));
+
 // MinIO Credentials configuration
 const minioEndPoint = process.env.MINIO_ENDPOINT || 'localhost';
 const minioPort = parseInt(process.env.MINIO_PORT) || 9000;
@@ -148,6 +155,22 @@ const extractAndUploadSubtitles = async (videoId, videoFilePath, fileName) => {
           });
         } catch (uploadErr) {
           console.warn(`Warning: Failed to upload ${vttObjectName} to MinIO:`, uploadErr.message);
+          try {
+            const publicSubDir = path.join(__dirname, 'public', 'uploads', 'subtitles', String(videoId));
+            if (!fs.existsSync(publicSubDir)) fs.mkdirSync(publicSubDir, { recursive: true });
+            const localSubPath = path.join(publicSubDir, `${lang}.vtt`);
+            fs.copyFileSync(vttFilePath, localSubPath);
+            const localSubUrl = `http://localhost:5000/uploads/subtitles/${videoId}/${lang}.vtt`;
+            subtitlesMap[lang] = localSubUrl;
+            subtitleTracks.push({
+              label: langObj.label,
+              srclang: lang,
+              src: localSubUrl,
+              default: lang === 'en'
+            });
+          } catch (localErr) {
+            console.error('Local subtitle fallback write error:', localErr);
+          }
         }
       }
 
@@ -195,7 +218,19 @@ const extractAndUploadSubtitles = async (videoId, videoFilePath, fileName) => {
         const url = await minioClient.presignedGetObject(minioBucket, vttObjectName, 7 * 24 * 3600);
         subtitlesMap[lang] = url;
         subtitleTracks.push({ label: langObj.label, srclang: lang, src: url, default: lang === 'en' });
-      } catch (e) {}
+      } catch (e) {
+        try {
+          const publicSubDir = path.join(__dirname, 'public', 'uploads', 'subtitles', String(videoId));
+          if (!fs.existsSync(publicSubDir)) fs.mkdirSync(publicSubDir, { recursive: true });
+          const localSubPath = path.join(publicSubDir, `${lang}.vtt`);
+          fs.writeFileSync(localSubPath, vttBody, 'utf-8');
+          const localSubUrl = `http://localhost:5000/uploads/subtitles/${videoId}/${lang}.vtt`;
+          subtitlesMap[lang] = localSubUrl;
+          subtitleTracks.push({ label: langObj.label, srclang: lang, src: localSubUrl, default: lang === 'en' });
+        } catch (localErr) {
+          console.error('Local fallback subtitle write error:', localErr);
+        }
+      }
       transcriptsMap[lang] = fallbackCues;
     }
 
@@ -280,31 +315,40 @@ app.post('/api/upload/complete', async (req, res) => {
       writeStream.on('error', reject);
     });
 
-    // Upload to MinIO using stream and retry logic
+    // Upload to MinIO with retry logic, falling back to local storage if disk threshold or connection drops
     const fileStat = fs.statSync(assembledFilePath);
     const contentType = isVideoFile ? 'video/mp4' : 'application/octet-stream';
-    let uploadSuccess = false;
+    let minioUrl = null;
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const fileStream = fs.createReadStream(assembledFilePath);
-        await minioClient.putObject(minioBucket, objectName, fileStream, fileStat.size, {
-          'Content-Type': contentType
-        });
-        uploadSuccess = true;
-        console.log(`Successfully uploaded ${objectName} (${fileStat.size} bytes) to MinIO bucket ${minioBucket}`);
-        break;
-      } catch (uploadErr) {
-        console.warn(`MinIO upload attempt ${attempt} failed:`, uploadErr.message);
-        if (attempt === 3) throw uploadErr;
-        await new Promise(r => setTimeout(r, 400));
+    try {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const fileStream = fs.createReadStream(assembledFilePath);
+          await minioClient.putObject(minioBucket, objectName, fileStream, fileStat.size, {
+            'Content-Type': contentType
+          });
+          console.log(`Successfully uploaded ${objectName} (${fileStat.size} bytes) to MinIO bucket ${minioBucket}`);
+          const expirySeconds = 7 * 24 * 60 * 60;
+          minioUrl = await minioClient.presignedGetObject(minioBucket, objectName, expirySeconds);
+          console.log(`Generated presigned URL: ${minioUrl}`);
+          break;
+        } catch (uploadErr) {
+          console.warn(`MinIO upload attempt ${attempt} failed:`, uploadErr.message);
+          if (attempt === 3) throw uploadErr;
+          await new Promise(r => setTimeout(r, 400));
+        }
       }
+    } catch (minioErr) {
+      console.warn("MinIO upload failed, activating local storage fallback:", minioErr.message);
+      const publicUploadsDir = path.join(__dirname, 'public', 'uploads');
+      if (!fs.existsSync(publicUploadsDir)) {
+        fs.mkdirSync(publicUploadsDir, { recursive: true });
+      }
+      const localDestPath = path.join(publicUploadsDir, `${fileId}${fileExtension}`);
+      fs.copyFileSync(assembledFilePath, localDestPath);
+      minioUrl = `http://localhost:5000/uploads/${fileId}${fileExtension}`;
+      console.log(`Fallback local URL created: ${minioUrl}`);
     }
-
-    // Generate presigned GET URL (expires in 7 days - maximum allowed by S3-compatible providers)
-    const expirySeconds = 7 * 24 * 60 * 60;
-    const minioUrl = await minioClient.presignedGetObject(minioBucket, objectName, expirySeconds);
-    console.log(`Generated presigned URL: ${minioUrl}`);
 
     // Check if uploaded file is a video
     const subtitlesMap = {};
@@ -312,7 +356,7 @@ app.post('/api/upload/complete', async (req, res) => {
     const transcriptsMap = {};
 
     if (isVideoFile) {
-      // Provision baseline subtitle tracks and initial .vtt files immediately in MinIO
+      // Provision baseline subtitle tracks and initial .vtt files
       for (const langObj of SUBTITLE_LANGUAGES) {
         const lang = langObj.code;
         const vttObjectName = `subtitles/${fileId}/${lang}.vtt`;
@@ -325,6 +369,7 @@ app.post('/api/upload/complete', async (req, res) => {
           await minioClient.putObject(minioBucket, vttObjectName, vttBuf, vttBuf.length, {
             'Content-Type': 'text/vtt; charset=utf-8'
           });
+          const expirySeconds = 7 * 24 * 60 * 60;
           const url = await minioClient.presignedGetObject(minioBucket, vttObjectName, expirySeconds);
           subtitlesMap[lang] = url;
           subtitleTracks.push({
@@ -333,18 +378,45 @@ app.post('/api/upload/complete', async (req, res) => {
             src: url,
             default: lang === 'en'
           });
-        } catch (e) {}
+        } catch (e) {
+          try {
+            const publicSubDir = path.join(__dirname, 'public', 'uploads', 'subtitles', String(fileId));
+            if (!fs.existsSync(publicSubDir)) fs.mkdirSync(publicSubDir, { recursive: true });
+            const localSubPath = path.join(publicSubDir, `${lang}.vtt`);
+            fs.writeFileSync(localSubPath, initialVtt, 'utf-8');
+            const localSubUrl = `http://localhost:5000/uploads/subtitles/${fileId}/${lang}.vtt`;
+            subtitlesMap[lang] = localSubUrl;
+            subtitleTracks.push({
+              label: langObj.label,
+              srclang: lang,
+              src: localSubUrl,
+              default: lang === 'en'
+            });
+          } catch (localErr) {
+            subtitlesMap[lang] = '';
+            subtitleTracks.push({
+              label: langObj.label,
+              srclang: lang,
+              src: '',
+              default: lang === 'en'
+            });
+          }
+        }
         transcriptsMap[lang] = initialCues;
       }
     }
 
-    // Clean up chunk files
+    // Clean up temporary chunk directory and assembled temporary file to preserve disk space
     try {
       fs.readdirSync(chunkPath).forEach(file => {
         try { fs.unlinkSync(path.join(chunkPath, file)); } catch (e) {}
       });
       fs.rmdirSync(chunkPath);
     } catch (e) {}
+
+    if (fs.existsSync(assembledFilePath)) {
+      try { fs.unlinkSync(assembledFilePath); } catch (e) {}
+    }
 
     return res.json({
       success: true,
@@ -425,19 +497,25 @@ app.post('/api/upload/generate-subtitles', async (req, res) => {
     let videoToProcess = filePath;
 
     if (!videoToProcess || !fs.existsSync(videoToProcess)) {
-      // Check if file exists in MinIO under uploads/ or if object key exists
-      const objectName = `uploads/${vidId}${path.extname(targetFileName)}`;
-      tempLocalFile = path.join(tempDir, `download_${vidId}${path.extname(targetFileName)}`);
-      
-      try {
-        await minioClient.fGetObject(minioBucket, objectName, tempLocalFile);
-        videoToProcess = tempLocalFile;
-      } catch (minioErr) {
-        // If not in MinIO, create a synthetic test video to demonstrate dynamic extraction
-        console.log(`[Upload Service] Object not found in MinIO, creating local buffer for transcription:`, minioErr.message);
-        videoToProcess = tempLocalFile;
-        const { execFileSync } = require('child_process');
-        execFileSync('python', ['-c', `import imageio_ffmpeg, subprocess; subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), '-y', '-f', 'lavfi', '-i', 'sine=frequency=1000:duration=5', '-c:a', 'aac', r'${tempLocalFile}'])`]);
+      const ext = path.extname(targetFileName) || '.mp4';
+      const localCandidate = path.join(__dirname, 'public', 'uploads', `${vidId}${ext}`);
+      if (fs.existsSync(localCandidate)) {
+        videoToProcess = localCandidate;
+      } else {
+        // Check if file exists in MinIO under uploads/ or if object key exists
+        const objectName = `uploads/${vidId}${ext}`;
+        tempLocalFile = path.join(tempDir, `download_${vidId}${ext}`);
+        
+        try {
+          await minioClient.fGetObject(minioBucket, objectName, tempLocalFile);
+          videoToProcess = tempLocalFile;
+        } catch (minioErr) {
+          // If not in MinIO, create a synthetic test video to demonstrate dynamic extraction
+          console.log(`[Upload Service] Object not found in MinIO, creating local buffer for transcription:`, minioErr.message);
+          videoToProcess = tempLocalFile;
+          const { execFileSync } = require('child_process');
+          execFileSync('python', ['-c', `import imageio_ffmpeg, subprocess; subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), '-y', '-f', 'lavfi', '-i', 'sine=frequency=1000:duration=5', '-c:a', 'aac', r'${tempLocalFile}'])`]);
+        }
       }
     }
 

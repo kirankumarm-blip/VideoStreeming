@@ -8,7 +8,7 @@ import Login from './pages/Login';
 import LiveWebcasts from './pages/LiveWebcasts';
 import { getCurrentUser, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
-import { ThemeCustomizerProvider } from './context/ThemeCustomizerContext';
+import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
 // Error boundary to prevent white screens if any subcomponent errors
@@ -189,7 +189,7 @@ const AppLayout = ({ theme, setTheme }) => {
       window.removeEventListener('storage', handleStorageChange);
       activityEvents.forEach(event => window.removeEventListener(event, handleUserActivity));
     };
-  }, [user, isAuthPage]);
+  }, [user?.id || user?.email, isAuthPage]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => !prev);
@@ -274,27 +274,26 @@ const DashboardRedirect = () => {
   return <Navigate to="/login" replace />;
 };
 
+const AppContent = () => {
+  const { settings, updateSetting } = useThemeCustomizer();
+  const theme = settings?.mode || 'dark';
+  const setTheme = (nextMode) => updateSetting('mode', nextMode);
+
+  return (
+    <Router>
+      <AppLayout theme={theme} setTheme={setTheme} />
+      <ThemeCustomizerDrawer />
+      <ScreenIdChip />
+    </Router>
+  );
+};
+
 function App() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-
-  useEffect(() => {
-    localStorage.setItem('theme', theme);
-    if (theme === 'light') {
-      document.body.classList.add('light-theme');
-    } else {
-      document.body.classList.remove('light-theme');
-    }
-  }, [theme]);
-
   return (
     <ErrorBoundary>
       <LanguageProvider>
-        <ThemeCustomizerProvider externalTheme={theme} setExternalTheme={setTheme}>
-          <Router>
-            <AppLayout theme={theme} setTheme={setTheme} />
-            <ThemeCustomizerDrawer />
-            <ScreenIdChip />
-          </Router>
+        <ThemeCustomizerProvider>
+          <AppContent />
         </ThemeCustomizerProvider>
       </LanguageProvider>
     </ErrorBoundary>

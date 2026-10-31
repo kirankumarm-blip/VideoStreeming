@@ -138,8 +138,12 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         }
         
         let msgVal = item.message || jsonObj.message || item.description || jsonObj.description || '';
-        if (typeof msgVal === 'string') {
+        if (typeof msgVal === 'object' && msgVal !== null) {
+          msgVal = msgVal.text || msgVal.message || JSON.stringify(msgVal);
+        } else if (typeof msgVal === 'string') {
           msgVal = msgVal.replace(/^"|"$/g, '');
+        } else {
+          msgVal = String(msgVal || '');
         }
         
         let titleVal = item.title || jsonObj.title || item.name || jsonObj.name;
@@ -1017,7 +1021,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                         <span className="notification-title" style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{n.title}</span>
                         {!n.read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#7c3aed' }}></span>}
                       </div>
-                      <div className="notification-msg" style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{n.message}</div>
+                      <div className="notification-msg" style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{typeof n.message === 'object' ? (n.message?.text || JSON.stringify(n.message)) : String(n.message || '')}</div>
                       <div className="notification-date" style={{ fontSize: '11px', color: 'var(--text-tertiary, #a1a1aa)', marginTop: '4px' }}>{new Date(n.date).toLocaleString()}</div>
                     </div>
                   ))

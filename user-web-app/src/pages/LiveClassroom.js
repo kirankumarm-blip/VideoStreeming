@@ -6,6 +6,35 @@ import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 
 const LiveClassroom = () => {
   const { id } = useParams();
+  const sanitizeMessage = (m) => {
+    if (!m || typeof m !== 'object') return null;
+    let safeText = '';
+    if (typeof m.text === 'string') safeText = m.text;
+    else if (typeof m.text === 'object' && m.text !== null) safeText = m.text.text || m.text.message || '';
+    else if (typeof m.message === 'string') safeText = m.message;
+    else if (typeof m.message === 'object' && m.message !== null) safeText = m.message.text || m.message.message || '';
+    else safeText = String(m.text || m.message || '');
+
+    let safeSender = '';
+    if (typeof m.sender === 'string') safeSender = m.sender;
+    else if (typeof m.sender === 'object' && m.sender !== null) safeSender = m.sender.name || m.sender.username || 'Learner';
+    else if (m.user && typeof m.user === 'object') safeSender = m.user.name || m.user.username || 'Learner';
+    else safeSender = 'Learner';
+
+    let safeRole = m.role || (m.user && m.user.role) || 'student';
+    let safeTime = typeof m.timeStr === 'string' && m.timeStr ? m.timeStr : (typeof m.timestamp === 'string' ? m.timestamp : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+    return {
+      ...m,
+      id: m.id || Date.now() + Math.random(),
+      sender: safeSender,
+      role: safeRole,
+      text: safeText,
+      timeStr: safeTime
+    };
+  };
+
+
   const navigate = useNavigate();
   const { t } = useLanguage();
   const currentUser = getCurrentUser() || {};
@@ -32,6 +61,7 @@ const LiveClassroom = () => {
   const peerConnectionRef = useRef(null);
   const chatEndRef = useRef(null);
   const broadcastChannelRef = useRef(null);
+  const studentIdRef = useRef(currentUser?.id || currentUser?.userId || `u-${Math.random().toString(36).slice(2, 8)}`);
 
   // Helper to broadcast socket message
   const sendSocketMessage = (payload) => {
@@ -56,18 +86,22 @@ const LiveClassroom = () => {
     if (!msg || typeof msg !== 'object') return;
     try {
       if (msg.type === 'LIVE_CLASS_STATE') {
-        setAttendeesCount(msg.liveClass.attendeesCount || 0);
-        setActivePoll(msg.liveClass.activePoll || null);
-        setChatMessages(msg.liveClass.chatMessages || []);
+        setAttendeesCount(msg.liveClass?.attendeesCount || 0);
+        setActivePoll(msg.liveClass?.activePoll || null);
+        const cleanMsgs = (msg.liveClass?.chatMessages || []).map(sanitizeMessage).filter(Boolean);
+        setChatMessages(cleanMsgs);
       } else if (msg.type === 'ATTENDEE_UPDATE') {
         if (typeof msg.attendeesCount === 'number') {
           setAttendeesCount(msg.attendeesCount);
         }
       } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
-        setChatMessages(prev => {
-          if (prev.some(m => m.id === msg.message.id || (m.timestamp && m.timestamp === msg.message.timestamp))) return prev;
-          return [...prev, msg.message];
-        });
+        const cleanMsg = sanitizeMessage(msg.message || msg);
+        if (cleanMsg) {
+          setChatMessages(prev => {
+            if (prev.some(m => m.id === cleanMsg.id || (m.timestamp && m.timestamp === cleanMsg.timestamp))) return prev;
+            return [...prev, cleanMsg];
+          });
+        }
       } else if (msg.type === 'HAND_QUEUE_UPDATED') {
         if (currentUser.id) {
           const raised = (msg.handRaises || []).some(h => String(h.studentId) === String(currentUser.id));
@@ -87,7 +121,7 @@ const LiveClassroom = () => {
         sendSocketMessage({
           type: 'REQUEST_STREAM',
           classId: id,
-          studentId: currentUser.id || `u-${Date.now()}`
+          studentId: studentIdRef.current
         });
       } else if (msg.type === 'WEBRTC_OFFER' && msg.offer) {
         handleReceiveOffer(msg.offer, msg.from);
@@ -146,7 +180,8 @@ const LiveClassroom = () => {
           setLiveClass(data);
           setAttendeesCount(data.attendeesCount || 0);
           setActivePoll(data.activePoll || null);
-          setChatMessages(data.chatMessages || []);
+          const cleanMsgs = (data.chatMessages || []).map(sanitizeMessage).filter(Boolean);
+          setChatMessages(cleanMsgs);
 
           if (data.handRaises && currentUser.id) {
             const raised = data.handRaises.some(h => String(h.studentId) === String(currentUser.id));
@@ -167,7 +202,8 @@ const LiveClassroom = () => {
       setLiveClass(fallback);
       setAttendeesCount(fallback.attendeesCount || 42);
       setActivePoll(fallback.activePoll || null);
-      setChatMessages(fallback.chatMessages || []);
+      const cleanMsgs = (fallback.chatMessages || []).map(sanitizeMessage).filter(Boolean);
+      setChatMessages(cleanMsgs);
       setError('');
     } else {
       setError(t('liveClass.notFound', 'Classroom session not found or concluded.'));
@@ -198,7 +234,16 @@ const LiveClassroom = () => {
           videoRef.current.pause();
           videoRef.current.removeAttribute('src');
           videoRef.current.srcObject = event.streams[0];
-          videoRef.current.play().catch(err => console.warn('Learner play stream error:', err));
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(err => {
+              console.warn('Learner play stream autoplay policy restriction, retrying muted:', err);
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+                videoRef.current.play().catch(e => console.error('Muted autoplay failed:', e));
+              }
+            });
+          }
           setIsLiveWebcamActive(true);
         }
       };
@@ -209,7 +254,7 @@ const LiveClassroom = () => {
             type: 'WEBRTC_ICE_CANDIDATE',
             classId: id,
             to: instructorId,
-            from: currentUser.id || 'student-guest',
+            from: studentIdRef.current,
             candidate: event.candidate
           });
         }
@@ -223,7 +268,7 @@ const LiveClassroom = () => {
         type: 'WEBRTC_ANSWER',
         classId: id,
         to: instructorId,
-        from: currentUser.id || 'student-guest',
+        from: studentIdRef.current,
         answer
       });
     } catch (err) {
@@ -250,7 +295,7 @@ const LiveClassroom = () => {
           type: 'JOIN_LIVE_CLASS',
           classId: id,
           user: {
-            id: currentUser.id || `u-${Date.now()}`,
+            id: studentIdRef.current,
             name: currentUser.name || currentUser.username || 'Learner',
             role: 'student',
             avatar: '🧑‍🎓'
@@ -260,7 +305,7 @@ const LiveClassroom = () => {
         sendSocketMessage({
           type: 'REQUEST_STREAM',
           classId: id,
-          studentId: currentUser.id || `u-${Date.now()}`
+          studentId: studentIdRef.current
         });
       };
 
@@ -301,14 +346,14 @@ const LiveClassroom = () => {
       sendSocketMessage({
         type: 'LOWER_HAND',
         classId: id,
-        studentId: currentUser.id || 'u-guest'
+        studentId: studentIdRef.current
       });
       setIsHandRaised(false);
       setHandRaiseNotice(t('liveClass.handLoweredNotice', 'Hand lowered.'));
     } else {
       const studentObj = {
-        id: currentUser.id || `u-${Date.now()}`,
-        name: currentUser.name || currentUser.username || 'Learner',
+        id: studentIdRef.current,
+        name: currentUser?.name || currentUser?.username || 'Learner',
         role: 'student',
         avatar: '🧑‍🎓'
       };
@@ -980,20 +1025,20 @@ const LiveClassroom = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
-                        {msg.sender}
+                        {typeof msg.sender === 'object' ? (msg.sender?.name || 'User') : String(msg.sender || msg.user?.name || 'User')}
                       </span>
-                      {msg.role === 'instructor' && (
+                      {(msg.role === 'instructor' || msg.user?.role === 'instructor') && (
                         <span style={{ background: '#6366f1', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
                           INSTRUCTOR
                         </span>
                       )}
                     </div>
                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      {msg.timeStr || ''}
+                      {typeof msg.timeStr === 'string' ? msg.timeStr : ''}
                     </span>
                   </div>
                   <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                    {msg.text}
+                    {typeof msg.text === 'object' ? (msg.text?.text || msg.text?.message || JSON.stringify(msg.text)) : String(msg.text || '')}
                   </p>
                 </div>
               ))

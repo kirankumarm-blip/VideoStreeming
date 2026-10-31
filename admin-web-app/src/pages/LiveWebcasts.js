@@ -83,10 +83,20 @@ const LiveWebcasts = ({ theme }) => {
           setAttendeesCount(msg.attendeesCount);
         }
       } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
-        setChatMessages(prev => {
-          if (prev.some(m => m.id === msg.message.id || (m.timestamp && m.timestamp === msg.message.timestamp))) return prev;
-          return [...prev, msg.message];
-        });
+        const rawM = msg.message || msg;
+        if (rawM) {
+          const safeM = {
+            ...rawM,
+            id: rawM.id || Date.now(),
+            sender: typeof rawM.sender === 'string' ? rawM.sender : (rawM.user?.name || rawM.sender?.name || 'User'),
+            text: typeof rawM.text === 'string' ? rawM.text : (rawM.text?.text || (typeof rawM.message === 'string' ? rawM.message : '')),
+            timeStr: typeof rawM.timeStr === 'string' ? rawM.timeStr : ''
+          };
+          setChatMessages(prev => {
+            if (prev.some(m => m.id === safeM.id || (m.timestamp && m.timestamp === safeM.timestamp))) return prev;
+            return [...prev, safeM];
+          });
+        }
       } else if (msg.type === 'RAISE_HAND') {
         setHandRaises(prev => {
           if (prev.some(h => h.studentId === msg.student.studentId)) return prev;
@@ -323,7 +333,7 @@ const LiveWebcasts = ({ theme }) => {
 
   // WebRTC Peer Connection handling for student live viewing
   const handleStudentStreamRequest = async (studentId) => {
-    if (!mediaStreamRef.current || !wsRef.current || !selectedClass) return;
+    if (!mediaStreamRef.current || !selectedClass) return;
 
     try {
       if (peerConnectionsRef.current.has(studentId)) {
@@ -464,6 +474,16 @@ const LiveWebcasts = ({ theme }) => {
   const toggleBroadcast = async () => {
     if (!selectedClass) return;
     const nextStatus = isBroadcasting ? 'completed' : 'live';
+
+    // If starting live broadcast and camera or screen is not yet active, activate camera automatically
+    if (nextStatus === 'live' && !mediaStreamRef.current && !isCameraOn && !isScreenSharing) {
+      try {
+        await toggleCamera();
+      } catch (e) {
+        console.warn('Auto-camera start notice:', e);
+      }
+    }
+
     setIsBroadcasting(nextStatus === 'live');
     setSelectedClass(prev => ({ ...prev, status: nextStatus }));
     sendSocketMessage({
@@ -471,6 +491,13 @@ const LiveWebcasts = ({ theme }) => {
       classId: selectedClass.id,
       status: nextStatus
     });
+
+    if (nextStatus === 'live') {
+      sendSocketMessage({
+        type: 'BROADCASTER_READY',
+        classId: selectedClass.id
+      });
+    }
 
     try {
       if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
@@ -1135,20 +1162,20 @@ const LiveWebcasts = ({ theme }) => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
-                            {msg.sender}
+                            {typeof msg.sender === 'object' ? (msg.sender?.name || 'User') : String(msg.sender || msg.user?.name || 'User')}
                           </span>
-                          {msg.role === 'instructor' && (
+                          {(msg.role === 'instructor' || msg.user?.role === 'instructor') && (
                             <span style={{ background: '#6366f1', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
                               HOST
                             </span>
                           )}
                         </div>
                         <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          {msg.timeStr || ''}
+                          {typeof msg.timeStr === 'string' ? msg.timeStr : ''}
                         </span>
                       </div>
                       <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                        {msg.text}
+                        {typeof msg.text === 'object' ? (msg.text?.text || msg.text?.message || JSON.stringify(msg.text)) : String(msg.text || '')}
                       </p>
                     </div>
                   ))

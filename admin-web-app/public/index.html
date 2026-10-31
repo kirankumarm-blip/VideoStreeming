@@ -27,6 +27,24 @@
     <!-- Font Awesome 6 Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
     <title>Video Streaming Admin</title>
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('theme');
+          if (!t) {
+            var s = localStorage.getItem('theme_customizer_settings');
+            if (s) t = JSON.parse(s).mode;
+          }
+          if (t === 'light') {
+            document.documentElement.classList.add('light-theme');
+            document.documentElement.classList.remove('dark-theme');
+          } else {
+            document.documentElement.classList.remove('light-theme');
+            document.documentElement.classList.add('dark-theme');
+          }
+        } catch(e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

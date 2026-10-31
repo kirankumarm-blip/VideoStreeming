@@ -1,3 +1,4 @@
+import { offlineStorage } from '../utils/offlineStorage';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -354,6 +355,16 @@ const UserDashboard = () => {
   const [favoritesList, setFavoritesList] = useState([]);
   const [watchLaterSearch, setWatchLaterSearch] = useState('');
   const [downloadsList, setDownloadsList] = useState([]);
+  const [offlineVideosList, setOfflineVideosList] = useState([]);
+
+  const loadOfflineVideos = async () => {
+    try {
+      const list = await offlineStorage.getAllVideos();
+      setOfflineVideosList(list);
+    } catch (e) {
+      console.warn('Could not load offline videos:', e);
+    }
+  };
   const [exploreVideosList, setExploreVideosList] = useState([]);
   const [hasFetchedExplore, setHasFetchedExplore] = useState(false);
   const [categoryVideosList, setCategoryVideosList] = useState([]);
@@ -434,6 +445,7 @@ const UserDashboard = () => {
       fetchCategories();
     } else if (activeView === 'downloads') {
       fetchDashboard('download_history');
+      loadOfflineVideos();
     } else if (activeView === 'explore') {
       fetchExploreVideos();
     }
@@ -816,7 +828,9 @@ const UserDashboard = () => {
   };
 
   const fetchDashboard = async (formStep = 'Dashboard') => {
-    setLoading(true);
+    if (!dashboardData) {
+      setLoading(true);
+    }
     try {
       const data = await api.dashboard.getUser(formStep);
       console.log(`User dashboard data (${formStep || 'home'}) from API:`, data);
@@ -1473,7 +1487,7 @@ const UserDashboard = () => {
 
   return (
     <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%', minWidth: 0 }} className="user-dashboard-content animate-fade-in">
-        {loading ? (
+        {loading && !dashboardData ? (
           <ThreeDLoader text="Loading dashboard telemetry data..." />
         ) : (
           <>
@@ -2941,23 +2955,163 @@ const UserDashboard = () => {
             );
           })()}
 
-            {/* ================= DOWNLOADS VIEW ================= */}
+            {/* ================= DOWNLOADS VIEW (Jio In-App Offline + Cloud Downloads) ================= */}
             {activeView === 'downloads' && (
               <div className="animate-fade-in">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '22px', fontWeight: 700 }}>{t('user.simulatedDownloads')}</h2>
-                  <span className="badge badge-active" style={{ fontSize: '12px' }}>{t('user.offlineSyncActive')}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>{t('sidebar.downloads', 'Downloads & Offline Library')}</h2>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      Watch downloaded videos offline without an internet connection (JioCinema / Netflix Style).
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span className="badge badge-active" style={{ fontSize: '12px', background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid #10b981' }}>
+                      💾 In-App Offline Storage Active
+                    </span>
+                  </div>
                 </div>
-                <div className="youtube-video-grid">
-                  {downloadsList.length === 0 ? (
-                    <div style={{ color: 'var(--text-secondary)', padding: '60px 0', textAlign: 'center' }}>
-                      {language === 'hi' ? 'कोई डाउनलोड किए गए वीडियो नहीं मिले।' : language === 'kn' ? 'ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No downloaded videos found.'}
+
+                {/* Section 1: In-App Stored Offline Videos (Playable with 0 Internet) */}
+                <div style={{ marginBottom: '32px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>💾 Saved on Device (Offline Playback)</h3>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>({offlineVideosList.length} videos)</span>
+                  </div>
+
+                  {offlineVideosList.length === 0 ? (
+                    <div style={{ 
+                      padding: '30px', 
+                      borderRadius: '12px', 
+                      background: 'var(--bg-secondary)', 
+                      border: '1px dashed var(--border-color)', 
+                      textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                      fontSize: '13px'
+                    }}>
+                      <div style={{ fontSize: '28px', marginBottom: '6px' }}>📱</div>
+                      No videos saved offline yet. When watching any video, click <strong>"📥 Download → 💾 Save for In-App Offline"</strong> to watch it anytime without WiFi.
                     </div>
                   ) : (
-                    downloadsList.map(video => (
-                      <VideoCard key={video.id} video={video} />
-                    ))
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '18px' }}>
+                      {offlineVideosList.map(offVid => (
+                        <div 
+                          key={offVid.id}
+                          style={{
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '14px',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: 'var(--shadow-sm)'
+                          }}
+                        >
+                          <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000' }}>
+                            <img 
+                              src={offVid.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600'} 
+                              alt={offVid.title}
+                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <span style={{ 
+                              position: 'absolute', 
+                              top: '8px', 
+                              left: '8px', 
+                              background: 'rgba(16, 185, 129, 0.9)', 
+                              color: '#fff', 
+                              padding: '2px 8px', 
+                              borderRadius: '6px', 
+                              fontSize: '11px', 
+                              fontWeight: 700 
+                            }}>
+                              🟢 OFFLINE READY
+                            </span>
+                            <span style={{ 
+                              position: 'absolute', 
+                              bottom: '8px', 
+                              right: '8px', 
+                              background: 'rgba(0,0,0,0.75)', 
+                              color: '#fff', 
+                              padding: '2px 6px', 
+                              borderRadius: '4px', 
+                              fontSize: '11px' 
+                            }}>
+                              {offVid.formattedSize}
+                            </span>
+                          </div>
+
+                          <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', flex: 1, gap: '8px' }}>
+                            <h4 style={{ fontSize: '14px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {offVid.title}
+                            </h4>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                              Instructor: {offVid.instructor || 'Dr. Sarah'} • {offVid.duration || '12:00'}
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', paddingTop: '8px' }}>
+                              <button
+                                onClick={() => navigate(`/watch/${offVid.id}`)}
+                                style={{
+                                  flex: 1,
+                                  background: 'var(--accent-primary)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '8px 12px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px'
+                                }}
+                              >
+                                <span>▶️</span>
+                                <span>Play Offline</span>
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm('Delete this video from offline storage?')) {
+                                    await offlineStorage.deleteVideo(offVid.id);
+                                    loadOfflineVideos();
+                                  }
+                                }}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  borderRadius: '8px',
+                                  padding: '8px 12px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer'
+                                }}
+                                title="Delete from offline storage"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
+                </div>
+
+                {/* Section 2: Download History (Online Streamed Downloads) */}
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px' }}>📥 Download History</h3>
+                  <div className="youtube-video-grid">
+                    {downloadsList.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', padding: '30px 0', textAlign: 'center' }}>
+                        {language === 'hi' ? 'कोई डाउनलोड किए गए वीडियो नहीं मिले।' : language === 'kn' ? 'ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದ ವೀಡಿಯೊಗಳು ಕಂಡುಬಂದಿಲ್ಲ.' : 'No download history found.'}
+                      </div>
+                    ) : (
+                      downloadsList.map(video => (
+                        <VideoCard key={video.id} video={video} />
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -1,6 +1,8 @@
 import React from 'react';
 
-const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
+const ThreeDLoader = ({ text = "Loading telemetry data...", theme }) => {
+  const isLight = theme === 'light' || (typeof document !== 'undefined' && (document.body.classList.contains('light-theme') || document.documentElement.classList.contains('light-theme')));
+
   return (
     <div style={{
       display: 'flex',
@@ -28,7 +30,7 @@ const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
           border: '3px solid transparent',
           borderTopColor: '#e50914',
           borderRightColor: '#e50914',
-          boxShadow: '0 0 18px rgba(229, 9, 20, 0.7)',
+          boxShadow: isLight ? '0 0 14px rgba(229, 9, 20, 0.5)' : '0 0 18px rgba(229, 9, 20, 0.7)',
           animation: 'spin3dRing1 2s linear infinite',
           transformStyle: 'preserve-3d'
         }} />
@@ -41,7 +43,7 @@ const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
           border: '3px solid transparent',
           borderBottomColor: '#6366f1',
           borderLeftColor: '#6366f1',
-          boxShadow: '0 0 18px rgba(99, 102, 241, 0.7)',
+          boxShadow: isLight ? '0 0 14px rgba(99, 102, 241, 0.5)' : '0 0 18px rgba(99, 102, 241, 0.7)',
           animation: 'spin3dRing2 1.6s linear infinite reverse',
           transformStyle: 'preserve-3d'
         }} />
@@ -54,7 +56,7 @@ const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
           border: '3px solid transparent',
           borderTopColor: '#38bdf8',
           borderRightColor: '#38bdf8',
-          boxShadow: '0 0 18px rgba(56, 189, 248, 0.7)',
+          boxShadow: isLight ? '0 0 14px rgba(56, 189, 248, 0.5)' : '0 0 18px rgba(56, 189, 248, 0.7)',
           animation: 'spin3dRing3 1.2s ease-in-out infinite',
           transformStyle: 'preserve-3d'
         }} />
@@ -65,7 +67,9 @@ const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
           inset: '40px',
           borderRadius: '50%',
           background: 'radial-gradient(circle at 35% 35%, #ffffff, #e50914 60%, #800000 100%)',
-          boxShadow: '0 0 25px rgba(229, 9, 20, 0.9), inset 0 0 10px rgba(255, 255, 255, 0.8)',
+          boxShadow: isLight 
+            ? '0 0 20px rgba(229, 9, 20, 0.7), inset 0 0 8px rgba(255, 255, 255, 0.8)' 
+            : '0 0 25px rgba(229, 9, 20, 0.9), inset 0 0 10px rgba(255, 255, 255, 0.8)',
           animation: 'pulse3dCore 1.5s ease-in-out infinite alternate'
         }} />
       </div>
@@ -92,25 +96,32 @@ const ThreeDLoader = ({ text = "Loading telemetry data..." }) => {
           0% { transform: scale(0.85); box-shadow: 0 0 15px rgba(229, 9, 20, 0.6); }
           100% { transform: scale(1.15); box-shadow: 0 0 35px rgba(229, 9, 20, 1), 0 0 50px rgba(99, 102, 241, 0.6); }
         }
-        @keyframes shimmer3dText {
-          0% { opacity: 0.6; text-shadow: 0 0 5px rgba(229, 9, 20, 0.3); }
-          100% { opacity: 1; text-shadow: 0 0 15px rgba(229, 9, 20, 0.8); }
+        @keyframes shimmer3dTextDark {
+          0% { opacity: 0.85; text-shadow: 0 0 8px rgba(229, 9, 20, 0.4), 0 2px 4px rgba(0,0,0,0.8); }
+          100% { opacity: 1; text-shadow: 0 0 18px rgba(229, 9, 20, 0.9), 0 0 30px rgba(99, 102, 241, 0.6), 0 2px 6px rgba(0,0,0,0.9); }
+        }
+        @keyframes shimmer3dTextLight {
+          0% { opacity: 0.9; text-shadow: 0 0 6px rgba(229, 9, 20, 0.3); }
+          100% { opacity: 1; text-shadow: 0 0 14px rgba(229, 9, 20, 0.5); }
         }
       `}</style>
 
       {/* Loading Label with Shimmer */}
       <div style={{
         marginTop: '28px',
-        fontSize: '15px',
+        fontSize: '16px',
         fontWeight: 700,
-        letterSpacing: '0.8px',
-        color: 'var(--text-primary, #ffffff)',
-        animation: 'shimmer3dText 1.5s ease-in-out infinite alternate',
+        letterSpacing: '0.6px',
+        color: isLight ? '#0f172a' : '#ffffff',
+        animation: isLight ? 'shimmer3dTextLight 1.5s ease-in-out infinite alternate' : 'shimmer3dTextDark 1.5s ease-in-out infinite alternate',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px'
+        justifyContent: 'center',
+        gap: '10px',
+        textAlign: 'center',
+        textShadow: isLight ? 'none' : '0 2px 8px rgba(0, 0, 0, 0.9)'
       }}>
-        <span>⚡</span> {text}
+        <span style={{ color: '#e50914', fontSize: '18px' }}>⚡</span> {text}
       </div>
     </div>
   );

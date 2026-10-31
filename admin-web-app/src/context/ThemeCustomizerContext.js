@@ -68,28 +68,29 @@ export const FONT_SIZES = [
 export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTheme }) => {
   const [settings, setSettings] = useState(() => {
     try {
+      const savedTheme = localStorage.getItem('theme');
       const saved = localStorage.getItem('theme_customizer_settings');
+      let parsed = {};
       if (saved) {
-        return { ...DEFAULT_THEME_SETTINGS, ...JSON.parse(saved) };
+        parsed = JSON.parse(saved);
       }
+      const initialMode = savedTheme || parsed.mode || 'dark';
+      return {
+        ...DEFAULT_THEME_SETTINGS,
+        ...parsed,
+        mode: initialMode
+      };
     } catch (e) {
       console.warn('Could not parse theme settings', e);
+      return {
+        ...DEFAULT_THEME_SETTINGS,
+        mode: localStorage.getItem('theme') || 'dark'
+      };
     }
-    return {
-      ...DEFAULT_THEME_SETTINGS,
-      mode: externalTheme || localStorage.getItem('theme') || 'dark'
-    };
   });
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isFullDrawerOpen, setIsFullDrawerOpen] = useState(false);
-
-  // Sync mode if changed externally (e.g. from parent App)
-  useEffect(() => {
-    if (externalTheme && externalTheme !== settings.mode) {
-      setSettings(prev => ({ ...prev, mode: externalTheme }));
-    }
-  }, [externalTheme]);
 
   // Apply settings to DOM and CSS root variables
   useEffect(() => {
@@ -98,10 +99,6 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
       localStorage.setItem('theme', settings.mode);
     } catch (e) {}
 
-    if (setExternalTheme) {
-      setExternalTheme(settings.mode);
-    }
-
     const root = document.documentElement;
     const body = document.body;
 
@@ -109,9 +106,13 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
     if (settings.mode === 'light') {
       body.classList.add('light-theme');
       body.classList.remove('dark-theme');
+      root.classList.add('light-theme');
+      root.classList.remove('dark-theme');
     } else {
       body.classList.remove('light-theme');
       body.classList.add('dark-theme');
+      root.classList.remove('light-theme');
+      root.classList.add('dark-theme');
     }
 
     const primaryColor = settings.palette?.primary || settings.colorTheme || '#2563eb';
@@ -149,6 +150,30 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
     }
 
     styleTag.innerHTML = `
+      ${settings.mode === 'light' ? `
+        :root, html, body, body.light-theme {
+          --bg-primary: #f8fafc !important;
+          --bg-secondary: #ffffff !important;
+          --bg-tertiary: #f1f5f9 !important;
+          --text-primary: #0f172a !important;
+          --text-secondary: #475569 !important;
+          --glass-bg: rgba(255, 255, 255, 0.95) !important;
+          --border-color: rgba(0, 0, 0, 0.08) !important;
+          --card-gradient: linear-gradient(135deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0.03) 100%) !important;
+        }
+      ` : `
+        :root, html, body, body.dark-theme {
+          --bg-primary: #0a0a0c !important;
+          --bg-secondary: #121217 !important;
+          --bg-tertiary: #1b1b22 !important;
+          --text-primary: #ffffff !important;
+          --text-secondary: #a0a0ab !important;
+          --glass-bg: rgba(18, 18, 23, 0.7) !important;
+          --border-color: rgba(255, 255, 255, 0.08) !important;
+          --card-gradient: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%) !important;
+        }
+      `}
+
       :root, html, body, body.light-theme, body.dark-theme {
         --accent-primary: ${primaryColor} !important;
         --accent-secondary: ${secondaryColor} !important;
@@ -245,6 +270,8 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
 
   return (
     <ThemeCustomizerContext.Provider value={{
+      theme: settings.mode,
+      setTheme: (newMode) => updateSetting('mode', newMode),
       settings,
       updateSetting,
       updatePaletteColor,

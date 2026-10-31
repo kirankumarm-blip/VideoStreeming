@@ -116,7 +116,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         window.location.href = '#/login';
       }
     }
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.role]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1142,6 +1142,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setChapters([]);
     setCourseThumbnailUrl('');
     setCourseBannerUrl('');
+    setCourseThumbnailPreview(null);
+    setCourseBannerPreview(null);
   };
 
   const resetVideoFormToDefault = () => {
@@ -1983,7 +1985,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     isFetchingDashboardRef.current = true;
     lastFetchedDashboardRef.current = key;
 
-    setLoading(true);
+    if (!stats) {
+      setLoading(true);
+    }
     try {
       const data = await api.dashboard.getAdmin(formStep);
       setStats(data);
@@ -3297,12 +3301,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const [courseThumbnailUrl, setCourseThumbnailUrl] = useState('');
   const [courseBannerUrl, setCourseBannerUrl] = useState('');
+  const [courseThumbnailPreview, setCourseThumbnailPreview] = useState(null);
+  const [courseBannerPreview, setCourseBannerPreview] = useState(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
 
   const handleCourseThumbnailUpload = async (file) => {
     if (!file) return;
     if (await verifyFileContent(file)) return;
+    try {
+      setCourseThumbnailPreview(URL.createObjectURL(file));
+    } catch (e) {}
     setThumbnailUploading(true);
     try {
       const CHUNK_SIZE = 5 * 1024 * 1024;
@@ -3331,6 +3340,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleCourseBannerUpload = async (file) => {
     if (!file) return;
     if (await verifyFileContent(file)) return;
+    try {
+      setCourseBannerPreview(URL.createObjectURL(file));
+    } catch (e) {}
     setBannerUploading(true);
     try {
       const CHUNK_SIZE = 5 * 1024 * 1024;
@@ -3471,6 +3483,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (targetFileId) {
         updateVideoProp(chapterId, videoId, 'videoId', targetFileId);
       }
+      if (completeRes.subtitles) updateVideoProp(chapterId, videoId, 'subtitles', completeRes.subtitles);
+      if (completeRes.subtitleTracks || completeRes.subtitle_tracks) updateVideoProp(chapterId, videoId, 'subtitleTracks', completeRes.subtitleTracks || completeRes.subtitle_tracks);
+      if (completeRes.transcripts) updateVideoProp(chapterId, videoId, 'transcripts', completeRes.transcripts);
+      if (completeRes.transcript) updateVideoProp(chapterId, videoId, 'transcript', completeRes.transcript);
+
       updateVideoProp(chapterId, videoId, 'isNewlyUploaded', true);
       updateVideoProp(chapterId, videoId, 'hasChanged', true);
 
@@ -3485,6 +3502,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             if (currentEntry) {
               currentEntry.data = subRes;
             }
+            if (subRes.subtitles) updateVideoProp(chapterId, videoId, 'subtitles', subRes.subtitles);
+            if (subRes.subtitleTracks || subRes.subtitle_tracks) updateVideoProp(chapterId, videoId, 'subtitleTracks', subRes.subtitleTracks || subRes.subtitle_tracks);
+            if (subRes.transcripts) updateVideoProp(chapterId, videoId, 'transcripts', subRes.transcripts);
+            if (subRes.transcript) updateVideoProp(chapterId, videoId, 'transcript', subRes.transcript);
             return subRes;
           }
         } catch (subErr) {
@@ -3500,7 +3521,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         fileName: file.name,
         videoUrl: completeRes.minioUrl,
         promise: transcriptPromise,
-        data: null
+        data: completeRes.subtitles ? completeRes : null
       };
 
       courseTranscriptsRef.current[`${chapterId}_${videoId}`] = transcriptEntry;
@@ -3520,7 +3541,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const handleChapterThumbnailUpload = async (chapterId, videoId, file) => {
     if (!file) return;
     if (await verifyFileContent(file)) return;
-    
+    try {
+      updateVideoProp(chapterId, videoId, 'thumbnailPreview', URL.createObjectURL(file));
+    } catch (e) {}
     updateVideoProp(chapterId, videoId, 'thumbStatus', 'uploading');
     updateVideoProp(chapterId, videoId, 'thumbName', file.name);
     
@@ -4142,6 +4165,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const submittedChapters = [...chapters];
       const storedTranscripts = { ...courseTranscriptsRef.current };
 
+      // 1. Submit course response immediately first
       const courseRes = await api.videos.uploadCourse(payload);
       if (!editingCourse && !isDraft) {
         try {
@@ -4151,10 +4175,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
       }
 
-      // 2-Step Course Subtitle Sync: Process returned chapters & videos with formstep: 'transcriptCourse'
+      // 2. Background: Once subtitle generation completes for all selected videos, call transcriptCourse API
       (async () => {
         try {
-          console.log('[Course Transcription Sync] Received uploadCourse response:', courseRes);
+          console.log('[Course Transcription Sync] First response submitted. Awaiting subtitle generation for all selected videos...');
+          
+          // Wait for all video subtitle generation promises to finish for all chapters and videos
+          for (const ch of submittedChapters) {
+            for (const vid of (ch.videos || [])) {
+              const entryKey = `${ch.id}_${vid.id}`;
+              const matchEntry = storedTranscripts[entryKey] || 
+                                 storedTranscripts[vid.videoUrl] || 
+                                 (vid.videoId ? storedTranscripts[String(vid.videoId)] : null);
+              if (matchEntry && matchEntry.promise) {
+                try {
+                  const pData = await matchEntry.promise;
+                  if (pData) matchEntry.data = pData;
+                } catch (pErr) {
+                  console.warn('[Course Transcription Sync] Promise await warning for video:', pErr.message);
+                }
+              }
+            }
+          }
+
+          console.log('[Course Transcription Sync] All subtitles generated! Assembling transcriptCourse API call...');
           let returnedChapters = [];
           if (Array.isArray(courseRes)) {
             returnedChapters = courseRes;
@@ -4190,8 +4234,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           }
 
           const processedChapters = [];
-
-          // Process each chapter returned or submitted
           const totalChaps = Math.max(returnedChapters.length, submittedChapters.length);
 
           for (let chIdx = 0; chIdx < totalChaps; chIdx++) {
@@ -4210,7 +4252,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               const origVideo = origChapter.videos ? origChapter.videos[vIdx] : null;
               const rawVideoId = vItem.video_id || vItem.videoId || vItem.id || vItem.vd_id || origVideo?.videoId || origVideo?.video_id || origVideo?.id || String(vIdx + 1);
 
-              // Match transcript entry
               let matchEntry = null;
               if (origChapter && origVideo && storedTranscripts[`${origChapter.id}_${origVideo.id}`]) {
                 matchEntry = storedTranscripts[`${origChapter.id}_${origVideo.id}`];
@@ -4228,7 +4269,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 );
               }
 
-              // On Edit Course: Only process videos that were changed (re-uploaded) or newly added in this edit session
               const isVideoChangedOrNew = Boolean(
                 matchEntry ||
                 origVideo?.isNewlyUploaded ||
@@ -4243,7 +4283,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               let subData = null;
               if (matchEntry) {
                 if (matchEntry.promise) {
-                  console.log(`[Course Transcription Sync] Awaiting real Whisper AI speech transcription for Chapter ${rawChapterId}, Video ${rawVideoId}...`);
                   try {
                     const promisedData = await matchEntry.promise;
                     if (promisedData && (promisedData.subtitles || promisedData.transcripts || promisedData.transcript)) {
@@ -4293,7 +4332,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               });
             }
 
-            // Only add chapter if it has processedVideos
             if (processedVideos.length > 0) {
               processedChapters.push({
                 chapter_id: String(rawChapterId),
@@ -4315,14 +4353,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             chapters: processedChapters
           };
 
-          console.log('[Course Transcription Sync] Sending transcriptCourse payload:', transcriptCoursePayload);
+          console.log('[Course Transcription Sync] All selected video subtitles ready! Calling transcriptCourse API now:', transcriptCoursePayload);
           await api.videos.updateTranscriptCourse(transcriptCoursePayload);
-          console.log('[Course Transcription Sync] Successfully updated transcriptCourse!');
+          console.log('[Course Transcription Sync] Successfully called transcriptCourse API after subtitle generation!');
         } catch (syncAllErr) {
           console.warn('[Course Transcription Sync] Error in course transcript sync flow:', syncAllErr.message);
         }
       })();
-      const courseSuccMsg = isDraft ? 'Course saved as draft!' : (editingCourse ? 'Course updated successfully!' : 'Course created successfully!');
+
+      // Immediate success message and navigation right after uploadCourse
+      const courseSuccMsg = isDraft 
+        ? 'Course saved as draft!' 
+        : (editingCourse 
+            ? 'Course updated successfully! Subtitles and transcripts are syncing in the background.' 
+            : 'Course created successfully! Subtitles and transcripts are syncing in the background.');
       setUploadSuccess(courseSuccMsg);
       showSuccess(courseSuccMsg);
       setUploadProgress('');
@@ -5738,7 +5782,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         width: 'calc(100% - 260px)',
         height: 'calc(100vh - 60px)',
         overflowY: 'auto',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        backgroundColor: 'var(--bg-primary)',
+        color: 'var(--text-primary)'
       }} className="admin-content-container">
         
         {/* Top Header Row */}
@@ -5772,8 +5818,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           </div>
         )}
 
-        {loading ? (
-          <ThreeDLoader text="Loading telemetry data..." />
+        {loading && !stats ? (
+          <ThreeDLoader text="Loading telemetry data..." theme={theme} />
         ) : (
           <>
             {/* VIRTUAL CLASSROOM & LIVE WEBCASTS STUDIO */}
@@ -7209,9 +7255,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Thumbnail *</label>
-                          {courseThumbnailUrl ? (
+                          {(courseThumbnailPreview || courseThumbnailUrl) ? (
                             <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg }}>
-                              <img src={courseThumbnailUrl} alt="Course Thumbnail" style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                              <img
+                                src={courseThumbnailPreview || decryptUrl(courseThumbnailUrl)}
+                                alt="Course Thumbnail"
+                                style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
+                                }}
+                              />
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 {!isCourseViewOnly && (
                                   <label htmlFor="course-thumbnail-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -7260,9 +7314,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Course Banner (Optional)</label>
-                          {courseBannerUrl ? (
+                          {(courseBannerPreview || courseBannerUrl) ? (
                             <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', border: `1px solid ${inputBorder}`, backgroundColor: inputBg }}>
-                              <img src={courseBannerUrl} alt="Course Banner" style={{ width: '100px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+                              <img
+                                src={courseBannerPreview || decryptUrl(courseBannerUrl)}
+                                alt="Course Banner"
+                                style={{ width: '100px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1000';
+                                }}
+                              />
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 {!isCourseViewOnly && (
                                   <label htmlFor="course-banner-upload" style={{ cursor: 'pointer', padding: '4px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: '#3f3f46', color: '#ffffff', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -7527,13 +7589,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             {vid.uploadStatus === 'error' && (
                                               <span style={{ fontSize: '10px', color: '#ef4444' }}>❌ Error</span>
                                             )}
+                                            {vid.subtitles && Object.keys(vid.subtitles).filter(k => vid.subtitles[k]).length > 0 ? (
+                                              <span style={{ fontSize: '10px', color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 500 }}>
+                                                💬 Subtitles: {Object.keys(vid.subtitles).filter(k => vid.subtitles[k]).map(l => l.toUpperCase()).join(', ')}
+                                              </span>
+                                            ) : (vid.videoUrl || vid.video_url) ? (
+                                              <span style={{ fontSize: '10px', color: '#60a5fa', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                ⏳ Subtitles & Transcript Ready on Save
+                                              </span>
+                                            ) : null}
                                           </div>
                                         </td>
                                         <td style={{ padding: '10px' }}>
                                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             {(vid.thumbnailUrl || vid.thumbnail) ? (
                                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <img src={vid.thumbnailUrl || vid.thumbnail} alt="Lesson Thumb" style={{ width: '36px', height: '22px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                                                <img
+                                                  src={vid.thumbnailPreview || decryptUrl(vid.thumbnailUrl || vid.thumbnail)}
+                                                  alt="Lesson Thumb"
+                                                  style={{ width: '36px', height: '22px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                                  onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400';
+                                                  }}
+                                                />
                                                 {!isCourseViewOnly && (
                                                   <label htmlFor={`vid-thumb-${ch.id}-${vid.id}`} style={{ cursor: 'pointer', fontSize: '10px', color: '#a1a1aa', textDecoration: 'underline' }}>
                                                     Change
@@ -8327,7 +8406,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       emptyMessage={isAuthorAdminUser ? (courseSubTab === 'my_courses' ? 'No personal courses found' : 'No assigned courses found') : 'No data available'}
                       renderRow={(course, index) => {
                         const displayTitle = course.course_title || course.title || 'Untitled Course';
-                        const courseBanner = course.banner || course.thumbnail || course.thumbnailUrl || '';
+                        let courseBanner = decryptUrl(course.banner || course.banner_image || course.thumbnail || course.thumbnailUrl || course.thumbnail_image || '');
+                        if (courseBanner && !courseBanner.startsWith('http') && !courseBanner.startsWith('data:') && !courseBanner.startsWith('blob:')) {
+                          courseBanner = `http://localhost:5000${courseBanner.startsWith('/') ? '' : '/'}${courseBanner}`;
+                        }
                         
                         // Safely resolve chapters count
                         const chaptersCount = Array.isArray(course.chapters)
@@ -8348,6 +8430,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   src={courseBanner} 
                                   alt={displayTitle} 
                                   style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
+                                  }}
                                 />
                               ) : (
                                 <div style={{ width: '80px', height: '45px', borderRadius: '4px', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#a1a1aa' }}>
@@ -8422,7 +8508,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       emptyMessage="No draft courses found"
                       renderRow={(draft, index) => {
                         const displayTitle = draft.course_title || draft.title || 'Untitled Draft';
-                        const courseBanner = draft.banner || draft.banner_image || draft.thumbnail || draft.thumbnailUrl || '';
+                        let courseBanner = decryptUrl(draft.banner || draft.banner_image || draft.thumbnail || draft.thumbnailUrl || draft.thumbnail_image || '');
+                        if (courseBanner && !courseBanner.startsWith('http') && !courseBanner.startsWith('data:') && !courseBanner.startsWith('blob:')) {
+                          courseBanner = `http://localhost:5000${courseBanner.startsWith('/') ? '' : '/'}${courseBanner}`;
+                        }
                         
                         const chaptersCount = Array.isArray(draft.chapters)
                           ? draft.chapters.length
@@ -8441,6 +8530,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   src={courseBanner} 
                                   alt={displayTitle} 
                                   style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
+                                  }}
                                 />
                               ) : (
                                 <div style={{ width: '80px', height: '45px', borderRadius: '4px', backgroundColor: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#a1a1aa' }}>
@@ -10411,7 +10504,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           left: 0,
           width: '100vw',
           height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: theme === 'light' ? 'rgba(15, 23, 42, 0.45)' : 'rgba(0, 0, 0, 0.7)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           display: 'flex',
@@ -10423,16 +10516,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           <div className="glass-card animate-fade-in" style={{
             padding: '40px 60px',
             borderRadius: '20px',
-            backgroundColor: '#161622',
-            boxShadow: '0 25px 70px rgba(0, 0, 0, 0.7), 0 0 35px rgba(229, 9, 20, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            backgroundColor: theme === 'light' ? '#ffffff' : '#161622',
+            boxShadow: theme === 'light'
+              ? '0 25px 60px rgba(0, 0, 0, 0.15), 0 0 25px rgba(229, 9, 20, 0.1)'
+              : '0 25px 70px rgba(0, 0, 0, 0.7), 0 0 35px rgba(229, 9, 20, 0.25)',
+            border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.15)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             maxWidth: '90vw',
             minWidth: '320px'
           }}>
-            <ThreeDLoader text={uploadProgress} />
+            <ThreeDLoader text={uploadProgress} theme={theme} />
           </div>
         </div>
       )}

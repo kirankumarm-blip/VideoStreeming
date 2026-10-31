@@ -2742,7 +2742,25 @@ app.get('/api/live-classes/:id', (req, res) => {
   if (!cls) {
     return res.status(404).json({ message: "Live classroom session not found" });
   }
-  res.json(cls);
+
+  // Sanitize chatMessages so text and sender are always pure strings
+  const sanitizedChat = (cls.chatMessages || []).map(m => {
+    let safeTxt = m.text;
+    if (typeof safeTxt === 'object' && safeTxt !== null) {
+      safeTxt = safeTxt.text || (typeof safeTxt.message === 'string' ? safeTxt.message : '');
+    }
+    return {
+      ...m,
+      sender: typeof m.sender === 'object' ? (m.sender?.name || 'User') : String(m.sender || 'User'),
+      text: typeof safeTxt === 'string' ? safeTxt : String(safeTxt || ''),
+      timeStr: typeof m.timeStr === 'string' ? m.timeStr : ''
+    };
+  });
+
+  res.json({
+    ...cls,
+    chatMessages: sanitizedChat
+  });
 });
 
 // REST: Create new live class
@@ -2918,12 +2936,19 @@ wss.on('connection', (ws) => {
       else if (type === 'LIVE_CHAT_MESSAGE') {
         const cls = liveClasses.get(targetClassId);
         if (cls) {
+          let safeText = '';
+          if (typeof text === 'string') safeText = text;
+          else if (data.message && typeof data.message.text === 'string') safeText = data.message.text;
+          else if (typeof data.message === 'string') safeText = data.message;
+          else if (typeof text === 'object' && text && text.text) safeText = text.text;
+          else safeText = '';
+
           const chatMsg = {
             id: Date.now(),
             sender: senderName,
             role: clientUser.role || 'student',
             avatar: clientUser.avatar || '',
-            text: text || data.message || '',
+            text: safeText,
             timestamp: Date.now(),
             timeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
@@ -3024,15 +3049,26 @@ wss.on('connection', (ws) => {
       // ==========================
       else if (type === 'REQUEST_STREAM' || type === 'WEBRTC_OFFER' || type === 'WEBRTC_ANSWER' || type === 'WEBRTC_ICE_CANDIDATE' || type === 'BROADCASTER_READY' || type === 'BROADCASTER_STOPPED') {
         if (data.to) {
-          // Route message directly to the target socket
+          let found = false;
           for (const [clientWs, clientMeta] of socketClients.entries()) {
-            if (clientWs.readyState === WebSocket.OPEN && clientMeta.user && String(clientMeta.user.id) === String(data.to)) {
-              clientWs.send(JSON.stringify(data));
-              break;
+            if (clientWs.readyState === WebSocket.OPEN && clientWs !== ws && clientMeta.classId === targetClassId) {
+              const u = clientMeta.user || {};
+              if (
+                String(u.id) === String(data.to) ||
+                String(u.userId) === String(data.to) ||
+                String(u.email) === String(data.to) ||
+                String(u.username) === String(data.to)
+              ) {
+                clientWs.send(JSON.stringify(data));
+                found = true;
+              }
             }
           }
+          if (!found) {
+            // Fallback broadcast to all students in this live classroom so connection always succeeds
+            broadcastToLiveClass(targetClassId, data, ws);
+          }
         } else {
-          // Broadcast to everyone in this live classroom session (excluding sender)
           broadcastToLiveClass(targetClassId, data, ws);
         }
       }

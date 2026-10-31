@@ -1,3 +1,4 @@
+import { offlineStorage } from '../utils/offlineStorage';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -442,6 +443,13 @@ const VideoWatch = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Jio-Style In-App Offline Playback States
+  const [isSavedOffline, setIsSavedOffline] = useState(false);
+  const [offlineBlobUrl, setOfflineBlobUrl] = useState(null);
+  const [offlineDownloadProgress, setOfflineDownloadProgress] = useState(null);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const downloadMenuRef = useRef(null);
 
   // Custom Alert Modal State (Same as UserDashboard / Login page)
   const [customAlert, setCustomAlert] = useState({
@@ -478,6 +486,44 @@ const VideoWatch = () => {
   };
   
   const playerContainerRef = useRef(null);
+
+  // Check and load In-App Offline Video Blob from IndexedDB
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (id) {
+        try {
+          const isDownloaded = await offlineStorage.isVideoDownloaded(id);
+          if (active) setIsSavedOffline(isDownloaded);
+          if (isDownloaded) {
+            const offlineData = await offlineStorage.getVideo(id);
+            if (active && offlineData && offlineData.videoBlob) {
+              const bUrl = URL.createObjectURL(offlineData.videoBlob);
+              setOfflineBlobUrl(bUrl);
+            }
+          } else {
+            if (active) setOfflineBlobUrl(null);
+          }
+        } catch (e) {
+          console.warn('Offline check warning:', e);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  // Click outside to close download dropdown menu
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target)) {
+        setShowDownloadMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
   const videoRef = useRef(null);
   const trackingIntervalRef = useRef(null);
   const [lastPositionLoaded, setLastPositionLoaded] = useState(false);
@@ -1002,21 +1048,20 @@ const VideoWatch = () => {
     }
   }, [activeCue, autoScrollTranscript, activeWatchTab]);
 
-  // High-frequency live subtitle synchronization loop (60ms interval for zero-lag CC updates)
+  // Smooth live subtitle synchronization loop
   useEffect(() => {
     let intervalId = null;
     if (isPlaying) {
       intervalId = setInterval(() => {
         if (videoRef.current) {
           const cur = videoRef.current.currentTime;
-          setCurrentTime(cur);
           currentTimeRef.current = cur;
           if (transcriptCues && transcriptCues.length > 0) {
             const match = transcriptCues.find(c => cur >= c.start && cur < c.end);
             setActiveCue(prev => (prev?.id !== match?.id ? (match || null) : prev));
           }
         }
-      }, 60);
+      }, 250);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
@@ -1736,6 +1781,46 @@ const VideoWatch = () => {
     const scorePct = totalQs > 0 ? Math.round((correctCount / totalQs) * 100) : 0;
     const isPassedBool = scorePct >= 70;
 
+    let generatedCredentialId = null;
+    let learnerName = 'Learner';
+
+    if (isPassedBool) {
+      try {
+        const u = getCurrentUser() || {};
+        learnerName = u.name || u.fullname || u.username || (u.email ? u.email.split('@')[0] : 'Alex Graham');
+        const courseName = video?.courseTitle || video?.course_title || video?.title || 'TypeScript Basics & Architecture';
+        const acronym = (courseName.replace(/[^a-zA-Z]/g, '').slice(0, 3) || 'TSB').toUpperCase();
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const year = new Date().getFullYear();
+        generatedCredentialId = `CERT-${acronym}-${year}-${randomNum}`;
+        const issueDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        const newCertificate = {
+          id: `cert_${Date.now()}`,
+          title: courseName,
+          chapterTitle: quizModal.title || 'Chapter Assessment',
+          issuer: 'XLurn Learning Academy',
+          issueDate: issueDate,
+          credentialId: generatedCredentialId,
+          score: `${scorePct}%`,
+          badge: scorePct >= 90 ? '🏆' : '🎓',
+          learnerName: learnerName,
+          verified: true,
+          courseId: quizModal.courseId || video?.id || 1,
+          chapterId: quizModal.chapterId || 1
+        };
+
+        const existingCerts = JSON.parse(localStorage.getItem('earned_certificates') || '[]');
+        const filtered = existingCerts.filter(c => c.courseId !== newCertificate.courseId || c.title !== newCertificate.title);
+        const updatedCerts = [newCertificate, ...filtered];
+        localStorage.setItem('earned_certificates', JSON.stringify(updatedCerts));
+
+        window.dispatchEvent(new CustomEvent('certificate_earned', { detail: newCertificate }));
+      } catch (e) {
+        console.error('Error generating certificate:', e);
+      }
+    }
+
     const payload = {
       formstep: 'submitQuiz',
       formStep: 'submitQuiz',
@@ -1772,7 +1857,10 @@ const VideoWatch = () => {
         score: correctCount,
         totalQuestions: totalQs,
         percentage: scorePct,
-        answers: answerBreakdown
+        answers: answerBreakdown,
+        isPassed: isPassedBool,
+        credentialId: generatedCredentialId,
+        learnerName: learnerName
       }
     }));
   };
@@ -2801,30 +2889,95 @@ const VideoWatch = () => {
     }
   };
 
-  const handleDownloadVideo = async () => {
+  // 1. In-App Offline Storage (JioCinema / Netflix Style)
+  const handleSaveOffline = async () => {
+    if (userPlan === '1' || userPlan !== '2') {
+      showUpgradeAlert('Need to upgrade your plan');
+      return;
+    }
+    if (!video) return;
+    try {
+      setShowDownloadMenu(false);
+      setOfflineDownloadProgress(1);
+      const targetUrl = srcUrl || video?.videoUrl || video?.video_url;
+      await offlineStorage.saveVideo(
+        {
+          id,
+          title: video.title || 'Lesson Video',
+          description: video.description || '',
+          instructor: video.instructor || 'Instructor',
+          duration: video.duration || '12:45',
+          thumbnail: video.thumbnail || video.thumbnailUrl || video.thumbnail_url,
+          videoUrl: targetUrl,
+          subtitles: video.subtitles,
+          subtitleTracks: video.subtitleTracks || video.subtitle_tracks
+        },
+        (percent) => {
+          setOfflineDownloadProgress(percent);
+        }
+      );
+      setIsSavedOffline(true);
+      setOfflineDownloadProgress(null);
+      const savedData = await offlineStorage.getVideo(id);
+      if (savedData && savedData.videoBlob) {
+        setOfflineBlobUrl(URL.createObjectURL(savedData.videoBlob));
+      }
+      try {
+        await api.dashboard.getUser('download_video', { 
+          id,
+          title: video?.title || '',
+          thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
+          video_url: targetUrl
+        });
+      } catch (e) {}
+      alert('Video saved for offline playback! You can watch it anytime from the Downloads tab without internet.');
+    } catch (err) {
+      console.error('Offline save error:', err);
+      setOfflineDownloadProgress(null);
+      alert('Could not save in-app: ' + err.message + '. Starting standard file download...');
+      handleDownloadSystemMP4();
+    }
+  };
+
+  const handleDeleteOffline = async () => {
+    if (!window.confirm('Remove this video from offline downloads?')) return;
+    try {
+      await offlineStorage.deleteVideo(id);
+      setIsSavedOffline(false);
+      if (offlineBlobUrl) {
+        URL.revokeObjectURL(offlineBlobUrl);
+        setOfflineBlobUrl(null);
+      }
+      setShowDownloadMenu(false);
+      alert('Video removed from offline storage.');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // 2. Direct MP4 System File Download
+  const handleDownloadSystemMP4 = async () => {
     if (userPlan === '1' || userPlan !== '2') {
       showUpgradeAlert('Need to upgrade your plan');
       return;
     }
     try {
-      const videoUrl = video?.videoUrl || video?.video_url;
-      if (!videoUrl) {
-        return;
-      }
-      
+      setShowDownloadMenu(false);
+      const videoUrl = srcUrl || video?.videoUrl || video?.video_url;
+      if (!videoUrl) return;
+
       const response = await fetch(videoUrl);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
-      
       const link = document.createElement('a');
       link.href = blobUrl;
-      const filename = videoUrl.split('/').pop().split('?')[0] || 'video.mp4';
-      link.setAttribute('download', filename);
+      const cleanName = (video?.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
+      link.setAttribute('download', `${cleanName}.mp4`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-      
+
       await api.dashboard.getUser('download_video', { 
         id,
         title: video?.title || '',
@@ -2832,21 +2985,8 @@ const VideoWatch = () => {
         video_url: videoUrl
       });
     } catch (e) {
-      console.error("Download failed", e);
-      try {
-        const videoUrl = video?.videoUrl || video?.video_url;
-        if (videoUrl) {
-          window.open(videoUrl, '_blank');
-          await api.dashboard.getUser('download_video', { 
-            id,
-            title: video?.title || '',
-            thumbnail: video?.thumbnail || video?.thumbnailUrl || video?.thumbnail_url || '',
-            video_url: videoUrl
-          });
-        }
-      } catch (err) {
-        console.error(err);
-      }
+      console.warn('Direct blob download fallback:', e);
+      window.open(srcUrl || video?.videoUrl || video?.video_url, '_blank');
     }
   };
 
@@ -2854,6 +2994,9 @@ const VideoWatch = () => {
   if (error || !video) return <div style={{ color: '#ef4444', textAlign: 'center', padding: '100px' }}>{error || 'Video not found'}</div>;
 
   const srcUrl = (() => {
+    if (offlineBlobUrl) {
+      return offlineBlobUrl;
+    }
     const url = video.videoUrl || video.video_url;
     const REAL_COURSE_VIDEO = 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4';
 
@@ -3579,22 +3722,157 @@ const VideoWatch = () => {
                 🔗 {t('watch.share', 'Share')}
               </button>
 
-              {/* Download button */}
-              <button style={{
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '20px',
-                padding: '8px 16px',
-                color: 'var(--text-primary)',
-                fontSize: '13px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }} onClick={handleDownloadVideo}>
-                📥 {t('watch.download', 'Download')}
-              </button>
+              {/* Dual Download (Jio In-App Offline + Standard MP4 File) */}
+              <div ref={downloadMenuRef} style={{ position: 'relative' }}>
+                <button
+                  style={{
+                    background: isSavedOffline ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-tertiary)',
+                    border: isSavedOffline ? '1px solid #10b981' : '1px solid var(--border-color)',
+                    borderRadius: '20px',
+                    padding: '8px 16px',
+                    color: isSavedOffline ? '#10b981' : 'var(--text-primary)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => {
+                    if (userPlan === '1' || userPlan !== '2') {
+                      showUpgradeAlert('Need to upgrade your plan');
+                      return;
+                    }
+                    setShowDownloadMenu(prev => !prev);
+                  }}
+                >
+                  {offlineDownloadProgress !== null ? (
+                    <>
+                      <span style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                      <span>Downloading {offlineDownloadProgress}%</span>
+                    </>
+                  ) : isSavedOffline ? (
+                    <>
+                      <span>✅</span>
+                      <span>{t('watch.savedOffline', 'Saved Offline')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📥</span>
+                      <span>{t('watch.download', 'Download')}</span>
+                      {(userPlan === '1' || userPlan !== '2') && <span style={{ fontSize: '11px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>PRO</span>}
+                      <span style={{ fontSize: '10px' }}>▼</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Dropdown Options */}
+                {showDownloadMenu && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: 0,
+                    minWidth: '290px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
+                    zIndex: 1000,
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    {/* Option 1: In-App Jio-Style Offline Download */}
+                    {!isSavedOffline ? (
+                      <button
+                        onClick={handleSaveOffline}
+                        disabled={offlineDownloadProgress !== null}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          gap: '2px',
+                          padding: '10px 12px',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          color: 'var(--text-primary)',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '13px', color: '#10b981' }}>
+                          <span>💾</span>
+                          <span>Save for In-App Offline (Jio Style)</span>
+                        </div>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', paddingLeft: '24px' }}>
+                          Stores encrypted inside app. Play anytime without internet/WiFi.
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleDeleteOffline}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 12px',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          color: '#ef4444',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span>🗑️</span>
+                        <span>Remove from In-App Offline Storage</span>
+                      </button>
+                    )}
+
+                    <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
+
+                    {/* Option 2: Normal PC/System MP4 Download */}
+                    <button
+                      onClick={handleDownloadSystemMP4}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '2px',
+                        padding: '10px 12px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        color: 'var(--text-primary)',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '13px' }}>
+                        <span>⬇️</span>
+                        <span>Download MP4 File (PC / Desktop)</span>
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', paddingLeft: '24px' }}>
+                        Saves .mp4 to your Downloads folder for VLC / local player.
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Watch Later button */}
               <button 
@@ -5862,6 +6140,55 @@ const VideoWatch = () => {
                     <p style={{ margin: 0, fontSize: '14px', color: quizModal.results?.percentage >= 70 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
                       {quizModal.results?.percentage >= 70 ? 'Congratulations! You passed the chapter quiz.' : 'Quiz completed. Review correct answers below.'}
                     </p>
+                    {quizModal.results?.percentage >= 70 && (
+                      <div style={{
+                        marginTop: '16px',
+                        padding: '16px 20px',
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                        border: '1px solid rgba(99, 102, 241, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        textAlign: 'left'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <span style={{ fontSize: '32px' }}>📜</span>
+                          <div>
+                            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary, #ffffff)' }}>
+                              Official Completion Certificate Generated!
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary, #94a3b8)', marginTop: '2px' }}>
+                              Credential ID: <code style={{ color: '#10b981', fontWeight: 700, backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>{quizModal.results?.credentialId || 'CERT-VERIFIED-2026'}</code>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleCloseQuizModal();
+                            navigate('/certificates');
+                          }}
+                          style={{
+                            padding: '9px 18px',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                            color: '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+                          }}
+                        >
+                          View Certificate ➔
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Detailed Question Review */}
@@ -6026,6 +6353,30 @@ const VideoWatch = () => {
                   >
                     🔄 Retake Quiz
                   </button>
+                  {quizModal.results?.percentage >= 70 && (
+                    <button
+                      onClick={() => {
+                        handleCloseQuizModal();
+                        navigate('/certificates');
+                      }}
+                      style={{
+                        padding: '8px 20px',
+                        fontSize: '13px',
+                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                        border: 'none',
+                        color: '#ffffff',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 10px rgba(99, 102, 241, 0.4)'
+                      }}
+                    >
+                      📜 View Certificate
+                    </button>
+                  )}
                   <button
                     onClick={handleCloseQuizModal}
                     className="btn btn-primary"

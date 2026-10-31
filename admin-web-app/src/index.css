@@ -76,7 +76,10 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+body, .sidebar, .youtube-sidebar, .global-navbar, .glass-card, .btn, .stat-card, .admin-content-container {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, a, span:not([class*="fa-"]):not(.fa) {

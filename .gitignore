@@ -49,3 +49,5 @@ videoStreaming_project.zip
 backend-mock/public/uploads/
 backend-mock/temp_chunks/
 scratch/
+__pycache__/
+*.pyc
