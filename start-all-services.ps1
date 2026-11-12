@@ -1,4 +1,4 @@
-# ============================================
+﻿# ============================================
 #   XLurn Platform - Start All Services
 # ============================================
 # Run this script to start the full platform:
@@ -15,16 +15,26 @@ Write-Host "   Starting XLurn Platform Services" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # 1. Start MinIO
-Write-Host "`n[1/5] Starting MinIO Object Storage..." -ForegroundColor Yellow
-$minioExe = "C:\MinIO\minio.exe.exe"
-if (Test-Path $minioExe) {
-    Start-Process -FilePath $minioExe `
-        -ArgumentList "server", "C:\MinIO\data", "--console-address", ":9001" `
-        -WindowStyle Normal
-    Write-Host "      MinIO started  -> API: http://localhost:9000  Console: http://localhost:9001" -ForegroundColor Green
-    Start-Sleep -Seconds 3
+Write-Host "`n[1/5] Checking MinIO Object Storage..." -ForegroundColor Yellow
+$minioRunning = $false
+try {
+    $res = Invoke-WebRequest -Uri "http://localhost:9000/minio/health/live" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+    if ($res.StatusCode -eq 200) { $minioRunning = $true }
+} catch {}
+
+if ($minioRunning) {
+    Write-Host "      MinIO already running -> API: http://localhost:9000  Console: http://localhost:9001" -ForegroundColor Green
 } else {
-    Write-Host "      WARNING: MinIO not found at $minioExe — skipping." -ForegroundColor Red
+    $minioExe = "C:\MinIO\minio.exe.exe"
+    if (Test-Path $minioExe) {
+        Start-Process -FilePath $minioExe `
+            -ArgumentList "server", "C:\MinIO\data", "--console-address", ":9001" `
+            -WindowStyle Normal
+        Write-Host "      MinIO started  -> API: http://localhost:9000  Console: http://localhost:9001" -ForegroundColor Green
+        Start-Sleep -Seconds 3
+    } else {
+        Write-Host "      WARNING: MinIO not found at $minioExe — skipping." -ForegroundColor Red
+    }
 }
 
 # 2. Start Backend Mock Server

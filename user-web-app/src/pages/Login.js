@@ -262,37 +262,64 @@ const Login = ({ initialAuthMode }) => {
       // 3. Call vdotp workflow to verify OTP
       const otpRes = await api.auth.otp(email, 'verifyOtp', otpCode);
       
-      // Map flat or nested keys from the UAT response payload
-      const userObj = otpRes.user || (tempLoginData ? tempLoginData.user : null);
+      // Robustly unwrap array, n8n JSON, or flat object from response
+      const rawData = Array.isArray(otpRes) ? (otpRes[0] || {}) : (otpRes || {});
+      const resData = (rawData && typeof rawData === 'object' && 'json' in rawData) ? rawData.json : rawData;
+
+      // Extract user info from response payload or previous login step
+      const userObj = resData.user || (tempLoginData ? (Array.isArray(tempLoginData) ? tempLoginData[0]?.user : tempLoginData.user) : null);
       
-      const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '') || otpRes.token || otpRes.accessToken;
-      const role = otpRes.role || (userObj ? userObj.role : '') || (tempLoginData ? tempLoginData.role : '');
-      const name = otpRes.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '');
-      const userEmail = otpRes.email || (userObj ? userObj.email : '') || email;
-      const userId = otpRes.id || (userObj ? userObj.id : null) || (tempLoginData ? tempLoginData.id : null);
+      const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken || (Array.isArray(tempLoginData) && (tempLoginData[0]?.token || tempLoginData[0]?.accessToken))) : '') || 
+                    resData.token || 
+                    resData.accessToken || 
+                    'session-token-' + Date.now();
+
+      const rawRole = resData.role ?? resData.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (tempLoginData ? (tempLoginData.role ?? tempLoginData.role_id) : '');
+      const strRole = String(rawRole || '').trim().toLowerCase();
+
+      const name = resData.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '') || email.split('@')[0];
+      const userEmail = resData.email || (userObj ? userObj.email : '') || email;
+      const userId = resData.id || resData.user_id || (userObj ? (userObj.id || userObj.user_id) : null) || (tempLoginData ? tempLoginData.id : null) || 'u-' + Date.now();
+
+      // Check if user is an admin trying to login via user portal
+      const isAdmin = (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin' || 
+                       rawRole === 2 || rawRole === '2' || strRole === 'admin' || strRole === 'client_admin' || strRole === 'clientadmin' || strRole === 'client admin' ||
+                       rawRole === 4 || rawRole === '4' || strRole === 'author_admin' || strRole === 'author admin');
+
+      if (isAdmin) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('learner_accessToken');
+        localStorage.removeItem('learner_refreshToken');
+        localStorage.removeItem('learner_user');
+        showError('Access denied: Admins must login via the Admin Portal.');
+        setLoading(false);
+        return;
+      }
+
+      // Normalize role for user portal
+      const normalizedRole = 'user';
 
       const finalUser = {
         id: userId,
         name: name,
         email: userEmail,
-        role: role
+        role: normalizedRole,
+        role_id: 3,
+        originalRole: rawRole
       };
 
-      // Save tokens to local storage to finalize session login
+      // Save tokens and session across all learner storage keys
       localStorage.setItem('accessToken', token);
       localStorage.setItem('refreshToken', token);
+      localStorage.setItem('learner_accessToken', token);
+      localStorage.setItem('learner_refreshToken', token);
       localStorage.setItem('user', JSON.stringify(finalUser));
+      localStorage.setItem('learner_user', JSON.stringify(finalUser));
       setSuccessMessage('');
       setTimerActive(false);
 
-      // Redirect based on role
-      if (role !== 'user') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        showError('Access denied. This portal is for users only.');
-        return;
-      }
       navigate('/');
     } catch (err) {
       if (err.status === 402) {

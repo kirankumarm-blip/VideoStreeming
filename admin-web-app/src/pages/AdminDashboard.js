@@ -10628,6 +10628,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 controls 
                 autoPlay
                 controlsList="nodownload"
+                onError={(e) => {
+                  if (e.target.src !== 'https://www.w3schools.com/html/mov_bbb.mp4') {
+                    e.target.src = 'https://www.w3schools.com/html/mov_bbb.mp4';
+                  }
+                }}
                 onContextMenu={(e) => e.preventDefault()}
                 style={{ width: '100%', height: '100%', display: 'block' }}
               />

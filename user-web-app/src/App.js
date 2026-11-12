@@ -37,7 +37,11 @@ const RoleRoute = ({ children, allowedRoles }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  if (!allowedRoles.includes(user.role)) {
+  const role = String(user.role || '').toLowerCase();
+  const normalizedAllowed = (allowedRoles || []).map(r => String(r).toLowerCase());
+  const isMatch = normalizedAllowed.includes(role) || 
+    (normalizedAllowed.includes('user') && (role === 'user' || role === 'student' || role === 'end_user' || role === 'learner' || role === '3'));
+  if (!isMatch) {
     return <Navigate to="/" replace />;
   }
   return children;
@@ -125,8 +129,10 @@ const AppLayout = ({ theme, setTheme }) => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
-  const showSidebar = !isAuthPage && user && user.role === 'user';
-  const isFullWidthPage = isAuthPage || isLegalOrPublicPage || (user && user.role === 'user');
+  const userRole = String(user?.role || '').toLowerCase();
+  const isLearner = userRole === 'user' || userRole === 'student' || userRole === 'end_user' || userRole === 'learner' || userRole === '3';
+  const showSidebar = !isAuthPage && user && isLearner;
+  const isFullWidthPage = isAuthPage || isLegalOrPublicPage || (user && isLearner);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
@@ -290,7 +296,9 @@ class ErrorBoundary extends React.Component {
 const DashboardRedirect = () => {
   const user = getCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'user') return <Navigate to="/login" replace />;
+  const role = String(user.role || '').toLowerCase();
+  const isLearner = role === 'user' || role === 'student' || role === 'end_user' || role === 'learner' || role === '3';
+  if (!isLearner) return <Navigate to="/login" replace />;
   return (
     <ErrorBoundary>
       <UserDashboard />
