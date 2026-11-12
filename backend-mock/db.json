@@ -135,85 +135,165 @@
       "id": "cat-science",
       "name": "Science",
       "description": "Physics, chemistry, biology and space exploration.",
-      "sub_categories": ["Physics", "Chemistry", "Biology", "Astronomy", "Quantum Mechanics"]
+      "sub_categories": [
+        "Physics",
+        "Chemistry",
+        "Biology",
+        "Astronomy",
+        "Quantum Mechanics"
+      ]
     },
     {
       "id": "cat-education",
       "name": "Education",
       "description": "General academic courses and learning guides.",
-      "sub_categories": ["Study Skills", "Academic Writing", "Pedagogy", "Test Prep"]
+      "sub_categories": [
+        "Study Skills",
+        "Academic Writing",
+        "Pedagogy",
+        "Test Prep"
+      ]
     },
     {
       "id": "cat-tech",
       "name": "Technology",
       "description": "Software development, programming, and AI.",
-      "sub_categories": ["Web Development", "Cloud & DevOps", "Cybersecurity", "Mobile Apps", "Databases"]
+      "sub_categories": [
+        "Web Development",
+        "Cloud & DevOps",
+        "Cybersecurity",
+        "Mobile Apps",
+        "Databases"
+      ]
     },
     {
       "id": "cat-math",
       "name": "Mathematics",
       "description": "Algebra, calculus, geometry, and problem solving.",
-      "sub_categories": ["Calculus", "Linear Algebra", "Probability & Statistics", "Discrete Math"]
+      "sub_categories": [
+        "Calculus",
+        "Linear Algebra",
+        "Probability & Statistics",
+        "Discrete Math"
+      ]
     },
     {
       "id": "cat-lang",
       "name": "Language Learning",
       "description": "Learn English, Spanish, French, and more.",
-      "sub_categories": ["English", "Spanish", "French", "German", "Japanese"]
+      "sub_categories": [
+        "English",
+        "Spanish",
+        "French",
+        "German",
+        "Japanese"
+      ]
     },
     {
       "id": "cat-career",
       "name": "Career Development",
       "description": "Resume writing, job interviews, and workplace success.",
-      "sub_categories": ["Resume Building", "Interview Prep", "Networking", "Public Speaking"]
+      "sub_categories": [
+        "Resume Building",
+        "Interview Prep",
+        "Networking",
+        "Public Speaking"
+      ]
     },
     {
       "id": "cat-gk",
       "name": "General Knowledge",
       "description": "Trivia, facts, history, and geography.",
-      "sub_categories": ["World History", "Geography", "Current Affairs", "Science Trivia"]
+      "sub_categories": [
+        "World History",
+        "Geography",
+        "Current Affairs",
+        "Science Trivia"
+      ]
     },
     {
       "id": "cat-health",
       "name": "Health",
       "description": "Fitness, nutrition, mental health, and wellness.",
-      "sub_categories": ["Nutrition", "Fitness & Workouts", "Mental Wellness", "Yoga & Meditation", "First Aid"]
+      "sub_categories": [
+        "Nutrition",
+        "Fitness & Workouts",
+        "Mental Wellness",
+        "Yoga & Meditation",
+        "First Aid"
+      ]
     },
     {
       "id": "cat-finance",
       "name": "Finance",
       "description": "Personal finance, investing, and accounting basics.",
-      "sub_categories": ["Investing", "Stock Market", "Personal Budgeting", "Crypto & Blockchain", "Accounting"]
+      "sub_categories": [
+        "Investing",
+        "Stock Market",
+        "Personal Budgeting",
+        "Crypto & Blockchain",
+        "Accounting"
+      ]
     },
     {
       "id": "cat-ai",
       "name": "AI",
       "description": "Artificial Intelligence, machine learning and deep neural networks.",
-      "sub_categories": ["Machine Learning", "Deep Learning", "LLMs & Prompt Engineering", "Computer Vision", "NLP"]
+      "sub_categories": [
+        "Machine Learning",
+        "Deep Learning",
+        "LLMs & Prompt Engineering",
+        "Computer Vision",
+        "NLP"
+      ]
     },
     {
       "id": "cat-coding",
       "name": "Coding",
       "description": "Programming languages, algorithms, and software development.",
-      "sub_categories": ["JavaScript & TypeScript", "Python", "React & Frontend", "Node.js & Backend", "Data Structures"]
+      "sub_categories": [
+        "JavaScript & TypeScript",
+        "Python",
+        "React & Frontend",
+        "Node.js & Backend",
+        "Data Structures"
+      ]
     },
     {
       "id": "cat-business",
       "name": "Business",
       "description": "Entrepreneurship, marketing, startup strategies, and management.",
-      "sub_categories": ["Startups", "Digital Marketing", "Product Management", "Leadership", "Sales Strategies"]
+      "sub_categories": [
+        "Startups",
+        "Digital Marketing",
+        "Product Management",
+        "Leadership",
+        "Sales Strategies"
+      ]
     },
     {
       "id": "cat-electronics",
       "name": "Electronicss",
       "description": "Circuits, embedded systems, microcontrollers, and IoT hardware.",
-      "sub_categories": ["Circuit Design", "Microcontrollers", "Embedded Systems", "Robotics", "IoT Sensors"]
+      "sub_categories": [
+        "Circuit Design",
+        "Microcontrollers",
+        "Embedded Systems",
+        "Robotics",
+        "IoT Sensors"
+      ]
     },
     {
       "id": "cat-vercel-nextjs",
       "name": "Vercel Next JS",
       "description": "Next.js 14 full-stack app router, server components, and deployment.",
-      "sub_categories": ["App Router", "Server Components (RSC)", "Server Actions", "NextAuth & Auth.js", "Deployment & Edge"]
+      "sub_categories": [
+        "App Router",
+        "Server Components (RSC)",
+        "Server Actions",
+        "NextAuth & Auth.js",
+        "Deployment & Edge"
+      ]
     }
   ],
   "videos": [
@@ -223,7 +303,7 @@
       "description": "An introductory guide to quantum physics, exploring wave-particle duality, superposition, and quantum entanglement.",
       "category": "Science",
       "thumbnail": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800",
-      "videoUrl": "/uploads/video-1783160868201-113435163.mp4",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
       "tags": [
         "quantum",
         "physics",
@@ -246,7 +326,7 @@
       "description": "Learn the basics of React, including components, props, state, hooks, and virtual DOM concepts.",
       "category": "Technology",
       "thumbnail": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800",
-      "videoUrl": "/uploads/video-1783335443739-730573726.mp4",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
       "tags": [
         "react",
         "javascript",
@@ -269,7 +349,7 @@
       "description": "A comprehensive guide on how compound interest works, the rule of 72, and personal finance strategies.",
       "category": "Finance",
       "thumbnail": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800",
-      "videoUrl": "/uploads/video-1783335988093-238108433.mp4",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
       "tags": [
         "finance",
         "money",
@@ -291,8 +371,8 @@
       "title": "Test Sample",
       "description": "Test",
       "category": "Science",
-      "thumbnail": "/uploads/thumbnail-1781004747324-920584811.jpg",
-      "videoUrl": "/uploads/video-1781004732571-235370854.avi",
+      "thumbnail": "https://images.unsplash.com/photo-1677442136019-21780efad99a?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
       "tags": [
         "test"
       ],
@@ -406,8 +486,8 @@
       "title": "MainStream",
       "description": "Test",
       "category": "Science",
-      "thumbnail": "/uploads/thumbnail-1783160868303-865260846.jpg",
-      "videoUrl": "/uploads/video-1783160868201-113435163.mp4",
+      "thumbnail": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
       "tags": [
         "math"
       ],
@@ -424,8 +504,8 @@
       "title": "Mainstream",
       "description": "For student who don't know about science",
       "category": "Science",
-      "thumbnail": "/uploads/thumbnail-1783335443819-319390133.jpg",
-      "videoUrl": "/uploads/video-1783335443739-730573726.mp4",
+      "thumbnail": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
       "tags": [
         "Students"
       ],
@@ -442,8 +522,8 @@
       "title": "Technology",
       "description": "Art Of Technology",
       "category": "Technology",
-      "thumbnail": "/uploads/thumbnail-1783335988409-874274500.jpg",
-      "videoUrl": "/uploads/video-1783335988093-238108433.mp4",
+      "thumbnail": "https://images.unsplash.com/photo-1677442136019-21780efad99a?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
       "tags": [
         "Students with less knowledge"
       ],
@@ -460,8 +540,8 @@
       "title": "Student",
       "description": "Student",
       "category": "Education",
-      "thumbnail": "/uploads/thumbnail-1783337770873-394782119.jpg",
-      "videoUrl": "/uploads/video-1783337770616-848866319.mp4",
+      "thumbnail": "https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
       "tags": [
         "Student"
       ],
@@ -478,8 +558,8 @@
       "title": "Student Data",
       "description": "Student Data",
       "category": "Technology",
-      "thumbnail": "/uploads/thumbnail-1783337866887-180910316.jpg",
-      "videoUrl": "/uploads/video-1783337866663-808560750.mp4",
+      "thumbnail": "https://images.unsplash.com/photo-1542744094-3a31f103e35f?w=800",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
       "tags": [
         "Student Data"
       ],

@@ -293,7 +293,7 @@ const Profile = () => {
                 overflow: 'hidden'
               }}>
                 {profile.avatar ? (
-                  <img src={profile.avatar.startsWith('http') ? profile.avatar : `http://localhost:5000${profile.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={profile.avatar.startsWith('http') ? profile.avatar : `http://localhost:5050${profile.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   (profile.name || profile.email || 'U').charAt(0).toUpperCase()
                 )}

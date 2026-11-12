@@ -261,7 +261,7 @@ const Login = () => {
 
       let isSuperAdmin = (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin');
       let isAuthorAdmin = (rawRole === 4 || rawRole === '4' || strRole === '4' || strRole === 'author_admin' || strRole === 'author admin');
-      let isAdmin = (rawRole === 2 || rawRole === '2' || strRole === 'admin');
+      let isAdmin = (rawRole === 2 || rawRole === '2' || strRole === 'admin' || strRole === 'client_admin' || strRole === 'clientadmin' || strRole === 'client admin');
 
       if (!isSuperAdmin && !isAuthorAdmin && !isAdmin) {
         localStorage.removeItem('accessToken');

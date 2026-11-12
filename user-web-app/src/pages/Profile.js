@@ -159,7 +159,7 @@ const Profile = () => {
       setName(mergedUser.name || '');
       setMobile(mergedUser.mobile || '');
       if (mergedUser.avatar) {
-        setAvatarPreview(mergedUser.avatar.startsWith('http') ? mergedUser.avatar : `http://localhost:5000${mergedUser.avatar}`);
+        setAvatarPreview(mergedUser.avatar.startsWith('http') ? mergedUser.avatar : `http://localhost:5050${mergedUser.avatar}`);
       }
     } catch (e) {
       const localUser = getCurrentUser() || { name: 'User', email: 'user@lurnax.com' };
@@ -167,7 +167,7 @@ const Profile = () => {
       setName(localUser.name || '');
       setMobile(localUser.mobile || '');
       if (localUser.avatar) {
-        setAvatarPreview(localUser.avatar.startsWith('http') ? localUser.avatar : `http://localhost:5000${localUser.avatar}`);
+        setAvatarPreview(localUser.avatar.startsWith('http') ? localUser.avatar : `http://localhost:5050${localUser.avatar}`);
       }
     } finally {
       setLoading(false);

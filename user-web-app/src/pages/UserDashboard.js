@@ -184,7 +184,7 @@ const HoverThumbnail = ({ video }) => {
     if (url.startsWith('/uploads')) {
       const ext = url.split('.').pop().toLowerCase();
       if (['mp4', 'webm', 'ogg'].includes(ext)) {
-        return `http://localhost:5000${url}`;
+        return `http://localhost:5050${url}`;
       }
       return 'https://www.w3schools.com/html/mov_bbb.mp4';
     }
@@ -196,7 +196,7 @@ const HoverThumbnail = ({ video }) => {
     if (!thumb) {
       return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
     }
-    return thumb.startsWith('http') ? thumb : `http://localhost:5000${thumb}`;
+    return thumb.startsWith('http') ? thumb : `http://localhost:5050${thumb}`;
   })();
 
   return (

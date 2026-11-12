@@ -14,11 +14,90 @@ const PORT = process.env.PORT || 5050;
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files statically so previews and downloads work directly
+// Normalize double slashes in URL paths (e.g. /uploads//file.mp4 -> /uploads/file.mp4)
+app.use((req, res, next) => {
+  if (req.url && req.url.includes('//')) {
+    req.url = req.url.replace(/\/+/g, '/');
+  }
+  next();
+});
+
+// Serve uploaded files with full video Range streaming (HTTP 206) and direct static fallback
 const staticUploadsDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(staticUploadsDir)) {
   fs.mkdirSync(staticUploadsDir, { recursive: true });
 }
+
+// Dedicated streaming & static handler for /uploads/*
+app.get('/uploads/:filename(*)', (req, res, next) => {
+  const cleanFilename = req.params.filename.replace(/^\/+/, '');
+  const filePath = path.join(staticUploadsDir, cleanFilename);
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    return next();
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+  const ext = path.extname(cleanFilename).toLowerCase();
+
+  const mimeTypes = {
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.vtt': 'text/vtt; charset=utf-8'
+  };
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
+
+  if (range && (ext === '.mp4' || ext === '.webm' || ext === '.ogg')) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunksize = (end - start) + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    const head = {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': contentType,
+    };
+    res.writeHead(206, head);
+    file.on('error', () => {
+      try { file.destroy(); } catch (e) {}
+      if (!res.headersSent) res.status(500).end();
+    });
+    res.on('close', () => {
+      try { file.destroy(); } catch (e) {}
+    });
+    file.pipe(res);
+  } else {
+    const head = {
+      'Content-Length': fileSize,
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes'
+    };
+    res.writeHead(200, head);
+    const file = fs.createReadStream(filePath);
+    file.on('error', () => {
+      try { file.destroy(); } catch (e) {}
+      if (!res.headersSent) res.status(500).end();
+    });
+    res.on('close', () => {
+      try { file.destroy(); } catch (e) {}
+    });
+    file.pipe(res);
+  }
+});
+
 app.use('/uploads', express.static(staticUploadsDir));
 
 // MinIO Credentials configuration
@@ -160,7 +239,7 @@ const extractAndUploadSubtitles = async (videoId, videoFilePath, fileName) => {
             if (!fs.existsSync(publicSubDir)) fs.mkdirSync(publicSubDir, { recursive: true });
             const localSubPath = path.join(publicSubDir, `${lang}.vtt`);
             fs.copyFileSync(vttFilePath, localSubPath);
-            const localSubUrl = `http://localhost:5000/uploads/subtitles/${videoId}/${lang}.vtt`;
+            const localSubUrl = `http://localhost:${PORT}/uploads/subtitles/${videoId}/${lang}.vtt`;
             subtitlesMap[lang] = localSubUrl;
             subtitleTracks.push({
               label: langObj.label,
@@ -224,7 +303,7 @@ const extractAndUploadSubtitles = async (videoId, videoFilePath, fileName) => {
           if (!fs.existsSync(publicSubDir)) fs.mkdirSync(publicSubDir, { recursive: true });
           const localSubPath = path.join(publicSubDir, `${lang}.vtt`);
           fs.writeFileSync(localSubPath, vttBody, 'utf-8');
-          const localSubUrl = `http://localhost:5000/uploads/subtitles/${videoId}/${lang}.vtt`;
+          const localSubUrl = `http://localhost:${PORT}/uploads/subtitles/${videoId}/${lang}.vtt`;
           subtitlesMap[lang] = localSubUrl;
           subtitleTracks.push({ label: langObj.label, srclang: lang, src: localSubUrl, default: lang === 'en' });
         } catch (localErr) {
@@ -322,8 +401,9 @@ app.post('/api/upload/complete', async (req, res) => {
 
     try {
       for (let attempt = 1; attempt <= 3; attempt++) {
+        let fileStream = null;
         try {
-          const fileStream = fs.createReadStream(assembledFilePath);
+          fileStream = fs.createReadStream(assembledFilePath);
           await minioClient.putObject(minioBucket, objectName, fileStream, fileStat.size, {
             'Content-Type': contentType
           });
@@ -333,6 +413,9 @@ app.post('/api/upload/complete', async (req, res) => {
           console.log(`Generated presigned URL: ${minioUrl}`);
           break;
         } catch (uploadErr) {
+          if (fileStream) {
+            try { fileStream.destroy(); } catch (e) {}
+          }
           console.warn(`MinIO upload attempt ${attempt} failed:`, uploadErr.message);
           if (attempt === 3) throw uploadErr;
           await new Promise(r => setTimeout(r, 400));
@@ -346,7 +429,7 @@ app.post('/api/upload/complete', async (req, res) => {
       }
       const localDestPath = path.join(publicUploadsDir, `${fileId}${fileExtension}`);
       fs.copyFileSync(assembledFilePath, localDestPath);
-      minioUrl = `http://localhost:5000/uploads/${fileId}${fileExtension}`;
+      minioUrl = `http://localhost:${PORT}/uploads/${fileId}${fileExtension}`;
       console.log(`Fallback local URL created: ${minioUrl}`);
     }
 
@@ -384,7 +467,7 @@ app.post('/api/upload/complete', async (req, res) => {
             if (!fs.existsSync(publicSubDir)) fs.mkdirSync(publicSubDir, { recursive: true });
             const localSubPath = path.join(publicSubDir, `${lang}.vtt`);
             fs.writeFileSync(localSubPath, initialVtt, 'utf-8');
-            const localSubUrl = `http://localhost:5000/uploads/subtitles/${fileId}/${lang}.vtt`;
+            const localSubUrl = `http://localhost:${PORT}/uploads/subtitles/${fileId}/${lang}.vtt`;
             subtitlesMap[lang] = localSubUrl;
             subtitleTracks.push({
               label: langObj.label,
@@ -536,6 +619,14 @@ app.post('/api/upload/generate-subtitles', async (req, res) => {
     }
     res.status(500).json({ error: err.message || 'Subtitle generation failed' });
   }
+});
+
+process.on('uncaughtException', (err) => {
+  console.warn('[Upload Service Warning] Uncaught exception safely handled:', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[Upload Service Warning] Unhandled rejection safely handled:', reason?.message || reason);
 });
 
 app.listen(PORT, () => {

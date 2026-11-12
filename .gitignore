@@ -51,3 +51,5 @@ backend-mock/temp_chunks/
 scratch/
 __pycache__/
 *.pyc
+
+extracted_images/

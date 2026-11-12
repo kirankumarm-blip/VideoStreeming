@@ -16,7 +16,7 @@
 1. [Test Strategy & Role Access Matrix](#1-test-strategy--role-access-matrix)
 2. [Module 1: Authentication & Session Security](#2-module-1-authentication--session-security)
 3. [Module 2: Profile & Administrator Settings](#3-module-2-profile--administrator-settings)
-4. [Module 3: Super Admin - Client & Tenant Management](#4-module-3-super-admin---client--tenant-management)
+4. [Module 3: Super Admin - Client Management](#4-module-3-super-admin---client-management)
 5. [Module 4: Sub-Admin Governance & RBAC Permissions](#5-module-4-sub-admin-governance--rbac-permissions)
 6. [Module 5: Author Admin (Instructor) Management](#6-module-5-author-admin-instructor-management)
 7. [Module 6: Learner (User) Management & Security Audits](#7-module-6-learner-user-management--security-audits)

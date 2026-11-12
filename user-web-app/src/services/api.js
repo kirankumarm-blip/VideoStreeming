@@ -90,16 +90,22 @@ export function decryptUrl(ciphertextBase64) {
 
 export function decryptIfNeeded(val) {
   if (typeof val !== 'string' || !val) return val;
-  if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/') || val.startsWith('data:') || val.startsWith('blob:')) {
-    return val;
+  let res = val;
+  if (!res.startsWith('http://') && !res.startsWith('https://') && !res.startsWith('/') && !res.startsWith('data:') && !res.startsWith('blob:')) {
+    try {
+      const decrypted = decryptUrl(res);
+      if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:') || decrypted.startsWith('blob:'))) {
+        res = decrypted;
+      }
+    } catch (e) {}
   }
-  try {
-    const decrypted = decryptUrl(val);
-    if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:') || decrypted.startsWith('blob:'))) {
-      return decrypted;
+  if (typeof res === 'string') {
+    res = res.replace(/([^:])\/\/+/g, '/');
+    if (res.includes('localhost:5000')) {
+      res = res.replace('localhost:5000', 'localhost:5050');
     }
-  } catch (e) {}
-  return val;
+  }
+  return res;
 }
 
 function decryptResponseData(data) {

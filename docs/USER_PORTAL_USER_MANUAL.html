@@ -3,38 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>XLurn User Portal - Learner Manual & Guide</title>
+  <title>XLurn User Portal - Learner Manual & Operations Guide</title>
   <style>
     :root {
       --primary: #8b5cf6;
       --primary-dark: #7c3aed;
-      --accent: #e50914;
-      --bg: #0f172a;
-      --card-bg: #1e293b;
+      --primary-light: #a78bfa;
+      --accent: #ef4444;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+      --bg: #0b0f19;
+      --card-bg: #151d2e;
+      --card-bg-alt: #1e293b;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
-      --border: #334155;
+      --border: #243048;
+      --border-highlight: #3b82f6;
     }
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
+    html {
+      scroll-behavior: smooth;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text-main);
-      line-height: 1.6;
+      line-height: 1.65;
       padding: 40px 20px;
     }
     .container {
-      max-width: 1100px;
+      max-width: 1160px;
       margin: 0 auto;
-      background: #090d16;
+      background: #0d1322;
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 50px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      padding: 50px 60px;
+      box-shadow: 0 24px 50px rgba(0,0,0,0.7);
     }
     header {
       border-bottom: 2px solid var(--border);
@@ -47,151 +55,298 @@
       gap: 20px;
     }
     .header-title h1 {
-      font-size: 32px;
+      font-size: 34px;
       font-weight: 800;
-      background: linear-gradient(135deg, #a855f7, #ec4899);
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #3b82f6 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
     }
     .header-title p {
       color: var(--text-muted);
       font-size: 16px;
     }
+    .header-badges {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: var(--primary-light);
+    }
     .print-btn {
       background: linear-gradient(135deg, #8b5cf6, #6366f1);
       color: white;
       border: none;
-      padding: 10px 20px;
+      padding: 12px 24px;
       font-weight: 600;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       font-size: 14px;
-      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+      transition: all 0.2s ease;
     }
     .print-btn:hover {
-      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
     }
     .toc {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 40px;
+      border-radius: 14px;
+      padding: 28px 32px;
+      margin-bottom: 50px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     .toc h3 {
-      font-size: 18px;
-      margin-bottom: 14px;
+      font-size: 20px;
+      margin-bottom: 18px;
       color: #c084fc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     .toc ul {
       list-style-type: none;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px 24px;
     }
     .toc a {
-      color: var(--text-main);
+      color: #cbd5e1;
       text-decoration: none;
-      font-size: 14px;
-      transition: color 0.2s;
+      font-size: 14.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: all 0.2s;
     }
     .toc a:hover {
-      color: #ec4899;
-      text-decoration: underline;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      transform: translateX(4px);
     }
     section {
-      margin-bottom: 46px;
-      padding-top: 10px;
+      margin-bottom: 56px;
+      scroll-margin-top: 36px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 40px;
+    }
+    section:last-of-type {
+      border-bottom: none;
     }
     h2 {
-      font-size: 24px;
-      color: #e2e8f0;
+      font-size: 26px;
+      color: #f1f5f9;
       border-left: 4px solid var(--primary);
-      padding-left: 14px;
-      margin-bottom: 16px;
+      padding-left: 16px;
+      margin-bottom: 20px;
+      letter-spacing: -0.3px;
     }
     h3 {
-      font-size: 18px;
+      font-size: 19px;
+      color: #e2e8f0;
+      margin: 24px 0 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h4 {
+      font-size: 16px;
       color: #cbd5e1;
-      margin: 18px 0 10px 0;
+      margin: 16px 0 8px 0;
     }
     p, li {
       color: #94a3b8;
       font-size: 15px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     ul, ol {
-      margin-left: 20px;
-      margin-bottom: 16px;
+      margin-left: 24px;
+      margin-bottom: 18px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    strong {
+      color: #f8fafc;
     }
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      margin: 20px 0;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin: 24px 0;
     }
     .feature-box {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 18px;
+      padding: 22px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .feature-box:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      transform: translateY(-2px);
     }
     .feature-box h4 {
       color: #f1f5f9;
-      font-size: 16px;
-      margin-bottom: 8px;
+      font-size: 16.5px;
+      margin-top: 0;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
     .feature-box p {
-      font-size: 13.5px;
+      font-size: 14px;
       margin-bottom: 0;
+      line-height: 1.5;
+    }
+    .step-card {
+      background: var(--card-bg-alt);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 10px 10px 0;
+      padding: 18px 24px;
+      margin: 18px 0;
+    }
+    .step-card h4 {
+      color: #a78bfa;
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    .image-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .image-card img {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .image-card .caption {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 12px;
+      font-style: italic;
     }
     .callout {
-      background: rgba(139, 92, 246, 0.1);
+      background: rgba(139, 92, 246, 0.08);
       border-left: 4px solid var(--primary);
-      padding: 16px 20px;
-      border-radius: 0 8px 8px 0;
-      margin: 20px 0;
+      padding: 18px 22px;
+      border-radius: 0 10px 10px 0;
+      margin: 22px 0;
+      border-top: 1px solid rgba(139, 92, 246, 0.15);
+      border-right: 1px solid rgba(139, 92, 246, 0.15);
+      border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    }
+    .callout.warning {
+      background: rgba(239, 68, 68, 0.08);
+      border-left-color: var(--accent);
+      border-top-color: rgba(239, 68, 68, 0.2);
+      border-right-color: rgba(239, 68, 68, 0.2);
+      border-bottom-color: rgba(239, 68, 68, 0.2);
+    }
+    .callout.success {
+      background: rgba(16, 185, 129, 0.08);
+      border-left-color: var(--accent-green);
+      border-top-color: rgba(16, 185, 129, 0.2);
+      border-right-color: rgba(16, 185, 129, 0.2);
+      border-bottom-color: rgba(16, 185, 129, 0.2);
     }
     .callout strong {
       color: #c084fc;
     }
+    .callout.warning strong {
+      color: #f87171;
+    }
+    .callout.success strong {
+      color: #34d399;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
+      margin: 22px 0;
       background: var(--card-bg);
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
       border: 1px solid var(--border);
     }
     th, td {
-      padding: 12px 16px;
+      padding: 13px 18px;
       text-align: left;
-      font-size: 14px;
+      font-size: 14.5px;
       border-bottom: 1px solid var(--border);
     }
     th {
-      background: rgba(255,255,255,0.04);
+      background: rgba(255, 255, 255, 0.04);
       color: #f1f5f9;
       font-weight: 600;
     }
     td {
       color: #cbd5e1;
     }
+    tr:last-child td {
+      border-bottom: none;
+    }
     kbd {
       background: #334155;
       color: #f8fafc;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       font-size: 12px;
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      border: 1px solid #475569;
+    }
+    code {
+      background: rgba(255, 255, 255, 0.08);
+      color: #38bdf8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13.5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-live {
+      background: #ef4444;
+      color: #fff;
+    }
+    .badge-upcoming {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+    .badge-recorded {
+      background: #334155;
+      color: #cbd5e1;
     }
     @media print {
       body {
@@ -205,7 +360,7 @@
         padding: 0;
         background: white;
       }
-      .print-btn {
+      .print-btn, .toc {
         display: none;
       }
       h1, h2, h3, h4 {
@@ -215,13 +370,10 @@
       p, li, td, th {
         color: #333 !important;
       }
-      .feature-box, table {
+      .feature-box, table, .step-card, .callout {
         background: none;
         border: 1px solid #ccc;
         page-break-inside: avoid;
-      }
-      .toc {
-        display: none;
       }
     }
   </style>
@@ -232,221 +384,599 @@
   <header>
     <div class="header-title">
       <h1>XLurn Video Streaming &amp; Learning Platform</h1>
-      <p>Learner (End-User) Portal User Manual &amp; Operations Guide</p>
+      <p>Comprehensive Learner (End-User) Portal User Manual &amp; Operations Guide</p>
+      <div class="header-badges">
+        <span class="badge-pill">🌐 Learner Web App v2.4</span>
+        <span class="badge-pill">🔒 RC4 &amp; 2FA Secure</span>
+        <span class="badge-pill">🎓 Full Curriculum &amp; Quizzes</span>
+        <span class="badge-pill">🔴 Virtual Classroom &amp; Live Webcasts</span>
+      </div>
     </div>
     <button class="print-btn" onclick="window.print()">🖨️ Print / Save to PDF</button>
   </header>
 
-  <div class="toc">
+  <!-- Table of Contents -->
+  <nav class="toc" id="toc-nav">
     <h3>📖 Table of Contents</h3>
     <ul>
-      <li><a href="#overview">1. Platform Overview &amp; Capabilities</a></li>
-      <li><a href="#auth">2. Sign Up, Login, 2FA OTP &amp; Password Reset</a></li>
+      <li><a href="#overview">1. Platform Overview &amp; Key Capabilities</a></li>
+      <li><a href="#auth">2. Registration, Sign In &amp; 6-Digit OTP Verification</a></li>
       <li><a href="#navbar">3. Global Search &amp; Top Navigation Bar</a></li>
-      <li><a href="#sidebar">4. Sidebar Navigation &amp; Discovery Views</a></li>
-      <li><a href="#home">5. Home Feed, Hover Previews &amp; Categories</a></li>
+      <li><a href="#sidebar">4. Sidebar Navigation &amp; Discovery Hub</a></li>
+      <li><a href="#home">5. Home Feed, Silent Hover Previews &amp; Categories</a></li>
       <li><a href="#watch">6. Interactive Video Watch Room &amp; Player</a></li>
       <li><a href="#subtitles">7. Subtitles, Transcripts &amp; PDF Resources</a></li>
-      <li><a href="#quizzes">8. Chapter Quizzes &amp; Assessments</a></li>
-      <li><a href="#library">9. Watch Later, Playlists, History &amp; Downloads</a></li>
-      <li><a href="#certificates">10. Earned Certificates &amp; Credentials</a></li>
-      <li><a href="#profile">11. Profile Settings, Security &amp; Moderation</a></li>
-      <li><a href="#plans">12. Subscription Plans &amp; Upgrades</a></li>
-      <li><a href="#troubleshooting">13. Troubleshooting &amp; System Alerts</a></li>
+      <li><a href="#virtual-classroom">8. Virtual Classroom &amp; Live Interactive Lectures</a></li>
+      <li><a href="#study-rooms">9. Collaborative Study Rooms &amp; Watch Parties</a></li>
+      <li><a href="#community">10. Discussion Boards &amp; Community Forum</a></li>
+      <li><a href="#quizzes">11. Chapter Quizzes &amp; Knowledge Assessments</a></li>
+      <li><a href="#library">12. Watch Later, Playlists, History &amp; Downloads</a></li>
+      <li><a href="#certificates">13. Earned Certificates &amp; Verified Credentials</a></li>
+      <li><a href="#profile">14. Profile Management, Safety &amp; Moderation</a></li>
+      <li><a href="#plans">15. Subscription Plans &amp; Membership Upgrades</a></li>
+      <li><a href="#faq-troubleshooting">16. Help Center, FAQ &amp; System Notifications</a></li>
     </ul>
-  </div>
+  </nav>
 
-  <!-- 1. Overview -->
+  <!-- 1. Platform Overview -->
   <section id="overview">
-    <h2>1. Platform Overview &amp; Capabilities</h2>
-    <p>The <strong>XLurn User Portal</strong> (<code>http://localhost:3001</code>) is an interactive learning and video streaming web application designed for learners to discover courses, stream multi-resolution lectures with synchronized transcripts, complete chapter quizzes, and earn verified certificates.</p>
+    <h2>1. Platform Overview &amp; Key Capabilities</h2>
+    <p>The <strong>XLurn User Portal</strong> (<code>http://localhost:3001</code>) is an enterprise-grade learning and video streaming web application designed for students, professionals, and corporate learners. It combines high-fidelity multi-resolution video delivery with synchronized multilingual transcripts, live interactive virtual classrooms, peer study rooms, automated assessments, and cryptographically verified completion certificates.</p>
+
     <div class="feature-grid">
       <div class="feature-box">
-        <h4>🎬 Adaptive Streaming</h4>
-        <p>Switch seamlessly between Auto, 1080p, 720p, and 480p with playback speed controls (0.75x to 2.0x) and smart timestamp auto-resume.</p>
+        <h4>🎬 Adaptive Video Streaming</h4>
+        <p>Switch dynamically between Auto, 1080p, 720p, and 480p with variable speeds (0.75x to 2.0x), dynamic watermarking, and smart timestamp resume.</p>
+      </div>
+      <div class="feature-box">
+        <h4>🔴 Virtual Classroom</h4>
+        <p>Participate in real-time instructor live webcasts with live polls, raise hand feature, attendee counters, and interactive class chat.</p>
+      </div>
+      <div class="feature-box">
+        <h4>👥 Collaborative Study Rooms</h4>
+        <p>Join or create peer study spaces with 6-character room codes, integrated focus timers, and group discussion tools.</p>
       </div>
       <div class="feature-box">
         <h4>💬 Multilingual Transcripts</h4>
-        <p>Live closed captions (CC) and clickable, searchable transcripts in English, Hindi (हिंदी), Kannada (ಕನ್ನಡ), and Telugu (తెలుగు).</p>
+        <p>Synchronized WebVTT closed captions and clickable, searchable transcripts available in English, Hindi (हिंदी), Kannada (ಕನ್ನಡ), and Telugu (తెలుగు).</p>
       </div>
       <div class="feature-box">
-        <h4>🏆 Chapter Assessments</h4>
-        <p>Automated end-of-chapter quizzes (MCQ, True/False, Free Text) with instant grading and smart auto-advance.</p>
+        <h4>🏆 Interactive Chapter Quizzes</h4>
+        <p>Reinforce learning with end-of-chapter MCQs, True/False, and fill-in-the-blank questions featuring instant grading and pass/fail tracking.</p>
       </div>
       <div class="feature-box">
         <h4>📜 Verified Certificates</h4>
-        <p>Earn and download official PDF certificates with unique credential IDs upon completing courses.</p>
+        <p>Earn and download authenticated PDF completion credentials complete with unique verification IDs upon passing course requirements.</p>
       </div>
     </div>
   </section>
 
-  <!-- 2. Auth -->
+  <!-- 2. Registration, Login & OTP -->
   <section id="auth">
-    <h2>2. Sign Up, Login, 2FA OTP &amp; Password Reset</h2>
-    <h3>2.1 Creating an Account (Sign Up)</h3>
-    <ol>
-      <li>Navigate to <code>http://localhost:3001/#/signup</code>.</li>
-      <li>Enter your <strong>Full Name</strong>, <strong>Email Address</strong>, <strong>Mobile Number</strong>, and <strong>Password</strong>.</li>
-      <li>Click <strong>Sign Up</strong> to create your learner profile.</li>
-    </ol>
-    <h3>2.2 Signing In &amp; 6-Digit OTP Verification</h3>
-    <ol>
-      <li>Open <code>http://localhost:3001/#/login</code> and enter your registered <strong>Email</strong> and <strong>Password</strong>.</li>
-      <li>If Two-Factor Authentication (2FA) is enabled, enter the <strong>6-digit numeric PIN</strong> sent to your registered email within the <strong>120-second</strong> timer window (supports full-code paste).</li>
-      <li>Click <strong>Verify &amp; Sign In</strong> to enter the portal.</li>
-    </ol>
-    <h3>2.3 Forgot &amp; Reset Password</h3>
-    <p>Click <strong>Forgot Password?</strong> on the login screen, enter your email to receive a reset token/OTP, and set your new password.</p>
-    <div class="callout">
-      <strong>10-Minute Cross-Tab Inactivity Guard:</strong> If no mouse, keyboard, touch, or scroll activity occurs across any open browser tab for <strong>10 minutes</strong>, your session automatically logs out to protect your account.
+    <h2>2. Registration, Sign In &amp; 6-Digit OTP Verification</h2>
+    <p>XLurn provides enterprise-grade authentication with password hashing, RC4 encryption, and multi-factor 6-digit One-Time Password (OTP) verification.</p>
+
+    <div class="image-card">
+      <img src="./assets/learner_01_login.png" alt="Learner Login &amp; OTP Portal">
+      <div class="caption">Figure 2.1: Learner Sign In and Two-Factor 6-Digit OTP Verification Portal</div>
+    </div>
+
+    <div class="step-card">
+      <h4>Step 2.1: Creating a New Account (Sign Up)</h4>
+      <ol>
+        <li>Open the portal at <code>http://localhost:3001/#/signup</code>.</li>
+        <li>Fill in your <strong>Full Name</strong>, valid <strong>Email Address</strong>, <strong>Mobile Number</strong>, and strong <strong>Password</strong>.</li>
+        <li>Review your details and click <strong>Sign Up</strong>. Upon successful creation, you are automatically directed to sign in.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <h4>Step 2.2: Signing In to Your Account</h4>
+      <ol>
+        <li>Navigate to <code>http://localhost:3001/#/login</code>.</li>
+        <li>Type your registered <strong>Email Address</strong> and <strong>Password</strong>.</li>
+        <li>Click the <strong>Eye icon</strong> to toggle password visibility if needed, and check <strong>Remember Me</strong> to preserve your login session.</li>
+        <li>Click <strong>Sign In</strong>.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <h4>Step 2.3: Two-Factor Authentication (6-Digit OTP Verification)</h4>
+      <p>When Multi-Factor Authentication is triggered, the system automatically transitions into the dedicated <strong>OTP Verification</strong> view:</p>
+      <ol>
+        <li><strong>Six-Digit Box Inputs:</strong> Type the 6-digit numeric verification code sent to your registered email. The cursor automatically advances to each next input box as you type.</li>
+        <li><strong>Full Code Paste Support:</strong> You can paste the entire 6-digit code into the first box from your clipboard—all 6 boxes will populate instantly.</li>
+        <li><strong>120-Second Countdown Timer:</strong> An active timer counts down from <code>2:00</code> (120 seconds).</li>
+        <li><strong>Resend OTP:</strong> If the timer reaches <code>0:00</code>, the <strong>Resend OTP</strong> button activates, allowing you to generate and dispatch a fresh code.</li>
+        <li><strong>Automatic Submission:</strong> As soon as the 6th digit is entered, the form validates automatically and logs you in without requiring extra clicks.</li>
+        <li><strong>Return to Login:</strong> Click <em>&larr; Back to Sign In</em> at any point to cancel the OTP verification and return to credentials entry.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <h4>Step 2.4: Forgot &amp; Reset Password</h4>
+      <ol>
+        <li>On the Sign In card, click <strong>Forgot Password?</strong>.</li>
+        <li>Enter your registered email address and click <strong>Send Reset Link / OTP</strong>.</li>
+        <li>Enter the received verification token, provide your <strong>New Password</strong>, confirm the password, and submit to restore account access.</li>
+      </ol>
+    </div>
+
+    <div class="callout warning">
+      <strong>⚠️ 10-Minute Cross-Tab Inactivity Guard:</strong> For security on shared or public workstations, if no keyboard, mouse, scroll, or touch interaction is detected across any active tab for <strong>10 minutes</strong>, the session terminates automatically, logging you out and notifying you upon return.
     </div>
   </section>
 
-  <!-- 3. Navbar -->
+  <!-- 3. Global Navigation Header -->
   <section id="navbar">
     <h2>3. Global Search &amp; Top Navigation Bar</h2>
+    <p>The persistent top header bar provides instantaneous search, playback shortcuts, language switching, and account profile controls.</p>
+
+    <div class="image-card">
+      <img src="./assets/learner_09_header_search.png" alt="Global Search &amp; Top Navigation">
+      <div class="caption">Figure 3.1: Global Categorized Instant Search and Recently Played Navigation Bar</div>
+    </div>
+
     <ul>
-      <li><strong>Global Instant Search (<kbd>/</kbd> or <kbd>Ctrl+K</kbd>):</strong> Press <kbd>/</kbd> anywhere to focus the search bar. Before typing, view your <strong>Recent Searches</strong> and <strong>Popular Topics</strong>. As you type, live results are grouped into <strong>🎓 Courses</strong>, <strong>🎬 Videos &amp; Lessons</strong>, <strong>📄 Resources &amp; Documents</strong>, and <strong>🏷️ Categories</strong>.</li>
-      <li><strong>Recently Played Dropdown:</strong> Click <em>Recently Played</em> in the top bar to filter your recent watch history by <em>Last 7 days</em>, <em>Last 1 month</em>, or <em>More than 1 month</em> and resume playback in one click.</li>
-      <li><strong>Notifications Bell (🔔):</strong> View real-time alerts for newly published courses and uploaded lessons.</li>
-      <li><strong>Theme &amp; Language Switcher (🌐):</strong> Toggle between <strong>Dark Mode</strong> and <strong>Light Mode</strong>, or switch the portal UI language between <strong>English</strong>, <strong>हिंदी (Hindi)</strong>, and <strong>ಕನ್ನಡ (Kannada)</strong>.</li>
+      <li><strong>Instant Categorized Search (<kbd>/</kbd> or <kbd>Ctrl+K</kbd>):</strong> Press <kbd>/</kbd> anywhere to open instant search.
+        <ul>
+          <li><strong>Recent Searches &amp; Popular Topics:</strong> Displays your search history with <em>Clear</em> controls and quick-launch tags (<em>React</em>, <em>AI &amp; Machine Learning</em>, <em>Quantum Computing</em>).</li>
+          <li><strong>Real-Time Live Grouping:</strong> Results sort into <strong>🎓 Courses</strong>, <strong>🎬 Lessons &amp; Videos</strong>, <strong>📄 Attached Resources/PDFs</strong>, and <strong>🏷️ Categories</strong>.</li>
+        </ul>
+      </li>
+      <li><strong>Recently Played Dropdown:</strong> Click <em>Recently Played</em> to filter in-progress videos across <em>Last 7 days</em>, <em>Last 1 month</em>, or <em>More than 1 month</em> with completion percentage bars and instant resume.</li>
+      <li><strong>Notifications Center (🔔):</strong> View real-time system alerts for new course publications and instructor updates.</li>
+      <li><strong>Dark / Light Mode Toggle:</strong> Click the <strong>Sun / Moon</strong> icon to switch between Dark high-contrast and Light daytime viewing modes.</li>
+      <li><strong>Multilingual Portal Switcher (🌐):</strong> Switch the entire interface between <strong>English (en)</strong>, <strong>Hindi (हिंदी - hi)</strong>, and <strong>Kannada (ಕನ್ನಡ - kn)</strong>.</li>
     </ul>
   </section>
 
-  <!-- 4. Sidebar -->
+  <!-- 4. Sidebar Navigation -->
   <section id="sidebar">
-    <h2>4. Sidebar Navigation &amp; Discovery Views</h2>
+    <h2>4. Sidebar Navigation &amp; Discovery Hub</h2>
+    <p>The collapsible left navigation drawer provides one-click navigation across all learning workspaces:</p>
+
     <table>
       <thead>
-        <tr><th>Menu Section</th><th>Route / View</th><th>Description</th></tr>
+        <tr>
+          <th>Navigation Item</th>
+          <th>Route / View</th>
+          <th>Feature Highlights</th>
+        </tr>
       </thead>
       <tbody>
-        <tr><td><strong>🏠 Home</strong></td><td><code>/</code></td><td>Featured hero banner, Continue Watching row, and categorized course carousels.</td></tr>
-        <tr><td><strong>🧭 Explore</strong></td><td><code>/?view=explore</code></td><td>Discover trending, top-rated, and newly released lectures.</td></tr>
-        <tr><td><strong>🗂️ Categories</strong></td><td><code>/?view=categories</code></td><td>Browse by domain: Science, Technology, Finance, AI, Business, Health, and Coding.</td></tr>
-        <tr><td><strong>🏆 Quiz</strong></td><td><code>/quizzes</code></td><td>Complete log of your quiz attempts, scores, Pass/Fail statuses, and retry options.</td></tr>
-        <tr><td><strong>📜 Certificates</strong></td><td><code>/certificates</code></td><td>View and download your earned course completion certificates (PDF).</td></tr>
-        <tr><td><strong>🔖 Watch Later</strong></td><td><code>/?view=watch_later</code></td><td>Access bookmarked videos saved for future study.</td></tr>
-        <tr><td><strong>📑 Playlist</strong></td><td><code>/?view=playlist</code></td><td>Create and manage custom personal learning playlists.</td></tr>
-        <tr><td><strong>🕒 Watch History</strong></td><td><code>/?view=watch_history</code></td><td>Chronological playback log with completion percentages and watch durations.</td></tr>
-        <tr><td><strong>📥 Downloads</strong></td><td><code>/?view=downloads</code></td><td>Access downloaded videos and study materials for offline viewing.</td></tr>
-        <tr><td><strong>⚙️ Settings</strong></td><td><code>/?view=settings</code></td><td>Configure app preferences, playback defaults, and language settings.</td></tr>
+        <tr>
+          <td><strong>🏠 Home</strong></td>
+          <td><code>/</code></td>
+          <td>Personalized hero banner, Continue Watching carousel, and top-rated categories.</td>
+        </tr>
+        <tr>
+          <td><strong>🧭 Explore</strong></td>
+          <td><code>/?view=explore</code></td>
+          <td>Trending lectures, newly added masterclasses, and popular community picks.</td>
+        </tr>
+        <tr>
+          <td><strong>🗂️ Categories</strong></td>
+          <td><code>/?view=categories</code></td>
+          <td>Browse courses by domain: Science, Technology, Finance, AI, Business, Health, Coding.</td>
+        </tr>
+        <tr>
+          <td><strong>🔴 Virtual Classroom</strong> <span class="badge badge-live">LIVE</span></td>
+          <td><code>/live-classes</code></td>
+          <td>Directory of live and upcoming instructor webcasts, interactive polls, and chats.</td>
+        </tr>
+        <tr>
+          <td><strong>👥 Study Rooms</strong> <span class="badge badge-live">LIVE</span></td>
+          <td><code>/study-rooms</code></td>
+          <td>Peer study spaces, collaborative group video sessions, and focus timers.</td>
+        </tr>
+        <tr>
+          <td><strong>💬 Community</strong></td>
+          <td><code>/?view=community</code></td>
+          <td>Public student discussion forum, questions, answer upvotes, and knowledge sharing.</td>
+        </tr>
+        <tr>
+          <td><strong>🏆 Quiz Assessments</strong></td>
+          <td><code>/quizzes</code></td>
+          <td>Centralized quiz history, passing grades (&ge; 70%), question reviews, and retakes.</td>
+        </tr>
+        <tr>
+          <td><strong>📜 Certificates</strong></td>
+          <td><code>/certificates</code></td>
+          <td>Official earned credentials with verified IDs and PDF download actions.</td>
+        </tr>
+        <tr>
+          <td><strong>🔖 Watch Later</strong></td>
+          <td><code>/?view=watch_later</code></td>
+          <td>Bookmarked video lessons saved for future focused study.</td>
+        </tr>
+        <tr>
+          <td><strong>📑 Playlist</strong></td>
+          <td><code>/?view=playlist</code></td>
+          <td>Custom personalized playlists organized by exam topic or specialty.</td>
+        </tr>
+        <tr>
+          <td><strong>🕒 Watch History</strong></td>
+          <td><code>/?view=watch_history</code></td>
+          <td>Full chronological playback log with completion percentages and timestamps.</td>
+        </tr>
+        <tr>
+          <td><strong>📥 Downloads</strong></td>
+          <td><code>/?view=downloads</code></td>
+          <td>Saved offline videos and course supplemental study PDFs.</td>
+        </tr>
+        <tr>
+          <td><strong>⚙️ Settings</strong></td>
+          <td><code>/?view=settings</code></td>
+          <td>User preferences, playback defaults, language, and notification toggles.</td>
+        </tr>
+        <tr>
+          <td><strong>❓ Help &amp; FAQ</strong></td>
+          <td><code>/faq</code></td>
+          <td>Comprehensive self-service troubleshooting guides and answers.</td>
+        </tr>
       </tbody>
     </table>
   </section>
 
-  <!-- 5. Home Feed -->
+  <!-- 5. Home Feed & Previews -->
   <section id="home">
-    <h2>5. Home Feed, Hover Previews &amp; Categories</h2>
+    <h2>5. Home Feed, Silent Hover Previews &amp; Categories</h2>
+    <div class="image-card">
+      <img src="./assets/learner_03_home_feed.png" alt="Learner Home Feed">
+      <div class="caption">Figure 5.1: Learner Home Feed with Featured Hero Spotlight and Continue Watching Carousel</div>
+    </div>
     <ul>
-      <li><strong>Hero Spotlight &amp; Continue Watching:</strong> Resume in-progress courses right from the top progress cards.</li>
-      <li><strong>Silent Hover Video Previews:</strong> Hover your mouse over any course or video thumbnail to watch an instant silent preview before clicking.</li>
-      <li><strong>Category Filter Chips:</strong> Click any topic chip (<em>Science</em>, <em>Technology</em>, <em>AI</em>, <em>Coding</em>, etc.) to filter the catalog immediately.</li>
+      <li><strong>Hero Spotlight &amp; Continue Watching:</strong> Prominently highlights featured flagship courses. The <em>Continue Watching</em> shelf displays your exact playback progress so you can resume immediately.</li>
+      <li><strong>YouTube-Style Silent Hover Video Previews:</strong> Hovering your mouse cursor over any video thumbnail starts a muted live preview right on the card, enabling fast visual skimming without opening the player.</li>
+      <li><strong>Dynamic Category Filter Chips:</strong> Click any domain chip (<em>All</em>, <em>Science</em>, <em>Technology</em>, <em>Finance</em>, <em>AI</em>, <em>Business</em>, <em>Coding</em>) to filter the feed in real time.</li>
+      <li><strong>Metadata Badges:</strong> Every card highlights instructor name, total run duration, difficulty level (<em>Beginner</em>, <em>Intermediate</em>, <em>Advanced</em>), view count, and lock status for premium content.</li>
     </ul>
+    <div class="image-card">
+      <img src="./assets/learner_04_categories.png" alt="Category Filter Chips">
+      <div class="caption">Figure 5.2: Category Filter Chips and Domain Catalog Exploration</div>
+    </div>
   </section>
 
-  <!-- 6. Watch Room -->
+  <!-- 6. Watch Room & Player -->
   <section id="watch">
     <h2>6. Interactive Video Watch Room &amp; Player</h2>
-    <p>Clicking any course or video opens the <strong>Video Watch Room</strong> (<code>#/watch/:id</code>), featuring the primary HTML5 video player on the left and the <strong>Course Curriculum Chapter Accordion</strong> on the right.</p>
-    <ul>
-      <li><strong>Playback Controls:</strong> Play/Pause (<kbd>Space</kbd>), 10-second rewind/fast-forward (<code>-10s</code> / <code>+10s</code>), volume/mute slider, and native Fullscreen mode.</li>
-      <li><strong>Speed &amp; Quality Switching:</strong> Adjust playback speed (<code>0.75x</code>, <code>1x</code>, <code>1.25x</code>, <code>1.5x</code>, <code>2x</code>) and video resolution (<code>Auto</code>, <code>1080p</code>, <code>720p</code>, <code>480p</code>) while preserving your exact playback position.</li>
-      <li><strong>Anti-Piracy Dynamic Watermark:</strong> Displays the platform brand logo and your logged-in email address dynamically over the video canvas.</li>
-      <li><strong>Free vs. Premium Lesson Locks:</strong> Private lessons appear with a lock badge (🔒) for Free-tier users. Upgrading to Intermediate or Premium unlocks all lessons immediately.</li>
-    </ul>
+    <p>Opening any course or video lesson directs you to the <strong>Video Watch Room</strong> (<code>#/watch/:id</code>), featuring the primary playback theater on the left and the <strong>Curriculum Chapter Accordion</strong> on the right.</p>
+
+    <div class="image-card">
+      <img src="./assets/learner_05_video_player.png" alt="Video Watch Room &amp; Player">
+      <div class="caption">Figure 6.1: Video Watch Room with Anti-Piracy Watermark, Multi-Resolution Selector and Curriculum Accordion</div>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-box">
+        <h4>⌨️ Custom Player Controls</h4>
+        <p>Play/Pause via video canvas or <kbd>Space</kbd>, 10-second skip buttons (<code>-10s</code> / <code>+10s</code>), volume slider, and native Fullscreen mode.</p>
+      </div>
+      <div class="feature-box">
+        <h4>⚡ Speed &amp; Quality Switching</h4>
+        <p>Choose playback speeds from <code>0.75x</code> to <code>2.0x</code> and resolutions from <code>480p</code>, <code>720p</code>, <code>1080p</code> to <code>Auto</code> without losing timestamp position.</p>
+      </div>
+      <div class="feature-box">
+        <h4>🛡️ Anti-Piracy Watermarking</h4>
+        <p>Dynamic anti-piracy overlay projects the platform logo along with your logged-in email address across the video stream.</p>
+      </div>
+      <div class="feature-box">
+        <h4>🔒 Free vs. Premium Locks</h4>
+        <p>Private lessons feature a lock badge (🔒) on the Free plan. The player automatically skips locked lessons during auto-advance to preserve playback flow.</p>
+      </div>
+    </div>
   </section>
 
-  <!-- 7. Subtitles, Transcripts & Resources -->
+  <!-- 7. Subtitles, Transcripts & PDF Resources -->
   <section id="subtitles">
     <h2>7. Subtitles, Transcripts &amp; PDF Resources</h2>
-    <h3>7.1 Multilingual Closed Captions (CC)</h3>
-    <p>Click the <strong>CC</strong> icon on the video player to enable subtitles and switch languages between <strong>English</strong>, <strong>Hindi</strong>, <strong>Kannada</strong>, and <strong>Telugu</strong>.</p>
-    <h3>7.2 Interactive Synchronized Transcript Tab</h3>
+    <p>Beneath the video player, three dedicated tabs enhance your study workflow:</p>
+
+    <h3>7.1 Closed Captions (CC) &amp; Multilingual Subtitles</h3>
+    <p>Click the <strong>CC</strong> button on the player control bar to toggle captions on/off and switch between <strong>English</strong>, <strong>Hindi (हिंदी)</strong>, <strong>Kannada (ಕನ್ನಡ)</strong>, and <strong>Telugu (తెలుగు)</strong>.</p>
+
+    <h3>7.2 Synchronized Interactive Transcript</h3>
     <ul>
-      <li><strong>Live Auto-Scroll &amp; Highlight:</strong> Highlights the currently spoken line in real time as the video plays.</li>
-      <li><strong>Click-to-Seek:</strong> Click any transcript line to jump the video directly to that timestamp.</li>
-      <li><strong>Search &amp; Copy:</strong> Search keywords within the transcript or click <strong>Copy Transcript</strong> to copy full lecture notes.</li>
+      <li><strong>Live Highlighting &amp; Auto-Scroll:</strong> Follows the speaker in real time by highlighting current sentences and auto-scrolling the transcript pane.</li>
+      <li><strong>Click-to-Seek Navigation:</strong> Click any transcript sentence or timestamp to jump playback directly to that second.</li>
+      <li><strong>In-Transcript Search:</strong> Search for spoken terms with instant highlight matching.</li>
+      <li><strong>One-Click Copy:</strong> Click <strong>Copy Transcript</strong> to copy the entire lecture text for study notes.</li>
     </ul>
-    <h3>7.3 In-App PDF/Document Viewer &amp; Audio Player</h3>
-    <p>Open the <strong>Resources</strong> tab below the player to filter attachments by <em>All</em>, <em>Audio</em>, <em>PDF</em>, or <em>Other</em>. Click <strong>Preview</strong> on any PDF or document to read it inside the built-in modal viewer, or play supplemental chapter audio tracks using the integrated audio player.</p>
+
+    <h3>7.3 Supplemental Resources &amp; In-App PDF Previewer</h3>
+    <ul>
+      <li><strong>Resource Filtering:</strong> Filter lesson attachments by <em>All</em>, <em>Audio</em>, <em>PDF / Documents</em>, or <em>Other</em>.</li>
+      <li><strong>Built-in PDF Preview Modal:</strong> Click <strong>Preview</strong> on any PDF or document to read it inside the in-app modal viewer without downloading or leaving the page.</li>
+      <li><strong>Integrated Chapter Audio Player:</strong> Play supplementary lecture podcasts or audio guides with dedicated seek and speed controls.</li>
+    </ul>
   </section>
 
-  <!-- 8. Quizzes -->
+  <!-- 8. Virtual Classroom -->
+  <section id="virtual-classroom">
+    <h2>8. Virtual Classroom &amp; Live Interactive Lectures</h2>
+    <p>The <strong>Virtual Classroom</strong> (<code>#/live-classes</code> and <code>#/live/:id</code>) brings real-time interactive lectures, workshops, and webcasts directly into the learner portal.</p>
+
+    <div class="step-card">
+      <h4>8.1 Browsing Live Classes (`#/live-classes`)</h4>
+      <p>Navigate to <strong>Sidebar &rarr; Virtual Classroom</strong> to browse available sessions:</p>
+      <ul>
+        <li><strong>Status Filter Tabs:</strong> Filter classes by <strong>All</strong>, <strong>Live Now (<span class="badge badge-live">LIVE</span>)</strong>, <strong>Upcoming (<span class="badge badge-upcoming">UPCOMING</span>)</strong>, or <strong>Recorded (<span class="badge badge-recorded">RECORDED</span>)</strong>.</li>
+        <li><strong>Live Class Cards:</strong> Each session card displays the course title, instructor avatar, category, scheduled time, and attendee count.</li>
+        <li><strong>Joining a Session:</strong> Click any Live Now card to enter the classroom immediately. For upcoming sessions, click <em>Set Reminder</em> to receive an alert before start time.</li>
+      </ul>
+    </div>
+
+    <div class="step-card">
+      <h4>8.2 Inside the Interactive Live Classroom (`#/live/:id`)</h4>
+      <p>The virtual classroom interface provides full interactive participation tools:</p>
+      <ul>
+        <li><strong>Live Stream Webcast:</strong> Watch the instructor's HD video and audio broadcast in real time with low latency.</li>
+        <li><strong>Live Attendee Counter:</strong> View the live count of students and teaching assistants currently active in the room.</li>
+        <li><strong>Raise Hand (✋):</strong> Click the <strong>Raise Hand</strong> button to notify the instructor that you have a question. A notification badge displays to the presenter.</li>
+        <li><strong>Live Interactive Polling:</strong> When an instructor launches a poll, an interactive voting overlay appears. Select your answer and view live percentage breakdowns across the class.</li>
+        <li><strong>Classroom Live Chat:</strong> Send questions and discuss topics with fellow students and teaching assistants. Instructor messages feature distinct styling and verification badges.</li>
+        <li><strong>Class Notes &amp; Resources:</strong> Switch between the <strong>Lesson Notes</strong> tab, <strong>Slide Resources</strong> tab, and <strong>Instructor Bio</strong> tab underneath the stream canvas.</li>
+        <li><strong>Leave Session:</strong> Click <em>Exit Classroom</em> at any time to return safely to the Live Classes directory.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 9. Study Rooms -->
+  <section id="study-rooms">
+    <h2>9. Collaborative Study Rooms &amp; Watch Parties</h2>
+    <p>The <strong>Study Rooms</strong> hub (<code>#/study-rooms</code>) provides peer-to-peer collaborative workspaces where learners can watch lectures together, discuss challenging concepts, and maintain study discipline.</p>
+
+    <div class="feature-grid">
+      <div class="feature-box">
+        <h4>🔑 Join via Room Code</h4>
+        <p>Enter a 6-character room code provided by a classmate or study partner to jump into an active private study session immediately.</p>
+      </div>
+      <div class="feature-box">
+        <h4>➕ Create a Study Room</h4>
+        <p>Create a public or private room, select the target course or topic, set maximum participant capacity, and invite friends.</p>
+      </div>
+      <div class="feature-box">
+        <h4>⏱️ Integrated Focus Timer</h4>
+        <p>Use the shared Pomodoro focus timer to coordinate 25-minute study sprints with 5-minute group review breaks.</p>
+      </div>
+      <div class="feature-box">
+        <h4>💬 Group Discussion</h4>
+        <p>Collaborative chat sidebar for sharing timestamp notes, exchanging references, and coordinating assignments.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. Community & Discussions -->
+  <section id="community">
+    <h2>10. Discussion Boards &amp; Community Forum</h2>
+    <p>Accessed via <strong>Sidebar &rarr; Community</strong> (<code>/?view=community</code>), the Community forum allows learners across all courses to ask technical questions, share project breakthroughs, and receive peer feedback.</p>
+
+    <div class="image-card">
+      <img src="./screenshots/community_discussion_boards.png" alt="Community Discussion Boards">
+      <div class="caption">Figure 10.1: Peer Community Discussion Forum and Topic Tag Filtering</div>
+    </div>
+
+    <ul>
+      <li><strong>Browse by Subject Tags:</strong> Filter discussions by topics like <em>#React</em>, <em>#MachineLearning</em>, <em>#DataStructures</em>, or <em>#SystemDesign</em>.</li>
+      <li><strong>Post Questions:</strong> Ask detailed questions with code block formatting, course references, and screenshots.</li>
+      <li><strong>Upvote Quality Answers:</strong> Upvote helpful answers to push verified solutions to the top of the discussion thread.</li>
+      <li><strong>Instructor Endorsements:</strong> Answers reviewed or approved by course instructors receive an <em>Instructor Verified</em> badge.</li>
+    </ul>
+  </section>
+
+  <!-- 11. Chapter Quizzes -->
   <section id="quizzes">
-    <h2>8. Chapter Quizzes &amp; Assessments</h2>
+    <h2>11. Chapter Quizzes &amp; Knowledge Assessments</h2>
+    <p>XLurn evaluates subject mastery through modular chapter quizzes and a dedicated assessment dashboard.</p>
+
+    <div class="image-card">
+      <img src="./assets/learner_06_quiz_assessment.png" alt="Chapter Quiz &amp; Knowledge Assessment">
+      <div class="caption">Figure 11.1: End-of-Chapter Quiz Assessment Modal with Instant Grading and Auto-Advance</div>
+    </div>
+
+    <div class="step-card">
+      <h4>11.1 Taking a Chapter Quiz</h4>
+      <ol>
+        <li><strong>Automatic Launch:</strong> Finishing all playable videos in a chapter automatically triggers the <strong>Chapter Quiz Modal</strong>. You can also click <strong>Take Quiz</strong> inside the chapter accordion at any time.</li>
+        <li><strong>Question Formats:</strong>
+          <ul>
+            <li><strong>Multiple Choice (MCQ):</strong> Select the single best answer.</li>
+            <li><strong>True / False:</strong> Click the True or False card.</li>
+            <li><strong>Free Text / Fill-in-the-Blank:</strong> Type your answer into the field. <em>Input Validation</em> disallows empty submissions or leading whitespace; the <em>Next</em> and <em>Submit Quiz</em> buttons remain disabled until valid input is entered.</li>
+          </ul>
+        </li>
+        <li><strong>Scoring &amp; Passing Threshold:</strong> Achieving <strong>70% or higher</strong> grants a <strong>Passed</strong> grade and unlocks the next curriculum chapter.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <h4>11.2 My Quizzes Assessment Hub (`#/quizzes`)</h4>
+      <p>Navigate to <strong>Sidebar &rarr; Quiz</strong> to inspect your complete testing track record:</p>
+      <ul>
+        <li><strong>Performance Summary Cards:</strong> Displays your total quizzes taken, pass rate percentage, and average score.</li>
+        <li><strong>Status Filter:</strong> Filter past attempts by <strong>All</strong>, <strong>Passed (🟢)</strong>, or <strong>Failed (🔴)</strong>.</li>
+        <li><strong>Review &amp; Retake:</strong> Click <strong>👁 View</strong> to review question-by-question answer breakdowns, or click <strong>Retry</strong> on failed assessments to improve your score.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 12. Library Management -->
+  <section id="library">
+    <h2>12. Watch Later, Playlists, History &amp; Downloads</h2>
+    <div class="image-card">
+      <img src="./assets/learner_07_watch_later.png" alt="Watch Later &amp; Personal Library">
+      <div class="caption">Figure 12.1: Watch Later Queue, Saved Playlists and Offline Download Library</div>
+    </div>
+    <ul>
+      <li><strong>Watch Later (🔖):</strong> Click the <em>Watch Later</em> button below any video to queue it. The system provides immediate confirmation:
+        <ul>
+          <li><em>"Video has been added to watch later."</em> on initial bookmark.</li>
+          <li><em>"Video is already in watch later."</em> if already present in your queue.</li>
+        </ul>
+      </li>
+      <li><strong>Custom Playlists:</strong> Create tailored playlists in <strong>Sidebar &rarr; Playlist</strong>. Name your playlist, add relevant lectures, and stream them sequentially.</li>
+      <li><strong>Watch History:</strong> Inspect your full history log in <strong>Sidebar &rarr; Watch History</strong>, featuring exact watch durations, completion progress bars, and search filters.</li>
+      <li><strong>Offline Downloads:</strong> Subscribers on Intermediate and Premium tiers can download eligible lecture videos and course PDFs for offline viewing without an active internet connection.</li>
+    </ul>
+  </section>
+
+  <!-- 13. Certificates -->
+  <section id="certificates">
+    <h2>13. Earned Certificates &amp; Verified Credentials</h2>
+    <p>Complete all course chapters and achieve passing quiz scores to earn accredited certificates:</p>
     <ol>
-      <li><strong>Auto-Launch &amp; Manual Trigger:</strong> Completing all playable videos in a chapter automatically launches the <strong>Chapter Quiz Modal</strong> (or click <strong>Take Quiz</strong> in the chapter sidebar).</li>
-      <li><strong>Question Formats:</strong> Supports <strong>Multiple Choice (MCQ)</strong>, <strong>True / False</strong>, and <strong>Free Text / Fill in the Blanks</strong>.</li>
-      <li><strong>Input Validation:</strong> Free-text questions require valid non-empty characters before the <em>Next</em> or <em>Submit Quiz</em> button is enabled.</li>
-      <li><strong>Instant Results &amp; Auto-Advance:</strong> View your score percentage immediately upon submission. Passing requires <strong>70% or higher</strong>. Clicking <em>Continue Course</em> automatically advances to the next unlocked lesson.</li>
-      <li><strong>Quiz History (<code>#/quizzes</code>):</strong> Review all past attempts, filter by <em>Passed</em> or <em>Failed</em>, inspect score breakdowns, or retry failed quizzes.</li>
+      <li>Open <strong>Sidebar &rarr; Certificates</strong> (<code>#/certificates</code>).</li>
+      <li>Each earned credential card displays:
+        <ul>
+          <li><strong>Course Title &amp; Achievement Badge (🎓 / 🏆)</strong></li>
+          <li><strong>Verified Final Score Percentage</strong> (e.g., <code>95%</code>)</li>
+          <li><strong>Issuing Academy &amp; Completion Date</strong></li>
+          <li><strong>Unique Credential ID</strong> (e.g., <code>CERT-TSB-2026-9481</code>)</li>
+        </ul>
+      </li>
+      <li>Click <strong>📥 Download Certificate (PDF)</strong> to save an official vector PDF for sharing on LinkedIn, GitHub, or professional portfolios.</li>
     </ol>
   </section>
 
-  <!-- 9. Library -->
-  <section id="library">
-    <h2>9. Watch Later, Playlists, History &amp; Downloads</h2>
-    <ul>
-      <li><strong>Watch Later (🔖):</strong> Click <em>Watch Later</em> below any video to bookmark it. Manage your saved queue from <strong>Sidebar &rarr; Watch Later</strong>.</li>
-      <li><strong>Custom Playlists:</strong> Create topic-specific playlists in <strong>Sidebar &rarr; Playlist</strong> and add videos for structured study sessions.</li>
-      <li><strong>Watch History:</strong> Track your watched lessons, completion percentages, and timestamps in <strong>Sidebar &rarr; Watch History</strong>.</li>
-      <li><strong>Offline Downloads:</strong> Intermediate and Premium subscribers can download videos and study guides for offline access.</li>
-    </ul>
-  </section>
-
-  <!-- 10. Certificates -->
-  <section id="certificates">
-    <h2>10. Earned Certificates &amp; Credentials</h2>
-    <p>Navigate to <strong>Sidebar &rarr; Certificates</strong> (<code>#/certificates</code>) to view your official course completion credentials. Each card shows your verified score, issue date, and unique <strong>Credential ID</strong>, with a one-click <strong>📥 Download Certificate (PDF)</strong> button.</p>
-  </section>
-
-  <!-- 11. Profile -->
+  <!-- 14. Profile & Security -->
   <section id="profile">
-    <h2>11. Profile Settings, Security &amp; Moderation</h2>
-    <p>Click your top-right avatar and select <strong>Profile</strong> (<code>#/profile</code>) to manage your account:</p>
+    <h2>14. Profile Management, Safety &amp; Moderation</h2>
+    <p>Click your avatar in the top-right header and select <strong>Profile</strong> (<code>#/profile</code>):</p>
     <ul>
-      <li><strong>Activity Counters:</strong> View your total Videos Watched, Watch Later count, and Downloads/Quizzes completed.</li>
-      <li><strong>Profile Avatar &amp; Automated Safety Moderation:</strong> Upload a custom profile picture. Built-in client-side moderation automatically screens out inappropriate filenames or explicit imagery.</li>
-      <li><strong>Account &amp; Password Security:</strong> Edit your Name, Mobile Number, and Bio, or change your password under the Security modal.</li>
-      <li><strong>Notification Preferences:</strong> Customize alerts for Course Updates, Quiz Reminders, Promotions, and Weekly Email Digests.</li>
+      <li><strong>Activity Statistics:</strong> Track your real-time metrics: Total Videos Watched, Watch Later queue size, and Quizzes/Downloads completed.</li>
+      <li><strong>Profile Picture &amp; Automated Safety Moderation:</strong> Upload a custom avatar. Built-in client moderation screens files before upload to block inappropriate filenames or content.</li>
+      <li><strong>Personal Information:</strong> Update your <strong>Full Name</strong>, <strong>Mobile Number</strong>, and biographical statement.</li>
+      <li><strong>Password Security:</strong> Change your login password under the Security section with current password verification.</li>
+      <li><strong>Alert Preferences:</strong> Configure notification settings for course updates, quiz reminders, and weekly email learning summaries.</li>
     </ul>
   </section>
 
-  <!-- 12. Plans -->
+  <!-- 15. Subscription Plans -->
   <section id="plans">
-    <h2>12. Subscription Plans &amp; Upgrades</h2>
-    <p>Visit <strong>Plans &amp; Pricing</strong> (<code>#/plans</code>) and toggle between <strong>Monthly</strong> and <strong>Yearly (20% Off)</strong> billing:</p>
+    <h2>15. Subscription Plans &amp; Membership Upgrades</h2>
+    <p>Navigate to <strong>Plans &amp; Pricing</strong> (<code>#/plans</code>) to compare membership options and unlock advanced features:</p>
+
+    <div class="image-card">
+      <img src="./assets/learner_08_plans_pricing.png" alt="Subscription Plans &amp; Pricing">
+      <div class="caption">Figure 15.1: Membership Tier Upgrades with Monthly/Yearly Billing Toggle and Feature Matrix</div>
+    </div>
+
     <table>
       <thead>
-        <tr><th>Plan Tier</th><th>Price</th><th>Resolution &amp; Devices</th><th>Included Benefits</th></tr>
+        <tr>
+          <th>Plan Tier</th>
+          <th>Pricing</th>
+          <th>Streaming Resolution</th>
+          <th>Simultaneous Devices</th>
+          <th>Key Privileges</th>
+        </tr>
       </thead>
       <tbody>
-        <tr><td><strong>Free</strong></td><td>₹0</td><td>720p HD • 1 Device</td><td>Watch limited public content, ad-supported.</td></tr>
-        <tr><td><strong>Intermediate ⭐️</strong></td><td>₹149/mo (₹1,429/yr)</td><td>1080p Full HD • 2 Devices</td><td>Watch most content, fewer ads, offline downloads enabled.</td></tr>
-        <tr><td><strong>Premium 👑</strong></td><td>₹299/mo (₹2,870/yr)</td><td>4K Ultra HD • 4 Devices</td><td>All content unlocked, 100% ad-free, offline downloads, exclusive originals &amp; early access.</td></tr>
+        <tr>
+          <td><strong>Free</strong></td>
+          <td>₹0 / forever</td>
+          <td>720p HD</td>
+          <td>1 Device</td>
+          <td>Public video lectures, standard speed controls, ad-supported.</td>
+        </tr>
+        <tr>
+          <td><strong>Intermediate ⭐️</strong></td>
+          <td>₹149/mo (₹1,429/yr)</td>
+          <td>1080p Full HD</td>
+          <td>2 Devices</td>
+          <td>Unlocks most curriculum lessons, offline downloads, fewer ads.</td>
+        </tr>
+        <tr>
+          <td><strong>Premium 👑</strong></td>
+          <td>₹299/mo (₹2,870/yr)</td>
+          <td>4K Ultra HD</td>
+          <td>4 Devices</td>
+          <td>100% Ad-Free, all locked lessons unlocked, offline downloads, exclusive originals &amp; early access.</td>
+        </tr>
       </tbody>
     </table>
+
+    <div class="callout success">
+      <strong>💡 Yearly Billing Savings:</strong> Toggle the billing switch from Monthly to Yearly to enjoy a <strong>20% discount</strong> across Intermediate and Premium tiers.
+    </div>
   </section>
 
-  <!-- 13. Troubleshooting -->
-  <section id="troubleshooting">
-    <h2>13. Troubleshooting &amp; System Alerts</h2>
+  <!-- 16. FAQ & Troubleshooting -->
+  <section id="faq-troubleshooting">
+    <h2>16. Help Center, FAQ &amp; System Notifications</h2>
+    <p>Access self-service assistance anytime via <strong>Sidebar &rarr; Help &amp; FAQ</strong> (<code>/faq</code>) or review standard system alerts below:</p>
+
     <table>
       <thead>
-        <tr><th>Alert / Status</th><th>User-Facing Message</th><th>Resolution</th></tr>
+        <tr>
+          <th>Status / Condition</th>
+          <th>User Notification</th>
+          <th>Root Cause &amp; Resolution</th>
+        </tr>
       </thead>
       <tbody>
-        <tr><td><strong>Inactivity Timeout</strong></td><td><em>You have been automatically logged out due to 10 minutes of inactivity.</em></td><td>Log back in with your credentials to resume your session.</td></tr>
-        <tr><td><strong>HTTP 430 (Deactivated)</strong></td><td><em>Your account has been deactivated. Please contact your administrator.</em></td><td>Contact your organization's administrator to reactivate your account.</td></tr>
-        <tr><td><strong>HTTP 431 (Duplicate)</strong></td><td><em>Video is already in watch later.</em></td><td>The video is already bookmarked. Open <strong>Watch Later</strong> in the sidebar.</td></tr>
-        <tr><td><strong>Plan Lock</strong></td><td><em>Need to upgrade your plan</em></td><td>Upgrade to Intermediate or Premium at <code>#/plans</code> to unlock private lessons and downloads.</td></tr>
-        <tr><td><strong>Quiz Button Disabled</strong></td><td><em>Next / Submit button disabled</em></td><td>Enter non-empty text (without leading spaces) in Free Text quiz questions.</td></tr>
+        <tr>
+          <td><strong>Inactivity Timeout</strong></td>
+          <td><em>"You have been automatically logged out due to 10 minutes of inactivity."</em></td>
+          <td>No mouse or keyboard input detected for 10 minutes across open tabs. Log back in to resume.</td>
+        </tr>
+        <tr>
+          <td><strong>Account Deactivated (HTTP 430)</strong></td>
+          <td><em>"Your account has been deactivated. Please contact your administrator."</em></td>
+          <td>Learner account suspended by organization admin. Contact support to reinstate.</td>
+        </tr>
+        <tr>
+          <td><strong>Duplicate Watch Later (HTTP 431)</strong></td>
+          <td><em>"Video is already in watch later."</em></td>
+          <td>Video is already bookmarked. Access it from <strong>Sidebar &rarr; Watch Later</strong>.</td>
+        </tr>
+        <tr>
+          <td><strong>Plan Upgrade Required</strong></td>
+          <td><em>"Need to upgrade your plan"</em></td>
+          <td>Attempted to stream a private lesson or download a resource on Free tier. Upgrade at <code>#/plans</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Invalid / Expired OTP</strong></td>
+          <td><em>"Invalid OTP" / "OTP Expired"</em></td>
+          <td>Entered digits did not match or 120s timer expired. Click <em>Resend OTP</em> to receive a new code.</td>
+        </tr>
+        <tr>
+          <td><strong>Content Moderation</strong></td>
+          <td><em>"Inappropriate content has been detected in the uploaded file."</em></td>
+          <td>Profile image failed automated safety checks. Upload a standard personal portrait image.</td>
+        </tr>
       </tbody>
     </table>
-  </section>
 
+    <h3>16.1 Legal &amp; Compliance Documentation</h3>
+    <ul>
+      <li><strong>Privacy Policy (<code>#/privacy</code>):</strong> Outlines learner data encryption, cookie usage, telemetry handling, and GDPR/FERPA compliance.</li>
+      <li><strong>Terms &amp; Conditions (<code>#/terms</code>):</strong> Details digital rights management (DRM), user code of conduct, and anti-piracy policies.</li>
+    </ul>
+  </section>
 </div>
+
+<!-- Interactive Smooth-Scroll Script for Table of Contents -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const tocLinks = document.querySelectorAll('.toc a[href^="#"]');
+    tocLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+          history.pushState(null, null, '#' + targetId);
+        }
+      });
+    });
+  });
+</script>
 
 </body>
 </html>

@@ -45,6 +45,69 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Normalize multiple slashes in request URLs
+app.use((req, res, next) => {
+  if (req.url && req.url.includes('//')) {
+    req.url = req.url.replace(/\/+/g, '/');
+  }
+  next();
+});
+
+// Dedicated streaming & static handler for /uploads/*
+app.get('/uploads/:filename(*)', (req, res, next) => {
+  const cleanFilename = req.params.filename.replace(/^\/+/, '');
+  const filePath = path.join(uploadsDir, cleanFilename);
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    return next();
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+  const ext = path.extname(cleanFilename).toLowerCase();
+
+  const mimeTypes = {
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.vtt': 'text/vtt; charset=utf-8'
+  };
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
+
+  if (range && (ext === '.mp4' || ext === '.webm' || ext === '.ogg')) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunksize = (end - start) + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    const head = {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': contentType,
+    };
+    res.writeHead(206, head);
+    file.pipe(res);
+  } else {
+    const head = {
+      'Content-Length': fileSize,
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes'
+    };
+    res.writeHead(200, head);
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
 // Serve uploaded files statically
 app.use('/uploads', express.static(uploadsDir));
 
@@ -304,6 +367,7 @@ app.put('/api/auth/profile', authenticateToken, upload.single('avatar'), (req, r
 
 const handleVdCategories = (req, res) => {
   const formstep = req.body.formstep || req.body.formStep;
+  const videoSource = req.body.video_source !== undefined ? req.body.video_source : (req.body.upload_type !== undefined ? (req.body.upload_type ? 2 : 1) : null);
   if (formstep === 'dropdown_data') {
     const db = readDB();
     return res.json({
@@ -387,6 +451,59 @@ const handleVdCategories = (req, res) => {
       }
     });
     return res.json(allSub);
+  }
+  if (formstep === 'addSubCategory') {
+    const db = readDB();
+    const catId = String(req.body.cat_id || req.body.category_id || '');
+    const name = String(req.body.name || '').trim();
+    const desc = String(req.body.description || '').trim();
+    if (!catId || !name) {
+      return res.status(400).json({ message: "Category and Sub Category name required" });
+    }
+    const rawCategories = db.categories || [];
+    const cat = rawCategories.find(c => String(c.id) === catId || String(c.name).toLowerCase() === catId.toLowerCase());
+    if (cat) {
+      if (!cat.sub_categories) cat.sub_categories = [];
+      if (!cat.sub_categories.includes(name)) {
+        cat.sub_categories.push(name);
+      }
+    }
+    writeDB(db);
+    return res.json({
+      success: true,
+      id: `sub_${Date.now()}`,
+      name,
+      cat_id: catId,
+      description: desc,
+      message: "Sub category added successfully"
+    });
+  }
+  if (formstep === 'editSubCategory') {
+    const db = readDB();
+    const id = req.body.id;
+    const catId = String(req.body.cat_id || '');
+    const name = String(req.body.name || '').trim();
+    const rawCategories = db.categories || [];
+    const cat = rawCategories.find(c => String(c.id) === catId);
+    if (cat && cat.sub_categories) {
+      const idx = cat.sub_categories.findIndex(s => s === id || s === name);
+      if (idx !== -1) cat.sub_categories[idx] = name;
+      else cat.sub_categories.push(name);
+    }
+    writeDB(db);
+    return res.json({ success: true, message: "Sub category updated successfully" });
+  }
+  if (formstep === 'deleteSubCategory') {
+    const db = readDB();
+    const id = req.body.id;
+    const rawCategories = db.categories || [];
+    rawCategories.forEach(c => {
+      if (c.sub_categories) {
+        c.sub_categories = c.sub_categories.filter(s => s !== id);
+      }
+    });
+    writeDB(db);
+    return res.json({ success: true, message: "Sub category deleted successfully" });
   }
   return res.json([]);
 };
@@ -490,11 +607,21 @@ const handleVdClients = (req, res) => {
   }
 
   if (formstep === 'add client' || formstep === 'addClient') {
+    const clientName = (req.body.name || req.body.client_name || '').trim();
+    const clientPhone = (req.body.phonenumber || req.body.mobile || req.body.phone_number || '').trim();
+
+    if (db.clients.some(c => (c.name || '').trim().toLowerCase() === clientName.toLowerCase())) {
+      return res.status(410).json({ message: "Client already exist" });
+    }
+    if (clientPhone && db.clients.some(c => (c.phonenumber || c.mobile || '').trim() === clientPhone)) {
+      return res.status(433).json({ message: "Phone number already exist" });
+    }
+
     const newClient = {
       id: String(Date.now()),
-      name: req.body.name || req.body.client_name || '',
-      phonenumber: req.body.phonenumber || req.body.mobile || req.body.phone_number || '',
-      mobile: req.body.mobile || req.body.phonenumber || req.body.phone_number || '',
+      name: clientName,
+      phonenumber: clientPhone,
+      mobile: clientPhone,
       address_line1: req.body.address_line1 || req.body.address1 || req.body.address_line_1 || '',
       address_line2: req.body.address_line2 || req.body.address2 || req.body.address_line_2 || '',
       state: req.body.state || '',
@@ -637,6 +764,40 @@ const handleVdAdmins = (req, res) => {
       adminsList = adminsList.filter(a => String(a.client_id || a.clientId || '1') === clientId);
     }
     return res.json(adminsList);
+  }
+
+  if (formstep === 'AssignVideo' || formstep === 'assignVideo') {
+    const videoId = String(req.body.video_id || req.body.videoId || '');
+    const adminId = String(req.body.admin_id || req.body.adminId || '');
+    const videoSource = req.body.video_source !== undefined ? req.body.video_source : req.body.videoSource;
+    if (videoId && db.videos) {
+      const vid = db.videos.find(v => String(v.id || v.video_id) === videoId);
+      if (vid) {
+        vid.assigned_admin = adminId;
+        if (videoSource !== undefined) {
+          vid.video_source = videoSource;
+        }
+        writeDB(db);
+      }
+    }
+    return res.json({ success: true, message: "Video assigned successfully" });
+  }
+
+  if (formstep === 'assignCourse' || formstep === 'AssignCourse') {
+    const courseId = String(req.body.course_id || req.body.courseId || '');
+    const adminId = String(req.body.admin_id || req.body.adminId || '');
+    const videoSource = req.body.video_source !== undefined ? req.body.video_source : req.body.videoSource;
+    if (courseId && db.courses) {
+      const crs = db.courses.find(c => String(c.id || c.course_id) === courseId);
+      if (crs) {
+        crs.assigned_admin = adminId;
+        if (videoSource !== undefined) {
+          crs.video_source = videoSource;
+        }
+        writeDB(db);
+      }
+    }
+    return res.json({ success: true, message: "Course assigned successfully" });
   }
 
   return res.json(db.admins || []);
@@ -1024,6 +1185,9 @@ const handleVdAdminVideos = (req, res) => {
       subtitleTracks: req.body.subtitleTracks || req.body.subtitle_tracks || null,
       transcripts: req.body.transcripts || null,
       transcript: req.body.transcript || null,
+      upload_type: req.body.upload_type !== undefined ? req.body.upload_type : null,
+      video_source: req.body.video_source !== undefined ? req.body.video_source : (req.body.upload_type ? 2 : 1),
+      client_id: req.body.client_id || '0',
       created_at: new Date().toISOString()
     };
     db.videos.unshift(newVideo);
@@ -1031,14 +1195,61 @@ const handleVdAdminVideos = (req, res) => {
     return res.json({ success: true, video_id: newId, id: newId, videoId: newId, video: newVideo });
   }
 
-  if (formstep === 'getAllVideos' || formstep === 'getMyVideos' || formstep === 'getAssignedVideos') {
+  if (formstep === 'deleteVideo') {
+    const videoId = String(req.body.id || req.body.video_id || req.body.videoId || '');
+    db.videos = (db.videos || []).filter(v => String(v.id) !== videoId && String(v.video_id) !== videoId);
+    writeDB(db);
+    return res.json({ success: true, message: 'Video deleted successfully' });
+  }
+
+  if (formstep === 'deleteCourse') {
+    const courseId = String(req.body.id || req.body.course_id || req.body.courseId || '');
+    db.courses = (db.courses || []).filter(c => String(c.id) !== courseId && String(c.course_id) !== courseId);
+    writeDB(db);
+    return res.json({ success: true, message: 'Course deleted successfully' });
+  }
+
+  if (formstep === 'uploadCourse' || formstep === 'UploadCouse' || formstep === 'editCourse') {
+    if (!db.courses) db.courses = [];
+    const courseId = String(req.body.id || req.body.course_id || (db.courses.length + 1));
+    let course = db.courses.find(c => String(c.id) === courseId || String(c.course_id) === courseId);
+    if (!course) {
+      course = {
+        id: courseId,
+        course_id: courseId,
+        title: req.body.title || 'Untitled Course',
+        description: req.body.description || '',
+        category: req.body.category || '1',
+        chapters: req.body.chapters || [],
+        client_id: req.body.client_id || '0',
+        video_source: req.body.video_source || 1,
+        created_at: new Date().toISOString()
+      };
+      db.courses.unshift(course);
+    } else {
+      Object.assign(course, req.body);
+    }
+    writeDB(db);
+    return res.json({ success: true, id: courseId, course_id: courseId, course });
+  }
+
+  if (formstep === 'getAllCourses') {
+    return res.json(db.courses || []);
+  }
+
+  if (formstep === 'getAllVideos' || formstep === 'getAllVidoes' || formstep === 'getMyVideos' || formstep === 'getAssignedVideos') {
     return res.json(db.videos || []);
   }
 
   return res.json(db.videos || []);
 };
 
-app.post(['/vdadminVideos', '/api/vdadminVideos', '/webhook/vdadminVideos', '/vdSuperAdminVideos', '/api/vdSuperAdminVideos', '/webhook/vdSuperAdminVideos'], handleVdAdminVideos);
+app.post([
+  '/vdadminVideos', '/api/vdadminVideos', '/webhook/vdadminVideos',
+  '/vdSuperAdminVideos', '/api/vdSuperAdminVideos', '/webhook/vdSuperAdminVideos',
+  '/vddashboard/super-admin', '/api/vddashboard/super-admin', '/webhook/vddashboard/super-admin',
+  '/dashboard/super-admin', '/api/dashboard/super-admin', '/webhook/dashboard/super-admin'
+], handleVdAdminVideos);
 
 app.post('/api/videos/assign', authenticateToken, authorizeRoles('super_admin'), (req, res) => {
   const { videoId, assignedAdmins } = req.body;
@@ -3226,6 +3437,17 @@ wss.on('connection', (ws) => {
 });
 
 // Start Server with WebSockets
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+    console.warn(`Port ${PORT} unavailable (${err.code}). Retrying on fallback port 5001...`);
+    server.listen(5001, () => {
+      console.log(`Mock Backend server & WebSockets running on http://localhost:5001`);
+    });
+  } else {
+    console.error('Server error:', err);
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`Mock Backend server & WebSockets running on http://localhost:${PORT}`);
 });

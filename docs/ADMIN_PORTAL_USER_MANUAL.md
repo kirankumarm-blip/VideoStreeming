@@ -23,6 +23,8 @@
 
 ---
 
+<a id="1-system-overview--architecture"></a>
+<a id="overview"></a>
 ### 1. System Overview & Architecture
 
 The **XLurn Admin Portal** provides unified control over the video streaming ecosystem, catering to two primary administrative tiers:
@@ -49,25 +51,37 @@ graph TD
 
 ---
 
-### 2. Authentication & Session Security
+<a id="2-authentication--session-security"></a>
+<a id="auth"></a>
+### 2. Authentication, 6-Digit OTP & Session Security
 
-The Admin Portal enforces strict role-based access control (RBAC), multi-factor OTP verification, client-side encryption, and inactivity safeguards.
+The Admin Portal enforces strict role-based access control (RBAC), multi-factor 6-digit OTP verification, client-side encryption, and inactivity safeguards.
 
 ![01 Login Portal](./assets/01_login_portal.png)
 
 #### 2.1 Login Procedure:
 1. Navigate to the login portal at `http://localhost:3000/#/login`.
-2. Input registered **Email Address** and **Password**.
-3. If Multi-Factor Authentication is enabled, provide the **6-digit verification PIN/OTP**.
+2. Input registered administrative **Email Address** and **Password**.
+3. Credentials are encrypted client-side using RC4 stream encryption before leaving the browser.
 4. Click **Sign In**.
 
-#### 2.2 Security Features:
+#### 2.2 Multi-Factor 6-Digit OTP Verification:
+When multi-factor authentication (2FA) is enabled for an administrator account:
+1. **Six-Digit Box Inputs**: The screen transitions to an individual 6-box numeric input screen. As each digit is entered, the cursor moves automatically to the next box.
+2. **Full Clipboard Paste Support**: Pasting a 6-digit code into the first box populates all six boxes simultaneously.
+3. **120-Second Countdown Timer**: An on-screen timer displays `Resend OTP in mm:ss` counting down from 120 seconds.
+4. **Resend OTP**: If the code is not received or expires, click **Resend OTP** once the timer reaches 0:00.
+5. **Automatic Submission**: The form automatically submits upon entering the 6th digit, directing the admin to the appropriate dashboard.
+
+#### 2.3 Security Features:
 - **Client-Side Payload Encryption**: Sensitive authentication credentials are encrypted using RC4 stream encryption before leaving the client browser.
 - **Cross-Tab Inactivity Auto-Logout**: If no user interaction (keystrokes, mouse movement, clicks) is detected across any open browser tab for **10 minutes**, the session is automatically terminated and the administrator is securely redirected to the login screen.
 - **Role Guard Isolation**: End users (`role: 'user'`) attempting to log into the Admin portal are immediately rejected with an *Access Denied* notification.
 
 ---
 
+<a id="3-dashboard-command--control-hub"></a>
+<a id="dashboard"></a>
 ### 3. Dashboard Command & Control Hub
 
 Upon successful authentication, the command center displays high-level real-time telemetry, operational statistics, and system health status.
@@ -82,6 +96,8 @@ Upon successful authentication, the command center displays high-level real-time
 
 ---
 
+<a id="4-author--instructor-management"></a>
+<a id="authors"></a>
 ### 4. Author & Instructor Management
 
 Super Administrators can onboard, monitor, and configure independent instructors and content authors.
@@ -100,6 +116,8 @@ Super Administrators can onboard, monitor, and configure independent instructors
 
 ---
 
+<a id="5-user-management--security-governance"></a>
+<a id="users"></a>
 ### 5. User Management & Security Governance
 
 The **User Management** console provides comprehensive tools to oversee learner profiles, inspect activity logs, and isolate compromised accounts.
@@ -117,6 +135,8 @@ The **User Management** console provides comprehensive tools to oversee learner 
 
 ---
 
+<a id="6-single-video-publishing-workflow"></a>
+<a id="video-upload"></a>
 ### 6. Single Video Publishing Workflow
 
 The **Upload Video** module facilitates standalone video publishing with automated thumbnail generation, chunked file upload, and Whisper AI speech-to-text processing.
@@ -139,6 +159,8 @@ The **Upload Video** module facilitates standalone video publishing with automat
 
 ---
 
+<a id="7-comprehensive-course-authoring--chapter-builder"></a>
+<a id="course-upload"></a>
 ### 7. Comprehensive Course Authoring & Chapter Builder
 
 The **Upload Course** interface is a structured, multi-tier curriculum builder designed for complex courses with multiple chapters, ordered video lectures, and supplemental download files.
@@ -166,6 +188,8 @@ The **Upload Course** interface is a structured, multi-tier curriculum builder d
 
 ---
 
+<a id="8-catalog--category-management"></a>
+<a id="catalog"></a>
 ### 8. Catalog & Category Management
 
 Centralized catalog oversight ensures courses and video categories stay organized and accessible.
@@ -188,6 +212,8 @@ Centralized catalog oversight ensures courses and video categories stay organize
 
 ---
 
+<a id="9-telemetry-playback--user-analytics"></a>
+<a id="analytics"></a>
 ### 9. Telemetry, Playback & User Analytics
 
 The Analytics engine provides actionable insights into learner retention, video drop-off rates, and playback interactions.
@@ -202,6 +228,8 @@ The Analytics engine provides actionable insights into learner retention, video 
 
 ---
 
+<a id="10-reports-generation--export-center"></a>
+<a id="reports"></a>
 ### 10. Reports Generation & Export Center
 
 The Reports module enables administrators to extract structured data for audit, compliance, and financial accounting.
@@ -218,6 +246,8 @@ The Reports module enables administrators to extract structured data for audit, 
 
 ---
 
+<a id="11-platform-settings--multilingual-localization"></a>
+<a id="settings"></a>
 ### 11. Platform Settings & Multilingual Localization
 
 Configure global streaming infrastructure, CDN routing, and UI language localization.
@@ -231,6 +261,8 @@ Configure global streaming infrastructure, CDN routing, and UI language localiza
 
 ---
 
+<a id="12-ai-predictive-insights--intelligent-analytics"></a>
+<a id="ai"></a>
 ### 12. AI Predictive Insights & Intelligent Analytics
 
 Harness machine learning models to anticipate churn, identify viral topics, and recommend curriculum improvements.

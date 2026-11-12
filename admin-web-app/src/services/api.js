@@ -95,16 +95,24 @@ function decryptUrl(ciphertextBase64) {
 
 function decryptIfNeeded(val) {
   if (typeof val !== 'string' || !val) return val;
-  if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/') || val.startsWith('data:')) {
-    return val;
+  let res = val;
+  if (!res.startsWith('http://') && !res.startsWith('https://') && !res.startsWith('/') && !res.startsWith('data:')) {
+    try {
+      const decrypted = decryptUrl(res);
+      if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:'))) {
+        res = decrypted;
+      }
+    } catch (e) {}
   }
-  try {
-    const decrypted = decryptUrl(val);
-    if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://') || decrypted.startsWith('/') || decrypted.startsWith('data:'))) {
-      return decrypted;
+  if (typeof res === 'string') {
+    // Sanitize consecutive slashes in path (preserve http:// or https://)
+    res = res.replace(/([^:])\/\/+/g, '$1/');
+    // Port 5000 is reserved on Windows; rewrite local uploaded asset URLs to upload service on port 5050
+    if (res.includes('localhost:5000')) {
+      res = res.replace('localhost:5000', 'localhost:5050');
     }
-  } catch (e) {}
-  return val;
+  }
+  return res;
 }
 
 // Helper to recursively decrypt response structures
@@ -219,6 +227,14 @@ async function request(endpoint, options = {}) {
       errMsg = 'Unable to delete client: Active users are currently online.';
     } else if (response.status === 430 || response.status === '430') {
       errMsg = 'Your account has been deactivated. Please contact your administrator for assistance.';
+    } else if (response.status === 410 || response.status === '410') {
+      if (cleanEndpoint.toLowerCase().includes('client')) {
+        errMsg = 'Client already exist';
+      }
+    } else if (response.status === 433 || response.status === '433') {
+      if (cleanEndpoint.toLowerCase().includes('client')) {
+        errMsg = 'Phone number already exist';
+      }
     }
     const error = new Error(errMsg);
     error.status = response.status;
@@ -562,13 +578,21 @@ export const api = {
     },
   },
   categories: {
-    list: (clientId = null) => {
+    list: (clientId = null, uploadType = null, videoSource = null) => {
       const payload = { formstep: "getCategories", formStep: "getCategories" };
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
         payload.admin_id = clientId;
         payload.clientId = clientId;
         payload.adminId = clientId;
+      }
+      if (uploadType !== null && uploadType !== undefined) {
+        payload.upload_type = uploadType;
+      }
+      if (videoSource !== null && videoSource !== undefined) {
+        payload.video_source = videoSource;
+      } else if (uploadType !== null && uploadType !== undefined) {
+        payload.video_source = uploadType ? 2 : 1;
       }
       return request('/vdcategories', {
         method: 'POST',
@@ -610,7 +634,7 @@ export const api = {
     }
   },
   vdcategories: {
-    getDropdownData: (clientId = null, type = null) => {
+    getDropdownData: (clientId = null, type = null, uploadType = null, videoSource = null) => {
       const payload = { formstep: "dropdown_data" };
       if (type) {
         payload.type = type;
@@ -618,19 +642,35 @@ export const api = {
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
       }
+      if (uploadType !== null && uploadType !== undefined) {
+        payload.upload_type = uploadType;
+      }
+      if (videoSource !== null && videoSource !== undefined) {
+        payload.video_source = videoSource;
+      } else if (uploadType !== null && uploadType !== undefined) {
+        payload.video_source = uploadType ? 2 : 1;
+      }
       return request('/vdcategories', {
         method: 'POST',
         body: JSON.stringify(payload),
         expectArray: true
       });
     },
-    getCategories: (clientId = null) => {
+    getCategories: (clientId = null, uploadType = null, videoSource = null) => {
       const payload = { formstep: "getCategories" };
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
         payload.admin_id = clientId;
         payload.clientId = clientId;
         payload.adminId = clientId;
+      }
+      if (uploadType !== null && uploadType !== undefined) {
+        payload.upload_type = uploadType;
+      }
+      if (videoSource !== null && videoSource !== undefined) {
+        payload.video_source = videoSource;
+      } else if (uploadType !== null && uploadType !== undefined) {
+        payload.video_source = uploadType ? 2 : 1;
       }
       return request('/vdcategories', {
         method: 'POST',
@@ -693,15 +733,26 @@ export const api = {
         expectArray: true
       });
     },
-    getSubCategories: (categoryId = null, clientId = null) => {
+    getSubCategories: (categoryId = null, clientId = null, uploadType = null, videoSource = null, type = null) => {
       const payload = {
         formstep: "getSubCategory"
       };
+      if (type) {
+        payload.type = type;
+      }
       if (categoryId) {
         payload.category_id = categoryId;
       }
       if (clientId !== null && clientId !== undefined && clientId !== '') {
         payload.client_id = clientId;
+      }
+      if (uploadType !== null && uploadType !== undefined) {
+        payload.upload_type = uploadType;
+      }
+      if (videoSource !== null && videoSource !== undefined) {
+        payload.video_source = videoSource;
+      } else if (uploadType !== null && uploadType !== undefined) {
+        payload.video_source = uploadType ? 2 : 1;
       }
       return request('/vdcategories', {
         method: 'POST',
@@ -849,6 +900,7 @@ export const api = {
     },
     assignVideo: (data = {}) => {
       const payload = typeof data === 'object' ? data : {};
+      const vs = payload.video_source !== undefined ? payload.video_source : payload.videoSource;
       return request('/vdadmins', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -857,12 +909,14 @@ export const api = {
           message: "video as assigned to you",
           msg: "video as assigned to you",
           notificationMessage: "video as assigned to you",
-          ...payload
+          ...payload,
+          ...(vs !== undefined ? { video_source: vs } : {})
         })
       });
     },
     assignCourse: (data = {}) => {
       const payload = typeof data === 'object' ? data : {};
+      const vs = payload.video_source !== undefined ? payload.video_source : (payload.videoSource !== undefined ? payload.videoSource : payload.course_source);
       return request('/vdadmins', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -871,7 +925,8 @@ export const api = {
           message: "course as assigned to you",
           msg: "course as assigned to you",
           notificationMessage: "course as assigned to you",
-          ...payload
+          ...payload,
+          ...(vs !== undefined ? { video_source: vs } : {})
         })
       });
     },
@@ -1244,16 +1299,31 @@ export const api = {
         body: JSON.stringify({ uploadId, fileName, totalChunks, duration: duration || 480 })
       });
     },
-    getSubCategories: (categoryId) => {
+    getSubCategories: (categoryId = null, clientId = null, uploadType = null, videoSource = null, type = null) => {
+      const payload = {
+        formStep: "getSubCategory",
+        formstep: "getSubCategory"
+      };
+      if (type) payload.type = type;
+      if (categoryId) {
+        payload.category_id = categoryId;
+        payload.cat_id = categoryId;
+        payload.catId = categoryId;
+      }
+      if (clientId !== null && clientId !== undefined && clientId !== '') {
+        payload.client_id = clientId;
+      }
+      if (uploadType !== null && uploadType !== undefined) {
+        payload.upload_type = uploadType;
+      }
+      if (videoSource !== null && videoSource !== undefined) {
+        payload.video_source = videoSource;
+      } else if (uploadType !== null && uploadType !== undefined) {
+        payload.video_source = uploadType ? 2 : 1;
+      }
       return request('/vdcategories', {
         method: 'POST',
-        body: JSON.stringify({
-          formStep: "getSubCategory",
-          formstep: "getSubCategory",
-          category_id: categoryId,
-          cat_id: categoryId,
-          catId: categoryId
-        }),
+        body: JSON.stringify(payload),
         expectArray: true
       });
     },
@@ -1335,84 +1405,110 @@ export const api = {
 
     updateTranscript: async (payload) => {
       const user = getCurrentUser();
-      const isSuperAdmin = user && user.role === 'super_admin';
-      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
+      const isSuperAdmin = (payload.isSuperAdmin !== undefined)
+        ? Boolean(payload.isSuperAdmin)
+        : Boolean(user && (user.role === 'super_admin' || user.role_id === 1));
       const token = getAccessToken();
       const bodyObj = { ...payload };
       bodyObj.formstep = 'transcript';
       delete bodyObj.formStep;
+      delete bodyObj.isSuperAdmin;
       if (token) {
         bodyObj.token = token;
       }
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify(bodyObj)
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to update transcript: ${response.status}`);
+      const candidateUrls = isSuperAdmin
+        ? [
+            `${getBaseUrl()}/vdSuperAdminVideos`,
+            `${getBaseUrl()}/vddashboard/super-admin`,
+            `${getBaseUrl()}/dashboard/super-admin`,
+            `${getBaseUrl()}/vdadminVideos`
+          ]
+        : [
+            `${getBaseUrl()}/vdadminVideos`,
+            `${getBaseUrl()}/adminVideos`
+          ];
+
+      let lastError = null;
+      for (const targetUrl of candidateUrls) {
+        try {
+          const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': token ? `Bearer ${token}` : ''
+            },
+            body: JSON.stringify(bodyObj)
+          });
+          if (response.ok) {
+            const text = await response.text();
+            try {
+              return text ? JSON.parse(text) : { success: true };
+            } catch (parseErr) {
+              return { success: true, message: text };
+            }
+          }
+        } catch (fetchErr) {
+          lastError = fetchErr;
+        }
       }
-      const text = await response.text();
-      try {
-        return text ? JSON.parse(text) : { success: true };
-      } catch (parseErr) {
-        return { success: true, message: text };
-      }
+      throw lastError || new Error(`Failed to update transcript`);
     },
 
     updateTranscriptCourse: async (payload) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = (payload.isSuperAdmin !== undefined)
+        ? Boolean(payload.isSuperAdmin)
+        : Boolean(user && (user.role === 'super_admin' || user.role_id === 1));
       const token = getAccessToken();
       const bodyObj = { ...payload };
       bodyObj.formstep = 'transcriptCourse';
       delete bodyObj.formStep;
+      delete bodyObj.isSuperAdmin;
       if (token) {
         bodyObj.token = token;
       }
-      
-      const primaryUrl = `${getBaseUrl()}/vdadminVideos`;
-      try {
-        const response = await fetch(primaryUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
-          body: JSON.stringify(bodyObj)
-        });
-        if (response.ok) {
-          const text = await response.text();
-          try {
-            return text ? JSON.parse(text) : { success: true };
-          } catch (parseErr) {
-            return { success: true, message: text };
+
+      const candidateUrls = isSuperAdmin
+        ? [
+            `${getBaseUrl()}/vdSuperAdminVideos`,
+            `${getBaseUrl()}/vddashboard/super-admin`,
+            `${getBaseUrl()}/dashboard/super-admin`,
+            `${getBaseUrl()}/vdadminVideos`
+          ]
+        : [
+            `${getBaseUrl()}/vdadminVideos`,
+            `${getBaseUrl()}/adminVideos`
+          ];
+
+      let lastError = null;
+      for (const targetUrl of candidateUrls) {
+        try {
+          console.log(`[updateTranscriptCourse] Calling ${targetUrl} with formstep=transcriptCourse...`);
+          const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': token ? `Bearer ${token}` : ''
+            },
+            body: JSON.stringify(bodyObj)
+          });
+          if (response.ok) {
+            const text = await response.text();
+            try {
+              return text ? JSON.parse(text) : { success: true };
+            } catch (parseErr) {
+              return { success: true, message: text };
+            }
+          } else {
+            console.warn(`[updateTranscriptCourse] HTTP ${response.status} from ${targetUrl}, trying next candidate...`);
           }
+        } catch (fetchErr) {
+          console.warn(`[updateTranscriptCourse] Network error on ${targetUrl}:`, fetchErr.message);
+          lastError = fetchErr;
         }
-      } catch (err) {
-        console.warn('updateTranscriptCourse vdadminVideos call failed, trying vdSuperAdminVideos:', err);
       }
 
-      // Fallback
-      const fallbackUrl = `${getBaseUrl()}/vdSuperAdminVideos`;
-      const fallbackRes = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify(bodyObj)
-      });
-      if (!fallbackRes.ok) {
-        throw new Error(`Failed to update course transcript: ${fallbackRes.status}`);
-      }
-      const textFallback = await fallbackRes.text();
-      try {
-        return textFallback ? JSON.parse(textFallback) : { success: true };
-      } catch (parseErr) {
-        return { success: true, message: textFallback };
-      }
+      throw lastError || new Error(`Failed to update course transcript across all candidate endpoints`);
     },
 
     uploadCourse: (payload) => {
@@ -1469,6 +1565,14 @@ export const api = {
       });
     },
 
+    deleteCourseDraft: (id) => {
+      const payload = { formstep: "deleteDraft", formStep: "deleteDraft", id: String(id) };
+      return request('/vd_drafts', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    },
+
     listVisibilities: () => {
       return request('/adminVideos', {
         method: 'POST',
@@ -1481,9 +1585,60 @@ export const api = {
         body: JSON.stringify(data),
       });
     },
-    delete: (id) => {
-      return request(`/videos/${id}`, {
-        method: 'DELETE',
+    delete: (id, payload = {}) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = (payload.isSuperAdmin !== undefined)
+        ? Boolean(payload.isSuperAdmin)
+        : Boolean(user && (user.role === 'super_admin' || user.role_id === 1));
+      const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
+      const cleanPayload = { ...payload };
+      delete cleanPayload.formStep;
+      delete cleanPayload.formstep;
+      delete cleanPayload.isSuperAdmin;
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteVideo",
+          id: String(id),
+          video_id: String(id),
+          ...cleanPayload
+        })
+      });
+    },
+    deleteVideo: (payload = {}) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = (payload.isSuperAdmin !== undefined)
+        ? Boolean(payload.isSuperAdmin)
+        : Boolean(user && (user.role === 'super_admin' || user.role_id === 1));
+      const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
+      const cleanPayload = { ...payload };
+      delete cleanPayload.formStep;
+      delete cleanPayload.formstep;
+      delete cleanPayload.isSuperAdmin;
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteVideo",
+          ...cleanPayload
+        })
+      });
+    },
+    deleteCourse: (payload = {}) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = (payload.isSuperAdmin !== undefined)
+        ? Boolean(payload.isSuperAdmin)
+        : Boolean(user && (user.role === 'super_admin' || user.role_id === 1));
+      const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
+      const cleanPayload = { ...payload };
+      delete cleanPayload.formStep;
+      delete cleanPayload.formstep;
+      delete cleanPayload.isSuperAdmin;
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteCourse",
+          ...cleanPayload
+        })
       });
     },
     assign: (videoId, assignedAdmins) => {
@@ -1668,11 +1823,32 @@ export const api = {
         expectArray: true
       });
     },
+
     deleteCourseDraft: (id) => {
       const payload = { formstep: "deleteDraft", formStep: "deleteDraft", id: String(id) };
       return request('/vd_drafts', {
         method: 'POST',
         body: JSON.stringify(payload)
+      });
+    }
+  },
+  courses: {
+    deleteCourse: (payload = {}) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = (payload.isSuperAdmin !== undefined)
+        ? Boolean(payload.isSuperAdmin)
+        : Boolean(user && (user.role === 'super_admin' || user.role_id === 1));
+      const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
+      const cleanPayload = { ...payload };
+      delete cleanPayload.formStep;
+      delete cleanPayload.formstep;
+      delete cleanPayload.isSuperAdmin;
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "deleteCourse",
+          ...cleanPayload
+        })
       });
     }
   }

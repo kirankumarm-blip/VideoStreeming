@@ -1,0 +1,282 @@
+﻿Sl No,Test Case Prefix,Test Case ID,Role,User,Action,Module,Sub module,Web / Tab / Mobile,Test Scenario,Test Case Description,Test Steps,Expected Output,Actual Output,Status,Test Data,Remarks
+1,SA-AUTH,SA-AUTH-001,Super Admin,Super Admin,Login,Authentication,Login Form,Web / Tab,Verify Valid Super Admin Login,Verify Super Admin with valid credentials successfully initiates login and triggers OTP.,"1. Open http://localhost:3000/#/login
+2. Enter registered Super Admin email
+3. Enter valid password
+4. Click 'Sign In'","API /vdlogin validates credentials. Modal popup appears with Title: 'Success!', Message: 'OTP sent successfully', Button: 'Continue'. Transitions to OTP screen.",As Expected,Pass,"email: 'superadmin@darpanx.com', pass: 'Admin@123'",Ready
+2,SA-AUTH,SA-AUTH-002,Super Admin,Super Admin,Validation,Authentication,Login Form,Web / Tab,Verify Empty Email and Password Submission,Verify native validation triggers when submitting blank login form.,"1. Leave Email and Password empty
+2. Click 'Sign In'",Submission is prevented. Browser native tooltip on Email field prompts: 'Please fill in this field'.,As Expected,Pass,"email: '', pass: ''",Ready
+3,SA-AUTH,SA-AUTH-003,Super Admin,Super Admin,Validation,Authentication,Password Field,Web / Tab,Verify Empty Password with Valid Email,Verify validation prompt on empty password field.,"1. Enter valid email 'superadmin@darpanx.com'
+2. Leave password empty
+3. Click 'Sign In'",Submission is prevented. Password input highlights with tooltip: 'Please fill in this field'.,As Expected,Pass,"email: 'superadmin@darpanx.com', pass: ''",Ready
+4,SA-AUTH,SA-AUTH-004,Super Admin,Super Admin,Validation,Authentication,Email Field,Web / Tab,Verify Invalid Email Format – Missing '@',Verify validation prompt when email format lacks '@' symbol.,"1. Enter 'invalid_admin_email'
+2. Enter password
+3. Click 'Sign In'",Browser validation prompts: 'Please include an @ in the email address'. Form submission is stopped.,As Expected,Pass,email: 'invalid_admin_email',Ready
+5,SA-AUTH,SA-AUTH-005,Super Admin,Super Admin,Validation,Authentication,Email Field,Web / Tab,Verify Invalid Email Format – Incomplete Domain,Verify validation prompt when email domain is incomplete (e.g. user@domain).,"1. Enter 'admin@domain'
+2. Enter password
+3. Click 'Sign In'",Browser / regex validation prompts for complete valid email domain format.,As Expected,Pass,email: 'admin@domain',Ready
+6,SA-AUTH,SA-AUTH-006,Super Admin,Super Admin,Security,Authentication,Login Form,Web / Tab,Verify Login with Non-Existent User (404),Verify custom error modal when attempting login with unregistered email.,"1. Enter unregistered email 'notfound@lurnax.com'
+2. Enter password
+3. Click 'Sign In'","API /vdlogin returns status 404. Modal popup appears with:
+• Icon: Red circle with white ✕
+• Title: 'Oops!'
+• Message: 'User does not exist'
+• Button: 'Try Again'",As Expected,Pass,"email: 'notfound@lurnax.com', pass: 'Test@123'",Ready
+7,SA-AUTH,SA-AUTH-007,Super Admin,Super Admin,Security,Authentication,Login Form,Web / Tab,Verify Login with Incorrect Password (401),Verify custom error modal on registered email with wrong password.,"1. Enter registered email 'superadmin@darpanx.com'
+2. Enter wrong password
+3. Click 'Sign In'","API /vdlogin returns status 401. Modal popup appears with:
+• Icon: Red circle with white ✕
+• Title: 'Oops!'
+• Message: 'Invalid Credentials'
+• Button: 'Try Again'",As Expected,Pass,"email: 'superadmin@darpanx.com', pass: 'WrongPass@999'",Ready
+8,SA-AUTH,SA-AUTH-008,Super Admin,Super Admin,Security,Authentication,Login Form,Web / Tab,Verify Login with Deactivated Account (430),Verify custom error modal when a deactivated user attempts to log in.,"1. Enter deactivated user email
+2. Enter password
+3. Click 'Sign In'","API /vdlogin returns status 430. Modal popup appears with:
+• Title: 'Oops!'
+• Message: 'Your account has been deactivated. Please contact your administrator for assistance.'
+• Button: 'Try Again'",As Expected,Pass,"email: 'deactivated@darpanx.com', pass: 'Admin@123'",Ready
+9,SA-AUTH,SA-AUTH-009,Super Admin,Super Admin,Security,Authentication,Network Payload,Web / Tab,Verify RC4 Stream Payload Encryption,Verify credentials are not transmitted across the network in plaintext.,"1. Open DevTools Network tab
+2. Submit login form
+3. Inspect request body for /vdlogin",Email and password sent as RC4-encrypted Base64 encoded cipherstrings; plain text credentials never appear in network payloads.,As Expected,Pass,Cipher: RC4 Based,Ready
+10,SA-AUTH,SA-AUTH-010,Super Admin,Super Admin,UI / UX,Authentication,Password Field,Web / Tab,Verify Password Masking & Eye Toggle,Verify password unmasks to plain text when clicking eye icon and re-masks on click.,"1. Enter password
+2. Click eye toggle icon
+3. Observe input field
+4. Click eye toggle again",Input type switches from 'password' (masked bullets) to 'text' (visible); second click re-masks characters.,As Expected,Pass,pass: 'Admin@123',Ready
+11,SA-AUTH,SA-AUTH-011,Super Admin,Super Admin,2FA OTP,Authentication,OTP Modal,Web / Tab,Verify 6-Digit OTP Auto-Advance Focus,Verify typing digits sequentially moves focus across OTP boxes automatically.,"1. Trigger OTP screen
+2. Type digits 1, 2, 3, 4, 5, 6 sequentially",Each box accepts exactly 1 digit and shifts focus automatically to next input box.,As Expected,Pass,Digits: 1-2-3-4-5-6,Ready
+12,SA-AUTH,SA-AUTH-012,Super Admin,Super Admin,2FA OTP,Authentication,OTP Modal,Web / Tab,Verify OTP Verification – Incorrect Code,Verify error alert on entering invalid 6-digit OTP code.,"1. Enter invalid OTP code '000000'
+2. Click 'Verify OTP'","API returns error status. Modal popup appears with Title: 'Oops!', Message: 'Invalid OTP', Button: 'Try Again'.",As Expected,Pass,otp: '000000',Ready
+13,SA-AUTH,SA-AUTH-013,Super Admin,Super Admin,2FA Timeout,Authentication,OTP Timer,Web / Tab,Verify 120s OTP Countdown & Expiry,Verify OTP countdown timer counts down from 120s to 0s and triggers expiry alert.,"1. Wait 120 seconds on OTP verification screen
+2. Observe timer status","Timer reaches 0s. Modal popup displays with Title: 'Oops!', Message: 'OTP Expired', Button: 'Try Again'. Resend OTP button becomes active.",As Expected,Pass,Timeout: 120s,Ready
+14,SA-AUTH,SA-AUTH-014,Super Admin,Super Admin,2FA OTP,Authentication,OTP Modal,Web / Tab,Verify Resend OTP Button Action,Verify clicking Resend OTP generates new OTP and resets countdown.,1. Click 'Resend OTP' button,Calls generateOtp API. Success toast shows 'OTP sent successfully' and 120s timer resets to 2:00.,As Expected,Pass,Action: Resend OTP,Ready
+15,SA-AUTH,SA-AUTH-015,Super Admin,Super Admin,2FA OTP,Authentication,Role Routing,Web / Tab,Verify Super Admin Redirection to /super-admin,Verify valid OTP for Super Admin role redirects to /super-admin dashboard.,"1. Enter valid 6-digit OTP
+2. Click 'Verify OTP'",Tokens saved in localStorage; user role mapped to 'super_admin' (role_id: 1). Redirection navigates to #/super-admin.,As Expected,Pass,Role: super_admin,Ready
+16,SA-AUTH,SA-AUTH-016,Super Admin,Super Admin,Security,Authentication,Role Guard,Web / Tab,Verify End User Access Denied on Admin Portal,Verify end users / students cannot access the Admin Portal.,"1. Login with student credentials
+2. Complete OTP",Modal popup displays: 'Access Denied: End users cannot access the Admin Portal.' Session is cleared and user remains on login page.,As Expected,Pass,Role: user / student,Ready
+17,SA-AUTH,SA-AUTH-017,Super Admin,Super Admin,Preferences,Authentication,Remember Me,Web / Tab,Verify Remember Me Checkbox Persistence,Verify checking Remember Me saves credentials for subsequent sessions.,"1. Enter email & password
+2. Check 'Remember me'
+3. Login & reopen #/login",Email and encoded password load automatically from localStorage into input fields.,As Expected,Pass,Remember Me: true,Ready
+18,SA-AUTH,SA-AUTH-018,Super Admin,Super Admin,Session Guard,Authentication,Inactivity Listener,Web / Tab,Verify 10-Minute Inactivity Auto-Logout,Verify session terminates automatically after 10 minutes of idle time.,"1. Log in as Super Admin
+2. Leave browser inactive for 10 minutes",Session is terminated. Redirected to #/login with modal alert: 'You have been automatically logged out due to 10 minutes of inactivity.',As Expected,Pass,Idle: 10 mins,Ready
+19,SA-AUTH,SA-AUTH-019,Super Admin,Super Admin,Session,Authentication,Logout,Web / Tab,Verify Super Admin Manual Logout,Verify clicking Logout clears tokens and redirects to login.,"1. Click Avatar in top header
+2. Click 'Logout'
+3. Confirm prompt",Tokens and session data cleared from localStorage; redirected to #/login.,As Expected,Pass,Action: Logout,Ready
+20,SA-SHELL,SA-SHELL-001,Super Admin,Super Admin,Tenant Filter,Header,Client Switcher,Web / Tab,Verify Client Switcher Dropdown Selection,Verify selecting client organization from header filters dashboard content.,"1. Click Client switcher dropdown in header
+2. Select 'VDStreams' (id: 6)","Header updates to show selected client ('VDStreams'). Child tables (Videos, Courses, Categories) pass selectedAdminId: '6' to APIs.",As Expected,Pass,Client: VDStreams,Ready
+21,SA-SHELL,SA-SHELL-002,Super Admin,Super Admin,Tenant Filter,Header,Client Switcher,Web / Tab,Verify Reset Client Switcher to All Clients,Verify selecting 'All Clients' restores global cross-tenant view.,"1. Open Client dropdown
+2. Select 'All Clients'","selectedAdminId resets to null; views display all aggregated videos, courses, and admins.",As Expected,Pass,Client: All Clients,Ready
+22,SA-SHELL,SA-SHELL-003,Super Admin,Super Admin,Appearance,Header,Theme Switcher,Web / Tab,Verify Dark / Light Theme Toggle,Verify theme toggle switches body classes and persists setting.,1. Click Sun/Moon icon in header,Theme toggles between Dark and Light; body receives 'light-theme' class; setting saved in localStorage under 'theme'.,As Expected,Pass,Theme: Dark / Light,Ready
+23,SA-SHELL,SA-SHELL-004,Super Admin,Super Admin,Localization,Header,Language Switcher,Web / Tab,Verify Global Language Selector,Verify selecting language updates UI text labels dynamically.,"1. Click Globe icon dropdown in header
+2. Select 'Hindi' or 'Spanish'","UI strings across dashboard, menus, buttons, and headers translate dynamically via i18n.",As Expected,Pass,Language: Hindi / Spanish,Ready
+24,SA-DASH,SA-DASH-001,Super Admin,Super Admin,View Dashboard,Dashboard,Overview Tab,Web / Tab,Verify Super Admin KPI Metric Cards,"Verify macro KPI cards display accurate counts for Users, Admins, Videos, and Courses.","1. Open #/super-admin
+2. Inspect KPI summary cards","Displays 4 KPI cards: Total Users, Total Admins, Total Videos, and Total Courses with percentage trend indicators.",As Expected,Pass,KPI Cards: 4,Ready
+25,SA-DASH,SA-DASH-002,Super Admin,Super Admin,Telemetry,Dashboard,Growth Charts,Web / Tab,Verify User Growth Curve & Hover Tooltips,Verify growth chart renders weekly points with accurate hover tooltips.,"1. Navigate to Overview
+2. Hover over chart data points (Mon-Sun)",Interactive tooltip renders exact date and count without page lag or flickering.,As Expected,Pass,Chart: User Growth,Ready
+26,SA-CLI,SA-CLI-001,Super Admin,Super Admin,View Table,Client Management,Client Table,Web / Tab,Verify All Clients Table Rendering,Verify client organizations table displays with sorting and action controls.,"1. Click 'Client Management' in sidebar
+2. Inspect table columns","Table displays columns: Client Name, Email, Contact Number, Status, Created Date, and Actions.",As Expected,Pass,View: Clients Table,Ready
+27,SA-CLI,SA-CLI-002,Super Admin,Super Admin,Search,Client Management,Search Bar,Web / Tab,Verify Client Search by Organization Name,Verify typing client name filters table rows in real-time.,1. Type 'VDStreams' in search input,"Table filters in real-time, showing only matching organization rows; clearing search restores full list.",As Expected,Pass,Search: 'VDStreams',Ready
+28,SA-CLI,SA-CLI-003,Super Admin,Super Admin,Add Client,Client Management,Add Client Modal,Web / Tab,Verify Add Client Modal Open & Form Fields,Verify clicking '+ Add Client' launches modal with all required form controls.,1. Click '+ Add Client' button,"Modal launches with fields: Organization Name, Email, Phone Number, Address Line 1, State dropdown, City dropdown, and Zipcode.",As Expected,Pass,Modal: Add Client,Ready
+29,SA-CLI,SA-CLI-004,Super Admin,Super Admin,Validation,Client Management,Client Name Field,Web / Tab,Verify Add Client – Empty Name Validation,Verify validation alert when submitting form with empty Organization Name.,"1. Leave Organization Name empty
+2. Fill remaining fields
+3. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Please fill out client name'. Submission is blocked.",As Expected,Pass,Org Name: '',Ready
+30,SA-CLI,SA-CLI-005,Super Admin,Super Admin,Validation,Client Management,Phone Field,Web / Tab,Verify Add Client – Empty Phone Number Validation,Verify validation alert when Phone Number is empty.,"1. Fill Name: 'TechCorp'
+2. Leave Phone Number empty
+3. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Please fill out phone number'.",As Expected,Pass,Phone: '',Ready
+31,SA-CLI,SA-CLI-006,Super Admin,Super Admin,Validation,Client Management,Phone Field,Web / Tab,Verify Add Client – Phone Number Not 10 Digits,Verify validation alert when phone number is less than or greater than 10 digits.,"1. Enter Phone: '98765'
+2. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Phone number must be exactly 10 digits'.",As Expected,Pass,Phone: '98765',Ready
+32,SA-CLI,SA-CLI-007,Super Admin,Super Admin,Validation,Client Management,Address Field,Web / Tab,Verify Add Client – Empty Address Validation,Verify validation alert when Address Line 1 is empty.,"1. Fill Name, Phone (10 digits)
+2. Leave Address Line 1 empty
+3. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Please fill out address line 1'.",As Expected,Pass,Address: '',Ready
+33,SA-CLI,SA-CLI-008,Super Admin,Super Admin,Validation,Client Management,State Dropdown,Web / Tab,Verify Add Client – Unselected State Validation,Verify validation alert when State is not selected.,"1. Fill Name, Phone, Address
+2. Leave State unselected
+3. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Please select state'.",As Expected,Pass,State: '',Ready
+34,SA-CLI,SA-CLI-009,Super Admin,Super Admin,Validation,Client Management,City Dropdown,Web / Tab,Verify Add Client – Unselected City Validation,Verify validation alert when City is not selected.,"1. Select State
+2. Leave City unselected
+3. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Please select city'.",As Expected,Pass,City: '',Ready
+35,SA-CLI,SA-CLI-010,Super Admin,Super Admin,Validation,Client Management,Zipcode Field,Web / Tab,Verify Add Client – Empty Zipcode Validation,Verify validation alert when Zipcode is empty.,"1. Fill all fields except Zipcode
+2. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Please fill out zipcode'.",As Expected,Pass,Zipcode: '',Ready
+36,SA-CLI,SA-CLI-011,Super Admin,Super Admin,Validation,Client Management,Zipcode Field,Web / Tab,Verify Add Client – Zipcode Must Be Exactly 6 Digits,Verify validation alert when Zipcode is not 6 digits.,"1. Enter Zipcode: '1234'
+2. Click 'Create Client'","Error modal displays with Title: 'Oops!', Message: 'Zipcode must be exactly 6 digits'.",As Expected,Pass,Zipcode: '1234',Ready
+37,SA-CLI,SA-CLI-012,Super Admin,Super Admin,Add Client,Client Management,Add Client Modal,Web / Tab,Verify Add Client – Successful Creation,Verify submitting valid client details creates client organization successfully.,"1. Fill Name, Email, 10-digit Phone, Address, State, City, 6-digit Zipcode
+2. Click 'Create Client'","POST sent to /clients. Modal closes, success alert shows 'Client created successfully', and new client appears in table.",As Expected,Pass,Valid Client Data,Ready
+38,SA-CLI,SA-CLI-013,Super Admin,Super Admin,Edit Client,Client Management,Edit Client Modal,Web / Tab,Verify Edit Client Details & Pre-population,Verify clicking Edit loads client details and saves changes.,"1. Click 'Edit' on client row
+2. Update Phone Number
+3. Click 'Update Client'",Modal pre-populates existing data. Clicking Update sends PUT request; table displays updated details immediately.,As Expected,Pass,Updated Phone,Ready
+39,SA-CLI,SA-CLI-014,Super Admin,Super Admin,Delete Guard,Client Management,Delete Action,Web / Tab,Verify Delete Client Guard – Active Online Users (Status 421 / 310),Verify deleting client is blocked when online users are active.,"1. Click 'Delete' on client with active sessions
+2. Confirm deletion dialog","API returns HTTP 421/310. Modal popup appears with Title: 'Oops!', Message: 'Unable to delete client: Active users are currently online.'",As Expected,Pass,Client with active users,Ready
+40,SA-CLI,SA-CLI-015,Super Admin,Super Admin,Delete Client,Client Management,Delete Action,Web / Tab,Verify Delete Client – Successful Deletion,Verify deleting client with no active users deletes record.,"1. Click 'Delete' on inactive client
+2. Confirm deletion dialog",Client deleted successfully from database. Row removed from table; success alert displayed.,As Expected,Pass,Inactive Client,Ready
+41,SA-AUTHADM,SA-AUTHADM-001,Super Admin,Super Admin,View Table,Author Management,Author Admins,Web / Tab,Verify Author Admins Table Display,"Verify table displays Author Admins with status, contact info, and actions.",1. Click 'Author Management' in sidebar,"Table displays columns: Name, Email, Phone, Role, Status, Created At, and Actions.",As Expected,Pass,View: Author Admins,Ready
+42,SA-AUTHADM,SA-AUTHADM-002,Super Admin,Super Admin,Validation,Author Management,First Name Field,Web / Tab,Verify Add Author – Empty First Name Validation,Verify validation alert when submitting author form with empty first name.,"1. Click '+ Add Author Admin'
+2. Leave First Name empty
+3. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please fill out first name'.",As Expected,Pass,First Name: '',Ready
+43,SA-AUTHADM,SA-AUTHADM-003,Super Admin,Super Admin,Validation,Author Management,Last Name Field,Web / Tab,Verify Add Author – Empty Last Name Validation,Verify validation alert when submitting author form with empty last name.,"1. Fill First Name
+2. Leave Last Name empty
+3. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please fill out last name'.",As Expected,Pass,Last Name: '',Ready
+44,SA-AUTHADM,SA-AUTHADM-004,Super Admin,Super Admin,Validation,Author Management,Email Field,Web / Tab,Verify Add Author – Empty Email Validation,Verify validation alert when author email is empty.,"1. Fill Names
+2. Leave Email empty
+3. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please fill out email address'.",As Expected,Pass,Email: '',Ready
+45,SA-AUTHADM,SA-AUTHADM-005,Super Admin,Super Admin,Validation,Author Management,Phone Field,Web / Tab,Verify Add Author – Empty Phone Number Validation,Verify validation alert when author phone number is empty.,"1. Fill Names, Email
+2. Leave Phone empty
+3. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please fill out phone number'.",As Expected,Pass,Phone: '',Ready
+46,SA-AUTHADM,SA-AUTHADM-006,Super Admin,Super Admin,Validation,Author Management,Phone Field,Web / Tab,Verify Add Author – Phone Number Not 10 Digits,Verify validation alert when author phone is not exactly 10 digits.,"1. Enter Phone: '12345'
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Phone number must be exactly 10 digits'.",As Expected,Pass,Phone: '12345',Ready
+47,SA-AUTHADM,SA-AUTHADM-007,Super Admin,Super Admin,Validation,Author Management,Gender Field,Web / Tab,Verify Add Author – Unselected Gender Validation,Verify validation alert when Gender is unselected.,"1. Leave Gender unselected
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please select gender'.",As Expected,Pass,Gender: '',Ready
+48,SA-AUTHADM,SA-AUTHADM-008,Super Admin,Super Admin,Validation,Author Management,DOB Field,Web / Tab,Verify Add Author – Unselected Date of Birth Validation,Verify validation alert when Date of Birth is unselected.,"1. Leave Date of Birth empty
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please select date of birth'.",As Expected,Pass,DOB: '',Ready
+49,SA-AUTHADM,SA-AUTHADM-009,Super Admin,Super Admin,Validation,Author Management,Address Field,Web / Tab,Verify Add Author – Empty Address Validation,Verify validation alert when Address is empty.,"1. Leave Address empty
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please fill out address'.",As Expected,Pass,Address: '',Ready
+50,SA-AUTHADM,SA-AUTHADM-010,Super Admin,Super Admin,Validation,Author Management,State Field,Web / Tab,Verify Add Author – Unselected State Validation,Verify validation alert when State is unselected.,"1. Leave State unselected
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please select state'.",As Expected,Pass,State: '',Ready
+51,SA-AUTHADM,SA-AUTHADM-011,Super Admin,Super Admin,Validation,Author Management,City Field,Web / Tab,Verify Add Author – Unselected City Validation,Verify validation alert when City is unselected.,"1. Leave City unselected
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please select city'.",As Expected,Pass,City: '',Ready
+52,SA-AUTHADM,SA-AUTHADM-012,Super Admin,Super Admin,Validation,Author Management,Zipcode Field,Web / Tab,Verify Add Author – Empty Zipcode Validation,Verify validation alert when Zipcode is empty.,"1. Leave Zipcode empty
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Please fill out zipcode'.",As Expected,Pass,Zipcode: '',Ready
+53,SA-AUTHADM,SA-AUTHADM-013,Super Admin,Super Admin,Validation,Author Management,Zipcode Field,Web / Tab,Verify Add Author – Zipcode Must Be Exactly 6 Digits,Verify validation alert when Zipcode is not 6 digits.,"1. Enter Zipcode: '987'
+2. Click 'Save Author Admin'","Error modal displays with Title: 'Oops!', Message: 'Zipcode must be exactly 6 digits'.",As Expected,Pass,Zipcode: '987',Ready
+54,SA-AUTHADM,SA-AUTHADM-014,Super Admin,Super Admin,Duplicate Check,Author Management,Add Author Modal,Web / Tab,Verify Add Author – Duplicate Phone Number Error,Verify error alert when submitting already registered author phone number.,"1. Enter existing phone number
+2. Click 'Save Author Admin'","API returns error. Modal displays with Title: 'Oops!', Message: 'Phone number already exist'.",As Expected,Pass,Duplicate Phone,Ready
+55,SA-AUTHADM,SA-AUTHADM-015,Super Admin,Super Admin,Duplicate Check,Author Management,Add Author Modal,Web / Tab,Verify Add Author – Duplicate Email Error,Verify error alert when submitting already registered author email.,"1. Enter existing email
+2. Click 'Save Author Admin'","API returns error. Modal displays with Title: 'Oops!', Message: 'Email Already exist'.",As Expected,Pass,Duplicate Email,Ready
+56,SA-AUTHADM,SA-AUTHADM-016,Super Admin,Super Admin,Dynamic Dropdowns,Author Management,Add Author Modal,Web / Tab,Verify Dynamic State and City Population,Verify selecting a state calls getCity and populates corresponding cities.,1. Select State: 'California' (id: 1),"Calls getCity. City dropdown updates with: Los Angeles, San Francisco, San Diego.",As Expected,Pass,State: California,Ready
+57,SA-AUTHADM,SA-AUTHADM-017,Super Admin,Super Admin,Add Author,Author Management,Add Author Modal,Web / Tab,Verify Add Author Admin – Successful Creation,Verify submitting valid author details creates record via addAuthorAdmin API.,"1. Fill all valid fields
+2. Click 'Save Author Admin'","POST sent to /vdadmins with formstep: 'addAuthorAdmin'. Success alert shows, modal closes, and new author appears in table.",As Expected,Pass,Valid Author Data,Ready
+58,SA-VIDUP,SA-VIDUP-001,Super Admin,Super Admin,Validation,Content Management,Video Title Field,Web / Tab,Verify Video Upload – Empty Title Validation,Verify validation alert when submitting video without a title.,"1. Navigate to 'Upload Video'
+2. Leave Title empty
+3. Click 'Upload Video'","Error modal displays with Title: 'Oops!', Message: 'Please enter a Video Title'.",As Expected,Pass,Title: '',Ready
+59,SA-VIDUP,SA-VIDUP-002,Super Admin,Super Admin,Validation,Content Management,Category Dropdown,Web / Tab,Verify Video Upload – Empty Category Validation,Verify validation alert when submitting video without selecting a Category.,"1. Enter Video Title: 'Intro to React'
+2. Leave Category unselected
+3. Click 'Upload Video'","Error modal displays with Title: 'Oops!', Message: 'Please select a Category'.",As Expected,Pass,Category: '',Ready
+60,SA-VIDUP,SA-VIDUP-003,Super Admin,Super Admin,Validation,Content Management,Sub Category Dropdown,Web / Tab,Verify Video Upload – Empty Sub Category Validation,Verify validation alert when Sub Category is not selected.,"1. Select Category: 'Technology'
+2. Leave Sub Category unselected
+3. Click 'Upload Video'","Error modal displays with Title: 'Oops!', Message: 'Please select a Sub Category. Sub Category is required.'.",As Expected,Pass,Sub Category: '',Ready
+61,SA-VIDUP,SA-VIDUP-004,Super Admin,Super Admin,Validation,Content Management,Video File Picker,Web / Tab,Verify Video Upload – Missing Video File Validation,Verify validation alert when no video file is chosen.,"1. Fill Title, Category, Sub Category
+2. Do not select video file
+3. Click 'Upload Video'","Error modal displays with Title: 'Oops!', Message: 'Please select a video file to upload'.",As Expected,Pass,Video File: None,Ready
+62,SA-VIDUP,SA-VIDUP-005,Super Admin,Super Admin,Validation,Content Management,Thumbnail Picker,Web / Tab,Verify Video Upload – Missing Thumbnail Image Validation,Verify validation alert when thumbnail image is not selected.,"1. Select video file
+2. Do not select thumbnail image
+3. Click 'Upload Video'","Error modal displays with Title: 'Oops!', Message: 'Thumbnail Image is required'.",As Expected,Pass,Thumbnail: None,Ready
+63,SA-VIDUP,SA-VIDUP-006,Super Admin,Super Admin,Visibility Selection,Content Management,Upload Video Form,Web / Tab,Verify Selecting Private Displays Toggle and Client Dropdown,Verify changing visibility to Private reveals 'Upload for the Client' toggle and Client dropdown.,"1. In Visibility dropdown, select 'Private'",Visibility sets to Private. 'Upload for the Client' toggle container and Client selector dropdown are revealed.,As Expected,Pass,Visibility: Private (2),Ready
+64,SA-VIDUP,SA-VIDUP-007,Super Admin,Super Admin,Toggle Default,Content Management,Upload Video Form,Web / Tab,Verify 'Upload for the Client' Toggle Defaults to Enabled (true),Verify the toggle is ON by default when Private visibility is selected.,"1. Select Visibility = 'Private'
+2. Inspect toggle state","Toggle switch is in ON position (true). Rendered in a compact card (height: 50px, borderRadius: 12px) aligned horizontally with Client dropdown.",As Expected,Pass,Toggle: ON (true),Ready
+65,SA-VIDUP,SA-VIDUP-008,Super Admin,Super Admin,Toggle Behavior,Content Management,Upload Video Form,Web / Tab,Verify Toggle ON – Sources Client Organization Catalog,Verify toggle ON fetches Category and Subcategory for the selected client.,"1. Keep Toggle ON (true)
+2. Select Client in dropdown","Category & Subcategory dropdowns populate client-specific categories (upload_type: true, video_source: 2). Visibility remains Private.",As Expected,Pass,"Toggle: true, Client: VDStreams",Ready
+66,SA-VIDUP,SA-VIDUP-009,Super Admin,Super Admin,Toggle Behavior,Content Management,Upload Video Form,Web / Tab,Verify Toggle OFF – Sourced from Public APIs (video_source: 1),Verify toggle OFF fetches Category and Subcategory from Public APIs without altering Private visibility.,"1. Turn Toggle OFF (false)
+2. Inspect Category and Visibility dropdowns","1. Category & Subcategory fetch using Public APIs only (upload_type: false, video_source: 1).
+2. Visibility dropdown remains Private.
+3. Client dropdown remains visible and selectable.",As Expected,Pass,Toggle: false,Ready
+67,SA-VIDUP,SA-VIDUP-010,Super Admin,Super Admin,Dynamic Subcategory,Content Management,Upload Video Form,Web / Tab,Verify Dynamic Subcategory Fetching with video_source,Verify selecting category calls getSubCategory API with video_source and upload_type.,"1. Select Category: 'Technology'
+2. Inspect network request to /vdcategories","POST to /vdcategories sends formstep: 'getSubCategory', category_id, upload_type, and video_source. Subcategory populates matching list.",As Expected,Pass,Category: Technology,Ready
+68,SA-VIDUP,SA-VIDUP-011,Super Admin,Super Admin,Progress Loader,Content Management,Upload Video Form,Web / Tab,Verify 3D Spinner Loader During Video Upload,Verify uploading video shows 3D spinner backdrop without bulky card containers or bottom status text.,"1. Select video file and thumbnail
+2. Click 'Upload Video'",Full-screen overlay displays 3D atomic orb animation without extra frame boxes or status text.,As Expected,Pass,File: lesson1.mp4,Ready
+69,SA-VIDUP,SA-VIDUP-012,Super Admin,Super Admin,Form Submission,Content Management,Upload Video Form,Web / Tab,Verify Video Upload Submission Payload (video_source & upload_type),"Verify uploadVideo API receives video_source, upload_type, client_id, and visibility.","1. Fill all fields (Private, Toggle: OFF, Client selected)
+2. Click 'Upload Video'","Payload includes formstep: 'uploadVideo', upload_type: false, video_source: 1, client_id: '<id>', visibility: '2'. Video uploads and navigates to All Videos.",As Expected,Pass,Full Video Payload,Ready
+70,SA-VIDLIST,SA-VIDLIST-001,Super Admin,Super Admin,View Table,Content Management,All Videos,Web / Tab,Verify All Videos Table Columns & Badges,"Verify videos table renders with thumbnail, title, category, views, visibility badge, assigned admin, and actions.",1. Click 'All Videos' in sidebar,"Displays table: Thumbnail, Video Title, Category, Views, Visibility badge (e.g. PRIVATE), Assigned Admin, Uploaded By, Actions (Play/Review, Edit, Re-Assign, Delete).",As Expected,Pass,View: All Videos,Ready
+71,SA-VIDLIST,SA-VIDLIST-002,Super Admin,Super Admin,Play / Review,Content Management,All Videos,Web / Tab,Verify Play / Review Video Player Modal,Verify clicking Play / Review opens modal streaming video with controls.,1. Click 'Play / Review' on a video row,"Modal launches and streams video with playback speed controls, seek bar, and subtitle tracks.",As Expected,Pass,Video row,Ready
+72,SA-VIDLIST,SA-VIDLIST-003,Super Admin,Super Admin,Edit Video,Content Management,Edit Video Form,Web / Tab,Verify Edit Video Pre-population with video_source = 1,Verify editing video with video_source: 1 fetches public categories and subcategories without client restriction.,"1. Click 'Edit' on video with video_source: '1'
+2. Observe form fields",Form pre-populates all existing data immediately. Category and Subcategory load properly from public sources without getting stuck on loading.,As Expected,Pass,video_source: 1,Ready
+73,SA-VIDLIST,SA-VIDLIST-004,Super Admin,Super Admin,Edit Video,Content Management,Edit Video Form,Web / Tab,Verify Edit Video Category Change Respects video_source,Verify changing category on edit form forwards video_source to getSubCategory API.,"1. Change Category to 'Artificial Intelligence'
+2. Inspect network request",Calls getSubCategory with video_source: 1 and upload_type: false. Subcategory options update dynamically.,As Expected,Pass,Category change,Ready
+74,SA-VIDLIST,SA-VIDLIST-005,Super Admin,Super Admin,Edit Video,Content Management,Edit Video Form,Web / Tab,Verify Edit Video Submission,Verify submitting edited video updates record via editVideo API.,"1. Update Video Title and Description
+2. Click 'Update Video'","POST sent to /adminVideos with formstep: 'editVideo'. Success toast shows, table updates with new metadata.",As Expected,Pass,Updated Title,Ready
+75,SA-VIDLIST,SA-VIDLIST-006,Super Admin,Super Admin,Re-Assign Video,Content Management,Assign Modal,Web / Tab,Verify Re-Assign Warning on Already Assigned Video,Verify warning prompt displays when reassigning an already assigned video.,1. Click 'Re-Assign' on an assigned video,Modal warns: 'This video is currently assigned to [Admin Name]. Proceed to Re-Assign?' Clicking Proceed opens admin selector modal.,As Expected,Pass,Assigned Video,Ready
+76,SA-VIDLIST,SA-VIDLIST-007,Super Admin,Super Admin,Save Assignment,Content Management,Assign Modal,Web / Tab,Verify Save Assignment Payload Includes video_source,Verify clicking 'Save Assignment' passes video_source in the AssignVideo payload.,"1. Select target admin from list
+2. Click 'Save Assignment'
+3. Inspect request payload","POST to /vdadmins with payload: { formstep: 'AssignVideo', video_id: '<id>', admin_id: '<id>', video_source: '1', ... }. Modal closes, table shows updated assigned admin.",As Expected,Pass,Payload: video_source,Ready
+77,SA-VIDLIST,SA-VIDLIST-008,Super Admin,Super Admin,Delete Video,Content Management,All Videos,Web / Tab,Verify Delete Video Action,Verify deleting video removes record from database.,"1. Click 'Delete' button on video row
+2. Confirm delete",Video deleted from database. Row removed from table and KPI counter updates.,As Expected,Pass,Video ID,Ready
+78,SA-CRSUP,SA-CRSUP-001,Super Admin,Super Admin,Validation,Content Management,Course Title Field,Web / Tab,Verify Course Upload – Empty Title Validation,Verify validation alert when submitting course with empty Course Title.,"1. Navigate to 'Upload Course'
+2. Leave Title empty
+3. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Course Title is required'.",As Expected,Pass,Title: '',Ready
+79,SA-CRSUP,SA-CRSUP-002,Super Admin,Super Admin,Validation,Content Management,Course Description Field,Web / Tab,Verify Course Upload – Empty Description Validation,Verify validation alert when Course Description is empty.,"1. Enter Title: 'Mastering Python'
+2. Leave Description empty
+3. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Course Description is required'.",As Expected,Pass,Description: '',Ready
+80,SA-CRSUP,SA-CRSUP-003,Super Admin,Super Admin,Validation,Content Management,Category Dropdown,Web / Tab,Verify Course Upload – Empty Category Validation,Verify validation alert when Category is not selected.,"1. Leave Category unselected
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Category selection is required'.",As Expected,Pass,Category: '',Ready
+81,SA-CRSUP,SA-CRSUP-004,Super Admin,Super Admin,Validation,Content Management,Sub Category Dropdown,Web / Tab,Verify Course Upload – Empty Sub Category Validation,Verify validation alert when Sub Category is not selected.,"1. Select Category
+2. Leave Sub Category unselected
+3. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Sub Category selection is required'.",As Expected,Pass,Sub Category: '',Ready
+82,SA-CRSUP,SA-CRSUP-005,Super Admin,Super Admin,Validation,Content Management,Language Dropdown,Web / Tab,Verify Course Upload – Empty Language Validation,Verify validation alert when Language is not selected.,"1. Leave Language empty
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Language selection is required'.",As Expected,Pass,Language: '',Ready
+83,SA-CRSUP,SA-CRSUP-006,Super Admin,Super Admin,Validation,Content Management,Visibility Dropdown,Web / Tab,Verify Course Upload – Empty Visibility Validation,Verify validation alert when Visibility is not selected.,"1. Leave Visibility empty
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Visibility selection is required'.",As Expected,Pass,Visibility: '',Ready
+84,SA-CRSUP,SA-CRSUP-007,Super Admin,Super Admin,Validation,Content Management,Client Dropdown,Web / Tab,Verify Course Upload – Missing Client for Private Course,Verify validation alert when Visibility is Private but Client is not chosen.,"1. Set Visibility = 'Private'
+2. Leave Client unselected
+3. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Client selection is required for Private courses'.",As Expected,Pass,Client: '',Ready
+85,SA-CRSUP,SA-CRSUP-008,Super Admin,Super Admin,Validation,Content Management,Instructor Field,Web / Tab,Verify Course Upload – Missing Instructor / Author Validation,Verify validation alert when Author / Instructor is not selected.,"1. Leave Author empty
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Please select Instructor / Author'.",As Expected,Pass,Instructor: '',Ready
+86,SA-CRSUP,SA-CRSUP-009,Super Admin,Super Admin,Validation,Content Management,Level Dropdown,Web / Tab,Verify Course Upload – Missing Course Level Validation,Verify validation alert when Course Level is unselected.,"1. Leave Course Level empty
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Course Level selection is required'.",As Expected,Pass,Level: '',Ready
+87,SA-CRSUP,SA-CRSUP-010,Super Admin,Super Admin,Validation,Content Management,Thumbnail Picker,Web / Tab,Verify Course Upload – Missing Course Thumbnail Validation,Verify validation alert when Course Thumbnail image is not uploaded.,"1. Leave Thumbnail empty
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Course Thumbnail is required'.",As Expected,Pass,Thumbnail: None,Ready
+88,SA-CRSUP,SA-CRSUP-011,Super Admin,Super Admin,Validation,Content Management,Total Chapters Field,Web / Tab,Verify Course Upload – Missing Total Chapters Validation,Verify validation alert when Total Chapters field is empty.,"1. Leave Total Chapters empty
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Total Chapters field is required'.",As Expected,Pass,Total Chapters: '',Ready
+89,SA-CRSUP,SA-CRSUP-012,Super Admin,Super Admin,Validation,Content Management,Chapter Builder,Web / Tab,Verify Course Upload – No Chapters Added Validation,Verify validation alert when course has no chapters added.,"1. Clear chapters list
+2. Click 'Submit Course'","Error modal displays with Title: 'Oops!', Message: 'Please add at least one chapter'.",As Expected,Pass,Chapters: [],Ready
+90,SA-CRSUP,SA-CRSUP-013,Super Admin,Super Admin,Toggle Alignment,Content Management,Upload Course Form,Web / Tab,Verify Course 'Upload for the Client' Toggle Alignment,Verify toggle container matches Client dropdown height and alignment when Private visibility is selected.,"1. Select Visibility = 'Private'
+2. Inspect Toggle container","Toggle card renders with height: 50px, padding: 14px 18px, borderRadius: 12px, aligned in single row next to Client dropdown.",As Expected,Pass,Height: 50px,Ready
+91,SA-CRSUP,SA-CRSUP-014,Super Admin,Super Admin,Toggle Behavior,Content Management,Upload Course Form,Web / Tab,Verify Course Toggle OFF – Sourced from Public APIs,Verify turning toggle OFF sources course Category and Subcategory from Public APIs only.,"1. Turn 'Upload for the Client' toggle OFF
+2. Observe dropdowns","Category & Subcategory fetch from Public APIs (upload_type: false, video_source: 1). Visibility stays Private and Client dropdown remains active.",As Expected,Pass,Toggle: false,Ready
+92,SA-CRSUP,SA-CRSUP-015,Super Admin,Super Admin,Chapter Builder,Content Management,Upload Course Form,Web / Tab,Verify Chapter Builder – Add Chapter & Max Chapters Enforced,Verify clicking '+ Add Chapter' appends chapter up to Total Chapters limit.,"1. Set Total Chapters: 2
+2. Add 2 chapters
+3. Click '+ Add Chapter' again",Error modal displays: 'Total chapters specified is 2. Cannot add more than 2 chapters.',As Expected,Pass,Total Chapters: 2,Ready
+93,SA-CRSUP,SA-CRSUP-016,Super Admin,Super Admin,Lesson Builder,Content Management,Upload Course Form,Web / Tab,Verify Adding Lesson Video to Chapter,Verify adding video lesson to chapter with title and video file upload.,"1. In Chapter, click '+ Add Video'
+2. Enter Lesson Title and select video file","Lesson attaches to chapter with title, duration, isPreview checkbox, and upload status indicator.",As Expected,Pass,Lesson Data,Ready
+94,SA-CRSUP,SA-CRSUP-017,Super Admin,Super Admin,Resource Builder,Content Management,Upload Course Form,Web / Tab,Verify Adding Learning Aids / Resources to Chapter,Verify attaching PDF or document resource to chapter.,"1. Click '+ Add Resource'
+2. Enter resource title and upload PDF","Resource attaches with file name, formatted file size (e.g. '2.4 MB'), and download link.",As Expected,Pass,PDF Resource,Ready
+95,SA-CRSUP,SA-CRSUP-018,Super Admin,Super Admin,Quiz Builder,Content Management,Upload Course Form,Web / Tab,"Verify Quiz Builder – Question Types (MCQ, True/False, Short Answer)","Verify adding questions with type selection, 4 options, and correct answer selection.","1. Click '+ Add Quiz'
+2. Select question type
+3. Enter question text, 4 options, and pick correct answer","Quiz attaches to chapter with question type properly mapped (type 1 for MCQ, 2 for True/False, 3 for Short Answer).",As Expected,Pass,Quiz Object,Ready
+96,SA-CRSUP,SA-CRSUP-019,Super Admin,Super Admin,Save Draft,Content Management,Upload Course Form,Web / Tab,Verify 'Save as Draft' Action,Verify saving unfinished course as a draft stores record in /vd_drafts.,"1. Fill Course Title and partial details
+2. Click 'Save as Draft'",POST sent to /vd_drafts with formstep: 'saveDraft'. Toast displays: 'Course saved as draft!' and navigates to Course Drafts tab.,As Expected,Pass,Partial Course Data,Ready
+97,SA-CRSUP,SA-CRSUP-020,Super Admin,Super Admin,Submit Course,Content Management,Upload Course Form,Web / Tab,Verify Submit Course for Publishing,Verify submitting completed course sends uploadCourse payload and triggers background Whisper transcription.,"1. Fill all required fields, chapters, videos, and quizzes
+2. Click 'Submit Course'","Payload includes formstep: 'uploadCourse', upload_type, video_source, client_id, and chapters array. Course publishes and navigates to All Courses.",As Expected,Pass,Full Course Payload,Ready
+98,SA-DFT,SA-DFT-001,Super Admin,Super Admin,View Drafts,Content Management,Course Drafts,Web / Tab,Verify Course Drafts Table Display,"Verify drafts table displays Banner, Course Title, Instructor, Category, Chapters, Lessons, and Actions.",1. Click 'Course Draft' in sidebar,Displays table showing all saved course drafts with action buttons: '☁ Upload' and 'Delete'.,As Expected,Pass,View: Course Drafts,Ready
+99,SA-DFT,SA-DFT-002,Super Admin,Super Admin,Upload Draft,Content Management,Course Drafts,Web / Tab,Verify Click Upload on Draft – Form Does Not Reset,Verify clicking 'Upload' on a draft navigates to Course Upload without clearing form fields.,"1. On draft row 'TEST', click '☁ Upload'
+2. Inspect Course Upload form","Navigates to Upload Course tab. Form is NOT reset. Title ('TEST'), Description, Category ('Technology'), Subcategory, Chapters, Videos, Quizzes, Banner, and Thumbnail load completely.",As Expected,Pass,Draft ID: 5,Ready
+100,SA-DFT,SA-DFT-003,Super Admin,Super Admin,Publish Draft,Content Management,Upload Course Form,Web / Tab,Verify Publishing Course from Draft Automatically Deletes Draft,Verify submitting a course loaded from a draft cleans up the draft record.,"1. Load draft via '☁ Upload'
+2. Click 'Submit Course'",Course publishes via uploadCourse API; draft is automatically removed from /vd_drafts via deleteCourseDraft API.,As Expected,Pass,Loaded Draft ID,Ready
+101,SA-DFT,SA-DFT-004,Super Admin,Super Admin,Delete Draft,Content Management,Course Drafts,Web / Tab,Verify Delete Course Draft Manually,Verify clicking delete on draft row removes draft record.,"1. Click trash icon on draft row
+2. Confirm deletion dialog",Calls deleteCourseDraft API. Success toast shows 'Draft deleted successfully' and draft row is removed.,As Expected,Pass,Draft ID,Ready
+102,SA-CRSLIST,SA-CRSLIST-001,Super Admin,Super Admin,View Table,Content Management,All Courses,Web / Tab,Verify All Courses Table Display,"Verify all published courses render with banner, chapters, lessons, instructor, and assigned admin.",1. Click 'All Courses' in sidebar,"Table renders Banner, Course Title, Instructor, Category, Chapters, Lessons, Assigned Admin, and Actions (Edit, View Details, Re-Assign, Delete).",As Expected,Pass,View: All Courses,Ready
+103,SA-CRSLIST,SA-CRSLIST-002,Super Admin,Super Admin,View Details,Content Management,All Courses,Web / Tab,Verify View Details Course Modal,Verify clicking View Details displays full course curriculum syllabus.,1. Click 'View Details' on course row,"Modal displays course outline: chapters, videos, runtimes, attachments, and quizzes in read-only view.",As Expected,Pass,Course ID,Ready
+104,SA-CRSLIST,SA-CRSLIST-003,Super Admin,Super Admin,Edit Course,Content Management,Edit Course Form,Web / Tab,Verify Edit Course Pre-population with video_source = 1,Verify editing course with video_source: 1 fetches public categories and subcategories without client filtering.,1. Click 'Edit' on course with video_source: '1',"Form pre-populates category and subcategory from public sources. Chapters, videos, quizzes, banner, and thumbnail load properly.",As Expected,Pass,video_source: 1,Ready
+105,SA-CRSLIST,SA-CRSLIST-004,Super Admin,Super Admin,Save Assignment,Content Management,Assign Modal,Web / Tab,Verify Re-Assign Course Payload Includes video_source,Verify clicking 'Save Assignment' on course re-assignment passes video_source in assignCourse payload.,"1. Click 'Re-Assign' on course row
+2. Select target admin
+3. Click 'Save Assignment'","POST sent to /vdadmins with payload: { formstep: 'assignCourse', course_id: '<id>', admin_id: '<id>', video_source: '1', ... }. Table updates assigned admin.",As Expected,Pass,Payload: video_source,Ready
+106,SA-CRSLIST,SA-CRSLIST-005,Super Admin,Super Admin,Delete Course,Content Management,All Courses,Web / Tab,Verify Delete Course Action,Verify deleting course removes it from database and table.,"1. Click 'Delete' on course row
+2. Confirm delete","Course deleted from database, table refreshes, and KPI count updates.",As Expected,Pass,Course ID,Ready
+107,SA-CAT,SA-CAT-001,Super Admin,Super Admin,View Table,Content Management,Categories,Web / Tab,Verify Categories Table Display,"Verify list of categories renders with Name, Description, and Actions.",1. Click 'Categories' in sidebar,"Displays Categories table with columns: Category Name, Description, and Actions (Edit, Delete).",As Expected,Pass,View: Categories,Ready
+108,SA-CAT,SA-CAT-002,Super Admin,Super Admin,Validation,Content Management,Add Category Modal,Web / Tab,Verify Add Category – Empty Name Validation,Verify validation alert when Category Name is empty.,"1. Click '+ Add Category'
+2. Leave Name empty
+3. Click 'Save Category'","Error modal displays with Title: 'Oops!', Message: 'Please fill out category name'.",As Expected,Pass,Name: '',Ready
+109,SA-CAT,SA-CAT-003,Super Admin,Super Admin,Duplicate Check,Content Management,Add Category Modal,Web / Tab,Verify Add Category – Duplicate Category Error,Verify error alert when entering an already existing category name.,"1. Enter existing category name (e.g. 'Technology')
+2. Click 'Save Category'","API returns error. Modal displays with Title: 'Oops!', Message: 'Category already exist'.",As Expected,Pass,Duplicate Name,Ready
+110,SA-CAT,SA-CAT-004,Super Admin,Super Admin,Add Category,Content Management,Add Category Modal,Web / Tab,Verify Add Category – Successful Creation,Verify adding new category creates record via addCategory API.,"1. Click '+ Add Category'
+2. Enter Name: 'DevOps', Description: 'CI/CD and Cloud'
+3. Click 'Save Category'",POST to /vdcategories with formstep: 'addCategory'. Category appears in table and becomes selectable in upload dropdowns.,As Expected,Pass,Name: DevOps,Ready
+111,SA-CAT,SA-CAT-005,Super Admin,Super Admin,Edit Category,Content Management,Edit Category Modal,Web / Tab,Verify Edit Category Functionality,Verify editing category name and description updates record.,"1. Click 'Edit' on category row
+2. Update description
+3. Click 'Update Category'",Calls editCategory API. Updates reflected in table immediately.,As Expected,Pass,Updated Category,Ready
+112,SA-CAT,SA-CAT-006,Super Admin,Super Admin,Delete Category,Content Management,Categories,Web / Tab,Verify Delete Category Action,Verify deleting category removes it from platform.,"1. Click 'Delete' on category row
+2. Confirm delete",Calls deleteCategory API. Category removed from table and dropdown lists.,As Expected,Pass,Category ID,Ready
+113,SA-SUBCAT,SA-SUBCAT-001,Super Admin,Super Admin,View Table,Content Management,Sub Category,Web / Tab,Verify Sub Category Table Display,Verify list of subcategories renders with parent category mapping.,1. Click 'Sub Category' in sidebar,"Displays Sub Category Name, Parent Category, Description, and Actions.",As Expected,Pass,View: Sub Category,Ready
+114,SA-SUBCAT,SA-SUBCAT-002,Super Admin,Super Admin,Validation,Content Management,Add Sub Category Modal,Web / Tab,Verify Add Sub Category – Unselected Parent Category Validation,Verify validation alert when parent Category is not selected.,"1. Click '+ Add Sub Category'
+2. Leave Parent Category unselected
+3. Click 'Save'","Error modal displays with Title: 'Oops!', Message: 'Please select a parent Category'.",As Expected,Pass,Parent Category: '',Ready
+115,SA-SUBCAT,SA-SUBCAT-003,Super Admin,Super Admin,Validation,Content Management,Add Sub Category Modal,Web / Tab,Verify Add Sub Category – Empty Name Validation,Verify validation alert when subcategory name is empty.,"1. Select Parent Category
+2. Leave Subcategory Name empty
+3. Click 'Save'","Error modal displays with Title: 'Oops!', Message: 'Please fill out sub category name'.",As Expected,Pass,Subcategory Name: '',Ready
+116,SA-SUBCAT,SA-SUBCAT-004,Super Admin,Super Admin,Duplicate Check,Content Management,Add Sub Category Modal,Web / Tab,Verify Add Sub Category – Duplicate Subcategory Error,Verify error alert when entering existing subcategory name under the same parent.,"1. Enter existing subcategory name
+2. Click 'Save'","API returns error. Modal displays with Title: 'Oops!', Message: 'Sub category already exist'.",As Expected,Pass,Duplicate Name,Ready
+117,SA-SUBCAT,SA-SUBCAT-005,Super Admin,Super Admin,Add Sub Category,Content Management,Add Sub Category Modal,Web / Tab,Verify Add Sub Category – Successful Creation,Verify creating subcategory mapped under a parent category.,"1. Click '+ Add Sub Category'
+2. Select Parent: 'DevOps'
+3. Enter Subcategory: 'Kubernetes'
+4. Click 'Save'","POST to /vdcategories with formstep: 'addSubCategory', cat_id, name. Subcategory maps under parent category.",As Expected,Pass,"Parent: DevOps, Sub: Kubernetes",Ready
+118,SA-SUBCAT,SA-SUBCAT-006,Super Admin,Super Admin,Edit/Delete Subcat,Content Management,Sub Category,Web / Tab,Verify Edit & Delete Sub Category Actions,Verify modifying and deleting subcategories.,"1. Click Edit or Delete on subcategory row
+2. Save changes or confirm delete",Calls editSubCategory or deleteSubCategory API. Changes persist in table and upload dropdowns.,As Expected,Pass,Subcategory ID,Ready
+119,SA-ANL,SA-ANL-001,Super Admin,Super Admin,View Analytics,Analytics,User Analytics,Web / Tab,Verify User Analytics Telemetry Metrics,"Verify User Analytics displays active users, session durations, and retention curves.",1. Click 'Analytics' > 'User Analytics',"Renders telemetry metrics: active users count, average session duration, and retention curve graph.",As Expected,Pass,View: User Analytics,Ready
+120,SA-ANL,SA-ANL-002,Super Admin,Super Admin,View Analytics,Analytics,Video Analytics,Web / Tab,Verify Video Analytics Watch Rates & Dropoffs,Verify Video Analytics displays top-performing content and completion rates.,1. Click 'Analytics' > 'Video Analytics',"Displays most-watched videos, average watch percentage, and completion dropoff charts.",As Expected,Pass,View: Video Analytics,Ready
+121,SA-AI,SA-AI-001,Super Admin,Super Admin,AI Insights,AI Insights,Predictions,Web / Tab,Verify AI Trending Videos & Churn Predictions,Verify AI Insights tab renders trending videos and churn probability predictions.,1. Click 'AI Insights' in sidebar,"Displays AI-generated insights: Trending Videos list, User Churn Risk score, and Revenue Forecast graph.",As Expected,Pass,View: AI Insights,Ready
+122,SA-SET,SA-SET-001,Super Admin,Super Admin,Settings,Platform Settings,Languages,Web / Tab,Verify Platform Languages Configuration,Verify Super Admin can manage supported system languages in Platform Settings.,1. Click 'Platform Settings' > 'Languages',Displays list of enabled platform languages with options to add/enable new locales.,As Expected,Pass,View: Languages Setting,Ready
+123,SA-LIVE,SA-LIVE-001,Super Admin,Super Admin,Live Webcast,Live Webcasts,Studio,Web / Tab,Verify Live Webcast Studio Control Room Access,Verify Super Admin can access live broadcast control room at #/live-webcasts.,1. Navigate to #/live-webcasts,"Super Admin connects to Live Webcast Studio with streaming controls, chat moderation, and stream health status.",As Expected,Pass,Route: /live-webcasts,Ready

@@ -20,6 +20,9 @@
       margin: 0;
       padding: 0;
     }
+    html {
+      scroll-behavior: smooth;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
@@ -106,6 +109,7 @@
     section {
       margin-bottom: 50px;
       padding-top: 10px;
+      scroll-margin-top: 36px;
     }
     h2 {
       font-size: 24px;
@@ -261,12 +265,27 @@
 
   <!-- 2. Auth -->
   <section id="auth">
-    <h2>2. Authentication & Session Security</h2>
-    <p>The system enforces role-based authorization, RC4-encrypted credentials, and automated session timeouts.</p>
+    <h2>2. Authentication, 6-Digit OTP & Session Security</h2>
+    <p>The system enforces role-based authorization, RC4-encrypted credentials, multi-factor 6-digit OTP verification, and automated session timeouts.</p>
     <div class="image-card">
       <img src="./assets/01_login_portal.png" alt="Login Portal Screenshot">
       <div class="caption">Figure 2.1: XLurn Administrative Login Screen with Multi-Factor OTP and Role Shielding</div>
     </div>
+    <h3>2.1 Administrative Sign In Procedure</h3>
+    <ol>
+      <li>Navigate to the admin portal at <code>http://localhost:3000/#/login</code>.</li>
+      <li>Enter your registered administrative <strong>Email Address</strong> and <strong>Password</strong>.</li>
+      <li>Click <strong>Sign In</strong>. Credentials are RC4-encrypted client-side before transmission.</li>
+    </ol>
+    <h3>2.2 Multi-Factor 6-Digit OTP Verification</h3>
+    <p>Upon verifying credentials, if two-factor authentication (2FA) is enabled for your role, the interface transitions to the <strong>OTP Verification</strong> view:</p>
+    <ol>
+      <li><strong>Individual 6-Digit Box Inputs:</strong> Type the 6-digit numeric verification code received on your registered device/email. The input automatically advances across boxes.</li>
+      <li><strong>Full Code Paste Support:</strong> Paste the full 6-digit code into the first box from your clipboard to immediately populate all six boxes.</li>
+      <li><strong>120-Second Countdown Timer:</strong> A countdown timer displays remaining seconds (<code>2:00</code> to <code>0:00</code>).</li>
+      <li><strong>Resend OTP:</strong> When the countdown reaches 0:00, the <strong>Resend OTP</strong> button becomes clickable to request a fresh code.</li>
+      <li><strong>Automatic Form Submission:</strong> As soon as the final digit is entered, the portal automatically authenticates and redirects to the role-specific dashboard.</li>
+    </ol>
     <div class="callout">
       <strong>Inactivity Guard:</strong> If no keyboard or mouse interactions are detected across open tabs for <strong>10 minutes</strong>, the session is terminated and redirects to the login screen.
     </div>
@@ -380,6 +399,27 @@
   </section>
 
 </div>
+
+<!-- Interactive Smooth-Scroll Script for Table of Contents -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const tocLinks = document.querySelectorAll('.toc a[href^="#"]');
+    tocLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href').substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+          history.pushState(null, null, '#' + targetId);
+        }
+      });
+    });
+  });
+</script>
 
 </body>
 </html>

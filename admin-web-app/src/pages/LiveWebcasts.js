@@ -166,7 +166,7 @@ const LiveWebcasts = ({ theme }) => {
       setLoading(true);
       const isHttps = window.location.protocol === 'https:';
       if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch('http://localhost:5000/api/live-classes');
+        const res = await fetch('http://localhost:5050/api/live-classes');
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -202,7 +202,7 @@ const LiveWebcasts = ({ theme }) => {
     try {
       const isHttps = window.location.protocol === 'https:';
       if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch(`http://localhost:5000/api/live-classes/${classId}`);
+        const res = await fetch(`http://localhost:5050/api/live-classes/${classId}`);
         if (res.ok) {
           const cls = await res.json();
           setSelectedClass(cls);
@@ -310,7 +310,7 @@ const LiveWebcasts = ({ theme }) => {
         if (selectedClass.streamUrl.startsWith('http')) {
           streamSource = selectedClass.streamUrl;
         } else if (window.location.protocol !== 'https:') {
-          streamSource = `http://localhost:5000${selectedClass.streamUrl}`;
+          streamSource = `http://localhost:5050${selectedClass.streamUrl}`;
         }
       }
       videoEl.src = streamSource;
@@ -501,7 +501,7 @@ const LiveWebcasts = ({ theme }) => {
 
     try {
       if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
-        await fetch(`http://localhost:5000/api/live-classes/${selectedClass.id}/status`, {
+        await fetch(`http://localhost:5050/api/live-classes/${selectedClass.id}/status`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: nextStatus })
@@ -601,7 +601,7 @@ const LiveWebcasts = ({ theme }) => {
 
     try {
       if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
-        await fetch(`http://localhost:5000/api/live-classes/${selectedClass.id}/poll`, {
+        await fetch(`http://localhost:5050/api/live-classes/${selectedClass.id}/poll`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: pollQuestion.trim(), options: cleanOptions })
@@ -641,7 +641,7 @@ const LiveWebcasts = ({ theme }) => {
 
     try {
       if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
-        await fetch('http://localhost:5000/api/live-classes/create', {
+        await fetch('http://localhost:5050/api/live-classes/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(scheduleForm)

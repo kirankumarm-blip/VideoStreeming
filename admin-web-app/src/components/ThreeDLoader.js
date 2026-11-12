@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ThreeDLoader = ({ text = "Loading telemetry data...", theme }) => {
+const ThreeDLoader = ({ text = "", theme, showText = false }) => {
   const isLight = theme === 'light' || (typeof document !== 'undefined' && (document.body.classList.contains('light-theme') || document.documentElement.classList.contains('light-theme')));
 
   return (
@@ -9,10 +9,11 @@ const ThreeDLoader = ({ text = "Loading telemetry data...", theme }) => {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '60px 20px',
-      minHeight: '280px',
+      padding: (showText && text) ? '40px 20px' : '0',
+      minHeight: (showText && text) ? '200px' : 'auto',
       perspective: '1000px',
-      width: '100%'
+      width: '100%',
+      background: 'transparent'
     }}>
       {/* 3D Orbiting Gyroscope Atom Animation */}
       <div style={{
@@ -107,6 +108,7 @@ const ThreeDLoader = ({ text = "Loading telemetry data...", theme }) => {
       `}</style>
 
       {/* Loading Label with Shimmer */}
+      {showText && text && (
       <div style={{
         marginTop: '28px',
         fontSize: '16px',
@@ -123,6 +125,7 @@ const ThreeDLoader = ({ text = "Loading telemetry data...", theme }) => {
       }}>
         <span style={{ color: '#e50914', fontSize: '18px' }}>⚡</span> {text}
       </div>
+      )}
     </div>
   );
 };

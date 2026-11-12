@@ -736,7 +736,7 @@ const VideoWatch = () => {
     setStudyCreatingRoom(true);
     try {
       const activeCourse = location.state?.course;
-      const res = await fetch('http://localhost:5000/api/study-rooms/create', {
+      const res = await fetch('http://localhost:5050/api/study-rooms/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -895,10 +895,10 @@ const VideoWatch = () => {
       return clean;
     }
     if (clean.startsWith('/uploads')) {
-      return `http://localhost:5000${clean}`;
+      return `http://localhost:5050${clean}`;
     }
     if (clean.startsWith('/')) {
-      return `http://localhost:5000${clean}`;
+      return `http://localhost:5050${clean}`;
     }
     return clean;
   };
@@ -1190,8 +1190,8 @@ const VideoWatch = () => {
           title: `Course Lesson ${id}`,
           thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60',
           category: 'Technology',
-          video_url: 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4',
-          videoUrl: 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4',
+          video_url: 'http://localhost:5050/uploads/video-1783160868201-113435163.mp4',
+          videoUrl: 'http://localhost:5050/uploads/video-1783160868201-113435163.mp4',
           description: 'Streaming lesson player.'
         };
       } else {
@@ -2389,7 +2389,7 @@ const VideoWatch = () => {
     ));
 
     try {
-      const response = await fetch('http://localhost:5000/api/ai/ask', {
+      const response = await fetch('http://localhost:5050/api/ai/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2998,7 +2998,7 @@ const VideoWatch = () => {
       return offlineBlobUrl;
     }
     const url = video.videoUrl || video.video_url;
-    const REAL_COURSE_VIDEO = 'http://localhost:5000/uploads/video-1783160868201-113435163.mp4';
+    const REAL_COURSE_VIDEO = 'http://localhost:5050/uploads/video-1783160868201-113435163.mp4';
 
     if (!url) {
       return REAL_COURSE_VIDEO;
@@ -3006,7 +3006,7 @@ const VideoWatch = () => {
     if (url.startsWith('/uploads')) {
       const ext = url.split('.').pop().toLowerCase();
       if (['mp4', 'webm', 'ogg'].includes(ext)) {
-        return `http://localhost:5000${url}`;
+        return `http://localhost:5050${url}`;
       }
       return REAL_COURSE_VIDEO;
     }
@@ -4510,7 +4510,7 @@ const VideoWatch = () => {
                           const info = getResourceIcon(resItem);
                           const resName = resItem.title || resItem.file_name || resItem.fileName || resItem.originalName || resItem.name || `Learning Aid ${idx + 1}`;
                           const rawUrl = resItem.file_url || resItem.url || resItem.fileUrl || resItem.videoUrl || resItem.video_url || '#';
-                          const resUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+                          const resUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5050${rawUrl}` : rawUrl;
                           const resSize = formatResourceSize(resItem.file_size || resItem.fileSize || resItem.size);
                           const isThisAudioCurrent = activeAudioResource && (
                             (resItem.id && activeAudioResource.id === resItem.id) ||
@@ -5546,7 +5546,7 @@ const VideoWatch = () => {
                                         (res.file_name && activeAudioResource.file_name === res.file_name)
                                       ) && isAudioPlaying;
                                       const rawUrl = res.file_url || res.url || res.fileUrl || '';
-                                      const resolvedUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5000${rawUrl}` : rawUrl;
+                                      const resolvedUrl = rawUrl.startsWith('/uploads') ? `http://localhost:5050${rawUrl}` : rawUrl;
 
                                       return (
                                         <div
@@ -5791,7 +5791,7 @@ const VideoWatch = () => {
                     src={(() => {
                       const thumb = rec.thumbnail || rec.thumbnailUrl || rec.thumbnail_url || '';
                       if (!thumb) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
-                      return thumb.startsWith('http') ? thumb : `http://localhost:5000${thumb}`;
+                      return thumb.startsWith('http') ? thumb : `http://localhost:5050${thumb}`;
                     })()} 
                     alt={rec.title} 
                     style={{ width: '100px', height: '56px', objectFit: 'cover', borderRadius: '4px' }} 

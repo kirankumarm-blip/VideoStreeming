@@ -44,6 +44,47 @@ const getResourceFileType = (filename = '', mimeType = '') => {
   return 'document';
 };
 
+const deduplicateSubCategories = (items) => {
+  if (!Array.isArray(items)) return [];
+  const seenIds = new Set();
+  const seenNames = new Set();
+  const result = [];
+  for (const item of items) {
+    if (!item) continue;
+    const idKey = String(item.id || item.sub_category_id || item.subcategory_id || '').trim();
+    const nameKey = String(item.name || item.sub_category_name || item.title || '').trim().toLowerCase();
+    const catKey = String(item.cat_id || item.category_id || item.catId || item.category || '').trim().toLowerCase();
+
+    if (idKey && seenIds.has(idKey)) {
+      continue;
+    }
+    const combinedKey = catKey ? `${catKey}:::${nameKey}` : nameKey;
+    if (nameKey && seenNames.has(combinedKey)) {
+      continue;
+    }
+
+    if (idKey) seenIds.add(idKey);
+    if (nameKey) seenNames.add(combinedKey);
+    result.push(item);
+  }
+  return result;
+};
+
+const isMp4File = (file) => {
+  if (!file) return false;
+  const fileName = (file.name || '').toLowerCase().trim();
+  const fileType = (file.type || '').toLowerCase().trim();
+  return fileName.endsWith('.mp4') || fileType === 'video/mp4';
+};
+
+const isImageFile = (file) => {
+  if (!file) return false;
+  const fileName = (file.name || '').toLowerCase().trim();
+  const fileType = (file.type || '').toLowerCase().trim();
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp'];
+  return fileType.startsWith('image/') || imageExtensions.some(ext => fileName.endsWith(ext));
+};
+
 const getResourceIcon = (type) => {
   switch (type) {
     case 'audio': return '🎵';
@@ -67,6 +108,36 @@ const formatResourceSize = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(num) / Math.log(k));
   return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+export const resolveMediaUrl = (rawUrl) => {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let url = decryptUrl(rawUrl).trim();
+  if (!url) return '';
+  // Normalize consecutive slashes in URL path (preserve http:// or https://)
+  url = url.replace(/([^:])\/\/+/g, '$1/');
+  // Port 5000 is reserved/inaccessible on Windows; redirect local uploaded assets to upload service on port 5050
+  if (url.includes('localhost:5000')) {
+    url = url.replace('localhost:5000', 'localhost:5050');
+  } else if (url.startsWith('/uploads')) {
+    url = `http://localhost:5050${url.startsWith('/') ? '' : '/'}${url}`;
+    url = url.replace(/([^:])\/\/+/g, '$1/');
+  }
+  return url;
+};
+
+export const resolveThumbnailUrl = (item) => {
+  if (!item) return '';
+  if (typeof item === 'string') return resolveMediaUrl(item);
+  const raw = item.thumbnail || item.thumbnailUrl || item.thumbnail_url || item.thumbnail_image || item.thumbUrl || item.thumb || item.banner || item.banner_image || '';
+  return resolveMediaUrl(raw);
+};
+
+export const resolveVideoUrl = (item) => {
+  if (!item) return '';
+  if (typeof item === 'string') return resolveMediaUrl(item);
+  const raw = item.videoUrl || item.video_url || item.url || item.video || item.streamUrl || item.stream_url || '';
+  return resolveMediaUrl(raw);
 };
 
 const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId, onTabChange }) => {
@@ -444,20 +515,43 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const handleOpenAssignModal = async (item, itemType = 'video') => {
-    const videoId = String(item?.id || item?.video_id || item?.videoId || item?.id_video || item?._id || item?.course_id || item?.courseId || '');
-    const assignedAdminName = getAssignedAdminName(item);
-    let initialAdminId = '';
-    if (item?.assigned_admin || item?.admin_id || item?.assignedAdminId || item?.assigned_admin_id || item?.assigned_admin_name || item?.assignedAdminName || assignedAdminName) {
-      initialAdminId = String(item.assigned_admin || item.admin_id || item.assignedAdminId || item.assigned_admin_id || item.assigned_admin_name || item.assignedAdminName || assignedAdminName).trim();
-    } else if (Array.isArray(item?.assignedAdmins) && item.assignedAdmins.length > 0) {
-      initialAdminId = String(item.assignedAdmins[0]);
+    let itemObj = item || {};
+    if (itemObj.json) {
+      try {
+        const parsed = typeof itemObj.json === 'string' ? JSON.parse(itemObj.json) : itemObj.json;
+        if (parsed && typeof parsed === 'object') {
+          itemObj = { ...itemObj, ...parsed };
+        }
+      } catch (e) {}
     }
+
+    const videoId = String(itemObj?.id || itemObj?.video_id || itemObj?.videoId || itemObj?.id_video || itemObj?._id || itemObj?.course_id || itemObj?.courseId || '');
+    const assignedAdminName = getAssignedAdminName(itemObj);
+    let initialAdminId = '';
+    if (itemObj?.assigned_admin || itemObj?.admin_id || itemObj?.assignedAdminId || itemObj?.assigned_admin_id || itemObj?.assigned_admin_name || itemObj?.assignedAdminName || assignedAdminName) {
+      initialAdminId = String(itemObj.assigned_admin || itemObj.admin_id || itemObj.assignedAdminId || itemObj.assigned_admin_id || itemObj.assigned_admin_name || itemObj.assignedAdminName || assignedAdminName).trim();
+    } else if (Array.isArray(itemObj?.assignedAdmins) && itemObj.assignedAdmins.length > 0) {
+      initialAdminId = String(itemObj.assignedAdmins[0]);
+    }
+
+    const rawVideoSource = (itemObj.video_source !== undefined && itemObj.video_source !== null && String(itemObj.video_source).trim() !== '')
+      ? String(itemObj.video_source).trim()
+      : ((itemObj.videoSource !== undefined && itemObj.videoSource !== null && String(itemObj.videoSource).trim() !== '')
+        ? String(itemObj.videoSource).trim()
+        : ((itemObj.course_source !== undefined && itemObj.course_source !== null && String(itemObj.course_source).trim() !== '')
+          ? String(itemObj.course_source).trim()
+          : ((itemObj.courseSource !== undefined && itemObj.courseSource !== null && String(itemObj.courseSource).trim() !== '')
+            ? String(itemObj.courseSource).trim()
+            : (itemObj.upload_type !== undefined ? (itemObj.upload_type ? '2' : '1') : '1'))));
+
     setAssignSearchQuery('');
     setAssignForm({
       itemType,
       itemId: videoId,
-      title: item?.title || item?.course_title || item?.name || 'Item',
-      assignedAdminId: initialAdminId
+      title: itemObj?.title || itemObj?.course_title || itemObj?.name || 'Item',
+      assignedAdminId: initialAdminId,
+      videoSource: rawVideoSource,
+      rawItem: itemObj
     });
     setShowAssignModal(true);
     setLoadingAuthorAdmins(true);
@@ -506,6 +600,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           (adminsList || []).find(a => String(a.id) === String(assignForm.assignedAdminId));
       const targetAdminName = targetAdmin ? (targetAdmin.name || targetAdmin.username || targetAdmin.label) : '';
 
+      const resolvedVideoSource = assignForm.videoSource !== undefined && assignForm.videoSource !== null && String(assignForm.videoSource).trim() !== ''
+        ? String(assignForm.videoSource).trim()
+        : '1';
+
       if (assignForm.itemType === 'course') {
         const payload = {
           formstep: 'assignCourse',
@@ -514,7 +612,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           admin_id: assignForm.assignedAdminId,
           message: 'course as assigned to you',
           msg: 'course as assigned to you',
-          notificationMessage: 'course as assigned to you'
+          notificationMessage: 'course as assigned to you',
+          video_source: resolvedVideoSource
         };
         await api.vdadmins.assignCourse(payload);
 
@@ -570,7 +669,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           admin_id: assignForm.assignedAdminId,
           message: 'video as assigned to you',
           msg: 'video as assigned to you',
-          notificationMessage: 'video as assigned to you'
+          notificationMessage: 'video as assigned to you',
+          video_source: resolvedVideoSource
         };
         await api.vdadmins.assignVideo(payload);
 
@@ -605,9 +705,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     } catch (err) {
       if (typeof showError === 'function') {
-        showError(err.message || 'Failed to assign admins');
+        showError(err.message || 'Failed to assign authors');
       } else {
-        alert(err.message || 'Failed to assign admins');
+        alert(err.message || 'Failed to assign authors');
       }
     }
   };
@@ -675,7 +775,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     visibility: '',
     planId: '',
     languageId: '',
-    adminId: ''
+    adminId: '',
+    uploadForClient: true,
+    videoSource: 2
   });
   const lastFetchedVideosRef = useRef(null);
   const isFetchingVideosRef = useRef(false);
@@ -699,6 +801,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null);
+  const [videoFileError, setVideoFileError] = useState('');
+  const [thumbFileError, setThumbFileError] = useState('');
   const [previewTab, setPreviewTab] = useState('video'); // 'video' | 'thumbnail'
 
   useEffect(() => {
@@ -732,6 +836,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const isFetchingCourseDraftsRef = useRef(false);
   const lastFetchedCourseDraftRef = useRef(null);
   const courseTranscriptsRef = useRef({});
+  const isNavigatingFromDraftRef = useRef(false);
+  const uploadingDraftIdRef = useRef(null);
   const [editingCourse, setEditingCourse] = useState(null);
   const [isCourseViewOnly, setIsCourseViewOnly] = useState(false);
 
@@ -747,7 +853,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     tags: '',
     totalChapters: '',
     visibility: '',
-    adminId: ''
+    adminId: '',
+    uploadForClient: true,
+    videoSource: 2
   });
 
   const parseQuizFromApi = (rawQuiz, defaultChapterTitle) => {
@@ -898,6 +1006,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       } catch (e) {}
     }
 
+    const rawCourseSourceCheck = String(
+      courseObj.video_source !== undefined ? courseObj.video_source :
+      (courseObj.videoSource !== undefined ? courseObj.videoSource :
+      (courseObj.video_scope !== undefined ? courseObj.video_scope :
+      (courseObj.course_source !== undefined ? courseObj.course_source :
+      (courseObj.courseSource !== undefined ? courseObj.courseSource : ''))))
+    ).trim();
+
+    if (!isViewOnly && !isSuperAdminView && rawCourseSourceCheck === '1') {
+      setCustomAlert({
+        show: true,
+        title: 'Action Not Allowed',
+        message: 'This course is a platform course (Course Source: 1). Admins and authors can only view this course; editing is not permitted.',
+        type: 'warning',
+        buttonText: 'OK'
+      });
+      return;
+    }
+
     lastFetchedSubCatIdRef.current = null;
     setIsCourseViewOnly(isViewOnly);
     setEditingCourse(courseObj);
@@ -984,6 +1111,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     }
 
+    const hasClient = Boolean(admVal && admVal !== '0');
+    const rawCourseSource = (courseObj.video_source !== undefined && courseObj.video_source !== null && String(courseObj.video_source).trim() !== '')
+      ? String(courseObj.video_source).trim()
+      : ((courseObj.course_source !== undefined && courseObj.course_source !== null && String(courseObj.course_source).trim() !== '') ? String(courseObj.course_source).trim() : null);
+
+    const isPublicSourceCourse = rawCourseSource === '1';
+    const isClientSourceCourse = rawCourseSource === '2';
+    const effectiveUploadForClientCourse = isPublicSourceCourse ? false : (isClientSourceCourse ? true : (courseObj.upload_type !== undefined ? Boolean(courseObj.upload_type) : hasClient));
+    const resolvedCourseVideoSource = rawCourseSource ? (rawCourseSource === '1' ? 1 : 2) : (effectiveUploadForClientCourse ? 2 : 1);
+
     setCourseForm({
       title: courseObj.course_title || courseObj.title || '',
       description: courseObj.description || courseObj.desc || '',
@@ -996,14 +1133,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       tags: courseObj.tags || '',
       totalChapters: String(courseObj.totalChapters || (Array.isArray(courseObj.chapters) ? courseObj.chapters.length : 1)),
       visibility: visVal,
-      adminId: admVal
+      adminId: admVal,
+      uploadForClient: effectiveUploadForClientCourse,
+      videoSource: resolvedCourseVideoSource
     });
 
-    const targetClientId = (isSuperAdminMode && admVal && admVal !== '0') ? admVal : (selectedAdminId !== '0' ? selectedAdminId : null);
+    const targetClientId = (effectiveUploadForClientCourse && ((isSuperAdminMode && admVal && admVal !== '0') ? admVal : (selectedAdminId !== '0' ? selectedAdminId : null))) || null;
 
     isFetchingDropdownDataRef.current = false;
     lastFetchedSubCatIdRef.current = null;
-    fetchDropdownDataWithClient(targetClientId, 'course', true).then((data) => {
+    lastFetchedDropdownRef.current = null;
+    dropdownPromiseRef.current = null;
+    fetchDropdownDataWithClient(targetClientId, 'course', true, true, effectiveUploadForClientCourse, resolvedCourseVideoSource).then((data) => {
       const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
       const targetCatStr = String(catRaw).trim().toLowerCase();
       let resolvedCatId = '';
@@ -1016,11 +1157,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
       } else {
         resolvedCatId = String(catRaw);
+        setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
       }
 
       if (resolvedCatId) {
         lastFetchedSubCatIdRef.current = null;
-        fetchSubCategories(resolvedCatId, targetClientId).then((subList) => {
+        fetchSubCategories(resolvedCatId, targetClientId, effectiveUploadForClientCourse, resolvedCourseVideoSource, 'course').then((subList) => {
           if (Array.isArray(subList) && subList.length > 0) {
             const targetSubStr = String(subCatRaw || '').trim().toLowerCase();
             const foundSub = subList.find(s => {
@@ -1083,7 +1225,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               duration: v.duration || '0',
               isPreview: v.isPreview || v.type === 1,
               uploadStatus: urlVal ? 'success' : null,
-              thumbStatus: thumbVal ? 'success' : null
+              thumbStatus: thumbVal ? 'success' : null,
+              subtitles: v.subtitles || null,
+              subtitleTracks: v.subtitleTracks || v.subtitle_tracks || null,
+              subtitle_tracks: v.subtitleTracks || v.subtitle_tracks || null,
+              transcripts: v.transcripts || null,
+              transcript: v.transcript || null
             };
           }),
           resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
@@ -1121,6 +1268,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   const resetCourseFormToDefault = () => {
+    uploadingDraftIdRef.current = null;
     lastFetchedSubCatIdRef.current = null;
     setEditingCourse(null);
     setIsCourseViewOnly(false);
@@ -1137,7 +1285,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       tags: '',
       totalChapters: '',
       visibility: visibilities[0]?.id || '',
-      adminId: ''
+      adminId: (isSuperAdmin && selectedAdminId) ? selectedAdminId : '',
+      uploadForClient: true
     });
     setChapters([]);
     setCourseThumbnailUrl('');
@@ -1152,6 +1301,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setThumbnailFile(null);
     setThumbPreviewUrl(null);
     setVideoPreviewUrl(null);
+    setVideoFileError('');
+    setThumbFileError('');
+    const vInput = document.getElementById('videoInput');
+    if (vInput) vInput.value = '';
+    const tInput = document.getElementById('thumbInput');
+    if (tInput) tInput.value = '';
     const defaultCatId = categories[0]?.id || '';
     const defaultLangId = languages[0]?.id || languages[0]?.language_id || '';
     setUploadForm({
@@ -1163,7 +1318,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       visibility: visibilities[0]?.id || '',
       planId: plans[0]?.id || '',
       languageId: defaultLangId,
-      adminId: (isSuperAdmin && selectedAdminId) ? selectedAdminId : ''
+      adminId: (isSuperAdmin && selectedAdminId) ? selectedAdminId : '',
+      uploadForClient: true
     });
   };
 
@@ -1171,7 +1327,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (!video) return;
 
     const extractVal = (field) => {
-      if (!field) return '';
+      if (!field && field !== 0) return '';
       if (typeof field === 'object') {
         return String(field.id || field.category_id || field.sub_category_id || field.subcategory_id || field.name || field.title || field.label || '');
       }
@@ -1188,6 +1344,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       } catch (e) {}
     }
 
+    const rawVideoSourceCheck = String(
+      videoObj.video_source !== undefined ? videoObj.video_source :
+      (videoObj.videoSource !== undefined ? videoObj.videoSource :
+      (videoObj.video_scope !== undefined ? videoObj.video_scope : ''))
+    ).trim();
+
+    if (!isSuperAdminView && rawVideoSourceCheck === '1') {
+      setCustomAlert({
+        show: true,
+        title: 'Action Not Allowed',
+        message: 'This video is a platform video (Video Source: 1). Admins and authors can only view this video; editing is not permitted.',
+        type: 'warning',
+        buttonText: 'OK'
+      });
+      return;
+    }
+
     setEditingVideo(videoObj);
 
     const catRawId = extractVal(videoObj.category_id || videoObj.cat_id || videoObj.category || videoObj.category_name);
@@ -1197,24 +1370,42 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     const planRaw = extractVal(videoObj.plan_id || videoObj.planId || videoObj.plan || videoObj.plan_name);
     const clientVal = extractVal(videoObj.client_id || videoObj.clientId || videoObj.assigned_admin || videoObj.admin_id || videoObj.adminId) || null;
     const admVal = String(clientVal || selectedAdminId || '');
+    const hasClient = Boolean(clientVal && clientVal !== '0');
+
+    const rawVideoSource = (videoObj.video_source !== undefined && videoObj.video_source !== null && String(videoObj.video_source).trim() !== '')
+      ? String(videoObj.video_source).trim()
+      : null;
+
+    const isPublicSource = rawVideoSource === '1';
+    const isClientSource = rawVideoSource === '2';
+    const effectiveUploadForClient = isPublicSource ? false : (isClientSource ? true : (videoObj.upload_type !== undefined ? Boolean(videoObj.upload_type) : hasClient));
+    const resolvedVideoSource = rawVideoSource ? (rawVideoSource === '1' ? 1 : 2) : (effectiveUploadForClient ? 2 : 1);
+
+    const foundCatInitial = categories.find(c => 
+      String(c.id) === String(catRawId) || 
+      String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRawId).trim().toLowerCase()
+    );
+    const initialCatId = foundCatInitial ? String(foundCatInitial.id) : String(catRawId || '');
 
     setUploadForm({
       title: videoObj.title || videoObj.video_title || '',
       description: videoObj.description || videoObj.desc || '',
-      category: '',
-      subCategory: '',
+      category: initialCatId,
+      subCategory: String(subCatRaw || ''),
       tags: videoObj.tags || '',
       visibility: visVal,
       planId: planRaw,
       languageId: langVal,
-      adminId: admVal
+      adminId: admVal,
+      uploadForClient: effectiveUploadForClient,
+      videoSource: resolvedVideoSource
     });
 
-    const parsedThumb = videoObj.thumbnail || videoObj.thumbnail_image || videoObj.thumbnail_url || videoObj.thumbnailUrl || '';
-    setThumbPreviewUrl(parsedThumb ? (parsedThumb.startsWith('http') ? parsedThumb : `http://localhost:5000${parsedThumb}`) : null);
+    const parsedThumb = resolveThumbnailUrl(videoObj);
+    setThumbPreviewUrl(parsedThumb || null);
 
-    const parsedVideo = videoObj.video_url || videoObj.videoUrl || videoObj.url || '';
-    setVideoPreviewUrl(parsedVideo ? (parsedVideo.startsWith('http') ? parsedVideo : `http://localhost:5000${parsedVideo}`) : null);
+    const parsedVideo = resolveVideoUrl(videoObj);
+    setVideoPreviewUrl(parsedVideo || null);
 
     changeTab('video_edit');
 
@@ -1223,10 +1414,37 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       fetchAdminsList();
     }
 
+    const targetDropdownClientId = effectiveUploadForClient ? clientVal : null;
+    const targetUploadType = effectiveUploadForClient;
+    const targetVideoSource = resolvedVideoSource;
+
     isFetchingDropdownDataRef.current = false;
     lastFetchedSubCatIdRef.current = null;
-    fetchDropdownDataWithClient(clientVal, 'video', true).then((data) => {
-      const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
+    lastFetchedDropdownRef.current = null;
+    dropdownPromiseRef.current = null;
+    fetchDropdownDataWithClient(targetDropdownClientId, 'video', true, true, targetUploadType, targetVideoSource).then(async (data) => {
+      let catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
+      if (!catsList || catsList.length === 0) {
+        try {
+          const directCats = await api.vdcategories.getCategories(targetDropdownClientId, targetUploadType, targetVideoSource);
+          const rawCats = Array.isArray(directCats) ? directCats : (directCats && Array.isArray(directCats.data) ? directCats.data : []);
+          if (rawCats.length > 0) {
+            catsList = rawCats.map(item => {
+              const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+              return {
+                ...item,
+                ...j,
+                id: String(item.id || j.id || item.category_id || j.category_id || ''),
+                name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+              };
+            });
+            setCategories(catsList);
+          }
+        } catch (catErr) {
+          console.warn('Failed to fetch direct categories for edit video:', catErr);
+        }
+      }
+
       const langsList = (data && Array.isArray(data.languages)) ? data.languages : languages;
       const plansList = (data && Array.isArray(data.plans)) ? data.plans : plans;
 
@@ -1235,13 +1453,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       if (catsList && catsList.length > 0) {
         const foundCat = catsList.find(c =>
           String(c.id).toLowerCase() === targetCatStr ||
-          String(c.name || c.category_name || '').trim().toLowerCase() === targetCatStr
+          String(c.name || c.category_name || c.category || c.title || '').trim().toLowerCase() === targetCatStr
         );
-        if (foundCat) {
-          resolvedCatId = String(foundCat.id);
-        } else if (!catRawId && catsList[0]) {
-          resolvedCatId = String(catsList[0].id);
-        }
+        resolvedCatId = foundCat ? String(foundCat.id) : String(catRawId || catsList[0]?.id || '');
+        setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
+      } else if (catRawId) {
+        resolvedCatId = String(catRawId);
         setUploadForm(prev => ({ ...prev, category: resolvedCatId }));
       }
 
@@ -1273,7 +1490,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       if (resolvedCatId) {
         lastFetchedSubCatIdRef.current = null;
-        fetchSubCategories(resolvedCatId, clientVal).then((subList) => {
+        fetchSubCategories(resolvedCatId, targetDropdownClientId, targetUploadType, targetVideoSource, 'video').then((subList) => {
           if (Array.isArray(subList) && subList.length > 0) {
             const targetSubStr = String(subCatRaw || '').trim().toLowerCase();
             const foundSub = subList.find(s => {
@@ -1289,13 +1506,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             } else if (subList[0]) {
               setUploadForm(prev => ({ ...prev, subCategory: String(subList[0].id) }));
             }
+          } else if (subCatRaw) {
+            setUploadForm(prev => ({ ...prev, subCategory: String(subCatRaw) }));
           }
         });
       }
     });
   };
 
-  // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
+    // Auto-match Category, Subcategory, and Visibility IDs dynamically when editing a course
   useEffect(() => {
     if (!editingCourse) return;
 
@@ -1333,7 +1552,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         setCourseForm(prev => ({ ...prev, visibility: String(visibilities[0].id) }));
       }
     }
-  }, [editingCourse, categories, visibilities]);
+  }, [editingCourse, categories, visibilities, subCategories]);
 
   // Auto-match Category and Subcategory dynamically when editing a video
   useEffect(() => {
@@ -1576,7 +1795,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
     }
     if (activeTab === 'course_upload') {
-      if (!editingCourse) {
+      if (isNavigatingFromDraftRef.current) {
+        isNavigatingFromDraftRef.current = false;
+      } else if (!editingCourse) {
         resetCourseFormToDefault();
         fetchDropdownDataWithClient(null, 'course');
       }
@@ -2084,8 +2305,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           description: item.description || jsonObj.description || item.desc || jsonObj.desc || item.details || jsonObj.details || item.sub_category_description || jsonObj.sub_category_description || ''
         };
       });
-      setSubCategories(subCats);
-      return subCats;
+      const uniqueSubCats = deduplicateSubCategories(subCats);
+      setSubCategories(uniqueSubCats);
+      return uniqueSubCats;
     } catch (e) {
       console.error('Failed to fetch all sub categories:', e);
       setSubCategories([]);
@@ -2095,7 +2317,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchSubCategories = async (categoryId = null, clientId = null) => {
+  const fetchSubCategories = async (categoryId = null, clientId = null, uploadType = null, videoSource = null, type = null) => {
     if (!categoryId) {
       setSubCategories([]);
       lastFetchedSubCatIdRef.current = null;
@@ -2116,7 +2338,21 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return [];
     }
 
-    const refKey = `${targetId}_${clientId || ''}`;
+    const currentType = type || ((activeTab === 'course_upload' || editingCourse) ? 'course' : 'video');
+    const activeForm = currentType === 'course' ? courseForm : uploadForm;
+    const isPrivate = isVisibilityPrivate(activeForm.visibility);
+
+    const effectiveUploadType = uploadType !== null && uploadType !== undefined 
+      ? uploadType 
+      : (isSuperAdmin && isPrivate ? Boolean(activeForm.uploadForClient) : null);
+
+    const effectiveVideoSource = videoSource !== null && videoSource !== undefined
+      ? videoSource
+      : (activeForm.videoSource !== undefined && activeForm.videoSource !== null
+        ? activeForm.videoSource
+        : (effectiveUploadType !== null ? (effectiveUploadType ? 2 : 1) : null));
+
+    const refKey = `${targetId}_${clientId || ''}_${effectiveUploadType !== null ? (effectiveUploadType ? '1' : '0') : 'none'}_${effectiveVideoSource !== null ? String(effectiveVideoSource) : 'none'}_${currentType}`;
     if (lastFetchedSubCatIdRef.current === refKey || isFetchingSubCategoriesRef.current === refKey) {
       return subCategories;
     }
@@ -2125,7 +2361,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     lastFetchedSubCatIdRef.current = refKey;
     setLoadingSubCategories(true);
     try {
-      const res = await api.vdcategories.getSubCategories(targetId, clientId);
+      const res = await api.vdcategories.getSubCategories(targetId, clientId, effectiveUploadType, effectiveVideoSource, currentType);
       const rawSubCats = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
       const subCats = rawSubCats.map(item => {
         let jsonObj = {};
@@ -2157,9 +2393,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
   };
 
-  const fetchCategories = async (clientId = null) => {
+  const fetchCategories = async (clientId = null, uploadType = null, videoSource = null) => {
     try {
-      const data = await api.vdcategories.getCategories(clientId);
+      const data = await api.vdcategories.getCategories(clientId, uploadType, videoSource);
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
       const normalizedList = rawList.map(item => {
         let jsonObj = {};
@@ -2408,11 +2644,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
         const admList = rawList.map(item => item.json || item);
         setAdminsList(admList);
-        if (admList.length > 0) {
-          const firstAdmId = admList[0].id || admList[0].alpha_id || admList[0].admin_id || '';
-          setUploadForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
-          setCourseForm(prev => (prev.adminId ? prev : { ...prev, adminId: firstAdmId }));
-        }
         return admList;
       } catch (e) {
         console.error('Failed to fetch admins list:', e);
@@ -2429,8 +2660,34 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     return promise;
   };
 
-  const fetchDropdownDataWithClient = async (clientId = null, type = null, isEdit = false, force = false) => {
-    const refKey = `${clientId || 'default'}_${type || 'default'}_${isEdit ? '1' : '0'}`;
+  const isVisibilityPrivate = (visValue = uploadForm.visibility) => {
+    const selectedVisObj = visibilities.find(v =>
+      v.id?.toString() === visValue?.toString() ||
+      v.name?.toString().toLowerCase() === visValue?.toString().toLowerCase()
+    );
+    return Boolean(
+      (selectedVisObj && (
+        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
+        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
+        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
+        (selectedVisObj.id && selectedVisObj.id.toString() === '2')
+      )) || (visValue && (visValue.toString().toLowerCase() === 'private' || visValue.toString() === '2'))
+    );
+  };
+
+  const fetchDropdownDataWithClient = async (clientId = null, type = null, isEdit = false, force = false, uploadType = null, videoSource = null) => {
+    const isPrivate = isVisibilityPrivate(type === 'course' ? courseForm.visibility : uploadForm.visibility);
+    const formObj = type === 'course' ? courseForm : uploadForm;
+    const effectiveUploadType = uploadType !== null && uploadType !== undefined 
+      ? uploadType 
+      : (isSuperAdmin && isPrivate ? Boolean(formObj.uploadForClient) : null);
+    const effectiveVideoSource = videoSource !== null && videoSource !== undefined
+      ? videoSource
+      : (formObj.videoSource !== undefined && formObj.videoSource !== null
+        ? formObj.videoSource
+        : (effectiveUploadType !== null ? (effectiveUploadType ? 2 : 1) : null));
+
+    const refKey = `${clientId || 'default'}_${type || 'default'}_${isEdit ? '1' : '0'}_${effectiveUploadType !== null ? (effectiveUploadType ? '1' : '0') : 'none'}_${effectiveVideoSource !== null ? String(effectiveVideoSource) : 'none'}`;
     if (!force && lastFetchedDropdownRef.current === refKey && categories.length > 0) {
       return {
         categories,
@@ -2449,7 +2706,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     const promise = (async () => {
       try {
-        const res = await api.vdcategories.getDropdownData(clientId, type);
+        const res = await api.vdcategories.getDropdownData(clientId, type, effectiveUploadType, effectiveVideoSource);
         let obj = res;
         if (Array.isArray(res) && res.length > 0) {
           obj = res[0] && res[0].json ? (typeof res[0].json === 'string' ? JSON.parse(res[0].json) : res[0].json) : res[0];
@@ -2467,6 +2724,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
             };
           });
+          if (normalizedCats.length === 0) {
+            try {
+              const fb = await api.vdcategories.getCategories(clientId, effectiveUploadType, effectiveVideoSource);
+              const fbRaw = Array.isArray(fb) ? fb : (fb && Array.isArray(fb.data) ? fb.data : []);
+              if (fbRaw.length > 0) {
+                normalizedCats = fbRaw.map(item => {
+                  const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+                  return {
+                    ...item,
+                    ...j,
+                    id: String(item.id || j.id || item.category_id || j.category_id || ''),
+                    name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+                  };
+                });
+              }
+            } catch (fbErr) {
+              console.warn("Fallback categories fetch failed:", fbErr);
+            }
+          }
           setCategories(normalizedCats);
 
           const rawLangs = Array.isArray(obj.languages) ? obj.languages : (Array.isArray(obj.language) ? obj.language : []);
@@ -2562,7 +2838,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               }));
 
               if (currentCourseCat) {
-                fetchSubCategories(currentCourseCat, clientId);
+                fetchSubCategories(currentCourseCat, clientId, effectiveUploadType, effectiveVideoSource);
               }
             }
           } else {
@@ -2586,7 +2862,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               }));
 
               if (currentCat) {
-                fetchSubCategories(currentCat, clientId);
+                fetchSubCategories(currentCat, clientId, effectiveUploadType, effectiveVideoSource);
               }
             }
           }
@@ -2611,6 +2887,130 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     dropdownPromiseRef.current = promise;
     return promise;
+  };
+
+  const handleToggleUploadForClient = (checked) => {
+    const currentVis = uploadForm.visibility;
+    setCategories([]);
+    setSubCategories([]);
+    lastFetchedSubCatIdRef.current = null;
+    lastFetchedDropdownRef.current = null;
+    isFetchingDropdownDataRef.current = false;
+
+    if (checked) {
+      if (adminsList.length === 0) {
+        fetchAdminsList().then((admList) => {
+          const targetClientId = String(uploadForm.adminId || '').trim();
+          setUploadForm(prev => ({
+            ...prev,
+            uploadForClient: true,
+            videoSource: 2,
+            adminId: prev.adminId || '',
+            category: '',
+            subCategory: '',
+            visibility: currentVis
+          }));
+          if (targetClientId && targetClientId !== '0') {
+            fetchDropdownDataWithClient(targetClientId, 'video', false, true, true, 2);
+          } else {
+            fetchDropdownDataWithClient(null, 'video', false, true, true, 2);
+          }
+        });
+      } else {
+        const targetClientId = String(uploadForm.adminId || '').trim();
+        setUploadForm(prev => ({
+          ...prev,
+          uploadForClient: true,
+          videoSource: 2,
+          adminId: prev.adminId || '',
+          category: '',
+          subCategory: '',
+          visibility: currentVis
+        }));
+        if (targetClientId && targetClientId !== '0') {
+          fetchDropdownDataWithClient(targetClientId, 'video', false, true, true, 2);
+        } else {
+          fetchDropdownDataWithClient(null, 'video', false, true, true, 2);
+        }
+      }
+    } else {
+      // Toggle disabled (false):
+      // Fetch the Category and Subcategory dropdown values using Public visibility APIs only.
+      // Do not change the Visibility dropdown; it must remain set to Private.
+      // Pass upload_type: false in payload
+      setUploadForm(prev => ({
+        ...prev,
+        uploadForClient: false,
+        videoSource: 1,
+        category: '',
+        subCategory: '',
+        visibility: currentVis
+      }));
+      fetchDropdownDataWithClient(null, 'video', false, true, false, 1);
+    }
+  };
+
+  const handleToggleCourseUploadForClient = (checked) => {
+    const currentVis = courseForm.visibility;
+    setCategories([]);
+    setSubCategories([]);
+    lastFetchedSubCatIdRef.current = null;
+    lastFetchedDropdownRef.current = null;
+    isFetchingDropdownDataRef.current = false;
+
+    if (checked) {
+      if (adminsList.length === 0) {
+        fetchAdminsList().then((admList) => {
+          const firstAdmId = (Array.isArray(admList) && admList.length > 0) ? (admList[0].id || admList[0].alpha_id || admList[0].admin_id) : courseForm.adminId;
+          const targetClientId = String(courseForm.adminId || firstAdmId || '').trim();
+          setCourseForm(prev => ({
+            ...prev,
+            uploadForClient: true,
+            videoSource: 2,
+            adminId: prev.adminId || String(firstAdmId || ''),
+            category: '',
+            subCategory: '',
+            visibility: currentVis
+          }));
+          if (targetClientId && targetClientId !== '0') {
+            fetchDropdownDataWithClient(targetClientId, 'course', false, true, true, 2);
+          } else {
+            fetchDropdownDataWithClient(null, 'course', false, true, true, 2);
+          }
+        });
+      } else {
+        const firstAdmId = adminsList[0]?.id || adminsList[0]?.alpha_id || adminsList[0]?.admin_id;
+        const targetClientId = String(courseForm.adminId || firstAdmId || '').trim();
+        setCourseForm(prev => ({
+          ...prev,
+          uploadForClient: true,
+          videoSource: 2,
+          adminId: prev.adminId || String(firstAdmId || ''),
+          category: '',
+          subCategory: '',
+          visibility: currentVis
+        }));
+        if (targetClientId && targetClientId !== '0') {
+          fetchDropdownDataWithClient(targetClientId, 'course', false, true, true, 2);
+        } else {
+          fetchDropdownDataWithClient(null, 'course', false, true, true, 2);
+        }
+      }
+    } else {
+      // Toggle disabled (false):
+      // Fetch the Category and Subcategory dropdown values using Public visibility APIs only.
+      // Do not change the Visibility dropdown; it must remain set to Private.
+      // Pass upload_type: false in payload
+      setCourseForm(prev => ({
+        ...prev,
+        uploadForClient: false,
+        videoSource: 1,
+        category: '',
+        subCategory: '',
+        visibility: currentVis
+      }));
+      fetchDropdownDataWithClient(null, 'course', false, true, false, 1);
+    }
   };
 
   const fetchLevels = async () => {
@@ -2798,7 +3198,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const getDraftsFn = api.drafts?.getCourseDrafts || api.videos?.getCourseDrafts;
       const data = await getDraftsFn(adminId);
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
-      const validDrafts = rawList.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
+      const mappedDrafts = rawList.map(item => {
+        if (!item || typeof item !== 'object') return item;
+        let obj = item;
+        if (item.json) {
+          try {
+            const parsed = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+            if (parsed && typeof parsed === 'object') {
+              obj = { ...item, ...parsed };
+            }
+          } catch (e) {}
+        }
+        return obj;
+      });
+      const validDrafts = mappedDrafts.filter(c => c && typeof c === 'object' && Object.keys(c).length > 0 && (c.id || c.title || c.course_title || c.name));
       setCourseDrafts(validDrafts);
     } catch (e) {
       console.error('Failed to fetch course drafts:', e);
@@ -2811,149 +3224,356 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleUploadDraft = (draft) => {
     if (!draft) return;
+
+    let draftObj = draft;
+    if (draft.json) {
+      try {
+        const parsed = typeof draft.json === 'string' ? JSON.parse(draft.json) : draft.json;
+        if (parsed && typeof parsed === 'object') {
+          draftObj = { ...draft, ...parsed };
+        }
+      } catch (e) {}
+    }
+
+    isNavigatingFromDraftRef.current = true;
+    uploadingDraftIdRef.current = draftObj.id || draft.id || null;
     setIsCourseViewOnly(false);
     setEditingCourse(null);
-    setActiveTab('course_upload');
+    lastFetchedSubCatIdRef.current = null;
 
-    const catRaw = draft.category_id || draft.cat_id || draft.category || draft.category_name || '';
+    const extractVal = (field) => {
+      if (!field && field !== 0) return '';
+      if (typeof field === 'object') {
+        return String(field.id || field.category_id || field.sub_category_id || field.subcategory_id || field.name || field.title || field.label || '');
+      }
+      return String(field);
+    };
+
+    const combinedAdmins = [...authorAdminsList, ...adminsList];
+
+    // 1. Category
+    const catRaw = extractVal(draftObj.category_id || draftObj.cat_id || draftObj.category || draftObj.category_name);
     const foundCat = categories.find(c => 
       String(c.id) === String(catRaw) || 
       String(c.name || c.category || c.title || '').trim().toLowerCase() === String(catRaw).trim().toLowerCase()
     );
     const catId = foundCat ? String(foundCat.id) : String(catRaw);
 
-    const subCatRaw = draft.subcategory_id || draft.sub_category_id || draft.subcategory || draft.subCategory || draft.subcategory_name || '';
+    // 2. Subcategory
+    const subCatRaw = extractVal(draftObj.subcategory_id || draftObj.sub_category_id || draftObj.sub_category || draftObj.subcategory || draftObj.subCategory || draftObj.subcategory_name || draftObj.sub_category_name || draftObj.subcategoryId || draftObj.subCategoryId);
 
-    const rawLang = draft.language_id || draft.languageId || draft.language || '';
+    // 3. Language
+    const rawLang = extractVal(draftObj.language_id || draftObj.languageId || draftObj.language || draftObj.language_name);
     const foundLang = languages.find(l =>
       String(l.id || l.language_id) === String(rawLang) ||
       String(l.name || l.title || l.language_name || '').trim().toLowerCase() === String(rawLang).trim().toLowerCase()
     );
     const langVal = foundLang ? String(foundLang.id || foundLang.language_id) : (rawLang ? String(rawLang) : (languages[0]?.id || '1'));
 
-    const rawLevel = draft.level_id || draft.level || draft.level_name || '';
+    // 4. Level
+    const rawLevel = extractVal(draftObj.level_id || draftObj.level || draftObj.level_name);
     const foundLevel = levels.find(l =>
       String(l.id || l.level) === String(rawLevel) ||
       String(l.level || l.level_name || l.name || '').trim().toLowerCase() === String(rawLevel).trim().toLowerCase()
     );
     const lvlVal = foundLevel ? String(foundLevel.id || foundLevel.level) : (rawLevel ? String(rawLevel) : '1');
 
-    const rawVis = draft.visibility_id || draft.visibility || draft.visibility_name || '';
-    const foundVis = visibilities.find(v => 
-      String(v.id) === String(rawVis) || 
-      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
-    );
-    const visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
-
-    const combinedAdmins = [...authorAdminsList, ...adminsList];
-    const rawAuthor = draft.author_id || draft.instructor_id || draft.assigned_admin || draft.admin_id || draft.author || draft.instructor || '';
+    // 5. Author & Instructor
+    const rawAuthor = extractVal(draftObj.author_id || draftObj.instructor_id || draftObj.assigned_admin || draftObj.admin_id || draftObj.author || draftObj.instructor);
     const foundAuthor = combinedAdmins.find(a =>
       String(a.id || a.admin_id || a.user_id) === String(rawAuthor) ||
       String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawAuthor).trim().toLowerCase()
     );
     const authorIdVal = foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawAuthor);
-    const instructorName = foundAuthor ? foundAuthor.name : (draft.instructor || draft.assigned_admin || rawAuthor);
+    const instructorName = foundAuthor ? foundAuthor.name : (draftObj.instructor || draftObj.assigned_admin || rawAuthor);
 
-    const rawClient = (isSuperAdmin && selectedAdminId) ? selectedAdminId : (draft.assigned_admin || draft.admin_id || draft.adminId || selectedAdminId || '');
+    // 6. Client Resolution
+    const isSuperAdminMode = isSuperAdmin || isSuperAdminView || (currentUser && currentUser.role === 'super_admin');
+    const rawClient = extractVal(
+      (isSuperAdminMode && selectedAdminId && selectedAdminId !== '0')
+        ? selectedAdminId
+        : (draftObj.client_id || draftObj.client_name || draftObj.assigned_admin || draftObj.admin_id || draftObj.adminId || selectedAdminId || '')
+    );
     const foundClient = combinedAdmins.find(a =>
       String(a.id || a.admin_id || a.user_id) === String(rawClient) ||
-      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient).trim().toLowerCase()
+      String(a.name || a.username || a.email || '').trim().toLowerCase() === String(rawClient || '').trim().toLowerCase()
     );
-    let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : (foundAuthor ? String(foundAuthor.id || foundAuthor.admin_id || foundAuthor.user_id) : String(rawClient));
+    let admVal = foundClient ? String(foundClient.id || foundClient.admin_id || foundClient.user_id) : String(rawClient || '');
+    if ((!admVal || admVal === '0' || isNaN(parseInt(admVal, 10))) && (selectedAdminId && selectedAdminId !== '0')) {
+      admVal = String(selectedAdminId);
+    }
+
+    // 7. Visibility
+    const rawVis = extractVal(draftObj.visibility_id || draftObj.visibility || draftObj.visibility_name);
+    let foundVis = visibilities.find(v => 
+      String(v.id) === String(rawVis) || 
+      String(v.name || v.visibility || v.title || '').trim().toLowerCase() === String(rawVis).trim().toLowerCase()
+    );
+    let visVal = foundVis ? String(foundVis.id) : (rawVis ? String(rawVis) : String(visibilities[0]?.id || ''));
+
+    const hasClientId = Boolean(
+      (draftObj.client_id && String(draftObj.client_id) !== '0') ||
+      (draftObj.client_name && String(draftObj.client_name).trim() !== '') ||
+      (draftObj.assigned_admin && String(draftObj.assigned_admin) !== '0') ||
+      (draftObj.admin_id && String(draftObj.admin_id) !== '0') ||
+      (draftObj.adminId && String(draftObj.adminId) !== '0') ||
+      (admVal && String(admVal) !== '0')
+    );
+
+    if (isSuperAdminMode && hasClientId && !rawVis) {
+      const privateVisObj = visibilities.find(v =>
+        String(v.name || v.visibility || v.title || '').toLowerCase() === 'private' ||
+        String(v.id).toLowerCase() === 'private'
+      );
+      if (privateVisObj) {
+        visVal = String(privateVisObj.id);
+      }
+    }
+
+    // 8. Upload for Client & Video Source
+    const hasClient = Boolean(admVal && admVal !== '0');
+    const rawCourseSource = (draftObj.video_source !== undefined && draftObj.video_source !== null && String(draftObj.video_source).trim() !== '')
+      ? String(draftObj.video_source).trim()
+      : ((draftObj.course_source !== undefined && draftObj.course_source !== null && String(draftObj.course_source).trim() !== '') ? String(draftObj.course_source).trim() : null);
+
+    const isPublicSourceCourse = rawCourseSource === '1';
+    const isClientSourceCourse = rawCourseSource === '2';
+    const effectiveUploadForClientCourse = isPublicSourceCourse ? false : (isClientSourceCourse ? true : (draftObj.upload_type !== undefined ? Boolean(draftObj.upload_type) : hasClient));
+    const resolvedCourseVideoSource = rawCourseSource ? (rawCourseSource === '1' ? 1 : 2) : (effectiveUploadForClientCourse ? 2 : 1);
 
     setCourseForm({
-      title: draft.course_title || draft.title || '',
-      description: draft.description || draft.desc || '',
+      title: draftObj.course_title || draftObj.title || '',
+      description: draftObj.description || draftObj.desc || '',
       category: catId,
-      subCategory: String(subCatRaw),
+      subCategory: String(subCatRaw || ''),
       languageId: String(langVal),
       instructor: instructorName,
       author_id: authorIdVal,
       level: String(lvlVal),
-      tags: draft.tags || '',
-      totalChapters: String(draft.totalChapters || (Array.isArray(draft.chapters) ? draft.chapters.length : 1)),
+      tags: draftObj.tags || '',
+      totalChapters: String(draftObj.totalChapters || (Array.isArray(draftObj.chapters) ? draftObj.chapters.length : 1)),
       visibility: visVal,
-      adminId: admVal
+      adminId: admVal,
+      uploadForClient: effectiveUploadForClientCourse,
+      videoSource: resolvedCourseVideoSource
     });
 
-    if (catId) {
-      fetchSubCategories(catId).then((subList) => {
-        if (Array.isArray(subList) && subList.length > 0) {
-          const target = String(subCatRaw).trim().toLowerCase();
-          const foundSub = subList.find(s => {
-            const sId = String(s.id);
-            const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
-            return sId === target || sName === target;
-          });
-          if (foundSub) {
-            setCourseForm(prev => ({ ...prev, subCategory: String(foundSub.id) }));
+    // 9. Fetch dropdowns & subcategories with client / video_source
+    const targetClientId = (effectiveUploadForClientCourse && ((isSuperAdminMode && admVal && admVal !== '0') ? admVal : (selectedAdminId !== '0' ? selectedAdminId : null))) || null;
+
+    isFetchingDropdownDataRef.current = false;
+    lastFetchedSubCatIdRef.current = null;
+    lastFetchedDropdownRef.current = null;
+    dropdownPromiseRef.current = null;
+    fetchDropdownDataWithClient(targetClientId, 'course', true, true, effectiveUploadForClientCourse, resolvedCourseVideoSource).then((data) => {
+      const catsList = (data && Array.isArray(data.categories)) ? data.categories : (Array.isArray(data) ? data : categories);
+      const targetCatStr = String(catRaw).trim().toLowerCase();
+      let resolvedCatId = '';
+      if (catsList && catsList.length > 0) {
+        const found = catsList.find(c => 
+          String(c.id).toLowerCase() === targetCatStr || 
+          String(c.name || c.category || c.title || '').trim().toLowerCase() === targetCatStr
+        );
+        resolvedCatId = found ? String(found.id) : String(catRaw || catsList[0]?.id || '');
+        setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
+      } else {
+        resolvedCatId = String(catRaw);
+        setCourseForm(prev => ({ ...prev, category: resolvedCatId }));
+      }
+
+      if (resolvedCatId) {
+        fetchSubCategories(resolvedCatId, resolvedCourseVideoSource, effectiveUploadForClientCourse).then((subList) => {
+          if (Array.isArray(subList) && subList.length > 0) {
+            const targetSubStr = String(subCatRaw).trim().toLowerCase();
+            const foundSub = subList.find(s => {
+              const sId = String(s.id).toLowerCase();
+              const sName = String(s.name || s.subcategory || s.subcategory_name || s.title || '').trim().toLowerCase();
+              return sId === targetSubStr || sName === targetSubStr;
+            });
+            const resolvedSubId = foundSub ? String(foundSub.id || foundSub.subcategory_id || foundSub.sub_category_id || '') : (subCatRaw ? String(subCatRaw) : (subList[0] ? String(subList[0].id) : ''));
+            setCourseForm(prev => ({ ...prev, subCategory: resolvedSubId }));
+          } else if (subCatRaw) {
+            setCourseForm(prev => ({ ...prev, subCategory: String(subCatRaw) }));
           }
+        });
+      }
+    });
+
+    // 10. Chapters, Videos, Resources, Quiz
+    if (Array.isArray(draftObj.chapters) && draftObj.chapters.length > 0) {
+      setChapters(draftObj.chapters.map((ch, idx) => {
+        const exChId = ch.chapter_id || ch.id || null;
+        const rawChVis = ch.visibility_id || ch.visibility || '';
+        const foundChVis = visibilities.find(v => 
+          String(v.id) === String(rawChVis) || 
+          String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
+        );
+        const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visVal);
+        const chTitle = ch.chapter_title || ch.title || `Chapter ${idx + 1}`;
+        return {
+          id: exChId || idx + 1,
+          existingId: exChId,
+          title: chTitle,
+          description: ch.chapter_description || ch.description || '',
+          visibility: chVisVal,
+          order: ch.chapter_order || ch.order || idx + 1,
+          quiz: parseQuizFromApi(ch.quiz, chTitle),
+          videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
+            const exVidId = v.id || v.video_id || null;
+            const rawVidUrl = v.video_url || v.videoUrl || v.url || '';
+            const rawThumbUrl = v.thumbnail || v.thumbnailUrl || v.thumbnail_image || v.thumbnail_url || '';
+            const parsedVidUrl = decryptUrl(rawVidUrl);
+            const parsedThumbUrl = decryptUrl(rawThumbUrl);
+            return {
+              id: exVidId || vIdx + 1,
+              existingId: exVidId,
+              title: v.title || `Lesson ${vIdx + 1}`,
+              fileName: v.fileName || v.video_name || v.name || v.title || (parsedVidUrl ? parsedVidUrl.split('/').pop() : 'video.mp4'),
+              videoUrl: parsedVidUrl,
+              thumbName: v.thumbName || 'thumb.png',
+              thumbnailUrl: parsedThumbUrl,
+              duration: v.duration || '05:00',
+              isPreview: !!v.isPreview || v.type === 1,
+              uploadStatus: parsedVidUrl ? 'success' : null,
+              thumbStatus: parsedThumbUrl ? 'success' : null
+            };
+          }),
+          resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
+            const exResId = r.id || r.resource_id || null;
+            const rawResUrl = r.file_url || r.fileUrl || r.url || '';
+            const parsedResUrl = decryptUrl(rawResUrl);
+            return {
+              id: exResId || `res-${rIdx + 1}`,
+              existingId: exResId,
+              title: r.title || r.name || `Resource ${rIdx + 1}`,
+              fileName: r.fileName || r.file_name || r.name || (parsedResUrl ? parsedResUrl.split('/').pop() : 'document.pdf'),
+              fileUrl: parsedResUrl,
+              fileSize: formatResourceSize(r.fileSize || r.file_size || 0),
+              type: r.type || r.file_type || getResourceFileType(r.fileName || r.file_name || '', ''),
+              uploadStatus: parsedResUrl ? 'success' : null,
+              uploadProgress: 100
+            };
+          })
+        };
+      }));
+    } else {
+      setChapters([
+        {
+          id: 1,
+          title: 'Chapter 1',
+          description: 'Course Chapter',
+          visibility: visVal || visibilities[0]?.id || '',
+          order: 1,
+          videos: [],
+          resources: []
         }
-      });
+      ]);
     }
 
-    if (Array.isArray(draft.chapters)) {
-      setChapters(draft.chapters.map((ch, idx) => ({
-        id: idx + 1,
-        isNew: true,
-        title: ch.title || `Chapter ${idx + 1}`,
-        description: ch.description || '',
-        visibility: ch.visibility_id || ch.visibility || visVal,
-        order: ch.order || idx + 1,
-        videos: (ch.videos || []).map((v, vIdx) => {
-          const rawVidUrl = v.video_url || v.videoUrl || v.url || '';
-          const rawThumbUrl = v.thumbnail || v.thumbnailUrl || v.thumbnail_image || v.thumbnail_url || '';
-          const parsedVidUrl = decryptUrl(rawVidUrl);
-          const parsedThumbUrl = decryptUrl(rawThumbUrl);
-          return {
-            id: v.id || vIdx + 1,
-            isNew: true,
-            title: v.title || `Lesson ${vIdx + 1}`,
-            fileName: v.fileName || v.video_name || v.name || v.title || (parsedVidUrl ? parsedVidUrl.split('/').pop() : 'video.mp4'),
-            videoUrl: parsedVidUrl,
-            thumbName: v.thumbName || 'thumb.png',
-            thumbnailUrl: parsedThumbUrl,
-            duration: v.duration || '05:00',
-            isPreview: !!v.isPreview
-          };
-        }),
-        resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : [])).map((r, rIdx) => {
-          const rawResUrl = r.file_url || r.fileUrl || r.url || '';
-          const parsedResUrl = decryptUrl(rawResUrl);
-          return {
-            id: r.id || `res-${rIdx + 1}`,
-            isNew: true,
-            title: r.title || r.name || `Resource ${rIdx + 1}`,
-            fileName: r.fileName || r.file_name || r.name || (parsedResUrl ? parsedResUrl.split('/').pop() : 'document.pdf'),
-            fileUrl: parsedResUrl,
-            fileSize: formatResourceSize(r.fileSize || r.file_size || 0),
-            type: r.type || r.file_type || getResourceFileType(r.fileName || r.file_name || '', ''),
-            uploadStatus: parsedResUrl ? 'success' : null,
-            uploadProgress: 100
-          };
-        }),
-        quiz: ch.quiz ? parseQuizFromApi(ch.quiz) : null
-      })));
+    // 11. Thumbnail & Banner
+    const thumb = draftObj.thumbnail_image || draftObj.thumbnail_url || draftObj.thumbnailUrl || draftObj.thumbnail || draftObj.image || '';
+    if (thumb) {
+      setCourseThumbnailUrl(decryptUrl(thumb));
+    } else {
+      setCourseThumbnailUrl('');
+    }
+    const bnr = draftObj.banner_image || draftObj.banner_url || draftObj.bannerUrl || draftObj.banner || draftObj.banner_img || '';
+    if (bnr) {
+      setCourseBannerUrl(decryptUrl(bnr));
+    } else {
+      setCourseBannerUrl('');
     }
 
-    const thumb = draft.thumbnail_image || draft.thumbnail_url || draft.thumbnailUrl || draft.thumbnail || '';
-    if (thumb) setCourseThumbnailUrl(decryptUrl(thumb));
-    const bnr = draft.banner_image || draft.banner_url || draft.bannerUrl || draft.banner || '';
-    if (bnr) setCourseBannerUrl(decryptUrl(bnr));
+    setActiveTab('course_upload');
   };
 
   const handleDeleteCourseDraft = (draft) => {
-    if (!draft || !draft.id) return;
-    const draftName = draft.course_title || draft.title || 'Course Draft';
+    if (!draft) return;
+    const draftObj = (draft.json && typeof draft.json === 'object') ? { ...draft, ...draft.json } : draft;
+    const draftId = draftObj.id || draft.id;
+    if (!draftId) return;
+    const draftName = draftObj.course_title || draftObj.title || 'Course Draft';
     showConfirmDelete(`Are you sure you want to delete draft "${draftName}"?`, async () => {
       try {
         const deleteFn = api.drafts?.deleteCourseDraft || api.videos?.deleteCourseDraft;
-        await deleteFn(draft.id);
+        await deleteFn(draftId);
         if (typeof showSuccess === 'function') showSuccess('Draft deleted successfully');
+        lastFetchedCourseDraftRef.current = null;
         fetchCourseDrafts(selectedAdminId);
       } catch (e) {
         console.error('Failed to delete draft:', e);
         if (typeof showError === 'function') showError('Failed to delete draft');
+      }
+    });
+  };
+
+  const handleDeleteCourse = (courseOrId) => {
+    if (!courseOrId) return;
+    let courseObj = null;
+    if (typeof courseOrId === 'object') {
+      courseObj = (courseOrId.json && typeof courseOrId.json === 'object') ? { ...courseOrId, ...courseOrId.json } : courseOrId;
+    } else {
+      const allKnownCourses = [...(courses || []), ...(assignedCourses || []), ...(myPersonalCourses || [])];
+      courseObj = allKnownCourses.find(c => String(c.id) === String(courseOrId) || String(c.course_id) === String(courseOrId)) || { id: courseOrId };
+    }
+    const courseId = courseObj.id || courseObj.course_id || courseObj.courseId;
+    if (!courseId) return;
+
+    const rawCourseSource = String(
+      courseObj.video_source !== undefined ? courseObj.video_source :
+      (courseObj.videoSource !== undefined ? courseObj.videoSource :
+      (courseObj.video_scope !== undefined ? courseObj.video_scope :
+      (courseObj.course_source !== undefined ? courseObj.course_source :
+      (courseObj.courseSource !== undefined ? courseObj.courseSource : ''))))
+    ).trim();
+
+    if (!isSuperAdminView && rawCourseSource === '1') {
+      setCustomAlert({
+        show: true,
+        title: 'Action Not Allowed',
+        message: 'This course is a platform course (Course Source: 1). Admins and authors can only view this course; deletion is not permitted.',
+        type: 'warning',
+        buttonText: 'OK'
+      });
+      return;
+    }
+
+    const courseTitle = courseObj.course_title || courseObj.title || 'Course';
+    const courseScope = (courseObj.video_scope !== undefined && courseObj.video_scope !== null && courseObj.video_scope !== '')
+      ? courseObj.video_scope
+      : (courseObj.videoSource !== undefined && courseObj.videoSource !== null ? courseObj.videoSource : (courseObj.video_source !== undefined ? courseObj.video_source : 2));
+
+    showConfirmDelete(`Are you sure you want to delete course "${courseTitle}"?`, async () => {
+      try {
+        setLoading(true);
+        let dropdownClientId = '0';
+        if (selectedAdminId && String(selectedAdminId).trim() !== '' && String(selectedAdminId).trim() !== '0') {
+          dropdownClientId = String(selectedAdminId).trim();
+        } else if (currentUser && (currentUser.client_id || currentUser.clientId || currentUser.admin_id || currentUser.adminId)) {
+          dropdownClientId = String(currentUser.client_id || currentUser.clientId || currentUser.admin_id || currentUser.adminId).trim();
+        } else {
+          dropdownClientId = '0';
+        }
+
+        const payload = {
+          formstep: "deleteCourse",
+          id: String(courseId),
+          course_id: String(courseId),
+          video_scope: courseScope,
+          client_id: dropdownClientId,
+          isSuperAdmin: Boolean(isSuperAdminView)
+        };
+
+        const deleteFn = api.courses?.deleteCourse || api.videos?.deleteCourse;
+        await deleteFn(payload);
+        showSuccess('Course deleted successfully');
+        lastFetchedCoursesRef.current = null;
+        fetchCourses(selectedAdminId);
+      } catch (err) {
+        console.error('Failed to delete course:', err);
+        showError(err.message || 'Failed to delete course');
+      } finally {
+        setLoading(false);
       }
     });
   };
@@ -3037,10 +3657,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const updateVideoProp = (chapterId, videoId, prop, val) => {
     setChapters(prev => prev.map(ch => {
-      if (ch.id !== chapterId) return ch;
+      if (String(ch.id) !== String(chapterId)) return ch;
       return {
         ...ch,
-        videos: ch.videos.map(v => v.id === videoId ? { ...v, [prop]: val } : v)
+        videos: ch.videos.map(v => String(v.id) === String(videoId) ? { ...v, [prop]: val } : v)
       };
     }));
   };
@@ -3308,6 +3928,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleCourseThumbnailUpload = async (file) => {
     if (!file) return;
+    if (file.size === 0) {
+      showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+      return;
+    }
+    if (!isImageFile(file)) {
+      showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+      return;
+    }
     if (await verifyFileContent(file)) return;
     try {
       setCourseThumbnailPreview(URL.createObjectURL(file));
@@ -3339,6 +3967,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleCourseBannerUpload = async (file) => {
     if (!file) return;
+    if (file.size === 0) {
+      showError('The selected banner file is empty (0 bytes). Please select a valid image file.');
+      return;
+    }
+    if (!isImageFile(file)) {
+      showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+      return;
+    }
     if (await verifyFileContent(file)) return;
     try {
       setCourseBannerPreview(URL.createObjectURL(file));
@@ -3439,6 +4075,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleChapterVideoUpload = async (chapterId, videoId, file) => {
     if (!file) return;
+    if (file.size === 0) {
+      showError('The selected video file is empty (0 bytes). Please select a valid video file.');
+      return;
+    }
+    if (!isMp4File(file)) {
+      showError('Unsupported file format. Please select an MP4 video file (.mp4).');
+      return;
+    }
 
     // Automatically capture duration from video file immediately and autofill duration field
     const capturedDuration = await getVideoDuration(file);
@@ -3506,6 +4150,44 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             if (subRes.subtitleTracks || subRes.subtitle_tracks) updateVideoProp(chapterId, videoId, 'subtitleTracks', subRes.subtitleTracks || subRes.subtitle_tracks);
             if (subRes.transcripts) updateVideoProp(chapterId, videoId, 'transcripts', subRes.transcripts);
             if (subRes.transcript) updateVideoProp(chapterId, videoId, 'transcript', subRes.transcript);
+
+            // If an existing course is currently being edited, call updateTranscriptCourse immediately once subtitles are generated
+            const existingCourseId = editingCourse?.id || editingCourse?.course_id || courseForm?.id || courseForm?.course_id;
+            if (existingCourseId) {
+              try {
+                console.log(`[Course Transcription Background] Subtitles ready for course ${existingCourseId}: calling transcriptCourse API immediately for chapter ${chapterId}, video ${videoId}...`);
+                await api.videos.updateTranscriptCourse({
+                  formstep: "transcriptCourse",
+                  course_id: String(existingCourseId),
+                  courseId: String(existingCourseId),
+                  video_scope: isSuperAdminView ? "0" : "2",
+                  client_id: String(selectedAdminId || "0"),
+                  isSuperAdmin: Boolean(isSuperAdminView),
+                  chapters: [
+                    {
+                      chapter_id: String(chapterId),
+                      chapterId: String(chapterId),
+                      videos: [
+                        {
+                          video_id: String(targetFileId || videoId),
+                          videoId: String(targetFileId || videoId),
+                          vd_id: String(targetFileId || videoId),
+                          subtitles: subRes.subtitles,
+                          subtitleTracks: subRes.subtitleTracks || subRes.subtitle_tracks || [],
+                          subtitle_tracks: subRes.subtitleTracks || subRes.subtitle_tracks || [],
+                          transcripts: subRes.transcripts || {},
+                          transcript: subRes.transcript || subRes.transcripts?.en || []
+                        }
+                      ]
+                    }
+                  ]
+                });
+                console.log(`[Course Transcription Background] Successfully called transcriptCourse API immediately for course ${existingCourseId}, chapter ${chapterId}, video ${videoId}!`);
+              } catch (immedSyncErr) {
+                console.warn(`[Course Transcription Background] Immediate transcriptCourse sync warning:`, immedSyncErr.message);
+              }
+            }
+
             return subRes;
           }
         } catch (subErr) {
@@ -3540,6 +4222,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
   const handleChapterThumbnailUpload = async (chapterId, videoId, file) => {
     if (!file) return;
+    if (file.size === 0) {
+      showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+      return;
+    }
+    if (!isImageFile(file)) {
+      showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+      return;
+    }
     if (await verifyFileContent(file)) return;
     try {
       updateVideoProp(chapterId, videoId, 'thumbnailPreview', URL.createObjectURL(file));
@@ -3694,27 +4384,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     // 1. Basic Course Info Validations
     if (!courseForm.title?.trim()) {
-      showError('Course Title is required');
+      showError('Please fill out course title');
       return;
     }
     if (!courseForm.description?.trim()) {
-      showError('Course Description is required');
+      showError('Please fill out course description');
       return;
     }
     if (!courseForm.category) {
-      showError('Category selection is required');
+      showError('Please select a Category');
       return;
     }
     if (!courseForm.subCategory) {
-      showError('Sub Category selection is required');
+      showError('Please select a Sub Category');
       return;
     }
     if (!courseForm.languageId) {
-      showError('Language selection is required');
+      showError('Please select a Language');
       return;
     }
     if (isSuperAdmin && !courseForm.visibility) {
-      showError('Visibility selection is required');
+      showError('Please select Visibility');
       return;
     }
     const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString());
@@ -3725,7 +4415,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     )) || (courseForm.visibility && courseForm.visibility.toString().toLowerCase() === 'private');
 
     if (isSuperAdmin && isPrivateVis && !courseForm.adminId) {
-      showError('Client selection is required for Private courses');
+      showError('Please select client');
       return;
     }
     if (!isAuthorAdminUser && !isSuperAdminView && !courseForm.author_id && !courseForm.instructor?.trim()) {
@@ -3740,8 +4430,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Course Thumbnail is required');
       return;
     }
-    if (!courseForm.totalChapters?.toString().trim()) {
-      showError('Total Chapters field is required');
+    const parsedTotalChapters = parseInt(courseForm.totalChapters, 10);
+    if (!courseForm.totalChapters?.toString().trim() || isNaN(parsedTotalChapters) || parsedTotalChapters <= 0) {
+      showError('Please fill out total chapters');
       return;
     }
 
@@ -4147,6 +4838,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       payload.client_id = effectiveClientId;
       payload.assigned_admin = effectiveClientId;
+      payload.upload_type = Boolean(courseForm.uploadForClient);
+      payload.video_source = courseForm.videoSource !== undefined ? courseForm.videoSource : (courseForm.uploadForClient ? 2 : 1);
 
       if (isDraft) {
         payload.formstep = "saveDraft";
@@ -4214,23 +4907,54 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
           // Determine overall course_id
           let overallCourseId = payload.course_id || payload.id;
+          if (!overallCourseId) {
+            if (Array.isArray(courseRes) && courseRes.length > 0) {
+              const firstItem = courseRes[0] || {};
+              const innerJson = (firstItem.json && typeof firstItem.json === 'object') ? firstItem.json : {};
+              const innerData = (firstItem.data && typeof firstItem.data === 'object') ? firstItem.data : {};
+              overallCourseId = firstItem.id || firstItem.course_id || firstItem.courseId || 
+                                innerJson.id || innerJson.course_id || innerJson.courseId || 
+                                innerData.id || innerData.course_id || innerData.courseId;
+            } else if (courseRes && typeof courseRes === 'object') {
+              const innerJson = (courseRes.json && typeof courseRes.json === 'object') ? courseRes.json : {};
+              const innerData = (courseRes.data && typeof courseRes.data === 'object') ? courseRes.data : {};
+              overallCourseId = courseRes.id || courseRes.course_id || courseRes.courseId || 
+                                innerJson.id || innerJson.course_id || innerJson.courseId || 
+                                innerData.id || innerData.course_id || innerData.courseId ||
+                                courseRes.course?.id;
+            }
+          }
           if (!overallCourseId && returnedChapters.length > 0) {
             for (const ch of returnedChapters) {
-              if (ch && (ch.course_id || ch.courseId)) {
-                overallCourseId = ch.course_id || ch.courseId;
+              if (ch && (ch.course_id || ch.courseId || ch.id)) {
+                overallCourseId = ch.course_id || ch.courseId || ch.id;
                 break;
               }
               if (ch && Array.isArray(ch.videos) && ch.videos.length > 0) {
-                const firstV = ch.videos.find(v => v && (v.course_id || v.courseId));
+                const firstV = ch.videos.find(v => v && (v.course_id || v.courseId || v.id));
                 if (firstV) {
-                  overallCourseId = firstV.course_id || firstV.courseId;
+                  overallCourseId = firstV.course_id || firstV.courseId || firstV.id;
                   break;
                 }
               }
             }
           }
-          if (!overallCourseId && courseRes && typeof courseRes === 'object') {
-            overallCourseId = courseRes.course_id || courseRes.courseId || courseRes.id;
+          if (!overallCourseId && payload.title) {
+            try {
+              const freshCourses = await api.videos.listCourses(selectedAdminId);
+              const listArr = Array.isArray(freshCourses) ? freshCourses : (freshCourses?.data || freshCourses?.json || []);
+              const matchingCourse = listArr.find(c => {
+                const cTitle = (c.course_title || c.title || c.name || '').trim().toLowerCase();
+                const targetTitle = (payload.title || '').trim().toLowerCase();
+                return cTitle === targetTitle;
+              });
+              if (matchingCourse) {
+                overallCourseId = matchingCourse.id || matchingCourse.course_id || matchingCourse.courseId;
+                console.log('[Course Transcription Sync] Found created course ID from listCourses:', overallCourseId);
+              }
+            } catch (fetchIdErr) {
+              console.warn('[Course Transcription Sync] listCourses fetch ID warning:', fetchIdErr.message);
+            }
           }
 
           const processedChapters = [];
@@ -4239,7 +4963,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           for (let chIdx = 0; chIdx < totalChaps; chIdx++) {
             const chItem = returnedChapters[chIdx] || {};
             const origChapter = submittedChapters[chIdx] || {};
-            const rawChapterId = chItem.chapter_id || chItem.chapterId || chItem.id || origChapter.id || origChapter.chapter_id || String(chIdx + 1);
+            const rawChapterId = origChapter.id || origChapter.chapter_id || chItem.chapter_id || chItem.chapterId || String(chIdx + 1);
 
             const vList = (Array.isArray(chItem.videos) && chItem.videos.length > 0) 
               ? chItem.videos 
@@ -4265,7 +4989,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               if (!matchEntry && origChapter && origVideo) {
                 matchEntry = Object.values(storedTranscripts).find(e => 
-                  e.chapterId === origChapter.id && e.videoId === origVideo.id
+                  String(e.chapterId) === String(origChapter.id) && String(e.videoId) === String(origVideo.id)
                 );
               }
 
@@ -4275,10 +4999,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 origVideo?.hasChanged ||
                 (!origVideo?.existingId && origVideo?.uploadStatus === 'success')
               );
-
-              if (isEditMode && !isVideoChangedOrNew) {
-                continue;
-              }
 
               let subData = null;
               if (matchEntry) {
@@ -4299,6 +5019,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
               if (!subData && origVideo && (origVideo.subtitles || origVideo.transcripts || origVideo.transcript)) {
                 subData = origVideo;
+              }
+
+              const hasSubtitlesOrTranscripts = Boolean(
+                (subData && (subData.subtitles || subData.transcripts || subData.transcript)) ||
+                (origVideo && (origVideo.subtitles || origVideo.transcripts || origVideo.transcript)) ||
+                (matchEntry && (matchEntry.data || matchEntry.promise))
+              );
+
+              if (isEditMode && !isVideoChangedOrNew && !hasSubtitlesOrTranscripts) {
+                continue;
               }
 
               const targetFileId = matchEntry?.fileId || origVideo?.videoId || origVideo?.fileId;
@@ -4350,6 +5080,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             formstep: "transcriptCourse",
             course_id: String(overallCourseId || ''),
             courseId: String(overallCourseId || ''),
+            video_scope: isSuperAdminView ? "0" : "2",
+            client_id: String(selectedAdminId || "0"),
+            isSuperAdmin: Boolean(isSuperAdminView),
             chapters: processedChapters
           };
 
@@ -4362,6 +5095,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       })();
 
       // Immediate success message and navigation right after uploadCourse
+      if (uploadingDraftIdRef.current && !isDraft) {
+        try {
+          const deleteFn = api.drafts?.deleteCourseDraft || api.videos?.deleteCourseDraft;
+          if (typeof deleteFn === 'function') {
+            await deleteFn(uploadingDraftIdRef.current);
+          }
+        } catch (dErr) {
+          console.warn("Could not delete draft after publishing:", dErr);
+        }
+        uploadingDraftIdRef.current = null;
+        lastFetchedCourseDraftRef.current = null;
+        fetchCourseDrafts(selectedAdminId);
+      }
+
       const courseSuccMsg = isDraft 
         ? 'Course saved as draft!' 
         : (editingCourse 
@@ -5064,29 +5811,52 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return;
     }
     const cleanDesc = String(subCategoryForm.description || '').trim();
+    const savedCatId = subCategoryForm.cat_id;
+    const savedName = cleanName;
+    const savedDesc = cleanDesc;
 
     try {
+      let addRes = null;
       if (editingSubCategory) {
         const subCatId = editingSubCategory.id || editingSubCategory.sub_category_id || editingSubCategory.json?.id;
         await api.vdcategories.editSubCategory(
           subCatId,
-          subCategoryForm.cat_id,
-          cleanName,
-          cleanDesc
+          savedCatId,
+          savedName,
+          savedDesc
         );
         showSuccess("Sub category updated successfully!");
       } else {
-        await api.vdcategories.addSubCategory(
-          subCategoryForm.cat_id,
-          cleanName,
-          cleanDesc
+        addRes = await api.vdcategories.addSubCategory(
+          savedCatId,
+          savedName,
+          savedDesc
         );
         showSuccess("Sub category created successfully!");
       }
       setShowSubCategoryModal(false);
       setSubCategoryForm({ id: '', cat_id: '', name: '', description: '' });
       setEditingSubCategory(null);
-      fetchSubCategories();
+      const updatedList = await fetchAllSubCategories();
+      if (!editingSubCategory && Array.isArray(updatedList)) {
+        const exists = updatedList.some(s => 
+          String(s.name || s.sub_category_name || '').trim().toLowerCase() === savedName.toLowerCase()
+        );
+        if (!exists) {
+          const parentCategory = categories.find(c => String(c.id || c.category_id) === String(savedCatId));
+          const newItem = {
+            id: String(addRes?.id || addRes?.sub_category_id || addRes?.data?.id || `subcat-${Date.now()}`),
+            name: savedName,
+            sub_category_name: savedName,
+            cat_id: String(savedCatId),
+            category_id: String(savedCatId),
+            category: parentCategory ? (parentCategory.name || parentCategory.category_name) : '',
+            category_name: parentCategory ? (parentCategory.name || parentCategory.category_name) : '',
+            description: savedDesc
+          };
+          setSubCategories(prev => deduplicateSubCategories([newItem, ...(prev || [])]));
+        }
+      }
     } catch (err) {
       console.error("SubCategory submission error:", err);
       const is410 = err?.status === 410 || 
@@ -5106,7 +5876,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     showConfirmDelete('Are you sure you want to delete this sub category?', async () => {
       try {
         await api.vdcategories.deleteSubCategory(id);
-        fetchSubCategories();
+        setSubCategories(prev => (prev || []).filter(s => String(s.id || s.sub_category_id) !== String(id)));
+        await fetchAllSubCategories();
         showSuccess("Sub category deleted successfully!");
       } catch (err) {
         showError(err.message || 'Failed to delete sub category');
@@ -5142,8 +5913,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setUploadSuccess('');
 
     if (!uploadForm.title?.trim()) {
-      showError('Please enter a Video Title');
+      showError('Please fill out video title');
       return;
+    }
+
+    const isPrivate = isVisibilityPrivate(uploadForm.visibility);
+    if (isSuperAdmin && isPrivate) {
+      if (!uploadForm.adminId || String(uploadForm.adminId).trim() === '' || String(uploadForm.adminId).trim() === '0') {
+        showError('Please select client');
+        return;
+      }
     }
 
     if (!uploadForm.category) {
@@ -5161,8 +5940,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       return;
     }
 
+    if (videoFile && videoFile.size === 0) {
+      showError('The selected video file is empty (0 bytes). Please select a valid video file.');
+      return;
+    }
+
+    if (videoFile && !isMp4File(videoFile)) {
+      showError('Unsupported file format. Please select an MP4 video file (.mp4).');
+      return;
+    }
+
     if (!editingVideo && !thumbnailFile && !thumbPreviewUrl) {
       showError('Thumbnail Image is required');
+      return;
+    }
+
+    if (thumbnailFile && thumbnailFile.size === 0) {
+      showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+      return;
+    }
+
+    if (thumbnailFile && !isImageFile(thumbnailFile)) {
+      showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
       return;
     }
 
@@ -5229,12 +6028,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
       setUploadProgress(editingVideo ? 'Updating video metadata...' : 'Registering video metadata with database...');
       
-      const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString());
-      const isPrivate = (selectedVisObj && (
-        (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-        (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-        (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private')
-      )) || (uploadForm.visibility && uploadForm.visibility.toString().toLowerCase() === 'private');
+      const isPrivate = isVisibilityPrivate(uploadForm.visibility);
 
       const encryptedVideoUrl = await encryptUrl(videoUrl);
       const encryptedThumbnailUrl = await encryptUrl(thumbnailUrl);
@@ -5320,6 +6114,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       registerPayload.client_id = effectiveClientId;
+      registerPayload.upload_type = Boolean(uploadForm.uploadForClient);
+      registerPayload.video_source = uploadForm.videoSource !== undefined ? uploadForm.videoSource : (uploadForm.uploadForClient ? 2 : 1);
       if (isPrivate && !isSuperAdmin) {
         registerPayload.plan_id = uploadForm.planId;
       }
@@ -5412,13 +6208,71 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   };
 
   // --- Delete Video Handler ---
-  const handleDeleteVideo = async (id) => {
-    setCustomAlert({
-      show: true,
-      title: 'Coming Soon!',
-      message: 'Coming soon!',
-      type: 'info',
-      buttonText: 'OK'
+  const handleDeleteVideo = (videoOrId) => {
+    if (!videoOrId) return;
+    let videoObj = null;
+    if (typeof videoOrId === 'object') {
+      videoObj = (videoOrId.json && typeof videoOrId.json === 'object') ? { ...videoOrId, ...videoOrId.json } : videoOrId;
+    } else {
+      const allKnownVideos = [...(myVideos || []), ...(assignedVideos || []), ...(myPersonalVideos || [])];
+      videoObj = allKnownVideos.find(v => String(v.id) === String(videoOrId) || String(v.video_id) === String(videoOrId)) || { id: videoOrId };
+    }
+    const videoId = videoObj.id || videoObj.video_id || videoObj.videoId;
+    if (!videoId) return;
+
+    const rawVideoSource = String(
+      videoObj.video_source !== undefined ? videoObj.video_source :
+      (videoObj.videoSource !== undefined ? videoObj.videoSource :
+      (videoObj.video_scope !== undefined ? videoObj.video_scope : ''))
+    ).trim();
+
+    if (!isSuperAdminView && rawVideoSource === '1') {
+      setCustomAlert({
+        show: true,
+        title: 'Action Not Allowed',
+        message: 'This video is a platform video (Video Source: 1). Admins and authors can only view this video; deletion is not permitted.',
+        type: 'warning',
+        buttonText: 'OK'
+      });
+      return;
+    }
+
+    const videoTitle = videoObj.title || videoObj.video_title || 'Video';
+    const videoScope = (videoObj.video_scope !== undefined && videoObj.video_scope !== null && videoObj.video_scope !== '')
+      ? videoObj.video_scope
+      : (videoObj.videoSource !== undefined && videoObj.videoSource !== null ? videoObj.videoSource : (videoObj.video_source !== undefined ? videoObj.video_source : 2));
+
+    showConfirmDelete(`Are you sure you want to delete "${videoTitle}"?`, async () => {
+      try {
+        setLoading(true);
+        let dropdownClientId = '0';
+        if (selectedAdminId && String(selectedAdminId).trim() !== '' && String(selectedAdminId).trim() !== '0') {
+          dropdownClientId = String(selectedAdminId).trim();
+        } else if (currentUser && (currentUser.client_id || currentUser.clientId || currentUser.admin_id || currentUser.adminId)) {
+          dropdownClientId = String(currentUser.client_id || currentUser.clientId || currentUser.admin_id || currentUser.adminId).trim();
+        } else {
+          dropdownClientId = '0';
+        }
+
+        const payload = {
+          formstep: "deleteVideo",
+          id: String(videoId),
+          video_id: String(videoId),
+          video_scope: videoScope,
+          client_id: dropdownClientId,
+          isSuperAdmin: Boolean(isSuperAdminView)
+        };
+
+        await api.videos.deleteVideo(payload);
+        showSuccess('Video deleted successfully');
+        lastFetchedVideosRef.current = null;
+        fetchVideos(selectedAdminId);
+      } catch (err) {
+        console.error('Failed to delete video:', err);
+        showError(err.message || 'Failed to delete video');
+      } finally {
+        setLoading(false);
+      }
     });
   };
 
@@ -6369,13 +7223,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   </div>
                   <form onSubmit={handleVideoUpload}>
                     <div className="form-group">
-                      <label className="form-label">{t('admin.uploadTitle')}</label>
+                      <label className="form-label">{t('admin.uploadTitle')} *</label>
                       <input 
                         type="text" 
                         className="form-input" 
                         placeholder="e.g. Advanced Calculus Lesson 3"
                         value={uploadForm.title}
-                        onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
+                        onChange={(e) => {
+                          setUploadForm({ ...uploadForm, title: e.target.value });
+                          e.target.setCustomValidity('');
+                        }}
+                        onInvalid={(e) => e.target.setCustomValidity('Please fill out video title')}
+                        onInput={(e) => e.target.setCustomValidity('')}
                         required 
                       />
                     </div>
@@ -6403,15 +7262,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             setUploadForm(prev => ({ ...prev, category: val, subCategory: '' }));
                             lastFetchedSubCatIdRef.current = null;
                             if (val) {
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString() || v.name?.toString().toLowerCase() === uploadForm.visibility?.toString().toLowerCase());
-                              const isPrivate = (selectedVisObj && (
-                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString() === '2')
-                              )) || (uploadForm.visibility && (uploadForm.visibility.toString().toLowerCase() === 'private' || uploadForm.visibility.toString() === '2'));
-                              const clientId = (isSuperAdmin && isPrivate) ? String(uploadForm.adminId || selectedAdminId || '0').trim() : null;
-                              fetchSubCategories(val, clientId);
+                              const isPrivate = isVisibilityPrivate(uploadForm.visibility);
+                              const uploadType = (uploadForm.videoSource !== undefined)
+                                ? (uploadForm.videoSource === 2 || uploadForm.videoSource === '2')
+                                : (isSuperAdmin && isPrivate ? Boolean(uploadForm.uploadForClient) : null);
+                              const videoSource = uploadForm.videoSource !== undefined
+                                ? uploadForm.videoSource
+                                : (uploadType !== null ? (uploadType ? 2 : 1) : null);
+                              const clientId = (uploadType && uploadForm.adminId && String(uploadForm.adminId).trim() !== '0')
+                                ? String(uploadForm.adminId).trim()
+                                : null;
+                              fetchSubCategories(val, clientId, uploadType, videoSource, 'video');
                             } else {
                               setSubCategories([]);
                             }
@@ -6458,27 +7319,32 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             }
                             setCategories([]);
                             setSubCategories([]);
-                            setUploadForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
+                            const isPrivate = isVisibilityPrivate(val);
+                            setUploadForm(prev => ({ 
+                              ...prev, 
+                              visibility: val, 
+                              category: '', 
+                              subCategory: '',
+                              uploadForClient: true
+                            }));
                             lastFetchedSubCatIdRef.current = null;
-                            const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString() || v.name?.toString().toLowerCase() === val?.toString().toLowerCase());
-                            const isPrivate = (selectedVisObj && (
-                              (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                              (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                              (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
-                              (selectedVisObj.id && selectedVisObj.id.toString() === '2')
-                            )) || (val && (val.toString().toLowerCase() === 'private' || val.toString() === '2'));
+                            lastFetchedDropdownRef.current = null;
+                            isFetchingDropdownDataRef.current = false;
                             if (isPrivate) {
-                              fetchAdminsList().then((admList) => {
-                                const firstAdmId = (Array.isArray(admList) && admList.length > 0) ? (admList[0].id || admList[0].alpha_id || admList[0].admin_id) : uploadForm.adminId;
-                                const targetClientId = String(uploadForm.adminId || firstAdmId || '').trim();
-                                if (targetClientId && targetClientId !== '0') {
-                                  fetchDropdownDataWithClient(targetClientId);
-                                } else {
-                                  fetchDropdownDataWithClient(null);
-                                }
-                              });
+                              if (isSuperAdmin) {
+                                fetchAdminsList().then((admList) => {
+                                  const targetClientId = String(uploadForm.adminId || '').trim();
+                                  if (targetClientId && targetClientId !== '0') {
+                                    fetchDropdownDataWithClient(targetClientId, 'video', false, true, true);
+                                  } else {
+                                    fetchDropdownDataWithClient(null, 'video', false, true, true);
+                                  }
+                                });
+                              } else {
+                                fetchDropdownDataWithClient(uploadForm.adminId || null, 'video', false, true);
+                              }
                             } else {
-                              fetchDropdownDataWithClient(null);
+                              fetchDropdownDataWithClient(null, 'video', false, true);
                             }
                           }}
                           placeholder="Select Visibility"
@@ -6486,37 +7352,112 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         />
                       </div>
 
-                      {(() => {
-                        const selectedVisObj = visibilities.find(v => v.id?.toString() === uploadForm.visibility?.toString() || v.name?.toString().toLowerCase() === uploadForm.visibility?.toString().toLowerCase());
-                        const isPrivate = (selectedVisObj && (
-                          (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                          (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                          (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
-                          (selectedVisObj.id && selectedVisObj.id.toString() === '2')
-                        )) || (uploadForm.visibility && (uploadForm.visibility.toString().toLowerCase() === 'private' || uploadForm.visibility.toString() === '2'));
-                        return isPrivate;
-                      })() && (
+                      {isVisibilityPrivate(uploadForm.visibility) && (
                         isSuperAdmin ? (
-                          <div className="form-group">
-                            <label className="form-label">Client *</label>
-                            <PremiumSelect
-                              options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
-                              value={uploadForm.adminId}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setCategories([]);
-                                setSubCategories([]);
-                                setUploadForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
-                                lastFetchedSubCatIdRef.current = null;
-                                if (val && val !== '0') {
-                                  fetchDropdownDataWithClient(val);
-                                }
-                              }}
-                              placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
-                              disabled={loadingAdminsList || Boolean(editingVideo)}
-                              icon="fa-solid fa-user-gear"
-                            />
-                          </div>
+                          <>
+                            <div className="form-group">
+                              <label className="form-label" style={{ visibility: 'hidden' }}>&nbsp;</label>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '14px 18px',
+                                  backgroundColor: 'var(--input-bg, rgba(255, 255, 255, 0.04))',
+                                  borderRadius: '12px',
+                                  border: '1px solid var(--border-color, rgba(0, 0, 0, 0.12))',
+                                  boxSizing: 'border-box',
+                                  height: '50px',
+                                  width: '100%'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <i className="fa-solid fa-user-gear" style={{ color: uploadForm.uploadForClient ? 'var(--accent-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)', fontSize: '13px' }}></i>
+                                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #fff)', whiteSpace: 'nowrap' }}>
+                                    Upload for the Client
+                                  </span>
+                                </div>
+                                <label
+                                  htmlFor="upload-for-client-toggle"
+                                  style={{
+                                    position: 'relative',
+                                    display: 'inline-block',
+                                    width: '40px',
+                                    height: '22px',
+                                    cursor: 'pointer',
+                                    margin: 0,
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  <input
+                                    id="upload-for-client-toggle"
+                                    type="checkbox"
+                                    checked={Boolean(uploadForm.uploadForClient)}
+                                    onChange={(e) => handleToggleUploadForClient(e.target.checked)}
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                  />
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      cursor: 'pointer',
+                                      top: 0,
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      backgroundColor: uploadForm.uploadForClient ? 'var(--accent-primary, #6366f1)' : '#64748b',
+                                      borderRadius: '22px',
+                                      transition: '0.25s ease',
+                                      display: 'block'
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        position: 'absolute',
+                                        content: '""',
+                                        height: '16px',
+                                        width: '16px',
+                                        left: uploadForm.uploadForClient ? '21px' : '3px',
+                                        bottom: '3px',
+                                        backgroundColor: '#ffffff',
+                                        borderRadius: '50%',
+                                        transition: '0.25s ease',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.25)'
+                                      }}
+                                    />
+                                  </span>
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="form-group">
+                              <label className="form-label">Client *</label>
+                              <PremiumSelect
+                                options={adminsList.map(admin => ({ id: admin.id || admin.admin_id, name: admin.name || admin.username || admin.email || admin.id }))}
+                                value={uploadForm.adminId}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setUploadForm(prev => ({ ...prev, adminId: val }));
+                                  if (uploadForm.uploadForClient) {
+                                    setCategories([]);
+                                    setSubCategories([]);
+                                    setUploadForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
+                                    lastFetchedSubCatIdRef.current = null;
+                                    lastFetchedDropdownRef.current = null;
+                                    isFetchingDropdownDataRef.current = false;
+                                    if (val && val !== '0') {
+                                      fetchDropdownDataWithClient(val, 'video', false, true, true);
+                                    } else {
+                                      fetchDropdownDataWithClient(null, 'video', false, true, true);
+                                    }
+                                  }
+                                }}
+                                placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
+                                disabled={loadingAdminsList || Boolean(editingVideo)}
+                                icon="fa-solid fa-user-gear"
+                              />
+                            </div>
+                          </>
                         ) : (
                           <div className="form-group">
                             <label className="form-label">Plan</label>
@@ -6550,28 +7491,56 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <input 
                           type="file" 
                           id="videoInput"
-                          accept="video/*" 
+                          accept=".mp4,video/mp4" 
                           onChange={async (e) => {
                             const file = e.target.files[0];
-                            if (file && await verifyFileContent(file)) {
+                            if (!file) {
+                              setVideoFile(null);
+                              setVideoFileError('');
+                              return;
+                            }
+                            if (file.size === 0) {
                               e.target.value = '';
+                              setVideoFile(null);
+                              setVideoFileError('The selected video file is empty (0 bytes).');
+                              showError('The selected video file is empty (0 bytes). Please select a valid video file.');
+                              return;
+                            }
+                            if (!isMp4File(file)) {
+                              e.target.value = '';
+                              setVideoFile(null);
+                              setVideoFileError('Unsupported file format. Only .mp4 files are allowed.');
+                              showError('Unsupported file format. Please select an MP4 video file (.mp4).');
+                              return;
+                            }
+                            setVideoFileError('');
+                            if (await verifyFileContent(file)) {
+                              e.target.value = '';
+                              setVideoFile(null);
                               return;
                             }
                             setVideoFile(file);
-                            if (file) {
-                              const durationSec = await getVideoDuration(file);
-                              if (durationSec > 0) {
-                                setUploadForm(prev => ({ ...prev, duration: durationSec.toString() }));
-                              }
+                            const durationSec = await getVideoDuration(file);
+                            if (durationSec > 0) {
+                              setUploadForm(prev => ({ ...prev, duration: durationSec.toString() }));
                             }
                           }}
                           required={!editingVideo}
                           className="form-input"
                           style={{ fontSize: '13px', padding: '10px' }}
                         />
-                        {editingVideo && (
+                        {videoFileError && (
+                          <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px', fontWeight: 500 }}>
+                            ⚠️ {videoFileError}
+                          </div>
+                        )}
+                        {editingVideo ? (
                           <div style={{ fontSize: '12px', color: 'var(--accent-secondary)', marginTop: '6px', fontWeight: 500 }}>
                             ✓ Existing video file loaded. Choose a new file only to replace it.
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', marginTop: '4px' }}>
+                            Supported format: .mp4
                           </div>
                         )}
                       </div>
@@ -6581,11 +7550,34 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <input 
                           type="file" 
                           id="thumbInput"
-                          accept="image/*" 
+                          accept="image/*,.jpg,.jpeg,.png,.webp" 
                           onChange={async (e) => {
                             const file = e.target.files[0];
-                            if (file && await verifyFileContent(file)) {
+                            if (!file) {
+                              setThumbnailFile(null);
+                              setThumbFileError('');
+                              return;
+                            }
+                            if (file.size === 0) {
                               e.target.value = '';
+                              setThumbnailFile(null);
+                              setThumbPreviewUrl(null);
+                              setThumbFileError('The selected thumbnail file is empty (0 bytes).');
+                              showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+                              return;
+                            }
+                            if (!isImageFile(file)) {
+                              e.target.value = '';
+                              setThumbnailFile(null);
+                              setThumbPreviewUrl(null);
+                              setThumbFileError('Unsupported file format. Only image files (JPG, PNG, WebP) are allowed.');
+                              showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                              return;
+                            }
+                            setThumbFileError('');
+                            if (await verifyFileContent(file)) {
+                              e.target.value = '';
+                              setThumbnailFile(null);
                               return;
                             }
                             setThumbnailFile(file);
@@ -6594,16 +7586,31 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           className="form-input"
                           style={{ fontSize: '13px', padding: '10px' }}
                         />
-                        {editingVideo && (
+                        {thumbFileError && (
+                          <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px', fontWeight: 500 }}>
+                            ⚠️ {thumbFileError}
+                          </div>
+                        )}
+                        {editingVideo ? (
                           <div style={{ fontSize: '12px', color: 'var(--accent-secondary)', marginTop: '6px', fontWeight: 500 }}>
                             ✓ Existing thumbnail loaded. Choose a new file only to replace it.
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', marginTop: '4px' }}>
+                            Supported formats: .jpg, .jpeg, .png, .webp
                           </div>
                         )}
                       </div>
                     </div>
 
                     <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} disabled={!!uploadProgress}>
-                      {editingVideo ? 'Update Video' : t('admin.tabUpload')}
+                      {uploadProgress ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <i className="fa-solid fa-circle-notch fa-spin"></i> {editingVideo ? 'Updating...' : 'Uploading...'}
+                        </span>
+                      ) : (
+                        editingVideo ? 'Update Video' : t('admin.tabUpload')
+                      )}
                     </button>
                   </form>
                 </div>
@@ -7011,7 +8018,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                             placeholder="e.g. Complete Python Programming"
                             value={courseForm.title}
-                            onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                            onChange={(e) => {
+                              setCourseForm({ ...courseForm, title: e.target.value });
+                              e.target.setCustomValidity('');
+                            }}
+                            onInvalid={(e) => e.target.setCustomValidity('Please fill out course title')}
+                            onInput={(e) => e.target.setCustomValidity('')}
                             disabled={isCourseViewOnly}
                             readOnly={isCourseViewOnly}
                             required
@@ -7025,7 +8037,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                             placeholder="Provide a detailed description of this course..."
                             value={courseForm.description}
-                            onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                            onChange={(e) => {
+                              setCourseForm({ ...courseForm, description: e.target.value });
+                              e.target.setCustomValidity('');
+                            }}
+                            onInvalid={(e) => e.target.setCustomValidity('Please fill out course description')}
+                            onInput={(e) => e.target.setCustomValidity('')}
                             disabled={isCourseViewOnly}
                             readOnly={isCourseViewOnly}
                             required
@@ -7041,16 +8058,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               const val = e.target.value;
                               setCourseForm(prev => ({ ...prev, category: val, subCategory: '' }));
                               lastFetchedSubCatIdRef.current = null;
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString() || v.name?.toString().toLowerCase() === courseForm.visibility?.toString().toLowerCase());
-                              const isPrivate = (selectedVisObj && (
-                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString() === '2')
-                              )) || (courseForm.visibility && (courseForm.visibility.toString().toLowerCase() === 'private' || courseForm.visibility.toString() === '2'));
-                              const clientId = (isSuperAdmin && isPrivate) ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
+                              const isPrivate = isVisibilityPrivate(courseForm.visibility);
+                              const clientId = (isSuperAdmin && isPrivate && courseForm.uploadForClient) ? String(courseForm.adminId || selectedAdminId || '0').trim() : null;
+                              const uploadType = (isSuperAdmin && isPrivate) ? Boolean(courseForm.uploadForClient) : null;
+                              const videoSource = courseForm.videoSource !== undefined ? courseForm.videoSource : (uploadType !== null ? (uploadType ? 2 : 1) : null);
                               if (val) {
-                                fetchSubCategories(val, clientId);
+                                fetchSubCategories(val, clientId, uploadType, videoSource, 'course');
                               } else {
                                 setSubCategories([]);
                               }
@@ -7099,71 +8112,151 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   }
                                   setCategories([]);
                                   setSubCategories([]);
-                                  setCourseForm(prev => ({ ...prev, visibility: val, category: '', subCategory: '' }));
+                                  const isPrivate = isVisibilityPrivate(val);
+                                  setCourseForm(prev => ({ 
+                                    ...prev, 
+                                    visibility: val, 
+                                    category: '', 
+                                    subCategory: '',
+                                    uploadForClient: true // Default state: enabled (true)
+                                  }));
                                   lastFetchedSubCatIdRef.current = null;
-                                  const selectedVisObj = visibilities.find(v => v.id?.toString() === val?.toString() || v.name?.toString().toLowerCase() === val?.toString().toLowerCase());
-                                  const isPrivate = (selectedVisObj && (
-                                    (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                    (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                    (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
-                                    (selectedVisObj.id && selectedVisObj.id.toString() === '2')
-                                  )) || (val && (val.toString().toLowerCase() === 'private' || val.toString() === '2'));
+                                  lastFetchedDropdownRef.current = null;
+                                  isFetchingDropdownDataRef.current = false;
                                   if (isPrivate) {
                                     fetchAdminsList().then((admList) => {
                                       const firstAdmId = (Array.isArray(admList) && admList.length > 0) ? (admList[0].id || admList[0].alpha_id || admList[0].admin_id) : courseForm.adminId;
                                       const targetClientId = String(courseForm.adminId || firstAdmId || '').trim();
+                                      if (!courseForm.adminId && firstAdmId) {
+                                        setCourseForm(p => ({ ...p, adminId: String(firstAdmId) }));
+                                      }
                                       if (targetClientId && targetClientId !== '0') {
-                                        fetchDropdownDataWithClient(targetClientId, 'course', true);
+                                        fetchDropdownDataWithClient(targetClientId, 'course', false, true, true);
                                       } else {
-                                        fetchDropdownDataWithClient(null, 'course', true);
+                                        fetchDropdownDataWithClient(null, 'course', false, true, true);
                                       }
                                     });
                                   } else {
-                                    fetchDropdownDataWithClient(null, 'course', true);
+                                    fetchDropdownDataWithClient(null, 'course', false, true);
                                   }
                                 }}
                                 placeholder="Select Visibility"
                                 icon="fa-solid fa-eye"
                               />
                             </div>
-                            {(() => {
-                              const selectedVisObj = visibilities.find(v => v.id?.toString() === courseForm.visibility?.toString() || v.name?.toString().toLowerCase() === courseForm.visibility?.toString().toLowerCase());
-                              const isPrivate = (selectedVisObj && (
-                                (selectedVisObj.name && selectedVisObj.name.toLowerCase() === 'private') ||
-                                (selectedVisObj.visibility && selectedVisObj.visibility.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString().toLowerCase() === 'private') ||
-                                (selectedVisObj.id && selectedVisObj.id.toString() === '2')
-                              )) || (courseForm.visibility && (courseForm.visibility.toString().toLowerCase() === 'private' || courseForm.visibility.toString() === '2'));
-                              return isPrivate;
-                            })() && (
-                              <div className="form-group" style={{ margin: 0 }}>
-                                <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Client *</label>
-                                <PremiumSelect
-                                  options={[...adminsList, ...authorAdminsList].reduce((acc, item) => {
-                                     const itemId = String(item.id || item.admin_id || item.user_id || '');
-                                     if (!itemId || acc.some(x => x.id === itemId)) return acc;
-                                     acc.push({
-                                       id: itemId,
-                                       name: item.name || item.username || item.email || item.label || `Client ${itemId}`
-                                     });
-                                     return acc;
-                                   }, [])}
-                                  value={courseForm.adminId}
-                                  disabled={isCourseViewOnly || loadingAdminsList || Boolean(editingCourse)}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setCategories([]);
-                                    setSubCategories([]);
-                                    setCourseForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
-                                    lastFetchedSubCatIdRef.current = null;
-                                    if (val && val !== '0') {
-                                      fetchDropdownDataWithClient(val, 'course', true);
-                                    }
-                                  }}
-                                  placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
-                                  icon="fa-solid fa-user-gear"
-                                />
-                              </div>
+                            {isVisibilityPrivate(courseForm.visibility) && (
+                              <>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                  <label className="form-label" style={{ visibility: 'hidden' }}>&nbsp;</label>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '14px 18px',
+                                      backgroundColor: 'var(--input-bg, rgba(255, 255, 255, 0.04))',
+                                      borderRadius: '12px',
+                                      border: '1px solid var(--border-color, rgba(0, 0, 0, 0.12))',
+                                      boxSizing: 'border-box',
+                                      height: '50px',
+                                      width: '100%'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <i className="fa-solid fa-user-gear" style={{ color: courseForm.uploadForClient ? 'var(--accent-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)', fontSize: '13px' }}></i>
+                                      <span style={{ fontSize: '14px', fontWeight: 600, color: textColor || 'var(--text-primary, #fff)', whiteSpace: 'nowrap' }}>
+                                        Upload for the Client
+                                      </span>
+                                    </div>
+                                    <label
+                                      htmlFor="course-upload-for-client-toggle"
+                                      style={{
+                                        position: 'relative',
+                                        display: 'inline-block',
+                                        width: '40px',
+                                        height: '22px',
+                                        cursor: 'pointer',
+                                        margin: 0,
+                                        flexShrink: 0
+                                      }}
+                                    >
+                                      <input
+                                        id="course-upload-for-client-toggle"
+                                        type="checkbox"
+                                        checked={Boolean(courseForm.uploadForClient)}
+                                        onChange={(e) => handleToggleCourseUploadForClient(e.target.checked)}
+                                        style={{ opacity: 0, width: 0, height: 0 }}
+                                      />
+                                      <span
+                                        style={{
+                                          position: 'absolute',
+                                          cursor: 'pointer',
+                                          top: 0,
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 0,
+                                          backgroundColor: courseForm.uploadForClient ? 'var(--accent-primary, #6366f1)' : '#64748b',
+                                          borderRadius: '22px',
+                                          transition: '0.25s ease',
+                                          display: 'block'
+                                        }}
+                                      >
+                                        <span
+                                          style={{
+                                            position: 'absolute',
+                                            content: '""',
+                                            height: '16px',
+                                            width: '16px',
+                                            left: courseForm.uploadForClient ? '21px' : '3px',
+                                            bottom: '3px',
+                                            backgroundColor: '#ffffff',
+                                            borderRadius: '50%',
+                                            transition: '0.25s ease',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.25)'
+                                          }}
+                                        />
+                                      </span>
+                                    </label>
+                                  </div>
+                                </div>
+
+                                <div className="form-group" style={{ margin: 0 }}>
+                                  <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Client *</label>
+                                  <PremiumSelect
+                                    options={[...adminsList, ...authorAdminsList].reduce((acc, item) => {
+                                       const itemId = String(item.id || item.admin_id || item.user_id || '');
+                                       if (!itemId || acc.some(x => x.id === itemId)) return acc;
+                                       acc.push({
+                                         id: itemId,
+                                         name: item.name || item.username || item.email || item.label || `Client ${itemId}`
+                                       });
+                                       return acc;
+                                     }, [])}
+                                    value={courseForm.adminId}
+                                    disabled={isCourseViewOnly || loadingAdminsList || Boolean(editingCourse)}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setCourseForm(prev => ({ ...prev, adminId: val }));
+                                      if (courseForm.uploadForClient) {
+                                        setCategories([]);
+                                        setSubCategories([]);
+                                        setCourseForm(prev => ({ ...prev, adminId: val, category: '', subCategory: '' }));
+                                        lastFetchedSubCatIdRef.current = null;
+                                        lastFetchedDropdownRef.current = null;
+                                        isFetchingDropdownDataRef.current = false;
+                                        if (val && val !== '0') {
+                                          fetchDropdownDataWithClient(val, 'course', false, true, true);
+                                        } else {
+                                          fetchDropdownDataWithClient(null, 'course', false, true, true);
+                                        }
+                                      }
+                                    }}
+                                    placeholder={loadingAdminsList ? 'Loading...' : 'Select Client'}
+                                    icon="fa-solid fa-user-gear"
+                                  />
+                                </div>
+                              </>
                             )}
                           </>
                         )}
@@ -7221,7 +8314,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                                 placeholder="e.g. John Doe"
                                 value={courseForm.instructor}
-                                onChange={(e) => setCourseForm({ ...courseForm, instructor: e.target.value })}
+                                onChange={(e) => {
+                                  setCourseForm({ ...courseForm, instructor: e.target.value });
+                                  e.target.setCustomValidity('');
+                                }}
+                                onInvalid={(e) => e.target.setCustomValidity('Please fill out instructor')}
+                                onInput={(e) => e.target.setCustomValidity('')}
                                 disabled={isCourseViewOnly}
                                 readOnly={isCourseViewOnly}
                                 required
@@ -7277,12 +8375,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <input
                                 id="course-thumbnail-upload"
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.jpg,.jpeg,.png,.webp"
                                 style={{ display: 'none' }}
                                 disabled={isCourseViewOnly}
                                 onChange={async (e) => {
                                   const file = e.target.files[0];
-                                  if (file && await verifyFileContent(file)) {
+                                  if (!file) return;
+                                  if (file.size === 0) {
+                                    e.target.value = '';
+                                    showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+                                    return;
+                                  }
+                                  if (!isImageFile(file)) {
+                                    e.target.value = '';
+                                    showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                                    return;
+                                  }
+                                  if (await verifyFileContent(file)) {
                                     e.target.value = '';
                                     return;
                                   }
@@ -7293,13 +8402,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           ) : (
                             <input
                               type="file"
-                              accept="image/*"
+                              accept="image/*,.jpg,.jpeg,.png,.webp"
                               className="form-input"
                               style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                               disabled={isCourseViewOnly}
                               onChange={async (e) => {
                                 const file = e.target.files[0];
-                                if (file && await verifyFileContent(file)) {
+                                if (!file) return;
+                                if (file.size === 0) {
+                                  e.target.value = '';
+                                  showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+                                  return;
+                                }
+                                if (!isImageFile(file)) {
+                                  e.target.value = '';
+                                  showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                                  return;
+                                }
+                                if (await verifyFileContent(file)) {
                                   e.target.value = '';
                                   return;
                                 }
@@ -7336,12 +8456,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <input
                                 id="course-banner-upload"
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.jpg,.jpeg,.png,.webp"
                                 style={{ display: 'none' }}
                                 disabled={isCourseViewOnly}
                                 onChange={async (e) => {
                                   const file = e.target.files[0];
-                                  if (file && await verifyFileContent(file)) {
+                                  if (!file) return;
+                                  if (file.size === 0) {
+                                    e.target.value = '';
+                                    showError('The selected banner file is empty (0 bytes). Please select a valid image file.');
+                                    return;
+                                  }
+                                  if (!isImageFile(file)) {
+                                    e.target.value = '';
+                                    showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                                    return;
+                                  }
+                                  if (await verifyFileContent(file)) {
                                     e.target.value = '';
                                     return;
                                   }
@@ -7352,13 +8483,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           ) : (
                             <input
                               type="file"
-                              accept="image/*"
+                              accept="image/*,.jpg,.jpeg,.png,.webp"
                               className="form-input"
                               style={{ fontSize: '12px', padding: '8px', backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                               disabled={isCourseViewOnly}
                               onChange={async (e) => {
                                 const file = e.target.files[0];
-                                if (file && await verifyFileContent(file)) {
+                                if (!file) return;
+                                if (file.size === 0) {
+                                  e.target.value = '';
+                                  showError('The selected banner file is empty (0 bytes). Please select a valid image file.');
+                                  return;
+                                }
+                                if (!isImageFile(file)) {
+                                  e.target.value = '';
+                                  showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                                  return;
+                                }
+                                if (await verifyFileContent(file)) {
                                   e.target.value = '';
                                   return;
                                 }
@@ -7372,11 +8514,27 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <label className="form-label" style={{ color: textColor, fontWeight: '600' }}>Total Chapters *</label>
                           <input
                             type="text"
+                            inputMode="numeric"
+                            pattern="^[1-9]\d*$"
                             className="form-input"
                             style={{ backgroundColor: inputBg, border: `1px solid ${inputBorder}`, color: textColor, borderRadius: '8px' }}
                             placeholder="e.g. 10"
                             value={courseForm.totalChapters}
-                            onChange={(e) => setCourseForm({ ...courseForm, totalChapters: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (['-', '+', '.', 'e', 'E', ','].includes(e.key)) {
+                                e.preventDefault();
+                              }
+                              if (e.key === '0' && (!e.target.value || (e.target.selectionStart === 0 && e.target.selectionEnd === e.target.value.length))) {
+                                e.preventDefault();
+                              }
+                            }}
+                            onChange={(e) => {
+                              const sanitized = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
+                              setCourseForm({ ...courseForm, totalChapters: sanitized });
+                              e.target.setCustomValidity('');
+                            }}
+                            onInvalid={(e) => e.target.setCustomValidity('Please fill out total chapters')}
+                            onInput={(e) => e.target.setCustomValidity('')}
                             disabled={isCourseViewOnly}
                             readOnly={isCourseViewOnly}
                             required
@@ -7537,19 +8695,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                 <input
                                                   id={`vid-file-${ch.id}-${vid.id}`}
                                                   type="file"
-                                                  accept="video/*"
+                                                  accept=".mp4,video/mp4"
                                                   style={{ display: 'none' }}
                                                   disabled={isCourseViewOnly}
                                                   onChange={async (e) => {
                                                     const file = e.target.files[0];
-                                                    if (file) {
-                                                      const capturedDuration = await getVideoDuration(file);
-                                                      if (capturedDuration > 0) {
-                                                        const formattedDuration = formatSecondsToTime(capturedDuration);
-                                                        updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
-                                                      }
+                                                    if (!file) return;
+                                                    if (file.size === 0) {
+                                                      e.target.value = '';
+                                                      showError('The selected video file is empty (0 bytes). Please select a valid video file.');
+                                                      return;
                                                     }
-                                                    if (file && await verifyFileContent(file)) {
+                                                    if (!isMp4File(file)) {
+                                                      e.target.value = '';
+                                                      showError('Unsupported file format. Please select an MP4 video file (.mp4).');
+                                                      return;
+                                                    }
+                                                    const capturedDuration = await getVideoDuration(file);
+                                                    if (capturedDuration > 0) {
+                                                      const formattedDuration = formatSecondsToTime(capturedDuration);
+                                                      updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
+                                                    }
+                                                    if (await verifyFileContent(file)) {
                                                       e.target.value = '';
                                                       return;
                                                     }
@@ -7560,19 +8727,28 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             ) : (
                                               <input
                                                 type="file"
-                                                accept="video/*"
+                                                accept=".mp4,video/mp4"
                                                 style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
                                                 disabled={isCourseViewOnly}
                                                 onChange={async (e) => {
                                                   const file = e.target.files[0];
-                                                  if (file) {
-                                                    const capturedDuration = await getVideoDuration(file);
-                                                    if (capturedDuration > 0) {
-                                                      const formattedDuration = formatSecondsToTime(capturedDuration);
-                                                      updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
-                                                    }
+                                                  if (!file) return;
+                                                  if (file.size === 0) {
+                                                    e.target.value = '';
+                                                    showError('The selected video file is empty (0 bytes). Please select a valid video file.');
+                                                    return;
                                                   }
-                                                  if (file && await verifyFileContent(file)) {
+                                                  if (!isMp4File(file)) {
+                                                    e.target.value = '';
+                                                    showError('Unsupported file format. Please select an MP4 video file (.mp4).');
+                                                    return;
+                                                  }
+                                                  const capturedDuration = await getVideoDuration(file);
+                                                  if (capturedDuration > 0) {
+                                                    const formattedDuration = formatSecondsToTime(capturedDuration);
+                                                    updateVideoProp(ch.id, vid.id, 'duration', formattedDuration);
+                                                  }
+                                                  if (await verifyFileContent(file)) {
                                                     e.target.value = '';
                                                     return;
                                                   }
@@ -7621,12 +8797,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                 <input
                                                   id={`vid-thumb-${ch.id}-${vid.id}`}
                                                   type="file"
-                                                  accept="image/*"
+                                                  accept="image/*,.jpg,.jpeg,.png,.webp"
                                                   style={{ display: 'none' }}
                                                   disabled={isCourseViewOnly}
                                                   onChange={async (e) => {
                                                     const file = e.target.files[0];
-                                                    if (file && await verifyFileContent(file)) {
+                                                    if (!file) return;
+                                                    if (file.size === 0) {
+                                                      e.target.value = '';
+                                                      showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+                                                      return;
+                                                    }
+                                                    if (!isImageFile(file)) {
+                                                      e.target.value = '';
+                                                      showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                                                      return;
+                                                    }
+                                                    if (await verifyFileContent(file)) {
                                                       e.target.value = '';
                                                       return;
                                                     }
@@ -7637,12 +8824,23 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                             ) : (
                                               <input
                                                 type="file"
-                                                accept="image/*"
+                                                accept="image/*,.jpg,.jpeg,.png,.webp"
                                                 style={{ fontSize: '10px', maxWidth: '120px', color: textColor }}
                                                 disabled={isCourseViewOnly}
                                                 onChange={async (e) => {
                                                   const file = e.target.files[0];
-                                                  if (file && await verifyFileContent(file)) {
+                                                  if (!file) return;
+                                                  if (file.size === 0) {
+                                                    e.target.value = '';
+                                                    showError('The selected thumbnail file is empty (0 bytes). Please select a valid image file.');
+                                                    return;
+                                                  }
+                                                  if (!isImageFile(file)) {
+                                                    e.target.value = '';
+                                                    showError('Unsupported file format. Please select an image file (JPG, PNG, WebP).');
+                                                    return;
+                                                  }
+                                                  if (await verifyFileContent(file)) {
                                                     e.target.value = '';
                                                     return;
                                                   }
@@ -8142,7 +9340,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <button type="submit" className="btn btn-primary" style={{ padding: '10px 24px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: '600' }} disabled={!!uploadProgress}>
                             {uploadProgress ? (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                <i className="fa-solid fa-circle-notch fa-spin"></i> {uploadProgress}
+                                <i className="fa-solid fa-circle-notch fa-spin"></i> {editingCourse ? 'Updating...' : 'Uploading...'}
                               </span>
                             ) : (
                               editingCourse ? 'Update Course' : 'Submit Course'
@@ -8236,17 +9434,22 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   <div className="table-container">
                     <PaginatedTable
-                      headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Uploaded By', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Assigned Admin', 'Uploaded By', t('admin.tableActions')]}
+                      headers={hideAssignAdminColumn ? ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'Uploaded By', t('admin.tableActions')] : ['Thumbnail', t('admin.uploadTitle'), t('admin.tableCategory'), t('admin.tableViews'), 'Visibility', 'ASSIGN AUTHOR', 'Uploaded By', t('admin.tableActions')]}
                       data={activeTableData}
                       loading={loading}
                       emptyMessage={isAuthorAdminUser ? (videoSubTab === 'my_videos' ? 'No personal uploaded videos found' : 'No assigned videos found') : 'No uploaded videos found'}
                       renderRow={(video, index) => {
-                        const hasThumbnail = video.thumbnail && typeof video.thumbnail === 'string';
-                        const thumbUrl = hasThumbnail 
-                          ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5000${video.thumbnail}`) 
-                          : 'https://placehold.co/180x101?text=No+Thumbnail';
+                        const thumbUrl = resolveThumbnailUrl(video) || 'https://placehold.co/180x101?text=No+Thumbnail';
                         const isPublic = String(video.visibility || '').toLowerCase() === 'scheduler' || String(video.visibility || '').toLowerCase() === 'public';
+                        const clientName = isSuperAdminView ? (video.client_name || video.clientName || video.client || '') : '';
                         const uploadedByVal = video.uploaded_by || video.uploaded_by_name || video.uploadedBy || video.author_name || video.creator_name || video.author || video.created_by || '-';
+                        const rawVideoSource = String(
+                          video.video_source !== undefined ? video.video_source :
+                          (video.videoSource !== undefined ? video.videoSource :
+                          (video.video_scope !== undefined ? video.video_scope : ''))
+                        ).trim();
+                        const isVideoSource1 = rawVideoSource === '1';
+                        const isRestrictedForUser = !isSuperAdminView && isVideoSource1;
                         return (
                           <tr key={video.id || index} onClick={() => setReviewVideo(video)} style={{ cursor: 'pointer' }}>
                             <td>
@@ -8254,15 +9457,26 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 src={thumbUrl} 
                                 alt={video.title || 'Video'} 
                                 style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
+                                }}
                               />
                             </td>
                             <td style={{ fontWeight: 600 }}>{video.title || 'Untitled'}</td>
                             <td>{video.category || 'Uncategorized'}</td>
                             <td>{video.views || 0}</td>
                             <td>
-                              <span className={`badge ${isPublic ? 'badge-active' : 'badge-disabled'}`}>
-                                {String(video.visibility || 'Public').toUpperCase()}
-                              </span>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span className={`badge ${isPublic ? 'badge-active' : 'badge-disabled'}`}>
+                                  {String(video.visibility || 'Public').toUpperCase()}
+                                </span>
+                                {!isPublic && Boolean(clientName) && (
+                                  <span style={{ fontSize: '11px', color: 'var(--text-secondary, #64748b)', fontWeight: 500, textTransform: 'lowercase' }}>
+                                    {String(clientName).toLowerCase()}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             {!hideAssignAdminColumn && (
                               <td style={{ color: 'var(--accent-secondary)', fontWeight: 500 }}>
@@ -8277,7 +9491,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <button 
                                   onClick={() => handleEditVideo(video)}
                                   className="btn btn-warning"
-                                  style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  title={isRestrictedForUser ? 'Platform Video (Source 1): View only' : 'Edit'}
+                                  style={{
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    backgroundColor: isRestrictedForUser ? '#94a3b8' : '#f59e0b',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: isRestrictedForUser ? 'not-allowed' : 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    opacity: isRestrictedForUser ? 0.65 : 1
+                                  }}
                                 >
                                   ✏️ Edit
                                 </button>
@@ -8301,9 +9528,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                   );
                                 })()}
                                 <button 
-                                  onClick={() => handleDeleteVideo(video.id)}
+                                  onClick={() => handleDeleteVideo(video)}
                                   className="btn"
-                                  style={{ padding: '6px 12px', fontSize: '12px', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                                  title={isRestrictedForUser ? 'Platform Video (Source 1): View only' : t('admin.deleteBtn')}
+                                  style={{
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    border: 'none',
+                                    backgroundColor: isRestrictedForUser ? 'rgba(148, 163, 184, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                                    color: isRestrictedForUser ? '#94a3b8' : '#ef4444',
+                                    cursor: isRestrictedForUser ? 'not-allowed' : 'pointer',
+                                    opacity: isRestrictedForUser ? 0.65 : 1
+                                  }}
                                 >
                                   {t('admin.deleteBtn')}
                                 </button>
@@ -8400,17 +9636,24 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   <div className="table-container">
                     <PaginatedTable
-                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Assigned Admin', 'Actions']}
+                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'ASSIGN AUTHOR', 'Actions']}
                       data={validCourseData}
                       loading={loadingCourses}
                       emptyMessage={isAuthorAdminUser ? (courseSubTab === 'my_courses' ? 'No personal courses found' : 'No assigned courses found') : 'No data available'}
                       renderRow={(course, index) => {
                         const displayTitle = course.course_title || course.title || 'Untitled Course';
-                        let courseBanner = decryptUrl(course.banner || course.banner_image || course.thumbnail || course.thumbnailUrl || course.thumbnail_image || '');
-                        if (courseBanner && !courseBanner.startsWith('http') && !courseBanner.startsWith('data:') && !courseBanner.startsWith('blob:')) {
-                          courseBanner = `http://localhost:5000${courseBanner.startsWith('/') ? '' : '/'}${courseBanner}`;
-                        }
+                        let courseBanner = resolveMediaUrl(course.banner || course.banner_image || course.thumbnail || course.thumbnailUrl || course.thumbnail_image || '');
                         
+                        const rawCourseSource = String(
+                          course.video_source !== undefined ? course.video_source :
+                          (course.videoSource !== undefined ? course.videoSource :
+                          (course.video_scope !== undefined ? course.video_scope :
+                          (course.course_source !== undefined ? course.course_source :
+                          (course.courseSource !== undefined ? course.courseSource : ''))))
+                        ).trim();
+                        const isCourseSource1 = rawCourseSource === '1';
+                        const isRestrictedCourse = !isSuperAdminView && isCourseSource1;
+
                         // Safely resolve chapters count
                         const chaptersCount = Array.isArray(course.chapters)
                           ? course.chapters.length
@@ -8455,7 +9698,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 <button 
                                   className="btn btn-warning"
-                                  style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  title={isRestrictedCourse ? 'Platform Course (Source 1): View only' : 'Edit Course'}
+                                  style={{
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    backgroundColor: isRestrictedCourse ? '#94a3b8' : '#f59e0b',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: isRestrictedCourse ? 'not-allowed' : 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    opacity: isRestrictedCourse ? 0.65 : 1
+                                  }}
                                   onClick={() => handleEditCourse(course)}
                                 >
                                   ✏️ Edit
@@ -8479,6 +9735,22 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                     </button>
                                   );
                                 })()}
+                                <button 
+                                  className="btn"
+                                  title={isRestrictedCourse ? 'Platform Course (Source 1): View only' : t('admin.deleteBtn', 'Delete')}
+                                  style={{
+                                    padding: '6px 12px',
+                                    fontSize: '12px',
+                                    border: 'none',
+                                    backgroundColor: isRestrictedCourse ? 'rgba(148, 163, 184, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                                    color: isRestrictedCourse ? '#94a3b8' : '#ef4444',
+                                    cursor: isRestrictedCourse ? 'not-allowed' : 'pointer',
+                                    opacity: isRestrictedCourse ? 0.65 : 1
+                                  }}
+                                  onClick={() => handleDeleteCourse(course)}
+                                >
+                                  {t('admin.deleteBtn', 'Delete')}
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -8502,16 +9774,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                   <div className="table-container">
                     <PaginatedTable
-                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Assigned Admin', 'Actions']}
+                      headers={hideAssignAdminColumn ? ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'Actions'] : ['Banner', 'Course Title', 'Instructor', 'Category', 'Chapters', 'Lessons', 'ASSIGN AUTHOR', 'Actions']}
                       data={validDraftData}
                       showStatusFilter={false}
                       emptyMessage="No draft courses found"
                       renderRow={(draft, index) => {
                         const displayTitle = draft.course_title || draft.title || 'Untitled Draft';
-                        let courseBanner = decryptUrl(draft.banner || draft.banner_image || draft.thumbnail || draft.thumbnailUrl || draft.thumbnail_image || '');
-                        if (courseBanner && !courseBanner.startsWith('http') && !courseBanner.startsWith('data:') && !courseBanner.startsWith('blob:')) {
-                          courseBanner = `http://localhost:5000${courseBanner.startsWith('/') ? '' : '/'}${courseBanner}`;
-                        }
+                        let courseBanner = resolveMediaUrl(draft.banner || draft.banner_image || draft.thumbnail || draft.thumbnailUrl || draft.thumbnail_image || '');
                         
                         const chaptersCount = Array.isArray(draft.chapters)
                           ? draft.chapters.length
@@ -8673,7 +9942,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <div className="table-container">
                     <PaginatedTable
                       headers={['Sub Category Name', 'Parent Category', 'Description', 'Actions']}
-                      data={subCategories}
+                      data={deduplicateSubCategories(subCategories)}
                       emptyMessage="No sub categories found"
                       renderRow={(subCat, index) => {
                         const matchedCat = categories.find(c => 
@@ -9350,15 +10619,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', aspectRatio: '16/9', marginBottom: '16px' }}>
               <video 
                 src={(() => {
-                  const url = reviewVideo.videoUrl || reviewVideo.video_url;
+                  const url = resolveVideoUrl(reviewVideo);
                   if (!url || url.includes('commondatastorage.googleapis.com') || url.startsWith('/videos/')) {
-                    return 'https://www.w3schools.com/html/mov_bbb.mp4';
-                  }
-                  if (url.startsWith('/uploads')) {
-                    const ext = url.split('.').pop().toLowerCase();
-                    if (['mp4', 'webm', 'ogg'].includes(ext)) {
-                      return `http://localhost:5000${url}`;
-                    }
                     return 'https://www.w3schools.com/html/mov_bbb.mp4';
                   }
                   return url;
@@ -9800,10 +11062,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <div>
                 <h3 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <i className="fa-solid fa-user-gear" style={{ color: 'var(--accent-primary)', fontSize: '18px' }}></i>
-                  Assign Admins to {assignForm.itemType === 'video' ? 'Video' : 'Course'}
+                  Assign Authors to {assignForm.itemType === 'video' ? 'Video' : 'Course'}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '6px', marginBottom: 0 }}>
-                  Select administrators to grant access rights for <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{assignForm.title}</span>
+                  Select authors to grant access rights for <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{assignForm.title}</span>
                 </p>
               </div>
               <button 
@@ -9828,7 +11090,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               <div style={{ marginBottom: '14px', position: 'relative' }}>
                 <input 
                   type="text" 
-                  placeholder="🔍 Search admin by name..."
+                  placeholder="🔍 Search author by name..."
                   value={assignSearchQuery}
                   onChange={e => setAssignSearchQuery(e.target.value)}
                   className="form-input"
@@ -9871,7 +11133,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 0', gap: '10px', color: 'var(--text-secondary)', fontSize: '13px' }}>
                         <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '24px', color: 'var(--accent-primary)' }}></i>
-                        <span>Fetching Author Admins...</span>
+                        <span>Fetching Authors...</span>
                       </div>
                     );
                   }
@@ -9880,7 +11142,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     return (
                       <div style={{ textAlign: 'center', padding: '36px 16px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px dashed var(--border-color)' }}>
                         <i className="fa-solid fa-users-slash" style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.5, display: 'block' }}></i>
-                        No Author Admins found matching "{assignSearchQuery}".
+                        No Authors found matching "{assignSearchQuery}".
                       </div>
                     );
                   }
@@ -9961,7 +11223,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               {/* Modal Footer */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                  {assignForm.assignedAdminId ? '1 admin selected' : 'No admin selected'}
+                  {assignForm.assignedAdminId ? '1 author selected' : 'No author selected'}
                 </span>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary" style={{ padding: '8px 18px', fontSize: '13px' }}>
@@ -10436,7 +11698,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              border: `3px solid ${customAlert.type === 'success' ? '#1890ff' : '#f5222d'}`,
+              border: `3px solid ${customAlert.type === 'success' ? '#1890ff' : (customAlert.type === 'warning' ? '#f59e0b' : '#f5222d')}`,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
@@ -10445,6 +11707,12 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               {customAlert.type === 'success' ? (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1890ff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : customAlert.type === 'warning' ? (
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
               ) : (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f5222d" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
@@ -10456,7 +11724,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             <h3 style={{
               fontSize: '24px',
               fontWeight: 700,
-              color: customAlert.type === 'success' ? '#1890ff' : '#f5222d',
+              color: customAlert.type === 'success' ? '#1890ff' : (customAlert.type === 'warning' ? '#f59e0b' : '#f5222d'),
               margin: '0 0 12px 0'
             }}>
               {customAlert.title}
@@ -10475,7 +11743,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 if (customAlert.onConfirm) customAlert.onConfirm();
               }}
               style={{
-                background: customAlert.type === 'success' ? '#1890ff' : '#de2424',
+                background: customAlert.type === 'success' ? '#1890ff' : (customAlert.type === 'warning' ? '#f59e0b' : '#de2424'),
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
@@ -10504,31 +11772,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           left: 0,
           width: '100vw',
           height: '100vh',
-          backgroundColor: theme === 'light' ? 'rgba(15, 23, 42, 0.45)' : 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          backgroundColor: 'transparent',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 9999999,
           pointerEvents: 'all'
         }}>
-          <div className="glass-card animate-fade-in" style={{
-            padding: '40px 60px',
-            borderRadius: '20px',
-            backgroundColor: theme === 'light' ? '#ffffff' : '#161622',
-            boxShadow: theme === 'light'
-              ? '0 25px 60px rgba(0, 0, 0, 0.15), 0 0 25px rgba(229, 9, 20, 0.1)'
-              : '0 25px 70px rgba(0, 0, 0, 0.7), 0 0 35px rgba(229, 9, 20, 0.25)',
-            border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.15)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            maxWidth: '90vw',
-            minWidth: '320px'
-          }}>
-            <ThreeDLoader text={uploadProgress} theme={theme} />
-          </div>
+          <ThreeDLoader showText={false} theme={theme} />
         </div>
       )}
     </div>

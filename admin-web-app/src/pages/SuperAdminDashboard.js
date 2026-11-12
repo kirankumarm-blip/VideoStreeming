@@ -8,6 +8,35 @@ import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
+import { decryptUrl } from '../utils/crypto';
+
+const resolveMediaUrl = (rawUrl) => {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let url = decryptUrl(rawUrl).trim();
+  if (!url) return '';
+  url = url.replace(/([^:])\/\/+/g, '$1/');
+  if (url.includes('localhost:5000')) {
+    url = url.replace('localhost:5000', 'localhost:5050');
+  } else if (url.startsWith('/uploads')) {
+    url = `http://localhost:5050${url.startsWith('/') ? '' : '/'}${url}`;
+    url = url.replace(/([^:])\/\/+/g, '$1/');
+  }
+  return url;
+};
+
+const resolveThumbnailUrl = (item) => {
+  if (!item) return '';
+  if (typeof item === 'string') return resolveMediaUrl(item);
+  const raw = item.thumbnail || item.thumbnailUrl || item.thumbnail_url || item.thumbnail_image || item.thumbUrl || item.thumb || item.banner || item.banner_image || '';
+  return resolveMediaUrl(raw);
+};
+
+const resolveVideoUrl = (item) => {
+  if (!item) return '';
+  if (typeof item === 'string') return resolveMediaUrl(item);
+  const raw = item.videoUrl || item.video_url || item.url || item.video || item.streamUrl || item.stream_url || '';
+  return resolveMediaUrl(raw);
+};
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -16,6 +45,32 @@ const getFormattedSeconds = (sec) => {
   if (s >= 3600) return `${(s / 3600).toFixed(1)} hrs`;
   if (s >= 60) return `${Math.round(s / 60)} min`;
   return `${Math.round(s)} sec`;
+};
+
+const deduplicateSubCategories = (items) => {
+  if (!Array.isArray(items)) return [];
+  const seenIds = new Set();
+  const seenNames = new Set();
+  const result = [];
+  for (const item of items) {
+    if (!item) continue;
+    const idKey = String(item.id || item.sub_category_id || item.subcategory_id || '').trim();
+    const nameKey = String(item.name || item.sub_category_name || item.title || '').trim().toLowerCase();
+    const catKey = String(item.cat_id || item.category_id || item.catId || item.category || '').trim().toLowerCase();
+
+    if (idKey && seenIds.has(idKey)) {
+      continue;
+    }
+    const combinedKey = catKey ? (catKey + ":::" + nameKey) : nameKey;
+    if (nameKey && seenNames.has(combinedKey)) {
+      continue;
+    }
+
+    if (idKey) seenIds.add(idKey);
+    if (nameKey) seenNames.add(combinedKey);
+    result.push(item);
+  }
+  return result;
 };
 
 const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
@@ -947,20 +1002,33 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
   const fetchSubCategories = async () => {
     try {
-      const data = await api.vdcategories.getSubCategories();
-      let list = [];
-      if (Array.isArray(data)) {
-        list = data.map(item => item.json || item);
-      } else if (data && Array.isArray(data.data)) {
-        list = data.data.map(item => item.json || item);
-      } else if (data && typeof data === 'object') {
-        const arrayProp = Object.values(data).find(val => Array.isArray(val));
-        if (arrayProp) list = arrayProp.map(item => item.json || item);
-      }
-      setSubCategories(list);
+      const data = await api.vdcategories.listAllSubCategories();
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      const list = rawList.map(item => {
+        let jsonObj = {};
+        if (item && item.json) {
+          try {
+            jsonObj = typeof item.json === 'string' ? JSON.parse(item.json) : item.json;
+          } catch (err) {
+            jsonObj = {};
+          }
+        }
+        return {
+          ...item,
+          ...jsonObj,
+          id: String(item.id || jsonObj.id || item.sub_category_id || jsonObj.sub_category_id || ''),
+          name: item.name || jsonObj.name || item.sub_category_name || jsonObj.sub_category_name || '',
+          cat_id: String(item.cat_id || jsonObj.cat_id || item.category_id || jsonObj.category_id || item.catId || jsonObj.catId || ''),
+          description: item.description || jsonObj.description || item.desc || jsonObj.desc || item.details || jsonObj.details || item.sub_category_description || jsonObj.sub_category_description || ''
+        };
+      });
+      const uniqueList = deduplicateSubCategories(list);
+      setSubCategories(uniqueList);
+      return uniqueList;
     } catch (e) {
       console.error("Error fetching subcategories:", e);
       setSubCategories([]);
+      return [];
     }
   };
 
@@ -1038,6 +1106,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(adminForm.email)) {
       showError('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
+      return;
+    }
+    if (!adminForm.client_id || String(adminForm.client_id).trim() === '' || String(adminForm.client_id).trim() === '0') {
+      showError('Please select client');
       return;
     }
     if (!adminForm.mobile || !adminForm.mobile.trim()) {
@@ -1381,10 +1453,30 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         );
         showSuccess("Sub category created successfully!");
       }
+      const savedCatId = subCategoryForm.cat_id;
+      const savedName = cleanName;
+      const savedDesc = subCategoryForm.description ? subCategoryForm.description.trim() : '';
       setShowSubCategoryModal(false);
       setSubCategoryForm({ id: '', cat_id: '', name: '', description: '' });
       setEditingSubCategory(null);
-      fetchSubCategories();
+      const updatedList = await fetchSubCategories();
+      if (!editingSubCategory && Array.isArray(updatedList)) {
+        const exists = updatedList.some(s => 
+          String(s.name || '').trim().toLowerCase() === savedName.toLowerCase() &&
+          String(s.cat_id || s.category_id || '').toLowerCase() === String(savedCatId).toLowerCase()
+        );
+        if (!exists) {
+          const newItem = {
+            id: `subcat-${Date.now()}`,
+            name: savedName,
+            sub_category_name: savedName,
+            cat_id: String(savedCatId),
+            category_id: String(savedCatId),
+            description: savedDesc
+          };
+          setSubCategories(prev => deduplicateSubCategories([newItem, ...(prev || [])]));
+        }
+      }
     } catch (err) {
       console.error("SubCategory submission error:", err);
       const is410 = err?.status === 410 || 
@@ -1404,7 +1496,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     showConfirmDelete('Are you sure you want to delete this sub category?', async () => {
       try {
         await api.vdcategories.deleteSubCategory(id);
-        fetchSubCategories();
+        setSubCategories(prev => (prev || []).filter(s => String(s.id || s.sub_category_id) !== String(id)));
+        await fetchSubCategories();
         showSuccess("Sub category deleted successfully!");
       } catch (err) {
         showError(err.message || 'Failed to delete sub category');
@@ -1503,7 +1596,28 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       fetchClients();
     } catch (err) {
       console.error('Failed to submit client:', err);
-      showError(err?.message || 'Failed to save client');
+      const status = err?.status || err?.statusCode || err?.response?.status;
+      const msg = String(err?.message || '');
+
+      const is410 = status === 410 || 
+                    status === '410' || 
+                    msg.includes('410') || 
+                    msg.toLowerCase().includes('client already exist');
+
+      const is433 = status === 433 || 
+                    status === '433' || 
+                    msg.includes('433') || 
+                    msg.toLowerCase().includes('phone number already exist') ||
+                    msg.toLowerCase().includes('phone already exist') ||
+                    msg.toLowerCase().includes('mobile already exist');
+
+      if (is410) {
+        showError('Client already exist');
+      } else if (is433) {
+        showError('Phone number already exist');
+      } else {
+        showError(err?.message || 'Failed to save client');
+      }
     } finally {
       setClientFormLoading(false);
     }
@@ -2160,7 +2274,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         )}
 
         {loading ? (
-          <ThreeDLoader text="Loading telemetry core..." />
+          <ThreeDLoader showText={false} theme={theme} />
         ) : (
           <>
             {/* Embed Video Upload / Video Edit / Course Upload / All Courses / Course Draft / Video All / Categories / Sub Categories from AdminDashboard */}
@@ -2425,7 +2539,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <button 
                     onClick={() => {
                       setEditingAdmin(null);
-                      setAdminForm({ firstName: '', lastName: '', email: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
+                      setAdminForm({ firstName: '', lastName: '', email: '', client_id: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
                       setShowAdminModal(true);
                     }}
                     className="btn btn-primary"
@@ -3058,9 +3172,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       <tr key={v.id || index}>
                         <td>
                           <img 
-                            src={v.thumbnail && v.thumbnail.startsWith('http') ? v.thumbnail : (v.thumbnail ? `http://localhost:5000${v.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
+                            src={resolveThumbnailUrl(v) || 'https://placehold.co/180x101?text=No+Thumbnail'}
                             alt="Thumb" 
                             style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800'; }}
                           />
                         </td>
                         <td style={{ fontWeight: 600 }}>{v.title}</td>
@@ -3843,7 +3958,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', aspectRatio: '16/9', marginBottom: '16px' }}>
               <video 
                 src={(() => {
-                  const url = reviewVideo.video_url || reviewVideo.videoUrl;
+                  const url = resolveVideoUrl(reviewVideo);
                   if (!url) {
                     return 'https://www.w3schools.com/html/mov_bbb.mp4';
                   }

@@ -174,7 +174,7 @@ const LiveClassroom = () => {
       setLoading(true);
       const isHttps = window.location.protocol === 'https:';
       if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch(`http://localhost:5000/api/live-classes/${id}`);
+        const res = await fetch(`http://localhost:5050/api/live-classes/${id}`);
         if (res.ok) {
           const data = await res.json();
           setLiveClass(data);
@@ -401,7 +401,7 @@ const LiveClassroom = () => {
     const isHttps = window.location.protocol === 'https:';
     if (!isHttps || window.location.hostname === 'localhost') {
       try {
-        await fetch(`http://localhost:5000/api/live-classes/${id}/poll/vote`, {
+        await fetch(`http://localhost:5050/api/live-classes/${id}/poll/vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ optionId })
@@ -686,7 +686,7 @@ const LiveClassroom = () => {
                 liveClass.streamUrl && liveClass.streamUrl.startsWith('http')
                   ? liveClass.streamUrl
                   : (window.location.protocol !== 'https:'
-                      ? `http://localhost:5000${liveClass.streamUrl || '/uploads/video-1783335443739-730573726.mp4'}`
+                      ? `http://localhost:5050${liveClass.streamUrl || '/uploads/video-1783335443739-730573726.mp4'}`
                       : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')
               )}
               autoPlay
