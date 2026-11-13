@@ -17,7 +17,7 @@ import FAQ from './pages/FAQ';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
 import logoImg from './assets/logo.png';
-import { getCurrentUser, api } from './services/api';
+import { getCurrentUser, clearTokens, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
@@ -70,8 +70,10 @@ const AppLayout = ({ theme, setTheme }) => {
 
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
         sessionStorage.setItem('inactivityLoggedOut', 'true');
-        api.auth.logout(2);
+        clearTokens();
+        api.auth.logout(2).catch(() => {});
         window.location.hash = '/login';
+        window.location.reload();
       } else {
         const remainingTime = INACTIVITY_TIMEOUT_MS - timeSinceLastActivity;
         timeoutId = setTimeout(checkAndPerformAutoLogout, remainingTime);
@@ -97,6 +99,13 @@ const AppLayout = ({ theme, setTheme }) => {
           checkAndPerformAutoLogout();
         }
       }
+      if ((e.key === 'learner_user' || e.key === 'user' || e.key === 'accessToken') && !e.newValue) {
+        if (!window.location.hash.includes('/login') && !window.location.hash.includes('/signup')) {
+          sessionStorage.setItem('inactivityLoggedOut', 'true');
+          window.location.hash = '/login';
+          window.location.reload();
+        }
+      }
     };
 
     const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
@@ -112,7 +121,14 @@ const AppLayout = ({ theme, setTheme }) => {
 
     window.addEventListener('storage', handleStorageChange);
     activityEvents.forEach(event => window.addEventListener(event, handleUserActivity));
-    resetTimer();
+
+    // Check if session was already inactive on mount
+    const initialLastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
+    if (initialLastActivity && (Date.now() - initialLastActivity >= INACTIVITY_TIMEOUT_MS)) {
+      checkAndPerformAutoLogout();
+    } else {
+      resetTimer();
+    }
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);

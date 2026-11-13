@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, getCurrentUser } from '../services/api';
+import { api, getCurrentUser, clearTokens } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
 import { AppearancePopover } from './AppearanceCustomizer';
@@ -389,8 +389,10 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   };
 
   const handleLogout = () => {
-    api.auth.logout(1);
+    clearTokens();
+    api.auth.logout(1).catch(() => {});
     navigate('/login');
+    window.location.reload();
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;

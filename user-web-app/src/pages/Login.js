@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, clearTokens } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import logoImg from '../assets/logo.png';
@@ -218,9 +218,7 @@ const Login = ({ initialAuthMode }) => {
 
       showSuccess('OTP sent successfully', () => {
         // Clear existing tokens from storage until OTP is verified
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        clearTokens();
 
         if (rememberMe) {
           localStorage.setItem('rememberedEmail', email);
@@ -287,12 +285,7 @@ const Login = ({ initialAuthMode }) => {
                        rawRole === 4 || rawRole === '4' || strRole === 'author_admin' || strRole === 'author admin');
 
       if (isAdmin) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        localStorage.removeItem('learner_accessToken');
-        localStorage.removeItem('learner_refreshToken');
-        localStorage.removeItem('learner_user');
+        clearTokens();
         showError('Access denied: Admins must login via the Admin Portal.');
         setLoading(false);
         return;

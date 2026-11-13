@@ -4,24 +4,35 @@ const getBaseUrl = () => {
 
 // Helper to get tokens
 export const getAccessToken = () => {
-  let t = localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
+  let t = localStorage.getItem('learner_accessToken') || localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
   if (!t) {
     try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
       t = u.token || u.accessToken || u.jwt;
     } catch (e) {}
   }
   return t || null;
 };
-export const getRefreshToken = () => localStorage.getItem('refreshToken');
+export const getRefreshToken = () => localStorage.getItem('learner_refreshToken') || localStorage.getItem('refreshToken');
 export const setTokens = (accessToken, refreshToken) => {
   localStorage.setItem('accessToken', accessToken);
   localStorage.setItem('refreshToken', refreshToken);
+  localStorage.setItem('learner_accessToken', accessToken);
+  localStorage.setItem('learner_refreshToken', refreshToken);
 };
 export const clearTokens = () => {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
+  localStorage.removeItem('learner_accessToken');
+  localStorage.removeItem('learner_refreshToken');
+  localStorage.removeItem('learner_user');
+  localStorage.removeItem('token');
+  sessionStorage.removeItem('accessToken');
+  sessionStorage.removeItem('refreshToken');
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('user');
+  sessionStorage.removeItem('learner_user');
 };
 
 export const getCurrentUser = () => {
@@ -198,21 +209,40 @@ async function request(endpoint, options = {}) {
         // Retry original request with new token
         config.headers['Authorization'] = `Bearer ${data.accessToken}`;
         response = await fetch(url, config);
-      } else {
-        // Refresh token failed, logout user
-        clearTokens();
-        window.location.hash = '/login';
       }
     } catch (e) {
       console.error("Token refresh failed", e);
-      clearTokens();
-      window.location.hash = '/login';
     }
   }
 
+  const responseRawText = await response.text().catch(() => '');
+  let responseData = {};
+  try {
+    responseData = JSON.parse(responseRawText);
+  } catch (e) {
+    responseData = responseRawText;
+  }
+
+  const isNotLoggedIn = 
+    response.status === 401 ||
+    (typeof responseData === 'string' && responseData.toLowerCase().includes('not logged in')) ||
+    (responseData && typeof responseData === 'object' && String(responseData.message || responseData.error || '').toLowerCase().includes('not logged in'));
+
+  if (isNotLoggedIn && !url.includes('/login') && !url.includes('/otp') && !cleanEndpoint.includes('/auth/')) {
+    clearTokens();
+    const isAuthPage = window.location.hash.includes('/login') || window.location.hash.includes('/signup');
+    if (!isAuthPage) {
+      sessionStorage.setItem('inactivityLoggedOut', 'true');
+      window.location.hash = '/login';
+      window.location.reload();
+    }
+    const error = new Error('Session expired or not logged in.');
+    error.status = 401;
+    throw error;
+  }
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    let errMsg = errorData.message || errorData.error || `Request failed with status ${response.status}`;
+    let errMsg = (typeof responseData === 'object' && (responseData.message || responseData.error)) || (typeof responseData === 'string' && responseData) || `Request failed with status ${response.status}`;
     if (response.status === 430 || response.status === '430') {
       errMsg = 'Your account has been deactivated. Please contact your administrator for assistance.';
     }
@@ -221,8 +251,6 @@ async function request(endpoint, options = {}) {
     error.statusCode = response.status;
     throw error;
   }
-
-  const responseData = await response.json().catch(() => ({}));
   if (Array.isArray(responseData)) {
     // Determine if the URL or formStep/payload indicates a list
     const urlPath = cleanEndpoint.split('?')[0];

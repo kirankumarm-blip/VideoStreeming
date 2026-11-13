@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, api } from '../services/api';
+import { getCurrentUser, setCurrentUser, api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
 const Plans = () => {
@@ -126,7 +126,7 @@ const Plans = () => {
       const user = getCurrentUser() || {};
       user.user_plan = selectedPlanModal.planId;
       user.user_plan_id = selectedPlanModal.planId;
-      localStorage.setItem('user', JSON.stringify(user));
+      setCurrentUser(user);
 
       setToastMessage({
         type: 'success',
