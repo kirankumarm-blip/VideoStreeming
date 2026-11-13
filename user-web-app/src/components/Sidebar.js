@@ -18,9 +18,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         ? 'quiz' 
         : (location.pathname === '/certificates' 
           ? 'certificates' 
-          : (location.pathname === '/faq'
-            ? 'faq'
-            : (location.pathname === '/' ? (searchParams.get('view') || 'home') : '')))));
+          : (location.pathname === '/plans'
+            ? 'plans'
+            : (location.pathname === '/faq'
+              ? 'faq'
+              : (location.pathname === '/' ? (searchParams.get('view') || 'home') : ''))))));
 
   const menuItems = [
     {
@@ -85,6 +87,19 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: () => (
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      )
+    },
+    {
+      id: 'plans',
+      label: t('sidebar.plans', 'Subscription Plans'),
+      subLabel: t('sidebar.subPlans', 'Upgrade to Premium'),
+      path: '/plans',
+      badge: 'PRO',
+      badgeColor: '#f59e0b',
+      icon: () => (
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
         </svg>
       )
     },
@@ -248,10 +263,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '4px',
-          position: 'sticky',
-          top: '60px',
-          height: 'calc(100vh - 60px)',
+          position: 'relative',
+          height: '100%',
+          maxHeight: '100%',
           overflowY: 'auto',
+          scrollbarWidth: 'thin',
           transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           zIndex: 995,
           boxSizing: 'border-box'
@@ -371,78 +387,112 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* "Go Premium" Banner Card */}
-        <div style={{
-          marginTop: '16px',
-          padding: '14px',
-          borderRadius: '14px',
-          background: 'var(--premium-card-bg, linear-gradient(135deg, rgba(30, 27, 75, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%))',
-          border: '1px solid var(--premium-card-border, rgba(234, 179, 8, 0.3))',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          {/* Subtle sparkle graphic */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'rgba(234, 179, 8, 0.18)',
-              border: '1px solid rgba(234, 179, 8, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '16px'
+        <div 
+          onClick={() => {
+            navigate('/plans');
+            if (onClose) onClose();
+          }}
+          style={{
+            marginTop: '16px',
+            marginBottom: '4px',
+            padding: '16px 14px',
+            borderRadius: '16px',
+            background: 'var(--premium-card-bg, linear-gradient(135deg, rgba(30, 27, 75, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%))',
+            border: '1.5px solid var(--premium-card-border, rgba(234, 179, 8, 0.4))',
+            boxShadow: '0 6px 20px rgba(234, 179, 8, 0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            position: 'relative',
+            overflow: 'hidden',
+            flexShrink: 0,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(234, 179, 8, 0.7)'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--premium-card-border, rgba(234, 179, 8, 0.4))'}
+        >
+          {/* Top Row: Crown + Text + Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.15) 100%)',
+                border: '1.5px solid rgba(245, 158, 11, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+                flexShrink: 0
+              }}>
+                👑
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.2px' }}>
+                  Go Premium
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                  Unlock all features
+                </span>
+              </div>
+            </div>
+            <span style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: '20px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: '#000000',
+              letterSpacing: '0.5px'
             }}>
-              👑
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Go Premium
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Unlock all features
-              </span>
-            </div>
+              PRO
+            </span>
           </div>
 
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               navigate('/plans');
               if (onClose) onClose();
             }}
             style={{
               width: '100%',
-              padding: '8px 12px',
+              padding: '10px 14px',
               borderRadius: '10px',
               border: 'none',
               background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
               color: '#000000',
-              fontSize: '12px',
-              fontWeight: 700,
+              fontSize: '13px',
+              fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.25)',
-              transition: 'transform 0.15s ease'
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+              transition: 'all 0.15s ease'
             }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 6px 18px rgba(245, 158, 11, 0.45)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 14px rgba(245, 158, 11, 0.35)';
+            }}
           >
-            <span>Upgrade Now</span>
-            <span style={{ fontSize: '13px' }}>➔</span>
+            <span>Upgrade to Premium</span>
+            <span style={{ fontSize: '14px', fontWeight: 900 }}>➔</span>
           </button>
         </div>
 
         {/* Sidebar Footer Legal Links */}
         <div style={{
-          marginTop: '16px',
+          marginTop: '12px',
+          flexShrink: 0,
           padding: '12px 6px 0',
           borderTop: '1px solid var(--border-color)',
           display: 'flex',
