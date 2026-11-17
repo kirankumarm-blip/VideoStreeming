@@ -11,6 +11,12 @@ import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
+// Clean up any legacy password storage on application startup
+try {
+  localStorage.removeItem('rememberedPassword');
+  sessionStorage.removeItem('rememberedPassword');
+} catch (e) {}
+
 // Error boundary to prevent white screens if any subcomponent errors
 class ErrorBoundary extends React.Component {
   constructor(props) {

@@ -22,6 +22,12 @@ import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
+// Clean up any legacy password storage on application startup
+try {
+  localStorage.removeItem('rememberedPassword');
+  sessionStorage.removeItem('rememberedPassword');
+} catch (e) {}
+
 // Route protection for authenticated users
 const ProtectedRoute = ({ children }) => {
   const user = getCurrentUser();

@@ -28,11 +28,13 @@ export const clearTokens = () => {
   localStorage.removeItem('learner_refreshToken');
   localStorage.removeItem('learner_user');
   localStorage.removeItem('token');
+  localStorage.removeItem('rememberedPassword');
   sessionStorage.removeItem('accessToken');
   sessionStorage.removeItem('refreshToken');
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('user');
   sessionStorage.removeItem('learner_user');
+  sessionStorage.removeItem('rememberedPassword');
 };
 
 export const getCurrentUser = () => {

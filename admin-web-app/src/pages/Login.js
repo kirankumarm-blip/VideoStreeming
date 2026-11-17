@@ -211,11 +211,11 @@ const Login = () => {
 
         if (rememberMe) {
           localStorage.setItem('rememberedEmail', email);
-          localStorage.setItem('rememberedPassword', btoa(password));
         } else {
           localStorage.removeItem('rememberedEmail');
-          localStorage.removeItem('rememberedPassword');
         }
+        localStorage.removeItem('rememberedPassword');
+        sessionStorage.removeItem('rememberedPassword');
 
         setTempLoginData(res);
         setAuthMode('otp');
@@ -287,6 +287,8 @@ const Login = () => {
       localStorage.setItem('accessToken', token);
       localStorage.setItem('refreshToken', token);
       localStorage.setItem('user', JSON.stringify(finalUser));
+      localStorage.removeItem('rememberedPassword');
+      sessionStorage.removeItem('rememberedPassword');
       setSuccessMessage('');
       setTimerActive(false);
 
@@ -374,19 +376,17 @@ const Login = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   React.useEffect(() => {
+    // Automatically purge legacy saved passwords from browser storage
+    localStorage.removeItem('rememberedPassword');
+    sessionStorage.removeItem('rememberedPassword');
+
     const savedEmail = localStorage.getItem('rememberedEmail');
-    const savedPassword = localStorage.getItem('rememberedPassword');
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberMe(true);
     }
-    if (savedPassword) {
-      try {
-        setPassword(atob(savedPassword));
-      } catch (e) {
-        setPassword(savedPassword);
-      }
-    }
+    // Password field must always remain empty
+    setPassword('');
   }, []);
 
   React.useEffect(() => {
@@ -566,7 +566,35 @@ const Login = () => {
               </div>
             </div>
 
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                />
+                Remember me
+              </label>
 
+              <span
+                onClick={() => {
+                  setAuthMode('forgot');
+                  setForgotEmail(email);
+                  setError('');
+                  setSuccessMessage('');
+                }}
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--accent-primary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'none'
+                }}
+              >
+                {t('auth.forgotPassword') || 'Forgot Password?'}
+              </span>
+            </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%', marginBottom: '16px' }} disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}
