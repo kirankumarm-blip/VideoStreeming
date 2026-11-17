@@ -6,13 +6,23 @@ import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import LiveWebcasts from './pages/LiveWebcasts';
-import { getCurrentUser, api } from './services/api';
+import { getCurrentUser, getAccessToken, getRefreshToken, clearTokens, isValidToken, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
-// Clean up any legacy password storage on application startup
+// Clean up any legacy password storage or invalid tokens on application startup
 try {
+  const curAccess = localStorage.getItem('accessToken');
+  if (curAccess && (!curAccess.trim() || curAccess === 'undefined' || curAccess === 'null')) {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('admin_accessToken');
+  }
+  const curRefresh = localStorage.getItem('refreshToken');
+  if (curRefresh && (!curRefresh.trim() || curRefresh === 'undefined' || curRefresh === 'null')) {
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('admin_refreshToken');
+  }
   localStorage.removeItem('rememberedPassword');
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
@@ -128,7 +138,9 @@ class ErrorBoundary extends React.Component {
 // Route protection for authenticated users
 const ProtectedRoute = ({ children }) => {
   const user = getCurrentUser();
-  if (!user) {
+  const token = getRefreshToken() || getAccessToken();
+  if (!user || !isValidToken(token)) {
+    clearTokens();
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -137,7 +149,9 @@ const ProtectedRoute = ({ children }) => {
 // Route protection based on user roles
 const RoleRoute = ({ children, allowedRoles }) => {
   const user = getCurrentUser();
-  if (!user) {
+  const token = getRefreshToken() || getAccessToken();
+  if (!user || !isValidToken(token)) {
+    clearTokens();
     return <Navigate to="/login" replace />;
   }
   const userRole = String(user.role || user.role_id || '').toLowerCase();
@@ -337,7 +351,11 @@ const AppLayout = ({ theme, setTheme }) => {
 // Helper component to redirect authenticated user to their role-specific dashboard
 const DashboardRedirect = () => {
   const user = getCurrentUser();
-  if (!user) return <Navigate to="/login" replace />;
+  const token = getRefreshToken() || getAccessToken();
+  if (!user || !isValidToken(token)) {
+    clearTokens();
+    return <Navigate to="/login" replace />;
+  }
   const r = String(user.role || user.role_id || '').toLowerCase();
   const rawRole = user.role ?? user.role_id;
   if (r === 'super_admin' || r === '1' || rawRole === 1 || rawRole === '1' || r === 'superadmin') {

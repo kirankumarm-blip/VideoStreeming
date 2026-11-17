@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, clearTokens, isValidToken } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import logoImg from '../assets/logo.png';
@@ -268,21 +268,49 @@ const Login = () => {
       const loginData = (rawLogin && typeof rawLogin === 'object' && 'json' in rawLogin) ? rawLogin.json : rawLogin;
       const userObj = resData.user || loginData.user || null;
       
-      // Access token: use new accessToken from login response or otp response (JWT)
-      const accessToken = resData.accessToken || 
-                          loginData.accessToken || 
-                          resData.jwt || 
-                          loginData.jwt || 
-                          resData.token || 
-                          loginData.token || 
-                          'session-access-' + Date.now();
+      // Prefer token issued after successful OTP verification, falling back to login response
+      let finalAccessToken = null;
+      let finalRefreshToken = null;
 
-      // Refresh token: keep as token from response as before
-      const refreshToken = resData.token || 
-                           loginData.token || 
-                           resData.refreshToken || 
-                           loginData.refreshToken || 
-                           accessToken;
+      if (isValidToken(resData.accessToken)) {
+        finalAccessToken = resData.accessToken.trim();
+      } else if (isValidToken(loginData.accessToken)) {
+        finalAccessToken = loginData.accessToken.trim();
+      } else if (isValidToken(resData.jwt)) {
+        finalAccessToken = resData.jwt.trim();
+      } else if (isValidToken(loginData.jwt)) {
+        finalAccessToken = loginData.jwt.trim();
+      }
+
+      if (isValidToken(resData.token)) {
+        finalRefreshToken = resData.token.trim();
+      } else if (isValidToken(resData.refreshToken)) {
+        finalRefreshToken = resData.refreshToken.trim();
+      } else if (isValidToken(loginData.token)) {
+        finalRefreshToken = loginData.token.trim();
+      } else if (isValidToken(loginData.refreshToken)) {
+        finalRefreshToken = loginData.refreshToken.trim();
+      }
+
+      if (!finalAccessToken && finalRefreshToken) {
+        finalAccessToken = finalRefreshToken;
+      }
+      if (!finalRefreshToken && finalAccessToken) {
+        finalRefreshToken = finalAccessToken;
+      }
+
+      // Reject undefined, null, empty strings, whitespace-only values, literal "undefined" or "null"
+      if (!isValidToken(finalAccessToken) || !isValidToken(finalRefreshToken)) {
+        clearTokens();
+        try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
+        showError('Login failed: Authentication token was not received. Please try again.');
+        setError('Login failed: Authentication token was not received. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      const accessToken = finalAccessToken;
+      const refreshToken = finalRefreshToken;
 
       const rawRole = resData.role ?? resData.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (loginData.role ?? loginData.role_id ?? '');
       const strRole = String(rawRole || '').trim().toLowerCase();

@@ -17,13 +17,23 @@ import FAQ from './pages/FAQ';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
 import logoImg from './assets/logo.png';
-import { getCurrentUser, clearTokens, api } from './services/api';
+import { getCurrentUser, getAccessToken, getRefreshToken, clearTokens, isValidToken, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
-// Clean up any legacy password storage on application startup
+// Clean up any legacy password storage or invalid tokens on application startup
 try {
+  const curAccess = localStorage.getItem('accessToken');
+  if (curAccess && (!curAccess.trim() || curAccess === 'undefined' || curAccess === 'null')) {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('learner_accessToken');
+  }
+  const curRefresh = localStorage.getItem('refreshToken');
+  if (curRefresh && (!curRefresh.trim() || curRefresh === 'undefined' || curRefresh === 'null')) {
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('learner_refreshToken');
+  }
   localStorage.removeItem('rememberedPassword');
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
@@ -63,7 +73,9 @@ try {
 // Route protection for authenticated users
 const ProtectedRoute = ({ children }) => {
   const user = getCurrentUser();
-  if (!user) {
+  const token = getRefreshToken() || getAccessToken();
+  if (!user || !isValidToken(token)) {
+    clearTokens();
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -72,7 +84,9 @@ const ProtectedRoute = ({ children }) => {
 // Route protection based on user roles
 const RoleRoute = ({ children, allowedRoles }) => {
   const user = getCurrentUser();
-  if (!user) {
+  const token = getRefreshToken() || getAccessToken();
+  if (!user || !isValidToken(token)) {
+    clearTokens();
     return <Navigate to="/login" replace />;
   }
   const role = String(user.role || '').toLowerCase();
@@ -350,7 +364,11 @@ class ErrorBoundary extends React.Component {
 // Helper component to redirect authenticated user to their role-specific dashboard
 const DashboardRedirect = () => {
   const user = getCurrentUser();
-  if (!user) return <Navigate to="/login" replace />;
+  const token = getRefreshToken() || getAccessToken();
+  if (!user || !isValidToken(token)) {
+    clearTokens();
+    return <Navigate to="/login" replace />;
+  }
   const role = String(user.role || '').toLowerCase();
   const isLearner = role === 'user' || role === 'student' || role === 'end_user' || role === 'learner' || role === '3';
   if (!isLearner) return <Navigate to="/login" replace />;

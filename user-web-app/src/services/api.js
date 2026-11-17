@@ -2,35 +2,51 @@ const getBaseUrl = () => {
   return 'https://uat-02-admin-api.darpanx.com/webhook';
 };
 
+// Token validation helper
+export const isValidToken = (token) => {
+  if (!token || typeof token !== 'string') return false;
+  const trimmed = token.trim();
+  if (
+    !trimmed || 
+    trimmed === 'undefined' || 
+    trimmed === 'null' || 
+    trimmed.toLowerCase() === 'undefined' || 
+    trimmed.toLowerCase() === 'null'
+  ) {
+    return false;
+  }
+  return true;
+};
+
 // Helper to get tokens
 export const getAccessToken = () => {
   let t = localStorage.getItem('learner_accessToken') || localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
-  if (!t) {
+  if (!isValidToken(t)) {
     try {
       const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
       t = u.accessToken || u.token || u.jwt;
     } catch (e) {}
   }
-  return t || null;
+  return isValidToken(t) ? t.trim() : null;
 };
 export const getRefreshToken = () => {
   let t = localStorage.getItem('learner_refreshToken') || localStorage.getItem('refreshToken') || localStorage.getItem('token');
-  if (!t) {
+  if (!isValidToken(t)) {
     try {
       const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
       t = u.refreshToken || u.token;
     } catch (e) {}
   }
-  return t || null;
+  return isValidToken(t) ? t.trim() : null;
 };
 export const setTokens = (accessToken, refreshToken) => {
-  if (accessToken) {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('learner_accessToken', accessToken);
+  if (isValidToken(accessToken)) {
+    localStorage.setItem('accessToken', accessToken.trim());
+    localStorage.setItem('learner_accessToken', accessToken.trim());
   }
-  if (refreshToken) {
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('learner_refreshToken', refreshToken);
+  if (isValidToken(refreshToken)) {
+    localStorage.setItem('refreshToken', refreshToken.trim());
+    localStorage.setItem('learner_refreshToken', refreshToken.trim());
   }
 };
 export const clearTokens = () => {
@@ -53,6 +69,10 @@ export const clearTokens = () => {
 
 export const getCurrentUser = () => {
   try {
+    const token = getRefreshToken() || getAccessToken();
+    if (!isValidToken(token)) {
+      return null;
+    }
     const learnerUser = JSON.parse(localStorage.getItem('learner_user'));
     if (learnerUser) return learnerUser;
     const u = JSON.parse(localStorage.getItem('user'));
@@ -178,8 +198,22 @@ async function request(endpoint, options = {}) {
 
   // Attach Authorization Bearer token header: using refreshToken only, not access token
   const token = getRefreshToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (isValidToken(token)) {
+    headers['Authorization'] = `Bearer ${token.trim()}`;
+  } else {
+    delete headers['Authorization'];
+  }
+  if (headers['Authorization']) {
+    const authVal = String(headers['Authorization']).trim();
+    if (
+      authVal === 'Bearer' ||
+      authVal === 'Bearer undefined' ||
+      authVal === 'Bearer null' ||
+      authVal.toLowerCase() === 'bearer undefined' ||
+      authVal.toLowerCase() === 'bearer null'
+    ) {
+      delete headers['Authorization'];
+    }
   }
 
   // Set Content-Type only if it's not a FormData (multer handles boundary)
