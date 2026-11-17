@@ -110,22 +110,49 @@ const AppLayout = ({ theme, setTheme }) => {
   const isLegalOrPublicPage = ['/faq', '/privacy', '/terms'].includes(location.pathname);
 
   // 10 minutes inactivity auto-logout listener with Cross-Tab Sync
+  // Prevent browser Back navigation from restoring protected views after logout
+  useEffect(() => {
+    const handleNavigationSecurity = () => {
+      const activeUser = getCurrentUser();
+      const activeToken = getRefreshToken() || getAccessToken();
+      const currentHash = window.location.hash || '';
+      const isPublic = currentHash.includes('/login') || currentHash.includes('/signup') || currentHash.includes('/forgot-password') || currentHash.includes('/reset-password') || currentHash.includes('/faq') || currentHash.includes('/privacy') || currentHash.includes('/terms');
+      if (!isPublic && (!activeUser || !isValidToken(activeToken))) {
+        clearTokens();
+        window.history.replaceState(null, '', window.location.pathname + '#/login');
+        window.location.hash = '/login';
+      }
+    };
+    window.addEventListener('popstate', handleNavigationSecurity);
+    window.addEventListener('hashchange', handleNavigationSecurity);
+    return () => {
+      window.removeEventListener('popstate', handleNavigationSecurity);
+      window.removeEventListener('hashchange', handleNavigationSecurity);
+    };
+  }, []);
+
   useEffect(() => {
     if (!user || isAuthPage) return;
 
     const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
     let timeoutId = null;
 
-    const checkAndPerformAutoLogout = () => {
+    const checkAndPerformAutoLogout = async () => {
       const lastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
       const timeSinceLastActivity = Date.now() - lastActivity;
 
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
         sessionStorage.setItem('inactivityLoggedOut', 'true');
-        clearTokens();
-        api.auth.logout(2).catch(() => {});
-        window.location.hash = '/login';
-        window.location.reload();
+        try {
+          await api.auth.logout(2);
+        } catch (err) {
+          console.error('Auto logout error', err);
+        } finally {
+          clearTokens();
+          window.history.replaceState(null, '', window.location.pathname + '#/login');
+          window.location.hash = '/login';
+          window.location.reload();
+        }
       } else {
         const remainingTime = INACTIVITY_TIMEOUT_MS - timeSinceLastActivity;
         timeoutId = setTimeout(checkAndPerformAutoLogout, remainingTime);

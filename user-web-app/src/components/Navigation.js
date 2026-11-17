@@ -388,11 +388,18 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
     setTheme(nextTheme);
   };
 
-  const handleLogout = () => {
-    clearTokens();
-    api.auth.logout(1).catch(() => {});
-    navigate('/login');
-    window.location.reload();
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout(1);
+    } catch (err) {
+      console.error('Logout error', err);
+    } finally {
+      clearTokens();
+      window.history.replaceState(null, '', window.location.pathname + '#/login');
+      navigate('/login', { replace: true });
+      window.location.hash = '/login';
+      window.location.reload();
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;

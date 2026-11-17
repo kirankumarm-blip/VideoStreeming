@@ -18,25 +18,21 @@ export const isValidToken = (token) => {
   return true;
 };
 
-// Helper to get tokens
+// Helper to get tokens - strictly from dedicated token storage, never resurrected from user profiles
 export const getAccessToken = () => {
-  let t = localStorage.getItem('learner_accessToken') || localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
-  if (!isValidToken(t)) {
-    try {
-      const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
-      t = u.accessToken || u.token || u.jwt;
-    } catch (e) {}
-  }
+  const t = localStorage.getItem('learner_accessToken') || 
+            localStorage.getItem('accessToken') || 
+            localStorage.getItem('token') || 
+            sessionStorage.getItem('accessToken') || 
+            sessionStorage.getItem('token');
   return isValidToken(t) ? t.trim() : null;
 };
 export const getRefreshToken = () => {
-  let t = localStorage.getItem('learner_refreshToken') || localStorage.getItem('refreshToken') || localStorage.getItem('token');
-  if (!isValidToken(t)) {
-    try {
-      const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
-      t = u.refreshToken || u.token;
-    } catch (e) {}
-  }
+  const t = localStorage.getItem('learner_refreshToken') || 
+            localStorage.getItem('refreshToken') || 
+            localStorage.getItem('token') || 
+            sessionStorage.getItem('refreshToken') || 
+            sessionStorage.getItem('token');
   return isValidToken(t) ? t.trim() : null;
 };
 export const setTokens = (accessToken, refreshToken) => {
@@ -50,13 +46,17 @@ export const setTokens = (accessToken, refreshToken) => {
   }
 };
 export const clearTokens = () => {
+  // Centralized authentication cleanup: clears all credentials and cached session identifiers
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
+  localStorage.removeItem('learner_user');
   localStorage.removeItem('learner_accessToken');
   localStorage.removeItem('learner_refreshToken');
-  localStorage.removeItem('learner_user');
   localStorage.removeItem('token');
+  localStorage.removeItem('admin_user');
+  localStorage.removeItem('admin_accessToken');
+  localStorage.removeItem('admin_refreshToken');
   localStorage.removeItem('rememberedPassword');
   localStorage.removeItem('lastUserActivity');
   sessionStorage.removeItem('accessToken');
@@ -64,19 +64,22 @@ export const clearTokens = () => {
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('user');
   sessionStorage.removeItem('learner_user');
+  sessionStorage.removeItem('admin_user');
+  sessionStorage.removeItem('tempLoginData');
   sessionStorage.removeItem('rememberedPassword');
 };
 
 export const getCurrentUser = () => {
   try {
+    // Cached user details alone are NEVER treated as proof of authentication
     const token = getRefreshToken() || getAccessToken();
     if (!isValidToken(token)) {
       return null;
     }
-    const learnerUser = JSON.parse(localStorage.getItem('learner_user'));
-    if (learnerUser) return learnerUser;
-    const u = JSON.parse(localStorage.getItem('user'));
-    if (!u) return null;
+    const rawUser = localStorage.getItem('learner_user') || localStorage.getItem('user');
+    if (!rawUser) return null;
+    const u = JSON.parse(rawUser);
+    if (!u || typeof u !== 'object') return null;
     const role = String(u.role || u.role_id || '').toLowerCase();
     // If the active user in localStorage is an admin, it's not a learner session
     if (role === 'admin' || role === 'super_admin' || role === 'author_admin' || role === 'author admin' || role === '4' || role === '1') {
@@ -569,21 +572,25 @@ export const api = {
         body: formData, // FormData contains name, mobile, and optional avatar file
       });
     },
-    logout: (logoutType = 1) => {
-      const activeToken = getAccessToken();
+    logout: async (logoutType = 1) => {
+      const activeToken = getAccessToken() || getRefreshToken();
       const deviceDetails = getDeviceDetails();
-      if (activeToken) {
-        request('/logout', {
-          method: 'POST',
-          body: JSON.stringify({ 
-            formStep: 'logout', 
-            logout_type: logoutType,
-            device_type: deviceDetails.device_type,
-            device_model: deviceDetails.device_model,
-            brand: deviceDetails.brand,
-            device_info: deviceDetails.device_info
-          })
-        }).catch(err => console.error("Backend logout error", err));
+      if (activeToken && isValidToken(activeToken)) {
+        try {
+          await request('/logout', {
+            method: 'POST',
+            body: JSON.stringify({ 
+              formStep: 'logout', 
+              logout_type: logoutType,
+              device_type: deviceDetails.device_type,
+              device_model: deviceDetails.device_model,
+              brand: deviceDetails.brand,
+              device_info: deviceDetails.device_info
+            })
+          });
+        } catch (err) {
+          console.error("Backend logout error", err);
+        }
       }
       clearTokens();
       return Promise.resolve();

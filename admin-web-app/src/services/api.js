@@ -20,23 +20,19 @@ export const isValidToken = (token) => {
 
 // Helper to get tokens
 export const getAccessToken = () => {
-  let t = localStorage.getItem('admin_accessToken') || localStorage.getItem('accessToken') || localStorage.getItem('token') || sessionStorage.getItem('accessToken') || sessionStorage.getItem('token');
-  if (!isValidToken(t)) {
-    try {
-      const u = JSON.parse(localStorage.getItem('admin_user') || localStorage.getItem('user') || '{}');
-      t = u.accessToken || u.token || u.jwt;
-    } catch (e) {}
-  }
+  const t = localStorage.getItem('admin_accessToken') || 
+            localStorage.getItem('accessToken') || 
+            localStorage.getItem('token') || 
+            sessionStorage.getItem('accessToken') || 
+            sessionStorage.getItem('token');
   return isValidToken(t) ? t.trim() : null;
 };
 export const getRefreshToken = () => {
-  let t = localStorage.getItem('admin_refreshToken') || localStorage.getItem('refreshToken') || localStorage.getItem('token');
-  if (!isValidToken(t)) {
-    try {
-      const u = JSON.parse(localStorage.getItem('admin_user') || localStorage.getItem('user') || '{}');
-      t = u.refreshToken || u.token;
-    } catch (e) {}
-  }
+  const t = localStorage.getItem('admin_refreshToken') || 
+            localStorage.getItem('refreshToken') || 
+            localStorage.getItem('token') || 
+            sessionStorage.getItem('refreshToken') || 
+            sessionStorage.getItem('token');
   return isValidToken(t) ? t.trim() : null;
 };
 export const setTokens = (accessToken, refreshToken) => {
@@ -56,8 +52,19 @@ export const clearTokens = () => {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
+  localStorage.removeItem('learner_user');
+  localStorage.removeItem('learner_accessToken');
+  localStorage.removeItem('learner_refreshToken');
+  localStorage.removeItem('token');
   localStorage.removeItem('rememberedPassword');
   localStorage.removeItem('lastUserActivity');
+  sessionStorage.removeItem('accessToken');
+  sessionStorage.removeItem('refreshToken');
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('user');
+  sessionStorage.removeItem('admin_user');
+  sessionStorage.removeItem('learner_user');
+  sessionStorage.removeItem('tempLoginData');
   sessionStorage.removeItem('rememberedPassword');
 };
 
