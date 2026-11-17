@@ -13,7 +13,16 @@ export const getAccessToken = () => {
   }
   return t || null;
 };
-export const getRefreshToken = () => localStorage.getItem('learner_refreshToken') || localStorage.getItem('refreshToken');
+export const getRefreshToken = () => {
+  let t = localStorage.getItem('learner_refreshToken') || localStorage.getItem('refreshToken') || localStorage.getItem('token');
+  if (!t) {
+    try {
+      const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
+      t = u.refreshToken || u.token;
+    } catch (e) {}
+  }
+  return t || null;
+};
 export const setTokens = (accessToken, refreshToken) => {
   if (accessToken) {
     localStorage.setItem('accessToken', accessToken);
@@ -167,8 +176,8 @@ async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
-  // Attach Authorization Bearer token header if exists in storage
-  const token = getAccessToken();
+  // Attach Authorization Bearer token header: using refreshToken only, not access token
+  const token = getRefreshToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -214,7 +223,7 @@ async function request(endpoint, options = {}) {
         setTokens(data.accessToken, data.refreshToken);
         
         // Retry original request with new token
-        config.headers['Authorization'] = `Bearer ${data.accessToken}`;
+        config.headers['Authorization'] = `Bearer ${data.refreshToken || data.token || getRefreshToken()}`;
         response = await fetch(url, config);
       }
     } catch (e) {
@@ -361,7 +370,7 @@ async function uploadRequest(endpoint, options = {}) {
   const headers = {
     ...options.headers,
   };
-  const token = getAccessToken();
+  const token = getRefreshToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -814,7 +823,7 @@ export const api = {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
       const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
-      const token = getAccessToken();
+      const token = getRefreshToken();
       const bodyObj = {
         ...payload,
         formStep: 'uploadVideo'
