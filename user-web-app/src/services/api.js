@@ -33,6 +33,7 @@ export const clearTokens = () => {
   localStorage.removeItem('learner_user');
   localStorage.removeItem('token');
   localStorage.removeItem('rememberedPassword');
+  localStorage.removeItem('lastUserActivity');
   sessionStorage.removeItem('accessToken');
   sessionStorage.removeItem('refreshToken');
   sessionStorage.removeItem('token');
@@ -234,7 +235,9 @@ async function request(endpoint, options = {}) {
     (typeof responseData === 'string' && responseData.toLowerCase().includes('not logged in')) ||
     (responseData && typeof responseData === 'object' && String(responseData.message || responseData.error || '').toLowerCase().includes('not logged in'));
 
-  if (isNotLoggedIn && !url.includes('/login') && !url.includes('/otp') && !cleanEndpoint.includes('/auth/')) {
+  const lastAct = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
+  const isFreshLogin = lastAct && (Date.now() - lastAct < 15000); // 15 second grace period
+  if (isNotLoggedIn && !isFreshLogin && !url.includes('/login') && !url.includes('/otp') && !cleanEndpoint.includes('/auth/')) {
     clearTokens();
     const isAuthPage = window.location.hash.includes('/login') || window.location.hash.includes('/signup');
     if (!isAuthPage) {

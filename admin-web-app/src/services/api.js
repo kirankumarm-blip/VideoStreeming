@@ -32,6 +32,7 @@ export const clearTokens = () => {
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
   localStorage.removeItem('rememberedPassword');
+  localStorage.removeItem('lastUserActivity');
   sessionStorage.removeItem('rememberedPassword');
 };
 

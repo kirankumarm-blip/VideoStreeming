@@ -342,12 +342,14 @@ const Login = ({ initialAuthMode }) => {
       try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
       localStorage.setItem('user', JSON.stringify(finalUser));
       localStorage.setItem('learner_user', JSON.stringify(finalUser));
+      localStorage.setItem('lastUserActivity', Date.now().toString());
       localStorage.removeItem('rememberedPassword');
       sessionStorage.removeItem('rememberedPassword');
       setSuccessMessage('');
       setTimerActive(false);
 
-      navigate('/');
+      window.location.hash = '/';
+      window.location.reload();
     } catch (err) {
       if (err.status === 402) {
         showError('Invalid OTP');

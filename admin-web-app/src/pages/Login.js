@@ -215,6 +215,8 @@ const Login = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('lastUserActivity');
 
         if (rememberMe) {
           localStorage.setItem('rememberedEmail', email);
@@ -300,6 +302,8 @@ const Login = () => {
         localStorage.removeItem('admin_accessToken');
         localStorage.removeItem('admin_refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('lastUserActivity');
         localStorage.removeItem('rememberedPassword');
         sessionStorage.removeItem('rememberedPassword');
         try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
@@ -322,6 +326,8 @@ const Login = () => {
         localStorage.removeItem('admin_accessToken');
         localStorage.removeItem('admin_refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('lastUserActivity');
         try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
         showError('Access Denied: Unrecognized role for the Admin Portal.');
         setLoading(false);
@@ -347,6 +353,8 @@ const Login = () => {
       localStorage.setItem('admin_accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('admin_refreshToken', refreshToken);
+      localStorage.setItem('admin_user', JSON.stringify(finalUser));
+      localStorage.setItem('lastUserActivity', Date.now().toString());
       try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
       localStorage.setItem('user', JSON.stringify(finalUser));
       localStorage.removeItem('rememberedPassword');
@@ -363,6 +371,8 @@ const Login = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('lastUserActivity');
         showError('Access Denied: End users cannot access the Admin Portal.');
         return;
       }

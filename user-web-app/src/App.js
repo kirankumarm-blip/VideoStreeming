@@ -53,6 +53,7 @@ try {
     localStorage.setItem('learner_refreshToken', ssoRefreshToken);
     localStorage.setItem('user', JSON.stringify(ssoUser));
     localStorage.setItem('learner_user', JSON.stringify(ssoUser));
+    localStorage.setItem('lastUserActivity', Date.now().toString());
     window.history.replaceState(null, '', window.location.pathname + '#/');
   }
 } catch (e) {
@@ -159,9 +160,10 @@ const AppLayout = ({ theme, setTheme }) => {
     window.addEventListener('storage', handleStorageChange);
     activityEvents.forEach(event => window.addEventListener(event, handleUserActivity));
 
-    // Check if session was already inactive on mount
+    // Always refresh timer on mount if valid user exists
     const initialLastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
-    if (initialLastActivity && (Date.now() - initialLastActivity >= INACTIVITY_TIMEOUT_MS)) {
+    const isRecentlyActive = initialLastActivity && (Date.now() - initialLastActivity < 30000); // 30 sec grace on fresh login
+    if (initialLastActivity && !isRecentlyActive && (Date.now() - initialLastActivity >= INACTIVITY_TIMEOUT_MS)) {
       checkAndPerformAutoLogout();
     } else {
       resetTimer();

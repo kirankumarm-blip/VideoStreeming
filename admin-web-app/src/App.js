@@ -43,6 +43,8 @@ try {
     localStorage.setItem('refreshToken', ssoRefreshToken);
     localStorage.setItem('admin_refreshToken', ssoRefreshToken);
     localStorage.setItem('user', JSON.stringify(ssoUser));
+    localStorage.setItem('admin_user', JSON.stringify(ssoUser));
+    localStorage.setItem('lastUserActivity', Date.now().toString());
     const targetHash = isSuper ? '#/super-admin' : '#/admin';
     window.history.replaceState(null, '', window.location.pathname + targetHash);
   }
@@ -139,17 +141,46 @@ const RoleRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
   const userRole = String(user.role || user.role_id || '').toLowerCase();
-  if (userRole === 'user' || userRole === 'student' || userRole === 'end_user') {
+  const rawRole = user.role ?? user.role_id;
+  if (userRole === 'user' || userRole === 'student' || userRole === 'end_user' || rawRole === 3 || rawRole === '3') {
     return <Navigate to="/login" replace />;
   }
   const isAllowed = allowedRoles.some(r => {
     if (r === 'admin') {
-      return userRole === 'admin' || userRole === '4' || userRole === 'author_admin' || userRole === 'author admin' || user.role === 4 || user.role_id === 4;
+      return (
+        userRole === 'admin' || 
+        userRole === '2' || 
+        rawRole === 2 || 
+        rawRole === '2' ||
+        userRole === 'client_admin' || 
+        userRole === 'clientadmin' || 
+        userRole === 'client admin' || 
+        userRole === '4' || 
+        rawRole === 4 || 
+        rawRole === '4' ||
+        userRole === 'author_admin' || 
+        userRole === 'author admin'
+      );
     }
     if (r === 'super_admin') {
-      return userRole === 'super_admin' || userRole === '1' || user.role === 1 || user.role_id === 1;
+      return (
+        userRole === 'super_admin' || 
+        userRole === '1' || 
+        rawRole === 1 || 
+        rawRole === '1' ||
+        userRole === 'superadmin'
+      );
     }
-    return r === userRole;
+    if (r === 'author_admin') {
+      return (
+        userRole === 'author_admin' || 
+        userRole === '4' || 
+        rawRole === 4 || 
+        rawRole === '4' ||
+        userRole === 'author admin'
+      );
+    }
+    return r === userRole || r === String(rawRole);
   });
   if (!isAllowed) {
     return <Navigate to="/login" replace />;
@@ -308,8 +339,26 @@ const DashboardRedirect = () => {
   const user = getCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
   const r = String(user.role || user.role_id || '').toLowerCase();
-  if (r === 'super_admin' || r === '1' || user.role === 1 || user.role_id === 1) return <Navigate to="/super-admin" replace />;
-  if (r === 'admin' || r === '4' || r === 'author_admin' || r === 'author admin' || user.role === 4 || user.role_id === 4) return <Navigate to="/admin" replace />;
+  const rawRole = user.role ?? user.role_id;
+  if (r === 'super_admin' || r === '1' || rawRole === 1 || rawRole === '1' || r === 'superadmin') {
+    return <Navigate to="/super-admin" replace />;
+  }
+  if (
+    r === 'admin' || 
+    r === '2' || 
+    rawRole === 2 || 
+    rawRole === '2' ||
+    r === 'client_admin' || 
+    r === 'clientadmin' || 
+    r === 'client admin' || 
+    r === '4' || 
+    rawRole === 4 || 
+    rawRole === '4' ||
+    r === 'author_admin' || 
+    r === 'author admin'
+  ) {
+    return <Navigate to="/admin" replace />;
+  }
   return <Navigate to="/login" replace />;
 };
 
