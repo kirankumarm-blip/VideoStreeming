@@ -28,6 +28,36 @@ try {
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
 
+// Check for cross-portal SSO token handoff (e.g. redirected from Admin Portal)
+try {
+  const hash = window.location.hash || '';
+  const queryPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
+  const ssoParams = new URLSearchParams(queryPart);
+  const ssoToken = ssoParams.get('sso_token');
+  if (ssoToken) {
+    const ssoEmail = ssoParams.get('sso_email') || '';
+    const ssoName = ssoParams.get('sso_name') || (ssoEmail ? ssoEmail.split('@')[0] : 'Learner');
+    const ssoId = ssoParams.get('sso_id') || 'u-' + Date.now();
+    const ssoUser = {
+      id: ssoId,
+      name: ssoName,
+      email: ssoEmail,
+      role: 'user',
+      role_id: 3,
+      originalRole: 'USER'
+    };
+    localStorage.setItem('accessToken', ssoToken);
+    localStorage.setItem('refreshToken', ssoToken);
+    localStorage.setItem('learner_accessToken', ssoToken);
+    localStorage.setItem('learner_refreshToken', ssoToken);
+    localStorage.setItem('user', JSON.stringify(ssoUser));
+    localStorage.setItem('learner_user', JSON.stringify(ssoUser));
+    window.history.replaceState(null, '', window.location.pathname + '#/');
+  }
+} catch (e) {
+  console.error('SSO handoff error', e);
+}
+
 // Route protection for authenticated users
 const ProtectedRoute = ({ children }) => {
   const user = getCurrentUser();

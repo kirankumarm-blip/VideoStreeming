@@ -286,7 +286,13 @@ const Login = ({ initialAuthMode }) => {
 
       if (isAdmin) {
         clearTokens();
-        showError('Access denied: Admins must login via the Admin Portal.');
+        const adminUrl = `http://localhost:3000/VideoStreeming/admin/#/?sso_token=${encodeURIComponent(token)}&sso_email=${encodeURIComponent(userEmail)}&sso_name=${encodeURIComponent(name)}&sso_id=${encodeURIComponent(userId)}&sso_role=${encodeURIComponent(strRole)}`;
+        showSuccess(`Welcome, ${name}! You are logged in as an Admin. Redirecting to the Admin Portal...`, () => {
+          window.location.href = adminUrl;
+        });
+        setTimeout(() => {
+          window.location.href = adminUrl;
+        }, 1500);
         setLoading(false);
         return;
       }
@@ -386,6 +392,34 @@ const Login = ({ initialAuthMode }) => {
     // Automatically purge legacy saved passwords from browser storage
     localStorage.removeItem('rememberedPassword');
     sessionStorage.removeItem('rememberedPassword');
+
+    // Check for cross-portal SSO token handoff (e.g. redirected from Admin Portal)
+    const hash = window.location.hash || '';
+    const queryPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
+    const params = new URLSearchParams(queryPart);
+    const ssoToken = params.get('sso_token');
+    if (ssoToken) {
+      const ssoEmail = params.get('sso_email') || '';
+      const ssoName = params.get('sso_name') || (ssoEmail ? ssoEmail.split('@')[0] : 'Learner');
+      const ssoId = params.get('sso_id') || 'u-' + Date.now();
+      const finalUser = {
+        id: ssoId,
+        name: ssoName,
+        email: ssoEmail,
+        role: 'user',
+        role_id: 3,
+        originalRole: 'USER'
+      };
+      localStorage.setItem('accessToken', ssoToken);
+      localStorage.setItem('refreshToken', ssoToken);
+      localStorage.setItem('learner_accessToken', ssoToken);
+      localStorage.setItem('learner_refreshToken', ssoToken);
+      localStorage.setItem('user', JSON.stringify(finalUser));
+      localStorage.setItem('learner_user', JSON.stringify(finalUser));
+      navigate('/');
+      window.location.reload();
+      return;
+    }
 
     const savedEmail = localStorage.getItem('rememberedEmail');
     if (savedEmail) {

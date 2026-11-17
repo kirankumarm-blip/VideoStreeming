@@ -17,6 +17,36 @@ try {
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
 
+// Check for cross-portal SSO token handoff (e.g. redirected from User Portal)
+try {
+  const hash = window.location.hash || '';
+  const queryPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
+  const ssoParams = new URLSearchParams(queryPart);
+  const ssoToken = ssoParams.get('sso_token');
+  const ssoRole = ssoParams.get('sso_role');
+  if (ssoToken && ssoRole && ssoRole !== 'user') {
+    const ssoEmail = ssoParams.get('sso_email') || '';
+    const ssoName = ssoParams.get('sso_name') || (ssoEmail ? ssoEmail.split('@')[0] : 'Admin');
+    const ssoId = ssoParams.get('sso_id') || 'a-' + Date.now();
+    const isSuper = ssoRole === 'super_admin' || ssoRole === '1';
+    const ssoUser = {
+      id: ssoId,
+      name: ssoName,
+      email: ssoEmail,
+      role: ssoRole,
+      role_id: isSuper ? 1 : 2,
+      originalRole: ssoRole
+    };
+    localStorage.setItem('accessToken', ssoToken);
+    localStorage.setItem('refreshToken', ssoToken);
+    localStorage.setItem('user', JSON.stringify(ssoUser));
+    const targetHash = isSuper ? '#/super-admin' : '#/admin';
+    window.history.replaceState(null, '', window.location.pathname + targetHash);
+  }
+} catch (e) {
+  console.error('SSO handoff error', e);
+}
+
 // Error boundary to prevent white screens if any subcomponent errors
 class ErrorBoundary extends React.Component {
   constructor(props) {

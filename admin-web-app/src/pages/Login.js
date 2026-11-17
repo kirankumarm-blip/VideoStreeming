@@ -249,25 +249,54 @@ const Login = () => {
       // 3. Call vdotp workflow to verify OTP
       const otpRes = await api.auth.otp(email, 'verifyOtp', otpCode);
       
-      // Map flat or nested keys from the UAT response payload
-      const userObj = otpRes.user || (tempLoginData ? tempLoginData.user : null);
+      // Robustly unwrap array, n8n JSON, or flat object from response
+      const rawData = Array.isArray(otpRes) ? (otpRes[0] || {}) : (otpRes || {});
+      const resData = (rawData && typeof rawData === 'object' && 'json' in rawData) ? rawData.json : rawData;
+
+      // Extract user info from response payload or previous login step
+      const userObj = resData.user || (tempLoginData ? (Array.isArray(tempLoginData) ? tempLoginData[0]?.user : tempLoginData.user) : null);
       
-      const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken) : '') || otpRes.token || otpRes.accessToken;
-      const rawRole = otpRes.role ?? otpRes.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (tempLoginData ? (tempLoginData.role ?? tempLoginData.role_id) : '');
-      const strRole = String(rawRole).toLowerCase();
-      const name = otpRes.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '');
-      const userEmail = otpRes.email || (userObj ? userObj.email : '') || email;
-      const userId = otpRes.id || (userObj ? userObj.id : null) || (tempLoginData ? tempLoginData.id : null);
+      const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken || (Array.isArray(tempLoginData) && (tempLoginData[0]?.token || tempLoginData[0]?.accessToken))) : '') || 
+                    resData.token || 
+                    resData.accessToken || 
+                    'session-token-' + Date.now();
+
+      const rawRole = resData.role ?? resData.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (tempLoginData ? (tempLoginData.role ?? tempLoginData.role_id) : '');
+      const strRole = String(rawRole || '').trim().toLowerCase();
+
+      const name = resData.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '') || email.split('@')[0];
+      const userEmail = resData.email || (userObj ? userObj.email : '') || email;
+      const userId = resData.id || resData.user_id || (userObj ? (userObj.id || userObj.user_id) : null) || (tempLoginData ? tempLoginData.id : null) || 'u-' + Date.now();
 
       let isSuperAdmin = (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin');
       let isAuthorAdmin = (rawRole === 4 || rawRole === '4' || strRole === '4' || strRole === 'author_admin' || strRole === 'author admin');
       let isAdmin = (rawRole === 2 || rawRole === '2' || strRole === 'admin' || strRole === 'client_admin' || strRole === 'clientadmin' || strRole === 'client admin');
+      let isUser = (strRole === 'user' || strRole === 'student' || strRole === 'learner' || strRole === 'end_user' || rawRole === 3 || rawRole === '3');
+
+      if (isUser) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('rememberedPassword');
+        sessionStorage.removeItem('rememberedPassword');
+
+        const learnerUrl = `http://localhost:3001/VideoStreeming/#/?sso_token=${encodeURIComponent(token)}&sso_email=${encodeURIComponent(userEmail)}&sso_name=${encodeURIComponent(name)}&sso_id=${encodeURIComponent(userId)}&sso_role=user`;
+        
+        showSuccess(`Welcome, ${name}! You are logged in as a Learner. Redirecting to the Learner Portal...`, () => {
+          window.location.href = learnerUrl;
+        });
+        setTimeout(() => {
+          window.location.href = learnerUrl;
+        }, 1500);
+        setLoading(false);
+        return;
+      }
 
       if (!isSuperAdmin && !isAuthorAdmin && !isAdmin) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
-        showError('Access Denied: End users cannot access the Admin Portal.');
+        showError('Access Denied: Unrecognized role for the Admin Portal.');
         setLoading(false);
         return;
       }
@@ -379,6 +408,32 @@ const Login = () => {
     // Automatically purge legacy saved passwords from browser storage
     localStorage.removeItem('rememberedPassword');
     sessionStorage.removeItem('rememberedPassword');
+
+    // Check for cross-portal SSO token handoff (e.g. redirected from Learner Portal)
+    const hash = window.location.hash || '';
+    const queryPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
+    const params = new URLSearchParams(queryPart);
+    const ssoToken = params.get('sso_token');
+    const ssoRole = params.get('sso_role');
+    if (ssoToken && ssoRole && ssoRole !== 'user') {
+      const ssoEmail = params.get('sso_email') || '';
+      const ssoName = params.get('sso_name') || (ssoEmail ? ssoEmail.split('@')[0] : 'Admin');
+      const ssoId = params.get('sso_id') || 'a-' + Date.now();
+      const finalUser = {
+        id: ssoId,
+        name: ssoName,
+        email: ssoEmail,
+        role: ssoRole,
+        role_id: ssoRole === 'super_admin' ? 1 : 2,
+        originalRole: ssoRole
+      };
+      localStorage.setItem('accessToken', ssoToken);
+      localStorage.setItem('refreshToken', ssoToken);
+      localStorage.setItem('user', JSON.stringify(finalUser));
+      navigate(ssoRole === 'super_admin' ? '/super-admin' : '/admin');
+      window.location.reload();
+      return;
+    }
 
     const savedEmail = localStorage.getItem('rememberedEmail');
     if (savedEmail) {
