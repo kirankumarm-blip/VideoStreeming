@@ -370,7 +370,7 @@ const Profile = () => {
                 className="form-input" 
                 placeholder="Enter current password"
                 value={oldPassword}
-                onChange={e => setOldPassword(e.target.value.trim())}
+                onChange={e => setOldPassword(e.target.value)}
                 onInvalid={e => e.target.setCustomValidity('Please fill out current password')}
                 onInput={e => e.target.setCustomValidity('')}
                 required
@@ -384,7 +384,7 @@ const Profile = () => {
                 className="form-input" 
                 placeholder={t('auth.passwordMin')}
                 value={newPassword}
-                onChange={e => setNewPassword(e.target.value.trim())}
+                onChange={e => setNewPassword(e.target.value)}
                 onInvalid={e => e.target.setCustomValidity('Please fill out new password')}
                 onInput={e => e.target.setCustomValidity('')}
                 required
@@ -398,7 +398,7 @@ const Profile = () => {
                 className="form-input" 
                 placeholder="Confirm password"
                 value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value.trim())}
+                onChange={e => setConfirmPassword(e.target.value)}
                 onInvalid={e => e.target.setCustomValidity('Please fill out confirm password')}
                 onInput={e => e.target.setCustomValidity('')}
                 required

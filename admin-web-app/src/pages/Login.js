@@ -655,7 +655,7 @@ const Login = () => {
                   className="form-input"
                   placeholder={t('auth.enterPassword')}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value.trim())}
+                  onChange={(e) => setPassword(e.target.value)}
                   onInvalid={(e) => e.target.setCustomValidity('Please fill out password')}
                   onInput={(e) => e.target.setCustomValidity('')}
                   style={{ width: '100%', paddingRight: '50px' }}

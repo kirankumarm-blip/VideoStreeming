@@ -809,7 +809,7 @@ const Profile = () => {
                   className="form-input"
                   placeholder="Minimum 6 characters"
                   value={newPassword}
-                  onChange={e => setNewPassword(e.target.value.trim())}
+                  onChange={e => setNewPassword(e.target.value)}
                   required
                   style={inputStyle}
                 />
@@ -822,7 +822,7 @@ const Profile = () => {
                   className="form-input"
                   placeholder="Re-enter new password"
                   value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value.trim())}
+                  onChange={e => setConfirmPassword(e.target.value)}
                   required
                   style={inputStyle}
                 />
