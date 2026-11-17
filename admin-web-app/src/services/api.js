@@ -8,17 +8,21 @@ export const getAccessToken = () => {
   if (!t) {
     try {
       const u = JSON.parse(localStorage.getItem('admin_user') || localStorage.getItem('user') || '{}');
-      t = u.token || u.accessToken || u.jwt;
+      t = u.accessToken || u.token || u.jwt;
     } catch (e) {}
   }
   return t || null;
 };
 export const getRefreshToken = () => localStorage.getItem('admin_refreshToken') || localStorage.getItem('refreshToken');
 export const setTokens = (accessToken, refreshToken) => {
-  localStorage.setItem('admin_accessToken', accessToken);
-  localStorage.setItem('admin_refreshToken', refreshToken);
-  localStorage.setItem('accessToken', accessToken);
-  localStorage.setItem('refreshToken', refreshToken);
+  if (accessToken) {
+    localStorage.setItem('admin_accessToken', accessToken);
+    localStorage.setItem('accessToken', accessToken);
+  }
+  if (refreshToken) {
+    localStorage.setItem('admin_refreshToken', refreshToken);
+    localStorage.setItem('refreshToken', refreshToken);
+  }
 };
 export const clearTokens = () => {
   localStorage.removeItem('admin_accessToken');

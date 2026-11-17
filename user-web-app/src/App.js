@@ -34,6 +34,7 @@ try {
   const queryPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
   const ssoParams = new URLSearchParams(queryPart);
   const ssoToken = ssoParams.get('sso_token');
+  const ssoRefreshToken = ssoParams.get('sso_refresh_token') || ssoToken;
   if (ssoToken) {
     const ssoEmail = ssoParams.get('sso_email') || '';
     const ssoName = ssoParams.get('sso_name') || (ssoEmail ? ssoEmail.split('@')[0] : 'Learner');
@@ -47,9 +48,9 @@ try {
       originalRole: 'USER'
     };
     localStorage.setItem('accessToken', ssoToken);
-    localStorage.setItem('refreshToken', ssoToken);
+    localStorage.setItem('refreshToken', ssoRefreshToken);
     localStorage.setItem('learner_accessToken', ssoToken);
-    localStorage.setItem('learner_refreshToken', ssoToken);
+    localStorage.setItem('learner_refreshToken', ssoRefreshToken);
     localStorage.setItem('user', JSON.stringify(ssoUser));
     localStorage.setItem('learner_user', JSON.stringify(ssoUser));
     window.history.replaceState(null, '', window.location.pathname + '#/');

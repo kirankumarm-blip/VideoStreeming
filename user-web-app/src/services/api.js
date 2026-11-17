@@ -8,17 +8,21 @@ export const getAccessToken = () => {
   if (!t) {
     try {
       const u = JSON.parse(localStorage.getItem('learner_user') || localStorage.getItem('user') || '{}');
-      t = u.token || u.accessToken || u.jwt;
+      t = u.accessToken || u.token || u.jwt;
     } catch (e) {}
   }
   return t || null;
 };
 export const getRefreshToken = () => localStorage.getItem('learner_refreshToken') || localStorage.getItem('refreshToken');
 export const setTokens = (accessToken, refreshToken) => {
-  localStorage.setItem('accessToken', accessToken);
-  localStorage.setItem('refreshToken', refreshToken);
-  localStorage.setItem('learner_accessToken', accessToken);
-  localStorage.setItem('learner_refreshToken', refreshToken);
+  if (accessToken) {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('learner_accessToken', accessToken);
+  }
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('learner_refreshToken', refreshToken);
+  }
 };
 export const clearTokens = () => {
   localStorage.removeItem('accessToken');

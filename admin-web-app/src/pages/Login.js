@@ -116,7 +116,14 @@ const Login = () => {
   const [successMessage, setSuccessMessage] = useState('');
   
   // OTP Verification States
-  const [tempLoginData, setTempLoginData] = useState(null);
+  const [tempLoginData, setTempLoginData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('tempLoginData');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [otpCode, setOtpCode] = useState('');
 
   // OTP Timer & Resend States
@@ -218,6 +225,7 @@ const Login = () => {
         sessionStorage.removeItem('rememberedPassword');
 
         setTempLoginData(res);
+        try { sessionStorage.setItem('tempLoginData', JSON.stringify(res)); } catch (e) {}
         setAuthMode('otp');
         setTimer(120);
         setTimerActive(true);
@@ -253,20 +261,33 @@ const Login = () => {
       const rawData = Array.isArray(otpRes) ? (otpRes[0] || {}) : (otpRes || {});
       const resData = (rawData && typeof rawData === 'object' && 'json' in rawData) ? rawData.json : rawData;
 
-      // Extract user info from response payload or previous login step
-      const userObj = resData.user || (tempLoginData ? (Array.isArray(tempLoginData) ? tempLoginData[0]?.user : tempLoginData.user) : null);
+      // Extract user info and tokens from response payload or previous login step
+      const rawLogin = Array.isArray(tempLoginData) ? (tempLoginData[0] || {}) : (tempLoginData || {});
+      const loginData = (rawLogin && typeof rawLogin === 'object' && 'json' in rawLogin) ? rawLogin.json : rawLogin;
+      const userObj = resData.user || loginData.user || null;
       
-      const token = (tempLoginData ? (tempLoginData.token || tempLoginData.accessToken || (Array.isArray(tempLoginData) && (tempLoginData[0]?.token || tempLoginData[0]?.accessToken))) : '') || 
-                    resData.token || 
-                    resData.accessToken || 
-                    'session-token-' + Date.now();
+      // Access token: use new accessToken from login response or otp response (JWT)
+      const accessToken = resData.accessToken || 
+                          loginData.accessToken || 
+                          resData.jwt || 
+                          loginData.jwt || 
+                          resData.token || 
+                          loginData.token || 
+                          'session-access-' + Date.now();
 
-      const rawRole = resData.role ?? resData.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (tempLoginData ? (tempLoginData.role ?? tempLoginData.role_id) : '');
+      // Refresh token: keep as token from response as before
+      const refreshToken = resData.token || 
+                           loginData.token || 
+                           resData.refreshToken || 
+                           loginData.refreshToken || 
+                           accessToken;
+
+      const rawRole = resData.role ?? resData.role_id ?? (userObj ? (userObj.role ?? userObj.role_id) : '') ?? (loginData.role ?? loginData.role_id ?? '');
       const strRole = String(rawRole || '').trim().toLowerCase();
 
-      const name = resData.name || (userObj ? userObj.name : '') || (tempLoginData ? tempLoginData.name : '') || email.split('@')[0];
+      const name = resData.name || (userObj ? userObj.name : '') || loginData.name || email.split('@')[0];
       const userEmail = resData.email || (userObj ? userObj.email : '') || email;
-      const userId = resData.id || resData.user_id || (userObj ? (userObj.id || userObj.user_id) : null) || (tempLoginData ? tempLoginData.id : null) || 'u-' + Date.now();
+      const userId = resData.id || resData.user_id || (userObj ? (userObj.id || userObj.user_id) : null) || loginData.id || 'u-' + Date.now();
 
       let isSuperAdmin = (rawRole === 1 || rawRole === '1' || strRole === 'super_admin' || strRole === 'superadmin');
       let isAuthorAdmin = (rawRole === 4 || rawRole === '4' || strRole === '4' || strRole === 'author_admin' || strRole === 'author admin');
@@ -276,11 +297,14 @@ const Login = () => {
       if (isUser) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('admin_accessToken');
+        localStorage.removeItem('admin_refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('rememberedPassword');
         sessionStorage.removeItem('rememberedPassword');
+        try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
 
-        const learnerUrl = `http://localhost:3001/VideoStreeming/#/?sso_token=${encodeURIComponent(token)}&sso_email=${encodeURIComponent(userEmail)}&sso_name=${encodeURIComponent(name)}&sso_id=${encodeURIComponent(userId)}&sso_role=user`;
+        const learnerUrl = `http://localhost:3001/VideoStreeming/#/?sso_token=${encodeURIComponent(accessToken)}&sso_refresh_token=${encodeURIComponent(refreshToken)}&sso_email=${encodeURIComponent(userEmail)}&sso_name=${encodeURIComponent(name)}&sso_id=${encodeURIComponent(userId)}&sso_role=user`;
         
         showSuccess(`Welcome, ${name}! You are logged in as a Learner. Redirecting to the Learner Portal...`, () => {
           window.location.href = learnerUrl;
@@ -295,7 +319,10 @@ const Login = () => {
       if (!isSuperAdmin && !isAuthorAdmin && !isAdmin) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('admin_accessToken');
+        localStorage.removeItem('admin_refreshToken');
         localStorage.removeItem('user');
+        try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
         showError('Access Denied: Unrecognized role for the Admin Portal.');
         setLoading(false);
         return;
@@ -309,12 +336,18 @@ const Login = () => {
         email: userEmail,
         role: normalizedRole,
         role_id: isAuthorAdmin ? 4 : (normalizedRole === 'super_admin' ? 1 : 2),
-        originalRole: rawRole
+        originalRole: rawRole,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        token: refreshToken
       };
 
-      // Save tokens to local storage to finalize session login
-      localStorage.setItem('accessToken', token);
-      localStorage.setItem('refreshToken', token);
+      // Save tokens to local storage: accessToken for authorization, refreshToken as before
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('admin_accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('admin_refreshToken', refreshToken);
+      try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
       localStorage.setItem('user', JSON.stringify(finalUser));
       localStorage.removeItem('rememberedPassword');
       sessionStorage.removeItem('rememberedPassword');
@@ -414,6 +447,7 @@ const Login = () => {
     const queryPart = hash.includes('?') ? hash.split('?')[1] : (window.location.search ? window.location.search.substring(1) : '');
     const params = new URLSearchParams(queryPart);
     const ssoToken = params.get('sso_token');
+    const ssoRefreshToken = params.get('sso_refresh_token') || ssoToken;
     const ssoRole = params.get('sso_role');
     if (ssoToken && ssoRole && ssoRole !== 'user') {
       const ssoEmail = params.get('sso_email') || '';
@@ -428,7 +462,9 @@ const Login = () => {
         originalRole: ssoRole
       };
       localStorage.setItem('accessToken', ssoToken);
-      localStorage.setItem('refreshToken', ssoToken);
+      localStorage.setItem('admin_accessToken', ssoToken);
+      localStorage.setItem('refreshToken', ssoRefreshToken);
+      localStorage.setItem('admin_refreshToken', ssoRefreshToken);
       localStorage.setItem('user', JSON.stringify(finalUser));
       navigate(ssoRole === 'super_admin' ? '/super-admin' : '/admin');
       window.location.reload();
