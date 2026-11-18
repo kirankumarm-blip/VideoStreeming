@@ -5,6 +5,7 @@ import { getCurrentUser } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiUrl';
 import { getAssetBaseUrl } from '../utils/assetUrl';
 import { logFormError, extractRequestId } from '../utils/formErrorHandler';
+import { getDemoLiveClasses } from '../services/liveClassMock';
 
 /**
  * Validates and processes the Live Classes API response.
@@ -126,7 +127,7 @@ export const getNextUpcomingSession = (classes, referenceTime = Date.now()) => {
   })[0];
 };
 
-const LiveClasses = () => {
+const LiveClasses = ({ initialDemoMode = false }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const currentUser = getCurrentUser() || {};
@@ -135,8 +136,37 @@ const LiveClasses = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'live', 'upcoming', 'completed'
+  const [isDemoMode, setIsDemoMode] = useState(() => {
+    if (initialDemoMode) return true;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('demo') === 'true' || window.location.hash.includes('demo');
+    }
+    return false;
+  });
 
   const isFetchingRef = useRef(false);
+
+  const loadDemoData = () => {
+    const demoData = getDemoLiveClasses();
+    setClasses(demoData);
+    setError(null);
+    setIsLoading(false);
+    setIsDemoMode(true);
+  };
+
+  const exitDemoMode = () => {
+    setIsDemoMode(false);
+    fetchClasses(true);
+  };
+
+  const toggleDemoMode = () => {
+    if (isDemoMode) {
+      exitDemoMode();
+    } else {
+      loadDemoData();
+    }
+  };
 
   const fetchClasses = async (isManual = false) => {
     // Prevent duplicate concurrent requests from repeated clicks
@@ -193,14 +223,20 @@ const LiveClasses = () => {
   };
 
   useEffect(() => {
+    if (isDemoMode) {
+      loadDemoData();
+      return;
+    }
     fetchClasses(true);
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
-        fetchClasses(false);
+        if (!isDemoMode) {
+          fetchClasses(false);
+        }
       }
     }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isDemoMode]);
 
   const liveNow = getDeterministicLiveClass(classes);
   const nextSession = getNextUpcomingSession(classes);
@@ -403,6 +439,50 @@ const LiveClasses = () => {
         }} />
       </div>
 
+      {/* Demo Mode Notification Banner */}
+      {isDemoMode && (
+        <div 
+          data-testid="demo-mode-banner"
+          style={{
+            background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.18), rgba(168, 85, 247, 0.18))',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            borderRadius: '12px',
+            padding: '12px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>✨</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>
+              <strong>Demo Showcase Mode:</strong> Showing interactive static masterclasses with real-time poll, chat, and hand-raise features.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={exitDemoMode}
+            style={{
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 700,
+              transition: 'all 0.15s'
+            }}
+          >
+            Switch to Live API
+          </button>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div style={{
         display: 'flex',
@@ -439,8 +519,32 @@ const LiveClasses = () => {
           ))}
         </div>
 
-        <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-          {error ? 0 : filteredClasses.length} {t('liveClass.webcastsAvailable', 'webcasts available')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button
+            type="button"
+            data-testid="toggle-demo-mode-btn"
+            onClick={toggleDemoMode}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              background: isDemoMode ? 'rgba(99, 102, 241, 0.2)' : 'var(--bg-secondary)',
+              color: isDemoMode ? '#818cf8' : 'var(--text-secondary)',
+              border: isDemoMode ? '1px solid #6366f1' : '1px solid var(--border-color)',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s'
+            }}
+          >
+            <span>✨</span>
+            <span>{isDemoMode ? 'Exit Demo' : 'Load Demo Data'}</span>
+          </button>
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            {error ? 0 : filteredClasses.length} {t('liveClass.webcastsAvailable', 'webcasts available')}
+          </div>
         </div>
       </div>
 
@@ -472,30 +576,54 @@ const LiveClasses = () => {
           <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
             {t('liveClass.errorSubtext', 'Please check your connection and try again.')}
           </p>
-          <button
-            type="button"
-            data-testid="retry-btn"
-            onClick={() => fetchClasses(true)}
-            disabled={isLoading}
-            style={{
-              padding: '10px 24px',
-              borderRadius: '10px',
-              background: '#6366f1',
-              color: '#ffffff',
-              border: 'none',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.6 : 1,
-              transition: 'all 0.2s',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            <span>🔄</span>
-            <span>{isLoading ? 'Retrying...' : t('liveClass.retry', 'Retry')}</span>
-          </button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              data-testid="retry-btn"
+              onClick={() => fetchClasses(true)}
+              disabled={isLoading}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '10px',
+                background: '#6366f1',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.6 : 1,
+                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>🔄</span>
+              <span>{isLoading ? 'Retrying...' : t('liveClass.retry', 'Retry')}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="load-demo-btn"
+              onClick={loadDemoData}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+              }}
+            >
+              <span>✨</span>
+              <span>Load Demo Classes</span>
+            </button>
+          </div>
         </div>
       ) : classes.length === 0 ? (
         <div 
@@ -515,6 +643,30 @@ const LiveClasses = () => {
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px' }}>
             {t('liveClass.emptySub', 'Check back soon for upcoming live interactive sessions.')}
           </p>
+          <div style={{ marginTop: '20px' }}>
+            <button
+              type="button"
+              data-testid="load-demo-empty-btn"
+              onClick={loadDemoData}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+              }}
+            >
+              <span>✨</span>
+              <span>Load Demo Classes</span>
+            </button>
+          </div>
         </div>
       ) : filteredClasses.length === 0 ? (
         <div 

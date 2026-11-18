@@ -335,6 +335,12 @@ const AppLayout = ({ theme, setTheme }) => {
             </RoleRoute>
           } />
 
+          <Route path="/live-demo" element={
+            <RoleRoute allowedRoles={['user']}>
+              <LiveClasses initialDemoMode={true} />
+            </RoleRoute>
+          } />
+
           <Route path="/live/:id" element={
             <RoleRoute allowedRoles={['user']}>
               <LiveClassroom />

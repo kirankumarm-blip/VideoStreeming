@@ -2943,6 +2943,17 @@ liveClasses.set('LIVE-103', {
 
 // REST: Get all live classes
 app.get('/api/live-classes', (req, res) => {
+  // Keep live and upcoming timestamps fresh relative to request time for demonstration
+  const now = Date.now();
+  const liveCls = liveClasses.get('LIVE-101');
+  if (liveCls && liveCls.status === 'live') {
+    liveCls.scheduledAt = new Date(now - 15 * 60 * 1000).toISOString();
+  }
+  const upcomingCls = liveClasses.get('LIVE-102');
+  if (upcomingCls && upcomingCls.status === 'upcoming') {
+    upcomingCls.scheduledAt = new Date(now + 90 * 60 * 1000).toISOString();
+  }
+
   const classesList = [];
   liveClasses.forEach((cls) => {
     classesList.push({
