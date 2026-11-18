@@ -648,7 +648,12 @@ const translations = {
     'liveClass.voteFailed': 'Failed to submit vote. Please try again.',
     'liveClass.retry': 'Retry',
     'liveClass.errorSubtext': 'Please check your connection and try again.',
-    'liveClass.emptySub': 'Check back soon for upcoming live interactive sessions.'
+    'liveClass.emptySub': 'Check back soon for upcoming live interactive sessions.',
+    'liveClass.noLiveClassRightNow': 'No live class right now',
+    'liveClass.nextSessionPrefix': 'Next session',
+    'liveClass.noSessionsScheduled': 'No sessions scheduled yet.',
+    'liveClass.checkingStatus': 'Checking live status...',
+    'liveClass.statusUnavailable': 'Live session status unavailable'
   },
   hi: {
     // --- Master Multilingual Extension (hi) ---
@@ -1162,7 +1167,12 @@ const translations = {
     'liveClass.voteFailed': 'वोट सबमिट करने में विफल। कृपया पुनः प्रयास करें।',
     'liveClass.retry': 'पुनः प्रयास करें',
     'liveClass.errorSubtext': 'कृपया अपना कनेक्शन जांचें और पुनः प्रयास करें।',
-    'liveClass.emptySub': 'आगामी लाइव इंटरैक्टिव सत्रों के लिए शीघ्र ही वापस देखें।'
+    'liveClass.emptySub': 'आगामी लाइव इंटरैक्टिव सत्रों के लिए शीघ्र ही वापस देखें।',
+    'liveClass.noLiveClassRightNow': 'इस समय कोई लाइव क्लास नहीं है',
+    'liveClass.nextSessionPrefix': 'अगला सत्र',
+    'liveClass.noSessionsScheduled': 'अभी कोई सत्र निर्धारित नहीं है।',
+    'liveClass.checkingStatus': 'लाइव स्थिति जांची जा रही है...',
+    'liveClass.statusUnavailable': 'लाइव सत्र स्थिति अनुपलब्ध है'
   },
   kn: {
     // --- Master Multilingual Extension (kn) ---
@@ -1676,7 +1686,12 @@ const translations = {
     'liveClass.voteFailed': 'ಮತ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
     'liveClass.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
     'liveClass.errorSubtext': 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
-    'liveClass.emptySub': 'ಮುಂಬರುವ ಲೈವ್ ಇಂಟರ್ಯಾಕ್ಟಿವ್ ತರಗತಿಗಳಿಗಾಗಿ ಶೀಘ್ರದಲ್ಲೇ ಪರಿಶೀಲಿಸಿ.'
+    'liveClass.emptySub': 'ಮುಂಬರುವ ಲೈವ್ ಇಂಟರ್ಯಾಕ್ಟಿವ್ ತರಗತಿಗಳಿಗಾಗಿ ಶೀಘ್ರದಲ್ಲೇ ಪರಿಶೀಲಿಸಿ.',
+    'liveClass.noLiveClassRightNow': 'ಪ್ರಸ್ತುತ ಯಾವುದೇ ಲೈವ್ ತರಗತಿ ಇಲ್ಲ',
+    'liveClass.nextSessionPrefix': 'ಮುಂದಿನ ಸೆಷನ್',
+    'liveClass.noSessionsScheduled': 'ಇನ್ನೂ ಯಾವುದೇ ಸೆಷನ್ ನಿಗದಿಯಾಗಿಲ್ಲ.',
+    'liveClass.checkingStatus': 'ಲೈವ್ ಸ್ಥಿತಿಯನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...',
+    'liveClass.statusUnavailable': 'ಲೈವ್ ಸೆಷನ್ ಸ್ಥಿತಿ ಲಭ್ಯವಿಲ್ಲ'
   }
 };
 

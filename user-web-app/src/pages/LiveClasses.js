@@ -29,6 +29,103 @@ export const processLiveClassesApiResponse = (res, data) => {
   };
 };
 
+/**
+ * Normalizes class status string using trimming and case-insensitivity.
+ * Handles 'LIVE', 'Live', 'live', '  UPCOMING  ', etc.
+ */
+export const normalizeStatus = (status) => {
+  if (typeof status !== 'string') return '';
+  return status.trim().toLowerCase();
+};
+
+/**
+ * Retrieves the start/scheduled time field from a class object.
+ */
+export const getClassStartTime = (cls) => {
+  if (!cls || typeof cls !== 'object') return null;
+  return cls.scheduledAt || cls.startTime || cls.scheduledTime || cls.startDate || null;
+};
+
+/**
+ * Formats a valid date/time string for display in user locale.
+ */
+export const formatSessionDateTime = (dateInput) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return d.toLocaleString();
+  }
+};
+
+/**
+ * Selects a confirmed live class deterministically without mutating the original array.
+ * If multiple classes are live, sorts by earliest start time (if valid), breaking ties by ID.
+ * Returns null if no class has status 'live'.
+ */
+export const getDeterministicLiveClass = (classes) => {
+  if (!Array.isArray(classes)) return null;
+  const liveList = classes.filter(cls => cls && normalizeStatus(cls.status) === 'live');
+  if (liveList.length === 0) return null;
+  if (liveList.length === 1) return liveList[0];
+
+  return [...liveList].sort((a, b) => {
+    const timeA = new Date(getClassStartTime(a) || 0).getTime();
+    const timeB = new Date(getClassStartTime(b) || 0).getTime();
+    const validA = !isNaN(timeA) && timeA > 0;
+    const validB = !isNaN(timeB) && timeB > 0;
+    if (validA && validB && timeA !== timeB) {
+      return timeA - timeB;
+    }
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  })[0];
+};
+
+/**
+ * Finds the nearest future scheduled session without mutating the original array.
+ * Excludes completed, cancelled, past, and live sessions.
+ */
+export const getNextUpcomingSession = (classes, referenceTime = Date.now()) => {
+  if (!Array.isArray(classes)) return null;
+
+  const excludedStatuses = new Set(['completed', 'cancelled', 'canceled', 'ended', 'live', 'expired', 'past']);
+
+  const validUpcoming = classes.filter(cls => {
+    if (!cls || typeof cls !== 'object') return false;
+    const status = normalizeStatus(cls.status);
+    if (excludedStatuses.has(status)) return false;
+
+    const rawTime = getClassStartTime(cls);
+    if (!rawTime) return false;
+
+    const sessionDate = new Date(rawTime);
+    if (isNaN(sessionDate.getTime())) return false;
+
+    // Must be in the future (exclude past sessions)
+    return sessionDate.getTime() >= referenceTime;
+  });
+
+  if (validUpcoming.length === 0) return null;
+
+  return [...validUpcoming].sort((a, b) => {
+    const timeA = new Date(getClassStartTime(a)).getTime();
+    const timeB = new Date(getClassStartTime(b)).getTime();
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  })[0];
+};
+
 const LiveClasses = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -105,13 +202,16 @@ const LiveClasses = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const liveNow = getDeterministicLiveClass(classes);
+  const nextSession = getNextUpcomingSession(classes);
+
   const filteredClasses = classes.filter(cls => {
     if (filter === 'all') return true;
-    return cls.status === filter;
+    return normalizeStatus(cls.status) === filter;
   });
 
   const getStatusBadge = (status) => {
-    switch (status) {
+    switch (normalizeStatus(status)) {
       case 'live':
         return (
           <span style={{
@@ -187,16 +287,22 @@ const LiveClasses = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            color: '#ef4444',
+            background: liveNow ? 'rgba(239, 68, 68, 0.15)' : 'rgba(99, 102, 241, 0.12)',
+            border: liveNow ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(99, 102, 241, 0.25)',
+            color: liveNow ? '#ef4444' : '#818cf8',
             padding: '4px 12px',
             borderRadius: '20px',
             fontSize: '12px',
             fontWeight: 700,
             marginBottom: '14px'
           }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
+            <span style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: liveNow ? '#ef4444' : '#818cf8', 
+              animation: liveNow ? 'pulse 1.5s infinite' : 'none' 
+            }} />
             {t('liveClass.heroPill', 'REAL-TIME INTERACTIVE CLASSROOM')}
           </div>
 
@@ -219,36 +325,68 @@ const LiveClasses = () => {
             {t('liveClass.heroSubtitle', 'Learn directly from industry masters. Participate in real-time polls, raise your hand ✋ to ask questions live, and collaborate with classmates without external apps.')}
           </p>
 
-          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
             <button
-              disabled={classes.length === 0}
+              data-testid="hero-join-live-btn"
+              disabled={!liveNow || isLoading || !!error}
               onClick={() => {
-                const liveOne = classes.find(c => c.status === 'live');
-                if (liveOne) {
-                  navigate(`/live/${liveOne.id}`);
-                } else if (classes.length > 0) {
-                  navigate(`/live/${classes[0].id}`);
+                if (liveNow && liveNow.id) {
+                  navigate(`/live/${liveNow.id}`);
                 }
               }}
               style={{
                 padding: '12px 24px',
                 borderRadius: '10px',
-                background: classes.length === 0 ? 'rgba(239, 68, 68, 0.4)' : '#ef4444',
-                color: '#fff',
-                border: 'none',
+                background: liveNow ? '#ef4444' : 'var(--bg-secondary, rgba(255, 255, 255, 0.08))',
+                color: liveNow ? '#fff' : 'var(--text-secondary)',
+                border: liveNow ? 'none' : '1px solid var(--border-color)',
                 fontWeight: 700,
                 fontSize: '15px',
-                cursor: classes.length === 0 ? 'not-allowed' : 'pointer',
+                cursor: liveNow ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: classes.length === 0 ? 'none' : '0 4px 16px rgba(239, 68, 68, 0.35)',
-                opacity: classes.length === 0 ? 0.6 : 1
+                boxShadow: liveNow ? '0 4px 16px rgba(239, 68, 68, 0.35)' : 'none',
+                opacity: liveNow ? 1 : 0.65,
+                transition: 'all 0.2s ease'
               }}
             >
-              <span>🔴</span>
-              {t('liveClass.joinCurrentLive', 'Join Live Webcast Now')}
+              {isLoading ? (
+                <span>{t('liveClass.checkingStatus', 'Checking live status...')}</span>
+              ) : error ? (
+                <span>{t('liveClass.statusUnavailable', 'Live session status unavailable')}</span>
+              ) : liveNow ? (
+                <>
+                  <span>🔴</span>
+                  <span>{t('liveClass.joinCurrentLive', 'Join Live Webcast Now')}</span>
+                </>
+              ) : (
+                <span>{t('liveClass.noLiveClassRightNow', 'No live class right now')}</span>
+              )}
             </button>
+
+            {/* Next session display underneath the hero button */}
+            {!liveNow && !isLoading && !error && (
+              <div
+                data-testid="next-session-info"
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>📅</span>
+                <span>
+                  {nextSession ? (
+                    `${t('liveClass.nextSessionPrefix', 'Next session')}: ${formatSessionDateTime(getClassStartTime(nextSession))}`
+                  ) : (
+                    t('liveClass.noSessionsScheduled', 'No sessions scheduled yet.')
+                  )}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -404,7 +542,8 @@ const LiveClasses = () => {
           gap: '24px'
         }}>
           {filteredClasses.map((cls) => {
-            const isLive = cls.status === 'live';
+            const isLive = normalizeStatus(cls.status) === 'live';
+            const normStatus = normalizeStatus(cls.status);
             return (
               <div
                 key={cls.id}
@@ -554,7 +693,7 @@ const LiveClasses = () => {
                       }}
                     >
                       <span>{isLive ? '🚀' : '👀'}</span>
-                      {isLive ? t('liveClass.enterClassroom', 'Enter Classroom') : (cls.status === 'upcoming' ? t('liveClass.viewDetails', 'View Details') : t('liveClass.watchRecording', 'Watch Recording'))}
+                      {isLive ? t('liveClass.enterClassroom', 'Enter Classroom') : (normStatus === 'upcoming' ? t('liveClass.viewDetails', 'View Details') : t('liveClass.watchRecording', 'Watch Recording'))}
                     </button>
                   </div>
                 </div>
