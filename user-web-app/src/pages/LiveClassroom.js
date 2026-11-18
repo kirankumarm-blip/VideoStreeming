@@ -5,6 +5,24 @@ import { getCurrentUser } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 
+/**
+ * Validates whether a value is a legitimate, non-negative attendee count number.
+ * Preserves 0 as a valid count, rejecting null, undefined, NaN, negatives, and non-numbers.
+ */
+export const isValidAttendeeCount = (val) => {
+  return typeof val === 'number' && !isNaN(val) && isFinite(val) && val >= 0;
+};
+
+/**
+ * Returns formatted attendee count for user display.
+ * Shows '—' while loading, '—' when count is invalid/unavailable, or the confirmed number.
+ */
+export const formatAttendeeDisplay = (count, isLoading, isUnavailable) => {
+  if (isLoading) return '—';
+  if (isUnavailable || !isValidAttendeeCount(count)) return '—';
+  return String(count);
+};
+
 const LiveClassroom = () => {
   const { id } = useParams();
   const sanitizeMessage = (m) => {
@@ -45,7 +63,9 @@ const LiveClassroom = () => {
   const [error, setError] = useState('');
 
   // Real-time state
-  const [attendeesCount, setAttendeesCount] = useState(42);
+  const [attendeesCount, setAttendeesCount] = useState(0);
+  const [attendeesLoading, setAttendeesLoading] = useState(true);
+  const [attendeesUnavailable, setAttendeesUnavailable] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [handRaiseNotice, setHandRaiseNotice] = useState('');
   const [activePoll, setActivePoll] = useState(null);
@@ -87,14 +107,26 @@ const LiveClassroom = () => {
     if (!msg || typeof msg !== 'object') return;
     try {
       if (msg.type === 'LIVE_CLASS_STATE') {
-        setAttendeesCount(msg.liveClass?.attendeesCount || 0);
+        const rawCount = msg.liveClass?.attendeesCount;
+        if (isValidAttendeeCount(rawCount)) {
+          setAttendeesCount(rawCount);
+          setAttendeesUnavailable(false);
+        } else if (rawCount === null || rawCount === undefined) {
+          setAttendeesUnavailable(true);
+        }
+        setAttendeesLoading(false);
         setActivePoll(msg.liveClass?.activePoll || null);
         const cleanMsgs = (msg.liveClass?.chatMessages || []).map(sanitizeMessage).filter(Boolean);
         setChatMessages(cleanMsgs);
       } else if (msg.type === 'ATTENDEE_UPDATE') {
-        if (typeof msg.attendeesCount === 'number') {
-          setAttendeesCount(msg.attendeesCount);
+        const rawCount = msg.attendeesCount;
+        if (isValidAttendeeCount(rawCount)) {
+          setAttendeesCount(rawCount);
+          setAttendeesUnavailable(false);
+        } else if (rawCount === null || rawCount === undefined) {
+          setAttendeesUnavailable(true);
         }
+        setAttendeesLoading(false);
       } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
         const cleanMsg = sanitizeMessage(msg.message || msg);
         if (cleanMsg) {
@@ -173,12 +205,25 @@ const LiveClassroom = () => {
   const fetchClassDetails = async () => {
     try {
       setLoading(true);
+      setAttendeesLoading(true);
+      setAttendeesUnavailable(false);
       const apiBase = getAssetBaseUrl();
       const res = await fetch(`${apiBase}/api/live-classes/${id}`);
       if (res.ok) {
         const data = await res.json();
         setLiveClass(data);
-        setAttendeesCount(data.attendeesCount || 0);
+
+        // Validate attendee count: preserve legitimate 0, do not treat missing/null/undefined as 0
+        const count = data?.attendeesCount;
+        if (isValidAttendeeCount(count)) {
+          setAttendeesCount(count);
+          setAttendeesUnavailable(false);
+        } else {
+          // If count is missing or invalid, display an unavailable placeholder
+          setAttendeesUnavailable(true);
+        }
+        setAttendeesLoading(false);
+
         setActivePoll(data.activePoll || null);
         const cleanMsgs = (data.chatMessages || []).map(sanitizeMessage).filter(Boolean);
         setChatMessages(cleanMsgs);
@@ -188,23 +233,34 @@ const LiveClassroom = () => {
           setIsHandRaised(raised);
         }
         return;
+      } else {
+        // API response was not OK
+        setAttendeesUnavailable(true);
+        setAttendeesLoading(false);
       }
     } catch (err) {
       console.warn('Backend live class unreachable, using fallback session:', err);
+      // API call failed with network or runtime exception
+      setAttendeesUnavailable(true);
+      setAttendeesLoading(false);
     } finally {
       setLoading(false);
     }
 
-    // Fallback: match by ID or use first session
+    // Fallback: match by ID or use first session for class metadata (title, instructor, streamUrl)
     const fallback = FALLBACK_LIVE_CLASSES.find(c => c.id === id) || FALLBACK_LIVE_CLASSES[0];
     if (fallback) {
       setLiveClass(fallback);
-      setAttendeesCount(fallback.attendeesCount || 42);
+      // When API call fails, do not silently fabricate 42 or an arbitrary attendee number
+      setAttendeesUnavailable(true);
+      setAttendeesLoading(false);
       setActivePoll(fallback.activePoll || null);
       const cleanMsgs = (fallback.chatMessages || []).map(sanitizeMessage).filter(Boolean);
       setChatMessages(cleanMsgs);
       setError('');
     } else {
+      setAttendeesUnavailable(true);
+      setAttendeesLoading(false);
       setError(t('liveClass.notFound', 'Classroom session not found or concluded.'));
     }
   };
@@ -573,20 +629,31 @@ const LiveClassroom = () => {
         {/* Right Action Tools */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Attendee Count Badge */}
-          <div style={{
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--border-color)',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: 'var(--text-primary)'
-          }}>
+          <div
+            data-testid="attendee-badge"
+            data-status={attendeesLoading ? 'loading' : attendeesUnavailable ? 'unavailable' : 'loaded'}
+            aria-label={attendeesLoading ? 'Loading attendee count' : attendeesUnavailable ? 'Attendee count unavailable' : `${attendeesCount} ${t('liveClass.studentsInRoom', 'in class')}`}
+            title={attendeesLoading ? 'Loading attendee count...' : attendeesUnavailable ? 'Unavailable' : `${attendeesCount} ${t('liveClass.studentsInRoom', 'in class')}`}
+            style={{
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--text-primary)'
+            }}
+          >
             <span>👥</span>
-            <span>{attendeesCount} {t('liveClass.studentsInRoom', 'in class')}</span>
+            <span data-testid="attendees-badge-text">
+              <span data-testid="attendee-count">
+                {formatAttendeeDisplay(attendeesCount, attendeesLoading, attendeesUnavailable)}
+              </span>{' '}
+              {t('liveClass.studentsInRoom', 'in class')}
+            </span>
           </div>
 
           {/* Raise Hand Button */}

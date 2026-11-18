@@ -340,7 +340,7 @@ const LiveClasses = () => {
                     gap: '6px'
                   }}>
                     <span>👥</span>
-                    <span>{cls.attendeesCount || 0}</span>
+                    <span>{typeof cls.attendeesCount === 'number' && !isNaN(cls.attendeesCount) && cls.attendeesCount >= 0 ? cls.attendeesCount : '—'}</span>
                   </div>
                 </div>
 

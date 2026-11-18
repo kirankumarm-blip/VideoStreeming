@@ -4,6 +4,16 @@ import { getCurrentUser } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 
+export const isValidAttendeeCount = (val) => {
+  return typeof val === 'number' && !isNaN(val) && isFinite(val) && val >= 0;
+};
+
+export const formatAttendeeDisplay = (count, isLoading, isUnavailable) => {
+  if (isLoading) return '—';
+  if (isUnavailable || !isValidAttendeeCount(count)) return '—';
+  return String(count);
+};
+
 const LiveWebcasts = ({ theme }) => {
   const { t } = useLanguage();
   const currentUser = getCurrentUser() || {};
@@ -21,7 +31,9 @@ const LiveWebcasts = ({ theme }) => {
   const [copySuccess, setCopySuccess] = useState('');
 
   // Live state
-  const [attendeesCount, setAttendeesCount] = useState(42);
+  const [attendeesCount, setAttendeesCount] = useState(0);
+  const [attendeesLoading, setAttendeesLoading] = useState(true);
+  const [attendeesUnavailable, setAttendeesUnavailable] = useState(false);
   const [handRaises, setHandRaises] = useState([]);
   const [activePoll, setActivePoll] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
@@ -75,14 +87,26 @@ const LiveWebcasts = ({ theme }) => {
     if (!msg || typeof msg !== 'object') return;
     try {
       if (msg.type === 'LIVE_CLASS_STATE') {
-        setAttendeesCount(msg.liveClass.attendeesCount || 0);
-        setHandRaises(msg.liveClass.handRaises || []);
-        setActivePoll(msg.liveClass.activePoll || null);
-        setChatMessages(msg.liveClass.chatMessages || []);
-      } else if (msg.type === 'ATTENDEE_UPDATE') {
-        if (typeof msg.attendeesCount === 'number') {
-          setAttendeesCount(msg.attendeesCount);
+        const rawCount = msg.liveClass?.attendeesCount;
+        if (isValidAttendeeCount(rawCount)) {
+          setAttendeesCount(rawCount);
+          setAttendeesUnavailable(false);
+        } else if (rawCount === null || rawCount === undefined) {
+          setAttendeesUnavailable(true);
         }
+        setAttendeesLoading(false);
+        setHandRaises(msg.liveClass?.handRaises || []);
+        setActivePoll(msg.liveClass?.activePoll || null);
+        setChatMessages(msg.liveClass?.chatMessages || []);
+      } else if (msg.type === 'ATTENDEE_UPDATE') {
+        const rawCount = msg.attendeesCount;
+        if (isValidAttendeeCount(rawCount)) {
+          setAttendeesCount(rawCount);
+          setAttendeesUnavailable(false);
+        } else if (rawCount === null || rawCount === undefined) {
+          setAttendeesUnavailable(true);
+        }
+        setAttendeesLoading(false);
       } else if (msg.type === 'LIVE_CHAT_MESSAGE') {
         const rawM = msg.message || msg;
         if (rawM) {
@@ -189,7 +213,8 @@ const LiveWebcasts = ({ theme }) => {
     if (!selectedClass && FALLBACK_LIVE_CLASSES.length > 0) {
       const defaultCls = FALLBACK_LIVE_CLASSES[0];
       setSelectedClass(defaultCls);
-      setAttendeesCount(defaultCls.attendeesCount || 42);
+      setAttendeesUnavailable(true);
+      setAttendeesLoading(false);
       setHandRaises(defaultCls.handRaises || []);
       setActivePoll(defaultCls.activePoll || null);
       setChatMessages(defaultCls.chatMessages || []);
@@ -199,26 +224,41 @@ const LiveWebcasts = ({ theme }) => {
 
   const loadClassDetails = async (classId) => {
     try {
+      setAttendeesLoading(true);
+      setAttendeesUnavailable(false);
       const apiBase = getAssetBaseUrl();
       const res = await fetch(`${apiBase}/api/live-classes/${classId}`);
       if (res.ok) {
         const cls = await res.json();
         setSelectedClass(cls);
-        setAttendeesCount(cls.attendeesCount || 0);
+        const count = cls?.attendeesCount;
+        if (isValidAttendeeCount(count)) {
+          setAttendeesCount(count);
+          setAttendeesUnavailable(false);
+        } else {
+          setAttendeesUnavailable(true);
+        }
+        setAttendeesLoading(false);
         setHandRaises(cls.handRaises || []);
         setActivePoll(cls.activePoll || null);
         setChatMessages(cls.chatMessages || []);
         setIsBroadcasting(cls.status === 'live');
         return;
+      } else {
+        setAttendeesUnavailable(true);
+        setAttendeesLoading(false);
       }
     } catch (err) {
       console.warn('Backend class detail unreachable, using local session:', err);
+      setAttendeesUnavailable(true);
+      setAttendeesLoading(false);
     }
 
     const fallbackFound = FALLBACK_LIVE_CLASSES.find(c => c.id === classId) || FALLBACK_LIVE_CLASSES[0];
     if (fallbackFound) {
       setSelectedClass(fallbackFound);
-      setAttendeesCount(fallbackFound.attendeesCount || 42);
+      setAttendeesUnavailable(true);
+      setAttendeesLoading(false);
       setHandRaises(fallbackFound.handRaises || []);
       setActivePoll(fallbackFound.activePoll || null);
       setChatMessages(fallbackFound.chatMessages || []);
@@ -832,7 +872,7 @@ const LiveWebcasts = ({ theme }) => {
                 gap: '6px'
               }}>
                 <span>👥</span>
-                {attendeesCount} {t('liveClass.viewers', 'Learners')}
+                {formatAttendeeDisplay(attendeesCount, attendeesLoading, attendeesUnavailable)} {t('liveClass.viewers', 'Learners')}
               </span>
             </div>
 
@@ -1481,7 +1521,7 @@ const LiveWebcasts = ({ theme }) => {
                     {cls.status}
                   </span>
                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    👥 {cls.attendeesCount || 0}
+                    👥 {isValidAttendeeCount(cls.attendeesCount) ? cls.attendeesCount : '—'}
                   </span>
                 </div>
 
