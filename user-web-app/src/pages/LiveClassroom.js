@@ -1,9 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getCurrentUser } from '../services/api';
+import { getCurrentUser, getAccessToken, isValidToken } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
+import { getApiBaseUrl } from '../utils/apiUrl';
+
+/**
+ * Builds authenticated headers for poll voting.
+ * Returns null if token is missing or invalid.
+ */
+export const buildPollVoteHeaders = (token) => {
+  if (!isValidToken(token)) return null;
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token.trim()}`
+  };
+};
 
 /**
  * Validates whether a value is a legitimate, non-negative attendee count number.
@@ -71,6 +84,10 @@ const LiveClassroom = () => {
   const [activePoll, setActivePoll] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedOptionId, setSelectedOptionId] = useState(null);
+  const [isVoting, setIsVoting] = useState(false);
+  const [pollError, setPollError] = useState('');
+  const isVotingRef = useRef(false);
+  const currentPollIdRef = useRef(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [bottomTab, setBottomTab] = useState('notes'); // 'notes', 'resources', 'bio'
@@ -141,11 +158,27 @@ const LiveClassroom = () => {
           setIsHandRaised(raised);
         }
       } else if (msg.type === 'POLL_LAUNCHED') {
-        setActivePoll(msg.poll);
-        setHasVoted(false);
-        setSelectedOptionId(null);
+        const newPoll = msg.poll;
+        if (newPoll && newPoll.id !== currentPollIdRef.current) {
+          currentPollIdRef.current = newPoll.id;
+          setHasVoted(false);
+          setSelectedOptionId(null);
+          setPollError('');
+          isVotingRef.current = false;
+          setIsVoting(false);
+        }
+        setActivePoll(newPoll);
       } else if (msg.type === 'POLL_UPDATED') {
-        setActivePoll(msg.poll);
+        const updatedPoll = msg.poll;
+        if (updatedPoll && updatedPoll.id !== currentPollIdRef.current) {
+          currentPollIdRef.current = updatedPoll.id;
+          setHasVoted(false);
+          setSelectedOptionId(null);
+          setPollError('');
+          isVotingRef.current = false;
+          setIsVoting(false);
+        }
+        setActivePoll(updatedPoll);
       } else if (msg.type === 'POLL_CLOSED') {
         setActivePoll(msg.poll);
       } else if (msg.type === 'CLASS_STATUS_CHANGED') {
@@ -268,6 +301,18 @@ const LiveClassroom = () => {
   useEffect(() => {
     fetchClassDetails();
   }, [id]);
+
+  // Reset voting state only when switching to a different poll
+  useEffect(() => {
+    if (activePoll && activePoll.id && activePoll.id !== currentPollIdRef.current) {
+      currentPollIdRef.current = activePoll.id;
+      setHasVoted(false);
+      setSelectedOptionId(null);
+      setPollError('');
+      isVotingRef.current = false;
+      setIsVoting(false);
+    }
+  }, [activePoll?.id]);
 
   // Handle receiving WebRTC live video/audio from instructor
   const handleReceiveOffer = async (offer, instructorId) => {
@@ -426,42 +471,87 @@ const LiveClassroom = () => {
 
   // Vote on active poll
   const submitPollVote = async (optionId) => {
-    if (hasVoted || !activePoll || !id) return;
-    setSelectedOptionId(optionId);
-    setHasVoted(true);
+    // Synchronous guards to prevent double-clicking & race conditions
+    if (isVotingRef.current || hasVoted || isVoting || !activePoll || !id || !optionId) {
+      return;
+    }
 
-    // Update poll locally first for snappy UI
-    setActivePoll(prev => {
-      if (!prev) return prev;
-      const updatedOptions = (prev.options || []).map(opt => {
-        if (opt.id === optionId) {
-          return { ...opt, votes: (opt.votes || 0) + 1 };
-        }
-        return opt;
-      });
-      return {
-        ...prev,
-        options: updatedOptions,
-        totalVotes: (prev.totalVotes || 0) + 1
-      };
-    });
+    // 1. Authentication check: retrieve and validate existing access token
+    const token = getAccessToken();
+    if (!isValidToken(token)) {
+      setPollError(t('liveClass.authRequired', 'Authentication required. Please sign in to vote.'));
+      return;
+    }
 
-    sendSocketMessage({
-      type: 'VOTE_POLL',
-      classId: id,
-      optionId,
-      user: { id: currentUser.id || 'u-guest' }
-    });
+    // Mark as in-progress synchronously and in state
+    isVotingRef.current = true;
+    setIsVoting(true);
+    setPollError('');
 
-    const apiBase = getAssetBaseUrl();
     try {
-      await fetch(`${apiBase}/api/live-classes/${id}/poll/vote`, {
+      const apiBase = getApiBaseUrl() || getAssetBaseUrl();
+      const headers = buildPollVoteHeaders(token);
+
+      const res = await fetch(`${apiBase}/api/live-classes/${id}/poll/vote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ optionId })
       });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.poll) {
+          setActivePoll(data.poll);
+        } else {
+          setActivePoll(prev => {
+            if (!prev) return prev;
+            const updatedOptions = (prev.options || []).map(opt => {
+              if (opt.id === optionId) {
+                return { ...opt, votes: (opt.votes || 0) + 1 };
+              }
+              return opt;
+            });
+            return {
+              ...prev,
+              options: updatedOptions,
+              totalVotes: (prev.totalVotes || 0) + 1
+            };
+          });
+        }
+        setSelectedOptionId(optionId);
+        setHasVoted(true);
+        setPollError('');
+
+        sendSocketMessage({
+          type: 'VOTE_POLL',
+          classId: id,
+          optionId,
+          user: { id: currentUser.id || 'u-guest' }
+        });
+      } else if (res.status === 401) {
+        setPollError(t('liveClass.sessionExpired', 'Your session has expired. Please sign in again.'));
+      } else if (res.status === 403) {
+        setPollError(t('liveClass.voteForbidden', 'You do not have permission to vote in this poll.'));
+      } else if (res.status === 409) {
+        // Documented duplicate-vote response
+        setPollError(t('liveClass.alreadyVoted', 'You have already voted in this poll.'));
+        setHasVoted(true);
+      } else if (res.status >= 500) {
+        setPollError(t('liveClass.pollServerError', 'Unable to record your vote right now. Please try again.'));
+      } else {
+        let errMsg = '';
+        try {
+          const errData = await res.json();
+          errMsg = errData?.message || errData?.error || '';
+        } catch (e) {}
+        setPollError(errMsg || t('liveClass.voteFailed', 'Failed to submit vote. Please try again.'));
+      }
     } catch (err) {
-      console.warn('Vote backend sync skipped:', err);
+      // Network failure: show clear error without falsely recording a successful vote
+      setPollError(t('liveClass.networkError', 'Network error. Please check your connection and try again.'));
+    } finally {
+      setIsVoting(false);
+      isVotingRef.current = false;
     }
   };
 
@@ -836,7 +926,8 @@ const LiveClassroom = () => {
                     return (
                       <button
                         key={opt.id}
-                        disabled={hasVoted}
+                        data-testid={`poll-option-${opt.id}`}
+                        disabled={hasVoted || isVoting}
                         onClick={() => submitPollVote(opt.id)}
                         style={{
                           padding: '8px 12px',
@@ -849,12 +940,13 @@ const LiveClassroom = () => {
                           fontSize: '12px',
                           fontWeight: 600,
                           textAlign: 'left',
-                          cursor: hasVoted ? 'default' : 'pointer',
+                          cursor: (hasVoted || isVoting) ? 'not-allowed' : 'pointer',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '4px',
                           position: 'relative',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          opacity: isVoting ? 0.7 : 1
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', zIndex: 2 }}>
@@ -880,8 +972,32 @@ const LiveClassroom = () => {
                 </div>
 
                 {hasVoted && (
-                  <div style={{ fontSize: '11px', color: '#10b981', textAlign: 'center', marginTop: '8px', fontWeight: 600 }}>
+                  <div 
+                    data-testid="poll-success"
+                    style={{ fontSize: '11px', color: '#10b981', textAlign: 'center', marginTop: '8px', fontWeight: 600 }}
+                  >
                     ✓ Vote recorded! Live results updating.
+                  </div>
+                )}
+
+                {pollError && (
+                  <div 
+                    role="alert"
+                    data-testid="poll-error"
+                    style={{ 
+                      fontSize: '11px', 
+                      color: '#f87171', 
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: '6px',
+                      padding: '6px 8px',
+                      textAlign: 'center', 
+                      marginTop: '8px', 
+                      fontWeight: 600,
+                      lineHeight: 1.4
+                    }}
+                  >
+                    ⚠️ {pollError}
                   </div>
                 )}
               </div>

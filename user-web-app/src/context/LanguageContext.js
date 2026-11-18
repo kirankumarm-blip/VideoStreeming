@@ -639,7 +639,13 @@ const translations = {
     'liveClass.welcomeChat': 'Welcome! Ask questions or share thoughts with classmates and the instructor.',
     'liveClass.askDoubtPlaceholder': 'Ask a question or share doubt...',
     'liveClass.notFound': 'Classroom session not found or concluded.',
-    'liveClass.networkError': 'Failed to connect to the live classroom.'
+    'liveClass.networkError': 'Failed to connect to the live classroom.',
+    'liveClass.authRequired': 'Please sign in to vote in this poll.',
+    'liveClass.sessionExpired': 'Your session has expired. Please sign in again.',
+    'liveClass.voteForbidden': 'You do not have permission to vote in this poll.',
+    'liveClass.alreadyVoted': 'You have already voted in this poll.',
+    'liveClass.pollServerError': 'Unable to record your vote right now. Please try again.',
+    'liveClass.voteFailed': 'Failed to submit vote. Please try again.'
   },
   hi: {
     // --- Master Multilingual Extension (hi) ---
@@ -1144,7 +1150,13 @@ const translations = {
     'liveClass.welcomeChat': 'स्वागत है! सहपाठियों और प्रशिक्षक के साथ प्रश्न पूछें या विचार साझा करें।',
     'liveClass.askDoubtPlaceholder': 'प्रश्न पूछें या संदेह साझा करें...',
     'liveClass.notFound': 'क्लासरूम सत्र नहीं मिला या समाप्त हो गया है।',
-    'liveClass.networkError': 'लाइव क्लासरूम से कनेक्ट करने में विफल।'
+    'liveClass.networkError': 'लाइव क्लासरूम से कनेक्ट करने में विफल।',
+    'liveClass.authRequired': 'कृपया इस पोल में वोट करने के लिए साइन इन करें।',
+    'liveClass.sessionExpired': 'आपका सत्र समाप्त हो गया है। कृपया पुनः साइन इन करें।',
+    'liveClass.voteForbidden': 'आपको इस पोल में वोट करने की अनुमति नहीं है।',
+    'liveClass.alreadyVoted': 'आप इस पोल में पहले ही वोट कर चुके हैं।',
+    'liveClass.pollServerError': 'इस समय आपका वोट दर्ज करने में असमर्थ। कृपया पुनः प्रयास करें।',
+    'liveClass.voteFailed': 'वोट सबमिट करने में विफल। कृपया पुनः प्रयास करें।'
   },
   kn: {
     // --- Master Multilingual Extension (kn) ---
@@ -1649,7 +1661,13 @@ const translations = {
     'liveClass.welcomeChat': 'ಸ್ವಾಗತ! ಸಹಪಾಠಿಗಳು ಮತ್ತು ಬೋಧಕರೊಂದಿಗೆ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ ಅಥವಾ ಆಲೋಚನೆಗಳನ್ನು ಹಂಚಿಕೊಳ್ಳಿ.',
     'liveClass.askDoubtPlaceholder': 'ಪ್ರಶ್ನೆ ಕೇಳಿ ಅಥವಾ ಸಂದೇಹ ಹಂಚಿಕೊಳ್ಳಿ...',
     'liveClass.notFound': 'ತರಗತಿ ಸೆಷನ್ ಕಂಡುಬಂದಿಲ್ಲ ಅಥವಾ ಮುಕ್ತಾಯಗೊಂಡಿದೆ.',
-    'liveClass.networkError': 'ಲೈವ್ ತರಗತಿಗೆ ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ.'
+    'liveClass.networkError': 'ಲೈವ್ ತರಗತಿಗೆ ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ.',
+    'liveClass.authRequired': 'ಈ ಪೋಲ್‌ನಲ್ಲಿ ಮತ ಚಲಾಯಿಸಲು ದಯವಿಟ್ಟು ಸೈನ್ ಇನ್ ಮಾಡಿ.',
+    'liveClass.sessionExpired': 'ನಿಮ್ಮ ಸೆಷನ್ ಮುಕ್ತಾಯಗೊಂಡಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಸೈನ್ ಇನ್ ಮಾಡಿ.',
+    'liveClass.voteForbidden': 'ಈ ಪೋಲ್‌ನಲ್ಲಿ ಮತ ಚಲಾಯಿಸಲು ನಿಮಗೆ ಅನುಮತಿ ಇಲ್ಲ.',
+    'liveClass.alreadyVoted': 'ನೀವು ಈಗಾಗಲೇ ಈ ಪೋಲ್‌ನಲ್ಲಿ ಮತ ಚಲಾಯಿಸಿದ್ದೀರಿ.',
+    'liveClass.pollServerError': 'ಈ ಸಮಯದಲ್ಲಿ ನಿಮ್ಮ ಮತವನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+    'liveClass.voteFailed': 'ಮತ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
   }
 };
 
