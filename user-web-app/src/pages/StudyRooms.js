@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getCurrentUser } from '../services/api';
+import { getCurrentUser, getAccessToken } from '../services/api';
+import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
 
 const StudyRooms = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ const StudyRooms = () => {
   const [loading, setLoading] = useState(true);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joinError, setJoinError] = useState('');
+  const [authError, setAuthError] = useState(false);
 
   // Create room modal / state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -19,26 +21,167 @@ const StudyRooms = () => {
   const [selectedCourse, setSelectedCourse] = useState('1');
   const [creating, setCreating] = useState(false);
 
-  const fetchRooms = async () => {
-    try {
+  // Polling management refs to prevent duplicate requests & manage backoff
+  const isMountedRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const pollTimerRef = useRef(null);
+  const failureCountRef = useRef(0);
+  const nextPollTimeRef = useRef(0);
+  const abortControllerRef = useRef(null);
+  const roomsLoadedRef = useRef(false);
+  const fetchRoomsRef = useRef(null);
+
+  const clearPollTimer = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleNextPoll = useCallback((customDelay = null) => {
+    clearPollTimer();
+
+    // Do not schedule polling if unmounted, tab hidden, or unauthorized
+    if (!isMountedRef.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden') || authError) {
+      return;
+    }
+
+    const delay = typeof customDelay === 'number'
+      ? customDelay
+      : calculateBackoffDelay(failureCountRef.current);
+
+    nextPollTimeRef.current = Date.now() + delay;
+    pollTimerRef.current = setTimeout(() => {
+      if (fetchRoomsRef.current) {
+        fetchRoomsRef.current();
+      }
+    }, delay);
+  }, [clearPollTimer, authError]);
+
+  const fetchRooms = useCallback(async (isManual = false) => {
+    // Prevent overlapping requests
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    // Do not initiate background poll if tab is hidden
+    if (!isManual && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      clearPollTimer();
+      return;
+    }
+
+    // Abort previous in-flight request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    isFetchingRef.current = true;
+    clearPollTimer();
+
+    // Show initial loading only before rooms are loaded
+    if (!roomsLoadedRef.current) {
       setLoading(true);
-      const res = await fetch('http://localhost:5000/api/study-rooms');
+    }
+
+    const apiBase = getApiBaseUrl();
+    const token = getAccessToken();
+    const headers = { 'Accept': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const res = await fetch(`${apiBase}/api/study-rooms`, {
+        signal: controller.signal,
+        headers
+      });
+
+      if (!isMountedRef.current) return;
+
+      // Do not automatically retry authentication errors (HTTP 401 / 403)
+      if (res.status === 401 || res.status === 403) {
+        console.warn('Study rooms polling paused: Authentication required (HTTP 401/403)');
+        setAuthError(true);
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
-        setRooms(data || []);
+        if (isMountedRef.current) {
+          setRooms(Array.isArray(data) ? data : []);
+          setAuthError(false);
+          roomsLoadedRef.current = true;
+          failureCountRef.current = 0; // Reset failure counter on success
+          scheduleNextPoll(10000); // 10-second polling on success
+        }
+      } else {
+        throw new Error(`HTTP ${res.status}`);
       }
     } catch (e) {
-      console.error('Failed to fetch study rooms', e);
+      // Aborted fetches should not be counted as failures
+      if (e.name === 'AbortError') {
+        return;
+      }
+      console.error('Failed to fetch study rooms:', e);
+      if (isMountedRef.current) {
+        failureCountRef.current += 1;
+        // Schedule retry with exponential backoff (20s, 40s, 80s, max 120s + jitter)
+        scheduleNextPoll();
+      }
     } finally {
-      setLoading(false);
+      isFetchingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [clearPollTimer, scheduleNextPoll]);
 
+  // Keep fetchRoomsRef in sync with fetchRooms
   useEffect(() => {
+    fetchRoomsRef.current = fetchRooms;
+  }, [fetchRooms]);
+
+  // Polling lifecycle with visibility change tracking & cleanup
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Pause polling when browser tab is hidden
+        clearPollTimer();
+      } else if (document.visibilityState === 'visible') {
+        // Resume polling when tab becomes visible, respecting active failure backoff
+        if (!isFetchingRef.current && !authError && isMountedRef.current) {
+          const now = Date.now();
+          const scheduledTime = nextPollTimeRef.current;
+          if (scheduledTime > now) {
+            // Still within backoff or normal window; resume with remaining duration
+            const remaining = scheduledTime - now;
+            scheduleNextPoll(remaining);
+          } else {
+            // Scheduled window elapsed while hidden; poll immediately
+            fetchRooms();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Initial fetch on mount
     fetchRooms();
-    const interval = setInterval(fetchRooms, 10000); // Poll active rooms every 10s
-    return () => clearInterval(interval);
-  }, []);
+
+    return () => {
+      isMountedRef.current = false;
+      clearPollTimer();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [clearPollTimer, fetchRooms, scheduleNextPoll, authError]);
 
   const handleJoinWithCode = async (e) => {
     e.preventDefault();
@@ -46,7 +189,14 @@ const StudyRooms = () => {
     if (!code) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/study-rooms/${code}`);
+      const apiBase = getApiBaseUrl();
+      const token = getAccessToken();
+      const headers = { 'Accept': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${apiBase}/api/study-rooms/${code}`, { headers });
       if (res.ok) {
         const room = await res.json();
         navigate(`/watch/${room.videoId || 1}?room=${code}`);
@@ -77,9 +227,16 @@ const StudyRooms = () => {
         userId: user.id || 'u-user'
       };
 
-      const res = await fetch('http://localhost:5000/api/study-rooms/create', {
+      const apiBase = getApiBaseUrl();
+      const token = getAccessToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${apiBase}/api/study-rooms/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
 
@@ -226,6 +383,26 @@ const StudyRooms = () => {
           </div>
         )}
       </div>
+
+      {/* Authentication Error Banner */}
+      {authError && (
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: '14px',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          color: '#ef4444',
+          marginBottom: '24px',
+          fontSize: '13px',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <span>🔒</span>
+          <span>{t('studyRooms.authError', 'Authentication session required. Please sign in to view and join active study rooms.')}</span>
+        </div>
+      )}
 
       {/* Live Study Rooms Section */}
       <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

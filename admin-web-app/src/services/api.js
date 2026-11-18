@@ -1,5 +1,6 @@
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
-export { getAssetUrl, getAssetBaseUrl };
+import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
+export { getAssetUrl, getAssetBaseUrl, getApiBaseUrl, calculateBackoffDelay };
 
 const getBaseUrl = () => {
   return 'https://uat-02-admin-api.darpanx.com/webhook';

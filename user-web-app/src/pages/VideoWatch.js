@@ -1,5 +1,6 @@
 import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
+import { getApiBaseUrl } from '../utils/apiUrl';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -737,7 +738,7 @@ const VideoWatch = () => {
     setStudyCreatingRoom(true);
     try {
       const activeCourse = location.state?.course;
-      const apiBase = getAssetBaseUrl();
+      const apiBase = getApiBaseUrl() || getAssetBaseUrl();
       const res = await fetch(`${apiBase}/api/study-rooms/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2382,7 +2383,7 @@ const VideoWatch = () => {
     ));
 
     try {
-      const apiBase = getAssetBaseUrl();
+      const apiBase = getApiBaseUrl() || getAssetBaseUrl();
       const response = await fetch(`${apiBase}/api/ai/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
