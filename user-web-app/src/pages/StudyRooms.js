@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser, getAccessToken } from '../services/api';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
+import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
 
 const StudyRooms = () => {
   const navigate = useNavigate();
@@ -20,6 +21,21 @@ const StudyRooms = () => {
   const [newRoomTitle, setNewRoomTitle] = useState('');
   const [selectedCourse, setSelectedCourse] = useState('1');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+
+  const openCreateModal = () => {
+    setCreateError('');
+    setCreateSuccess('');
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    if (creating) return;
+    setShowCreateModal(false);
+    setCreateError('');
+    setCreateSuccess('');
+  };
 
   // Polling management refs to prevent duplicate requests & manage backoff
   const isMountedRef = useRef(true);
@@ -213,10 +229,15 @@ const StudyRooms = () => {
     e.preventDefault();
     if (creating) return;
     setCreating(true);
+    setCreateError('');
+    setCreateSuccess('');
+
+    // Generate client correlation ID in case the backend doesn't return one or fails at the network level
+    const clientCorrelationId = generateCorrelationId();
 
     try {
       const payload = {
-        title: newRoomTitle.trim() || `${user.name || 'Learner'}'s Study Room`,
+        title: newRoomTitle.trim() || `${user.name || user.username || 'Learner'}'s Study Room`,
         courseId: selectedCourse,
         courseTitle: selectedCourse === '1' ? 'Full Stack Web Development with React & Node' : 'Complete Python Bootcamp 2026',
         videoId: selectedCourse === '1' ? '1' : '2',
@@ -229,7 +250,11 @@ const StudyRooms = () => {
 
       const apiBase = getApiBaseUrl();
       const token = getAccessToken();
-      const headers = { 'Content-Type': 'application/json' };
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': clientCorrelationId,
+        'X-Request-ID': clientCorrelationId
+      };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -242,13 +267,34 @@ const StudyRooms = () => {
 
       if (res.ok) {
         const data = await res.json();
-        navigate(`/watch/${payload.videoId}?room=${data.roomId}`);
+        // Success: close modal, reset inputs, and refresh room listing
+        setShowCreateModal(false);
+        setNewRoomTitle('');
+        setSelectedCourse('1');
+        setCreateError('');
+        if (typeof fetchRooms === 'function') {
+          fetchRooms(true);
+        }
+        const roomId = data.roomId || (data.room && (data.room.id || data.room.roomId));
+        navigate(`/watch/${payload.videoId}?room=${roomId}`);
+      } else {
+        // API non-2xx error response: parse safely and keep modal open with inputs preserved
+        const errorResult = await handleFormApiError(res, null, {
+          formName: 'CreateStudyRoom',
+          clientCorrelationId
+        });
+        setCreateError(errorResult.displayMessage);
       }
     } catch (err) {
-      console.error('Failed to create room', err);
+      // Network failure or fetch exception: parse safely and keep modal open with inputs preserved
+      const errorResult = await handleFormApiError(null, err, {
+        formName: 'CreateStudyRoom',
+        clientCorrelationId
+      });
+      setCreateError(errorResult.displayMessage);
     } finally {
+      // Re-enable submit button; modal is NOT closed on error
       setCreating(false);
-      setShowCreateModal(false);
     }
   };
 
@@ -290,7 +336,7 @@ const StudyRooms = () => {
 
         <button
           type="button"
-          onClick={() => setShowCreateModal(true)}
+          onClick={openCreateModal}
           style={{
             padding: '12px 22px',
             borderRadius: '12px',
@@ -435,7 +481,7 @@ const StudyRooms = () => {
           </p>
           <button
             type="button"
-            onClick={() => setShowCreateModal(true)}
+            onClick={openCreateModal}
             style={{
               padding: '10px 20px',
               borderRadius: '10px',
@@ -621,7 +667,11 @@ const StudyRooms = () => {
           justifyContent: 'center',
           zIndex: 10000,
           padding: '20px'
-        }} onClick={(e) => e.target === e.currentTarget && setShowCreateModal(false)}>
+        }} onClick={(e) => {
+          if (e.target === e.currentTarget && !creating) {
+            closeCreateModal();
+          }
+        }}>
           <div style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
@@ -647,14 +697,73 @@ const StudyRooms = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px' }}
+                onClick={closeCreateModal}
+                disabled={creating}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: creating ? 'not-allowed' : 'pointer',
+                  fontSize: '18px',
+                  opacity: creating ? 0.5 : 1
+                }}
+                aria-label="Close modal"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleCreateRoom} style={{ padding: '24px' }}>
+              {/* Error Message Alert */}
+              {createError && (
+                <div 
+                  role="alert"
+                  data-testid="create-room-error"
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    color: '#ef4444',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    lineHeight: 1.5,
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  <span style={{ fontSize: '16px', flexShrink: 0 }}>⚠️</span>
+                  <div style={{ flex: 1 }}>{createError}</div>
+                </div>
+              )}
+
+              {/* Success Message Alert */}
+              {createSuccess && (
+                <div 
+                  role="status"
+                  data-testid="create-room-success"
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    color: '#10b981',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <span>✅</span>
+                  <div>{createSuccess}</div>
+                </div>
+              )}
+
               <div style={{ marginBottom: '18px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
                   {t('studyRooms.roomNameLabel', 'Room Name / Topic')}
@@ -662,30 +771,13 @@ const StudyRooms = () => {
                 <input
                   type="text"
                   value={newRoomTitle}
-                  onChange={(e) => setNewRoomTitle(e.target.value)}
+                  onChange={(e) => {
+                    setNewRoomTitle(e.target.value);
+                    if (createError) setCreateError('');
+                  }}
                   placeholder="e.g. Chapter 2 Quiz Prep & Code Review"
                   required
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-color)',
-                    background: 'var(--bg-primary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
-                  {t('studyRooms.selectCourseLabel', 'Select Course to Watch Together')}
-                </label>
-                <select
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  disabled={creating}
                   style={{
                     width: '100%',
                     padding: '12px 14px',
@@ -696,7 +788,34 @@ const StudyRooms = () => {
                     fontSize: '13px',
                     outline: 'none',
                     boxSizing: 'border-box',
-                    cursor: 'pointer'
+                    opacity: creating ? 0.7 : 1
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                  {t('studyRooms.selectCourseLabel', 'Select Course to Watch Together')}
+                </label>
+                <select
+                  value={selectedCourse}
+                  onChange={(e) => {
+                    setSelectedCourse(e.target.value);
+                    if (createError) setCreateError('');
+                  }}
+                  disabled={creating}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    cursor: creating ? 'not-allowed' : 'pointer',
+                    opacity: creating ? 0.7 : 1
                   }}
                 >
                   <option value="1">Full Stack Web Development with React & Node</option>
@@ -707,7 +826,8 @@ const StudyRooms = () => {
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
+                  disabled={creating}
                   style={{
                     flex: 1,
                     padding: '12px',
@@ -716,7 +836,8 @@ const StudyRooms = () => {
                     background: 'transparent',
                     color: 'var(--text-primary)',
                     fontWeight: 700,
-                    cursor: 'pointer'
+                    cursor: creating ? 'not-allowed' : 'pointer',
+                    opacity: creating ? 0.5 : 1
                   }}
                 >
                   {t('plans.cancel', 'Cancel')}
@@ -734,7 +855,8 @@ const StudyRooms = () => {
                     color: '#ffffff',
                     fontWeight: 800,
                     cursor: creating ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.3)'
+                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.3)',
+                    opacity: creating ? 0.7 : 1
                   }}
                 >
                   {creating ? 'Starting Room...' : 'Launch Watch Party 🚀'}

@@ -1,6 +1,26 @@
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
-export { getAssetUrl, getAssetBaseUrl, getApiBaseUrl, calculateBackoffDelay };
+import { 
+  generateCorrelationId,
+  extractRequestId,
+  sanitizeErrorMessage,
+  formatDisplayErrorMessage,
+  logFormError,
+  handleFormApiError 
+} from '../utils/formErrorHandler';
+
+export { 
+  getAssetUrl, 
+  getAssetBaseUrl, 
+  getApiBaseUrl, 
+  calculateBackoffDelay,
+  generateCorrelationId,
+  extractRequestId,
+  sanitizeErrorMessage,
+  formatDisplayErrorMessage,
+  logFormError,
+  handleFormApiError 
+};
 
 const getBaseUrl = () => {
   return 'https://uat-02-admin-api.darpanx.com/webhook';

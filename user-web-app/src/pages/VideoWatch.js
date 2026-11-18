@@ -1,6 +1,7 @@
 import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl } from '../utils/apiUrl';
+import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -736,12 +737,17 @@ const VideoWatch = () => {
 
   const handleCreateWatchPartyNow = async () => {
     setStudyCreatingRoom(true);
+    const clientCorrelationId = generateCorrelationId();
     try {
       const activeCourse = location.state?.course;
       const apiBase = getApiBaseUrl() || getAssetBaseUrl();
       const res = await fetch(`${apiBase}/api/study-rooms/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Correlation-ID': clientCorrelationId,
+          'X-Request-ID': clientCorrelationId
+        },
         body: JSON.stringify({
           title: `${video?.title || 'Lesson'} Watch Party`,
           courseId: video?.course_id || activeCourse?.id || 1,
@@ -751,19 +757,31 @@ const VideoWatch = () => {
           userEmail: userEmail
         })
       });
-      const data = await res.json();
-      if (data.success && data.room) {
-        setShowStudyRoomModal(false);
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.set('room', data.room.roomId);
-        setSearchParams(nextParams);
-        setActiveStudyRoom(data.room);
-        setShowStudyRoomDrawer(true);
-        triggerStudyBanner(`🎉 Study Room ${data.room.roomId} is ready!`);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.room) {
+          setShowStudyRoomModal(false);
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.set('room', data.room.roomId);
+          setSearchParams(nextParams);
+          setActiveStudyRoom(data.room);
+          setShowStudyRoomDrawer(true);
+          triggerStudyBanner(`🎉 Study Room ${data.room.roomId} is ready!`);
+        }
+      } else {
+        const errResult = await handleFormApiError(res, null, {
+          formName: 'CreateWatchPartyInstant',
+          clientCorrelationId
+        });
+        triggerStudyBanner(`⚠️ ${errResult.displayMessage}`);
       }
     } catch (err) {
-      console.error('Failed to create instant watch party:', err);
-      alert('Failed to create study room. Please make sure backend is running.');
+      const errResult = await handleFormApiError(null, err, {
+        formName: 'CreateWatchPartyInstant',
+        clientCorrelationId
+      });
+      triggerStudyBanner(`⚠️ ${errResult.displayMessage}`);
     } finally {
       setStudyCreatingRoom(false);
     }
