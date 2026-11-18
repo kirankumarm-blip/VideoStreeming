@@ -1,8 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
-import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
+import { getApiBaseUrl } from '../utils/apiUrl';
+import { getAssetBaseUrl } from '../utils/assetUrl';
+import { logFormError, extractRequestId } from '../utils/formErrorHandler';
+
+/**
+ * Validates and processes the Live Classes API response.
+ * Treats empty array as valid success, and sets error on non-ok or non-array responses.
+ */
+export const processLiveClassesApiResponse = (res, data) => {
+  if (!res || !res.ok) {
+    return {
+      classes: [],
+      error: 'Live classes could not be loaded at this moment'
+    };
+  }
+  if (!Array.isArray(data)) {
+    return {
+      classes: [],
+      error: 'Live classes could not be loaded at this moment'
+    };
+  }
+  return {
+    classes: data,
+    error: null
+  };
+};
 
 const LiveClasses = () => {
   const navigate = useNavigate();
@@ -10,34 +35,73 @@ const LiveClasses = () => {
   const currentUser = getCurrentUser() || {};
 
   const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'live', 'upcoming', 'completed'
 
-  const fetchClasses = async () => {
+  const isFetchingRef = useRef(false);
+
+  const fetchClasses = async (isManual = false) => {
+    // Prevent duplicate concurrent requests from repeated clicks
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    // Show loading indicator on manual triggers or initial mount
+    if (isManual || classes.length === 0) {
+      setIsLoading(true);
+    }
+
     try {
-      setLoading(true);
-      const isHttps = window.location.protocol === 'https:';
-      if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch('http://localhost:5000/api/live-classes');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setClasses(data);
-            return;
-          }
+      const apiBase = getApiBaseUrl() || getAssetBaseUrl();
+      const res = await fetch(`${apiBase}/api/live-classes`);
+
+      if (res.ok) {
+        const data = await res.json();
+        const processed = processLiveClassesApiResponse(res, data);
+        setClasses(processed.classes);
+        setError(processed.error);
+
+        if (processed.error) {
+          logFormError({
+            form: 'LiveClassesListing',
+            status: res.status,
+            message: 'Invalid API response format: expected array'
+          });
         }
+      } else {
+        // HTTP 4xx / 5xx error
+        setClasses([]);
+        setError('Live classes could not be loaded at this moment');
+        const reqInfo = extractRequestId(res, null);
+        logFormError({
+          form: 'LiveClassesListing',
+          requestId: reqInfo.requestId,
+          status: res.status,
+          message: `Live classes request failed with HTTP ${res.status}`
+        });
       }
     } catch (err) {
-      console.warn('Backend live classes unavailable, activating fallback sessions:', err);
+      // Network error, timeout, or DNS failure
+      setClasses([]);
+      setError('Live classes could not be loaded at this moment');
+      logFormError({
+        form: 'LiveClassesListing',
+        status: 'NETWORK_ERROR',
+        message: err?.message || 'Network error fetching live classes'
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+      isFetchingRef.current = false;
     }
-    setClasses(FALLBACK_LIVE_CLASSES);
   };
 
   useEffect(() => {
-    fetchClasses();
-    const interval = setInterval(fetchClasses, 15000);
+    fetchClasses(true);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
+        fetchClasses(false);
+      }
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -157,6 +221,7 @@ const LiveClasses = () => {
 
           <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
             <button
+              disabled={classes.length === 0}
               onClick={() => {
                 const liveOne = classes.find(c => c.status === 'live');
                 if (liveOne) {
@@ -168,16 +233,17 @@ const LiveClasses = () => {
               style={{
                 padding: '12px 24px',
                 borderRadius: '10px',
-                background: '#ef4444',
+                background: classes.length === 0 ? 'rgba(239, 68, 68, 0.4)' : '#ef4444',
                 color: '#fff',
                 border: 'none',
                 fontWeight: 700,
                 fontSize: '15px',
-                cursor: 'pointer',
+                cursor: classes.length === 0 ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.35)'
+                boxShadow: classes.length === 0 ? 'none' : '0 4px 16px rgba(239, 68, 68, 0.35)',
+                opacity: classes.length === 0 ? 0.6 : 1
               }}
             >
               <span>🔴</span>
@@ -236,23 +302,93 @@ const LiveClasses = () => {
         </div>
 
         <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-          {filteredClasses.length} {t('liveClass.webcastsAvailable', 'webcasts available')}
+          {error ? 0 : filteredClasses.length} {t('liveClass.webcastsAvailable', 'webcasts available')}
         </div>
       </div>
 
-      {/* Webcasts Grid */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+      {/* Webcasts Grid / Status States */}
+      {isLoading ? (
+        <div 
+          data-testid="live-classes-loading"
+          style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}
+        >
           Loading virtual classrooms...
         </div>
+      ) : error ? (
+        <div 
+          data-testid="live-classes-error"
+          role="alert"
+          style={{
+            textAlign: 'center',
+            padding: '80px 20px',
+            background: 'var(--bg-secondary)',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)',
+            animation: 'fadeIn 0.2s ease'
+          }}
+        >
+          <div style={{ fontSize: '44px', marginBottom: '14px' }}>⚠️</div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Live classes could not be loaded at this moment
+          </h3>
+          <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+            {t('liveClass.errorSubtext', 'Please check your connection and try again.')}
+          </p>
+          <button
+            type="button"
+            data-testid="retry-btn"
+            onClick={() => fetchClasses(true)}
+            disabled={isLoading}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '10px',
+              background: '#6366f1',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 700,
+              fontSize: '14px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.6 : 1,
+              transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span>🔄</span>
+            <span>{isLoading ? 'Retrying...' : t('liveClass.retry', 'Retry')}</span>
+          </button>
+        </div>
+      ) : classes.length === 0 ? (
+        <div 
+          data-testid="live-classes-empty"
+          style={{
+            textAlign: 'center',
+            padding: '80px 20px',
+            background: 'var(--bg-secondary)',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)'
+          }}
+        >
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>📡</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: 700 }}>
+            No live classes available
+          </h3>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px' }}>
+            {t('liveClass.emptySub', 'Check back soon for upcoming live interactive sessions.')}
+          </p>
+        </div>
       ) : filteredClasses.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '80px 20px',
-          background: 'var(--bg-secondary)',
-          borderRadius: '16px',
-          border: '1px solid var(--border-color)'
-        }}>
+        <div 
+          data-testid="live-classes-filtered-empty"
+          style={{
+            textAlign: 'center',
+            padding: '80px 20px',
+            background: 'var(--bg-secondary)',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)'
+          }}
+        >
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>📡</div>
           <h3 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: 700 }}>
             {t('liveClass.noSessionsFound', 'No live webcasts in this category')}

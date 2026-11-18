@@ -645,7 +645,10 @@ const translations = {
     'liveClass.voteForbidden': 'You do not have permission to vote in this poll.',
     'liveClass.alreadyVoted': 'You have already voted in this poll.',
     'liveClass.pollServerError': 'Unable to record your vote right now. Please try again.',
-    'liveClass.voteFailed': 'Failed to submit vote. Please try again.'
+    'liveClass.voteFailed': 'Failed to submit vote. Please try again.',
+    'liveClass.retry': 'Retry',
+    'liveClass.errorSubtext': 'Please check your connection and try again.',
+    'liveClass.emptySub': 'Check back soon for upcoming live interactive sessions.'
   },
   hi: {
     // --- Master Multilingual Extension (hi) ---
@@ -1156,7 +1159,10 @@ const translations = {
     'liveClass.voteForbidden': 'आपको इस पोल में वोट करने की अनुमति नहीं है।',
     'liveClass.alreadyVoted': 'आप इस पोल में पहले ही वोट कर चुके हैं।',
     'liveClass.pollServerError': 'इस समय आपका वोट दर्ज करने में असमर्थ। कृपया पुनः प्रयास करें।',
-    'liveClass.voteFailed': 'वोट सबमिट करने में विफल। कृपया पुनः प्रयास करें।'
+    'liveClass.voteFailed': 'वोट सबमिट करने में विफल। कृपया पुनः प्रयास करें।',
+    'liveClass.retry': 'पुनः प्रयास करें',
+    'liveClass.errorSubtext': 'कृपया अपना कनेक्शन जांचें और पुनः प्रयास करें।',
+    'liveClass.emptySub': 'आगामी लाइव इंटरैक्टिव सत्रों के लिए शीघ्र ही वापस देखें।'
   },
   kn: {
     // --- Master Multilingual Extension (kn) ---
@@ -1667,7 +1673,10 @@ const translations = {
     'liveClass.voteForbidden': 'ಈ ಪೋಲ್‌ನಲ್ಲಿ ಮತ ಚಲಾಯಿಸಲು ನಿಮಗೆ ಅನುಮತಿ ಇಲ್ಲ.',
     'liveClass.alreadyVoted': 'ನೀವು ಈಗಾಗಲೇ ಈ ಪೋಲ್‌ನಲ್ಲಿ ಮತ ಚಲಾಯಿಸಿದ್ದೀರಿ.',
     'liveClass.pollServerError': 'ಈ ಸಮಯದಲ್ಲಿ ನಿಮ್ಮ ಮತವನ್ನು ದಾಖಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
-    'liveClass.voteFailed': 'ಮತ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
+    'liveClass.voteFailed': 'ಮತ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+    'liveClass.retry': 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
+    'liveClass.errorSubtext': 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+    'liveClass.emptySub': 'ಮುಂಬರುವ ಲೈವ್ ಇಂಟರ್ಯಾಕ್ಟಿವ್ ತರಗತಿಗಳಿಗಾಗಿ ಶೀಘ್ರದಲ್ಲೇ ಪರಿಶೀಲಿಸಿ.'
   }
 };
 
