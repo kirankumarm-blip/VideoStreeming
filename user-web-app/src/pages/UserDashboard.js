@@ -1,6 +1,6 @@
 import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl } from '../utils/assetUrl';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
@@ -1137,7 +1137,7 @@ const UserDashboard = () => {
   };
 
   // Helper to compile a unified, deduplicated list of all videos (merging backend + static fallbacks)
-  const getAllVideosList = () => {
+  const getAllVideosList = useCallback(() => {
     const allVideosMap = {};
     
     // 1. Populate fallback static videos first
@@ -1167,30 +1167,34 @@ const UserDashboard = () => {
     }
 
     return Object.values(allVideosMap);
-  };
+  }, [dashboardData]);
 
-  // Helper to filter videos dynamically for Explore
-  const getFilteredExploreVideos = () => {
-    let allList = hasFetchedExplore ? exploreVideosList : getAllVideosList();
+  // Memoized filtered and sorted videos for Explore view
+  // Prevents in-place mutation of React state (exploreVideosList) and eliminates duplicate calculations
+  const filteredExploreVideos = useMemo(() => {
+    const baseList = hasFetchedExplore ? exploreVideosList : getAllVideosList();
+    // Create a shallow copy before sorting to guarantee original React state is never mutated in place
+    let result = Array.isArray(baseList) ? [...baseList] : [];
 
     if (searchQuery) {
-      allList = allList.filter(v => 
-        v.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        v.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
+      const query = searchQuery.toLowerCase();
+      result = result.filter(v => 
+        (v.title && v.title.toLowerCase().includes(query)) || 
+        (v.description && v.description.toLowerCase().includes(query)) ||
+        (Array.isArray(v.tags) && v.tags.some(t => typeof t === 'string' && t.toLowerCase().includes(query)))
       );
     }
 
     if (selectedCategory) {
-      allList = allList.filter(v => v.category === selectedCategory);
+      result = result.filter(v => v.category === selectedCategory);
     }
 
     if (filterDifficulty !== 'All') {
-      allList = allList.filter(v => v.difficulty?.toLowerCase() === filterDifficulty.toLowerCase());
+      result = result.filter(v => v.difficulty?.toLowerCase() === filterDifficulty.toLowerCase());
     }
 
     if (filterDuration !== 'All') {
-      allList = allList.filter(v => {
+      result = result.filter(v => {
         const d = v.duration || 300;
         if (filterDuration === 'short') return d < 300; // < 5 mins
         if (filterDuration === 'medium') return d >= 300 && d <= 900; // 5-15 mins
@@ -1199,14 +1203,18 @@ const UserDashboard = () => {
       });
     }
 
-    allList.sort((a, b) => {
+    // Sort a shallow copy so the original state array is NEVER mutated in-place
+    result.sort((a, b) => {
       if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
-      if (sortBy === 'title') return a.title.localeCompare(b.title);
+      if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '');
       return (b.views || 0) - (a.views || 0); // default views
     });
 
-    return allList;
-  };
+    return result;
+  }, [hasFetchedExplore, exploreVideosList, getAllVideosList, searchQuery, selectedCategory, filterDifficulty, filterDuration, sortBy]);
+
+  // Backward compatibility helper pointing to the single memoized result
+  const getFilteredExploreVideos = () => filteredExploreVideos;
 
   // Video Card rendering block
   const VideoCard = ({ video, progress }) => {
@@ -2055,7 +2063,7 @@ const UserDashboard = () => {
                   </div>
                 </div>
 
-                {getFilteredExploreVideos().length === 0 ? (
+                {filteredExploreVideos.length === 0 ? (
                   <div style={{
                     textAlign: 'center',
                     padding: '80px 20px',
@@ -2073,7 +2081,7 @@ const UserDashboard = () => {
                   </div>
                 ) : (
                   <div className="youtube-video-grid">
-                    {getFilteredExploreVideos().map(video => (
+                    {filteredExploreVideos.map(video => (
                       <VideoCard key={video.id} video={video} />
                     ))}
                   </div>
