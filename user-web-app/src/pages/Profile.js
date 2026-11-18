@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, setCurrentUser, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PaginatedTable from '../components/PaginatedTable';
+import { getAssetUrl } from '../utils/assetUrl';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -159,7 +160,7 @@ const Profile = () => {
       setName(mergedUser.name || '');
       setMobile(mergedUser.mobile || '');
       if (mergedUser.avatar) {
-        setAvatarPreview(mergedUser.avatar.startsWith('http') ? mergedUser.avatar : `http://localhost:5050${mergedUser.avatar}`);
+        setAvatarPreview(getAssetUrl(mergedUser.avatar));
       }
     } catch (e) {
       const localUser = getCurrentUser() || { name: 'User', email: 'user@lurnax.com' };
@@ -167,7 +168,7 @@ const Profile = () => {
       setName(localUser.name || '');
       setMobile(localUser.mobile || '');
       if (localUser.avatar) {
-        setAvatarPreview(localUser.avatar.startsWith('http') ? localUser.avatar : `http://localhost:5050${localUser.avatar}`);
+        setAvatarPreview(getAssetUrl(localUser.avatar));
       }
     } finally {
       setLoading(false);

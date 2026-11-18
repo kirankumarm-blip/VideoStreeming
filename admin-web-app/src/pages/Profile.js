@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, setCurrentUser, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PaginatedTable from '../components/PaginatedTable';
+import { getAssetUrl } from '../utils/assetUrl';
 
 const Profile = () => {
   const { t } = useLanguage();
@@ -293,7 +294,7 @@ const Profile = () => {
                 overflow: 'hidden'
               }}>
                 {profile.avatar ? (
-                  <img src={profile.avatar.startsWith('http') ? profile.avatar : `http://localhost:5050${profile.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={getAssetUrl(profile.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   (profile.name || profile.email || 'U').charAt(0).toUpperCase()
                 )}

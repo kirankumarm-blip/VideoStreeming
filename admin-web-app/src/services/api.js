@@ -1,3 +1,6 @@
+import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
+export { getAssetUrl, getAssetBaseUrl };
+
 const getBaseUrl = () => {
   return 'https://uat-02-admin-api.darpanx.com/webhook';
 };
@@ -429,7 +432,7 @@ async function request(endpoint, options = {}) {
   return decryptResponseData(responseData);
 }
 
-const UPLOAD_SERVICE_URL = 'http://localhost:5050';
+const UPLOAD_SERVICE_URL = getAssetBaseUrl();
 
 async function uploadRequest(endpoint, options = {}) {
   const url = `${UPLOAD_SERVICE_URL}${endpoint}`;

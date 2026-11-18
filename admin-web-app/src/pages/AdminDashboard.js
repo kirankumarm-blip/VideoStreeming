@@ -10,6 +10,7 @@ import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
 import LiveWebcasts from './LiveWebcasts';
+import { getAssetUrl } from '../utils/assetUrl';
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -116,12 +117,8 @@ export const resolveMediaUrl = (rawUrl) => {
   if (!url) return '';
   // Normalize consecutive slashes in URL path (preserve http:// or https://)
   url = url.replace(/([^:])\/\/+/g, '$1/');
-  // Port 5000 is reserved/inaccessible on Windows; redirect local uploaded assets to upload service on port 5050
-  if (url.includes('localhost:5000')) {
-    url = url.replace('localhost:5000', 'localhost:5050');
-  } else if (url.startsWith('/uploads')) {
-    url = `http://localhost:5050${url.startsWith('/') ? '' : '/'}${url}`;
-    url = url.replace(/([^:])\/\/+/g, '$1/');
+  if (url.startsWith('/uploads')) {
+    return getAssetUrl(url);
   }
   return url;
 };

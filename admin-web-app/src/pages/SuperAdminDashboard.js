@@ -9,17 +9,15 @@ import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
 import { decryptUrl } from '../utils/crypto';
+import { getAssetUrl } from '../utils/assetUrl';
 
 const resolveMediaUrl = (rawUrl) => {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
   let url = decryptUrl(rawUrl).trim();
   if (!url) return '';
   url = url.replace(/([^:])\/\/+/g, '$1/');
-  if (url.includes('localhost:5000')) {
-    url = url.replace('localhost:5000', 'localhost:5050');
-  } else if (url.startsWith('/uploads')) {
-    url = `http://localhost:5050${url.startsWith('/') ? '' : '/'}${url}`;
-    url = url.replace(/([^:])\/\/+/g, '$1/');
+  if (url.startsWith('/uploads')) {
+    return getAssetUrl(url);
   }
   return url;
 };

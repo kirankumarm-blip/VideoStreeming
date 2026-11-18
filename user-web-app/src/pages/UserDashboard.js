@@ -1,4 +1,5 @@
 import { offlineStorage } from '../utils/offlineStorage';
+import { getAssetUrl } from '../utils/assetUrl';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -184,11 +185,11 @@ const HoverThumbnail = ({ video }) => {
     if (url.startsWith('/uploads')) {
       const ext = url.split('.').pop().toLowerCase();
       if (['mp4', 'webm', 'ogg'].includes(ext)) {
-        return `http://localhost:5050${url}`;
+        return getAssetUrl(url);
       }
       return 'https://www.w3schools.com/html/mov_bbb.mp4';
     }
-    return url;
+    return getAssetUrl(url);
   })();
 
   const thumbUrl = (() => {
@@ -196,7 +197,7 @@ const HoverThumbnail = ({ video }) => {
     if (!thumb) {
       return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
     }
-    return thumb.startsWith('http') ? thumb : `http://localhost:5050${thumb}`;
+    return getAssetUrl(thumb, 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600');
   })();
 
   return (

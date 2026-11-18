@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
 import { AppearancePopover } from './AppearanceCustomizer';
 import PremiumSelect from './PremiumSelect';
+import { getAssetUrl } from '../utils/assetUrl';
 import logoImg from '../assets/logo.png';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
@@ -362,7 +363,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <img 
-                            src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5050${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
+                            src={getAssetUrl(video.thumbnail, 'https://placehold.co/180x101?text=No+Thumbnail')} 
                             alt={video.title} 
                             style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                           />
@@ -546,7 +547,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               overflow: 'hidden'
             }}>
               {user.avatar ? (
-                <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5050${user.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={getAssetUrl(user.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 (user.name || user.email || 'U').charAt(0).toUpperCase()
               )}

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
+import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 
 const LiveClassroom = () => {
   const { id } = useParams();
@@ -172,23 +173,21 @@ const LiveClassroom = () => {
   const fetchClassDetails = async () => {
     try {
       setLoading(true);
-      const isHttps = window.location.protocol === 'https:';
-      if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch(`http://localhost:5050/api/live-classes/${id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setLiveClass(data);
-          setAttendeesCount(data.attendeesCount || 0);
-          setActivePoll(data.activePoll || null);
-          const cleanMsgs = (data.chatMessages || []).map(sanitizeMessage).filter(Boolean);
-          setChatMessages(cleanMsgs);
+      const apiBase = getAssetBaseUrl();
+      const res = await fetch(`${apiBase}/api/live-classes/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLiveClass(data);
+        setAttendeesCount(data.attendeesCount || 0);
+        setActivePoll(data.activePoll || null);
+        const cleanMsgs = (data.chatMessages || []).map(sanitizeMessage).filter(Boolean);
+        setChatMessages(cleanMsgs);
 
-          if (data.handRaises && currentUser.id) {
-            const raised = data.handRaises.some(h => String(h.studentId) === String(currentUser.id));
-            setIsHandRaised(raised);
-          }
-          return;
+        if (data.handRaises && currentUser.id) {
+          const raised = data.handRaises.some(h => String(h.studentId) === String(currentUser.id));
+          setIsHandRaised(raised);
         }
+        return;
       }
     } catch (err) {
       console.warn('Backend live class unreachable, using fallback session:', err);
@@ -398,17 +397,15 @@ const LiveClassroom = () => {
       user: { id: currentUser.id || 'u-guest' }
     });
 
-    const isHttps = window.location.protocol === 'https:';
-    if (!isHttps || window.location.hostname === 'localhost') {
-      try {
-        await fetch(`http://localhost:5050/api/live-classes/${id}/poll/vote`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ optionId })
-        });
-      } catch (err) {
-        console.warn('Vote backend sync skipped:', err);
-      }
+    const apiBase = getAssetBaseUrl();
+    try {
+      await fetch(`${apiBase}/api/live-classes/${id}/poll/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optionId })
+      });
+    } catch (err) {
+      console.warn('Vote backend sync skipped:', err);
     }
   };
 
@@ -682,12 +679,9 @@ const LiveClassroom = () => {
           }}>
             <video
               ref={videoRef}
-              src={isLiveWebcamActive ? undefined : (
-                liveClass.streamUrl && liveClass.streamUrl.startsWith('http')
-                  ? liveClass.streamUrl
-                  : (window.location.protocol !== 'https:'
-                      ? `http://localhost:5050${liveClass.streamUrl || '/uploads/video-1783335443739-730573726.mp4'}`
-                      : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')
+              src={isLiveWebcamActive ? undefined : getAssetUrl(
+                liveClass.streamUrl || '/uploads/video-1783335443739-730573726.mp4',
+                'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
               )}
               autoPlay
               controls

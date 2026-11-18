@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
 import { AppearancePopover } from './AppearanceCustomizer';
 import PremiumSelect from './PremiumSelect';
+import { getAssetUrl } from '../utils/assetUrl';
 import logoImg from '../assets/logo.png';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
@@ -537,7 +538,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           onClick={() => handleSelectCourse(course)}
                         >
                           <img 
-                            src={course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:5050${course.thumbnail}`) : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100'} 
+                            src={getAssetUrl(course.thumbnail, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100')} 
                             alt={course.title}
                             className="search-result-thumb"
                           />
@@ -568,7 +569,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           onClick={() => handleSelectVideo(video)}
                         >
                           <img 
-                            src={video.thumbnail ? (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:5050${video.thumbnail}`) : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100'} 
+                            src={getAssetUrl(video.thumbnail, 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100')} 
                             alt={video.title}
                             className="search-result-thumb"
                           />
@@ -852,7 +853,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <img 
-                            src={video.thumbnail && video.thumbnail.startsWith('http') ? video.thumbnail : (video.thumbnail ? `http://localhost:5050${video.thumbnail}` : 'https://placehold.co/180x101?text=No+Thumbnail')} 
+                            src={getAssetUrl(video.thumbnail, 'https://placehold.co/180x101?text=No+Thumbnail')} 
                             alt={video.title} 
                             style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                           />
@@ -1059,7 +1060,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               overflow: 'hidden'
             }}>
               {user.avatar ? (
-                <img src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:5050${user.avatar}`} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={getAssetUrl(user.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 (user.name || user.email || 'U').charAt(0).toUpperCase()
               )}
@@ -1191,12 +1192,8 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           <div style={{ position: 'relative', width: '100%', backgroundColor: '#000' }}>
             <video
               ref={previewVideoRef}
-              src={previewRecentVideo.video?.video_url && previewRecentVideo.video.video_url.startsWith('http') 
-                ? previewRecentVideo.video.video_url 
-                : (previewRecentVideo.video?.video_url ? `http://localhost:5050${previewRecentVideo.video.video_url}` : '')}
-              poster={previewRecentVideo.video?.thumbnail && previewRecentVideo.video.thumbnail.startsWith('http')
-                ? previewRecentVideo.video.thumbnail
-                : (previewRecentVideo.video?.thumbnail ? `http://localhost:5050${previewRecentVideo.video.thumbnail}` : '')}
+              src={getAssetUrl(previewRecentVideo.video?.video_url || '')}
+              poster={getAssetUrl(previewRecentVideo.video?.thumbnail || '')}
               controls
               controlsList="nodownload"
               onContextMenu={(e) => e.preventDefault()}

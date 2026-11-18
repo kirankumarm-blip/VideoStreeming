@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
+import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 
 const LiveWebcasts = ({ theme }) => {
   const { t } = useLanguage();
@@ -164,19 +165,17 @@ const LiveWebcasts = ({ theme }) => {
   const fetchClasses = async () => {
     try {
       setLoading(true);
-      const isHttps = window.location.protocol === 'https:';
-      if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch('http://localhost:5050/api/live-classes');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setClasses(data);
-            if (!selectedClass) {
-              const liveOne = data.find(c => c.status === 'live') || data[0];
-              loadClassDetails(liveOne.id);
-            }
-            return;
+      const apiBase = getAssetBaseUrl();
+      const res = await fetch(`${apiBase}/api/live-classes`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setClasses(data);
+          if (!selectedClass) {
+            const liveOne = data.find(c => c.status === 'live') || data[0];
+            loadClassDetails(liveOne.id);
           }
+          return;
         }
       }
     } catch (err) {
@@ -200,19 +199,17 @@ const LiveWebcasts = ({ theme }) => {
 
   const loadClassDetails = async (classId) => {
     try {
-      const isHttps = window.location.protocol === 'https:';
-      if (!isHttps || window.location.hostname === 'localhost') {
-        const res = await fetch(`http://localhost:5050/api/live-classes/${classId}`);
-        if (res.ok) {
-          const cls = await res.json();
-          setSelectedClass(cls);
-          setAttendeesCount(cls.attendeesCount || 0);
-          setHandRaises(cls.handRaises || []);
-          setActivePoll(cls.activePoll || null);
-          setChatMessages(cls.chatMessages || []);
-          setIsBroadcasting(cls.status === 'live');
-          return;
-        }
+      const apiBase = getAssetBaseUrl();
+      const res = await fetch(`${apiBase}/api/live-classes/${classId}`);
+      if (res.ok) {
+        const cls = await res.json();
+        setSelectedClass(cls);
+        setAttendeesCount(cls.attendeesCount || 0);
+        setHandRaises(cls.handRaises || []);
+        setActivePoll(cls.activePoll || null);
+        setChatMessages(cls.chatMessages || []);
+        setIsBroadcasting(cls.status === 'live');
+        return;
       }
     } catch (err) {
       console.warn('Backend class detail unreachable, using local session:', err);
@@ -305,14 +302,10 @@ const LiveWebcasts = ({ theme }) => {
       if (videoEl.srcObject) {
         videoEl.srcObject = null;
       }
-      let streamSource = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-      if (selectedClass?.streamUrl) {
-        if (selectedClass.streamUrl.startsWith('http')) {
-          streamSource = selectedClass.streamUrl;
-        } else if (window.location.protocol !== 'https:') {
-          streamSource = `http://localhost:5050${selectedClass.streamUrl}`;
-        }
-      }
+      const streamSource = getAssetUrl(
+        selectedClass?.streamUrl || '',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      );
       videoEl.src = streamSource;
       videoEl.muted = !isMicOn;
       videoEl.play().catch(err => {
@@ -500,13 +493,12 @@ const LiveWebcasts = ({ theme }) => {
     }
 
     try {
-      if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
-        await fetch(`http://localhost:5050/api/live-classes/${selectedClass.id}/status`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: nextStatus })
-        });
-      }
+      const apiBase = getAssetBaseUrl();
+      await fetch(`${apiBase}/api/live-classes/${selectedClass.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
     } catch (err) {
       console.warn('Backend broadcast status update skipped:', err);
     }
@@ -600,13 +592,12 @@ const LiveWebcasts = ({ theme }) => {
     });
 
     try {
-      if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
-        await fetch(`http://localhost:5050/api/live-classes/${selectedClass.id}/poll`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: pollQuestion.trim(), options: cleanOptions })
-        });
-      }
+      const apiBase = getAssetBaseUrl();
+      await fetch(`${apiBase}/api/live-classes/${selectedClass.id}/poll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: pollQuestion.trim(), options: cleanOptions })
+      });
     } catch (err) {
       console.warn('Backend poll sync skipped:', err);
     }
@@ -640,13 +631,12 @@ const LiveWebcasts = ({ theme }) => {
     setShowScheduleModal(false);
 
     try {
-      if (window.location.protocol !== 'https:' || window.location.hostname === 'localhost') {
-        await fetch('http://localhost:5050/api/live-classes/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(scheduleForm)
-        });
-      }
+      const apiBase = getAssetBaseUrl();
+      await fetch(`${apiBase}/api/live-classes/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scheduleForm)
+      });
     } catch (err) {
       console.warn('Backend schedule save skipped:', err);
     }
