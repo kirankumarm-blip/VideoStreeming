@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
@@ -72,6 +73,7 @@ const deduplicateSubCategories = (items) => {
 };
 
 const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview'); // overview, admins_all, categories, etc.
   const [stats, setStats] = useState(null);
@@ -925,6 +927,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         }
       }
     } catch (err) {
+      if (err.status === 403 || err.statusCode === 403 || err.isForbidden || err.response?.status === 403) {
+        navigate('/unauthorized', { replace: true, state: { attemptedRoles: ['super_admin'] } });
+        return;
+      }
       setError('Failed to load dashboard data');
     } finally {
       isFetchingDashboardRef.current = false;

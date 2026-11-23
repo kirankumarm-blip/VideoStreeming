@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
 import { AppearancePopover } from './AppearanceCustomizer';
@@ -9,7 +10,8 @@ import { getAssetUrl } from '../utils/assetUrl';
 import logoImg from '../assets/logo.png';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
-  const user = getCurrentUser();
+  const { user: authUser, logout } = useAuth();
+  const user = authUser || getCurrentUser();
   const navigate = useNavigate();
   const { language, setLanguage, t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -178,8 +180,9 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   };
 
   const handleLogout = () => {
-    api.auth.logout(1);
-    navigate('/login');
+    setShowProfileDropdown(false);
+    logout();
+    navigate('/login', { replace: true });
   };
 
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => n && !n.read && !n.is_read).length : 0;

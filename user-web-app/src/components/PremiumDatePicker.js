@@ -7,6 +7,21 @@ const MONTHS = [
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
+// Timezone-safe YYYY-MM-DD parser and validator (preserves exact calendar date)
+const parseDateParts = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const match = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const y = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10) - 1; // 0-based month
+  const d = parseInt(match[3], 10);
+  const testDate = new Date(y, m, d);
+  if (testDate.getFullYear() === y && testDate.getMonth() === m && testDate.getDate() === d) {
+    return { year: y, month: m, day: d };
+  }
+  return null;
+};
+
 const PremiumDatePicker = ({
   value,
   onChange,
@@ -15,7 +30,8 @@ const PremiumDatePicker = ({
   className = "",
   style = {},
   minYear = 1940,
-  maxYear = new Date().getFullYear()
+  maxYear = new Date().getFullYear(),
+  minAge = 0
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMonthOpen, setIsMonthOpen] = useState(false);
@@ -26,29 +42,47 @@ const PremiumDatePicker = ({
   const yearRef = useRef(null);
 
   const todayObj = new Date();
-  const todayMidnight = new Date(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate());
+  const todayYear = todayObj.getFullYear();
+  const todayMonth = todayObj.getMonth();
+  const todayDay = todayObj.getDate();
 
-  // Yesterday date
-  const yesterdayObj = new Date(todayMidnight.getTime() - 86400000);
-  const yesterdayStr = `${yesterdayObj.getFullYear()}-${String(yesterdayObj.getMonth() + 1).padStart(2, '0')}-${String(yesterdayObj.getDate()).padStart(2, '0')}`;
+  // Cutoff date based on minAge (e.g., must be at least 16 years old)
+  const cutoffDate = new Date(todayYear - minAge, todayMonth, todayDay);
+  const cutoffYear = cutoffDate.getFullYear();
+  const cutoffMonth = cutoffDate.getMonth();
+  const cutoffDay = cutoffDate.getDate();
+  const cutoffStr = `${cutoffYear}-${String(cutoffMonth + 1).padStart(2, '0')}-${String(cutoffDay).padStart(2, '0')}`;
 
-  // Parse initial date string (YYYY-MM-DD)
-  const initialDate = value ? new Date(value) : yesterdayObj;
-  const validInitialDate = !isNaN(initialDate.getTime()) ? initialDate : yesterdayObj;
+  // Default selection date (cutoff date if minAge > 0, otherwise yesterday)
+  const yesterdayDate = new Date(todayYear, todayMonth, todayDay - 1);
+  const yesterdayYear = yesterdayDate.getFullYear();
+  const yesterdayMonth = yesterdayDate.getMonth();
+  const yesterdayDay = yesterdayDate.getDate();
+  const yesterdayStr = `${yesterdayYear}-${String(yesterdayMonth + 1).padStart(2, '0')}-${String(yesterdayDay).padStart(2, '0')}`;
 
-  const [currentMonth, setCurrentMonth] = useState(validInitialDate.getMonth());
-  const [currentYear, setCurrentYear] = useState(validInitialDate.getFullYear());
+  const defaultYear = minAge > 0 ? cutoffYear : yesterdayYear;
+  const defaultMonth = minAge > 0 ? cutoffMonth : yesterdayMonth;
+  const defaultStr = minAge > 0 ? cutoffStr : yesterdayStr;
+
+  const isRestricted = (y, m, d) => {
+    const formatted = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return formatted > cutoffStr;
+  };
+
+  // Parse initial date string (YYYY-MM-DD) without Date string conversion
+  const initialParts = parseDateParts(value);
+  const [currentMonth, setCurrentMonth] = useState(initialParts ? initialParts.month : defaultMonth);
+  const [currentYear, setCurrentYear] = useState(initialParts ? initialParts.year : defaultYear);
 
   useEffect(() => {
     if (value) {
-      const d = new Date(value);
-      if (!isNaN(d.getTime())) {
-        // If passed value is today or future, auto-clamp to yesterday
-        if (d >= todayMidnight) {
-          onChange({ target: { value: yesterdayStr } });
+      const parts = parseDateParts(value);
+      if (parts) {
+        if (isRestricted(parts.year, parts.month, parts.day)) {
+          onChange({ target: { value: defaultStr } });
         } else {
-          setCurrentMonth(d.getMonth());
-          setCurrentYear(d.getFullYear());
+          setCurrentMonth(parts.month);
+          setCurrentYear(parts.year);
         }
       }
     }
@@ -79,8 +113,8 @@ const PremiumDatePicker = ({
   };
 
   const isNextMonthDisabled = () => {
-    if (currentYear > todayObj.getFullYear()) return true;
-    if (currentYear === todayObj.getFullYear() && currentMonth >= todayObj.getMonth()) return true;
+    if (currentYear > cutoffYear) return true;
+    if (currentYear === cutoffYear && currentMonth >= cutoffMonth) return true;
     return false;
   };
 
@@ -97,8 +131,7 @@ const PremiumDatePicker = ({
   };
 
   const handleSelectDay = (day) => {
-    const cellDate = new Date(currentYear, currentMonth, day);
-    if (cellDate >= todayMidnight) return; // Block today and future dates
+    if (isRestricted(currentYear, currentMonth, day)) return;
 
     const m = String(currentMonth + 1).padStart(2, '0');
     const d = String(day).padStart(2, '0');
@@ -117,12 +150,9 @@ const PremiumDatePicker = ({
   };
 
   const handleYesterday = () => {
-    const y = yesterdayObj.getFullYear();
-    const m = String(yesterdayObj.getMonth() + 1).padStart(2, '0');
-    const d = String(yesterdayObj.getDate()).padStart(2, '0');
-    setCurrentYear(y);
-    setCurrentMonth(yesterdayObj.getMonth());
-    onChange({ target: { value: `${y}-${m}-${d}` } });
+    setCurrentYear(defaultYear);
+    setCurrentMonth(defaultMonth);
+    onChange({ target: { value: defaultStr } });
     setIsOpen(false);
     setIsMonthOpen(false);
     setIsYearOpen(false);
@@ -133,17 +163,16 @@ const PremiumDatePicker = ({
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
 
-  const effectiveMaxYear = Math.min(maxYear, todayObj.getFullYear());
+  const effectiveMaxYear = Math.min(maxYear, cutoffYear);
   const yearOptions = [];
   for (let y = effectiveMaxYear; y >= minYear; y--) {
     yearOptions.push(y);
   }
 
-  const selectedDateObj = value ? new Date(value) : null;
-  const isSelectedDateValid = selectedDateObj && !isNaN(selectedDateObj.getTime());
-  const selectedDay = isSelectedDateValid ? selectedDateObj.getDate() : null;
-  const selectedMonth = isSelectedDateValid ? selectedDateObj.getMonth() : null;
-  const selectedYear = isSelectedDateValid ? selectedDateObj.getFullYear() : null;
+  const selectedParts = parseDateParts(value);
+  const selectedDay = selectedParts ? selectedParts.day : null;
+  const selectedMonth = selectedParts ? selectedParts.month : null;
+  const selectedYear = selectedParts ? selectedParts.year : null;
 
   return (
     <div ref={containerRef} className={`premium-date-picker ${className}`} style={{ position: 'relative', width: '100%', ...style }}>
@@ -286,7 +315,7 @@ const PremiumDatePicker = ({
                   }}>
                     {MONTHS.map((m, idx) => {
                       const isSelected = idx === currentMonth;
-                      const isMonthInFuture = currentYear === todayObj.getFullYear() && idx > todayObj.getMonth();
+                      const isMonthInFuture = currentYear === cutoffYear && idx > cutoffMonth;
                       return (
                         <div
                           key={m}
@@ -387,8 +416,8 @@ const PremiumDatePicker = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentYear(y);
-                            if (y === todayObj.getFullYear() && currentMonth > todayObj.getMonth()) {
-                              setCurrentMonth(todayObj.getMonth());
+                            if (y === cutoffYear && currentMonth > cutoffMonth) {
+                              setCurrentMonth(cutoffMonth);
                             }
                             setIsYearOpen(false);
                           }}
@@ -472,8 +501,7 @@ const PremiumDatePicker = ({
             {/* Days of Current Month */}
             {Array.from({ length: daysInMonth }).map((_, idx) => {
               const dayNum = idx + 1;
-              const cellDate = new Date(currentYear, currentMonth, dayNum);
-              const isDisabled = cellDate >= todayMidnight;
+              const isDisabled = isRestricted(currentYear, currentMonth, dayNum);
               const isSelected = selectedDay === dayNum && selectedMonth === currentMonth && selectedYear === currentYear;
 
               return (
@@ -530,7 +558,7 @@ const PremiumDatePicker = ({
               onClick={handleYesterday}
               style={{ background: 'none', border: 'none', color: 'var(--accent-primary, #e50914)', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
             >
-              Yesterday
+              {minAge > 0 ? `${minAge} Yrs Ago` : 'Yesterday'}
             </button>
           </div>
         </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { api, clearTokens, isValidToken } from '../services/api';
+import { api, clearTokens, isValidToken, setSessionData } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/logo.png';
 
 // 6-Digit Pin Input Component
@@ -97,6 +98,7 @@ const SixDigitOtpInput = ({ value, onChange, disabled }) => {
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -151,11 +153,11 @@ const Login = () => {
     });
   };
 
-  const showError = (message, onConfirm = null) => {
+  const showError = (message, onConfirm = null, title = 'Oops!') => {
     setCustomAlert({
       show: true,
       type: 'error',
-      title: 'Oops!',
+      title: title || 'Oops!',
       message,
       buttonText: 'Try Again',
       onConfirm
@@ -165,13 +167,24 @@ const Login = () => {
   useEffect(() => {
     if (sessionStorage.getItem('inactivityLoggedOut') === 'true') {
       sessionStorage.removeItem('inactivityLoggedOut');
-      showError('You have been automatically logged out due to 10 minutes of inactivity.');
+      showError('You have been automatically logged out due to 1 hour of inactivity.');
     }
   }, []);
 
   // Server configuration states
   const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
+  const [serverUrl, setServerUrl] = useState(localStorage.getItem('server_url') || localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
+
+  const handleSaveServerConfig = (e) => {
+    e.preventDefault();
+    localStorage.setItem('serverUrl', serverUrl);
+    localStorage.setItem('server_url', serverUrl);
+    setShowServerConfig(false);
+    setSuccessMessage('Server URL updated successfully!');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
 
   useEffect(() => {
     let interval = null;
@@ -187,16 +200,6 @@ const Login = () => {
       if (interval) clearInterval(interval);
     };
   }, [timer, timerActive]);
-
-  const handleSaveServerConfig = (e) => {
-    e.preventDefault();
-    localStorage.setItem('serverUrl', serverUrl);
-    setShowServerConfig(false);
-    setSuccessMessage('Server URL updated successfully!');
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -238,7 +241,10 @@ const Login = () => {
       if (status === 401 || status === '401') {
         showError('Invalid Credentials');
       } else if (status === 404 || status === '404' || errMsg.includes('404')) {
-        showError('User does not exist');
+        const errorMsg = 'This account does not have administrative privileges. Please use the Learner Portal to sign in.';
+        showError(errorMsg, null, 'Access Denied');
+        setError(errorMsg);
+        return;
       } else if (status === 430 || status === '430' || errMsg.includes('430')) {
         showError('Your account has been deactivated. Please contact your administrator for assistance.');
       } else {
@@ -370,23 +376,33 @@ const Login = () => {
         email: userEmail,
         role: normalizedRole,
         role_id: isAuthorAdmin ? 4 : (normalizedRole === 'super_admin' ? 1 : 2),
-        originalRole: rawRole,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        token: refreshToken
+        originalRole: rawRole
       };
 
-      // Save tokens to local storage: accessToken for authorization, refreshToken as before
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('admin_accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('admin_refreshToken', refreshToken);
-      localStorage.setItem('admin_user', JSON.stringify(finalUser));
-      localStorage.setItem('lastUserActivity', Date.now().toString());
-      try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
-      localStorage.setItem('user', JSON.stringify(finalUser));
-      localStorage.removeItem('rememberedPassword');
-      sessionStorage.removeItem('rememberedPassword');
+      // Set session data with expiration: both sessionStorage and localStorage for reliable multi-tab & API call access
+      const expiresAt = resData.expiresAt || (Date.now() + 60 * 60 * 1000);
+      setSessionData(finalUser, expiresAt, { accessToken, refreshToken });
+      try {
+        localStorage.setItem('admin_user', JSON.stringify(finalUser));
+        localStorage.setItem('user', JSON.stringify(finalUser));
+        if (accessToken) {
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('admin_accessToken', accessToken);
+        }
+        if (refreshToken) {
+          localStorage.setItem('refreshToken', refreshToken);
+          localStorage.setItem('admin_refreshToken', refreshToken);
+          localStorage.setItem('token', refreshToken);
+        }
+        localStorage.setItem('lastUserActivity', Date.now().toString());
+        sessionStorage.removeItem('tempLoginData');
+      } catch (e) {}
+
+      // Update AuthContext state immediately so route guards recognize active session
+      if (typeof authLogin === 'function') {
+        authLogin(finalUser);
+      }
+
       setSuccessMessage('');
       setTimerActive(false);
 
@@ -396,17 +412,20 @@ const Login = () => {
       } else if (normalizedRole === 'admin' || normalizedRole === 'author_admin') {
         navigate('/admin');
       } else {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        localStorage.removeItem('admin_user');
-        localStorage.removeItem('lastUserActivity');
+        clearTokens();
         showError('Access Denied: End users cannot access the Admin Portal.');
         return;
       }
     } catch (err) {
-      if (err.status === 402) {
+      const status = err?.status || err?.statusCode || err?.response?.status;
+      const errMsg = String(err?.message || err || '');
+      if (err.status === 402 || status === 402 || status === '402') {
         showError('Invalid OTP');
+      } else if (status === 404 || status === '404' || errMsg.includes('404')) {
+        const errorMsg = 'This account does not have administrative privileges. Please use the Learner Portal to sign in.';
+        showError(errorMsg, null, 'Access Denied');
+        setError(errorMsg);
+        return;
       } else {
         showError(err.message || 'Invalid OTP code. Please enter the correct code.');
       }
@@ -499,13 +518,21 @@ const Login = () => {
         role_id: ssoRole === 'super_admin' ? 1 : 2,
         originalRole: ssoRole
       };
-      localStorage.setItem('accessToken', ssoToken);
-      localStorage.setItem('admin_accessToken', ssoToken);
-      localStorage.setItem('refreshToken', ssoRefreshToken);
-      localStorage.setItem('admin_refreshToken', ssoRefreshToken);
-      localStorage.setItem('user', JSON.stringify(finalUser));
+      setSessionData(finalUser, Date.now() + 60 * 60 * 1000, { accessToken: ssoToken, refreshToken: ssoRefreshToken });
+      try {
+        localStorage.setItem('admin_user', JSON.stringify(finalUser));
+        localStorage.setItem('user', JSON.stringify(finalUser));
+        localStorage.setItem('accessToken', ssoToken);
+        localStorage.setItem('admin_accessToken', ssoToken);
+        localStorage.setItem('refreshToken', ssoRefreshToken);
+        localStorage.setItem('admin_refreshToken', ssoRefreshToken);
+        localStorage.setItem('token', ssoRefreshToken);
+        localStorage.setItem('lastUserActivity', Date.now().toString());
+      } catch (e) {}
+      if (typeof authLogin === 'function') {
+        authLogin(finalUser);
+      }
       navigate(ssoRole === 'super_admin' ? '/super-admin' : '/admin');
-      window.location.reload();
       return;
     }
 

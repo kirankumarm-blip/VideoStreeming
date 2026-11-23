@@ -1111,7 +1111,7 @@ const VideoWatch = () => {
     
     return () => {
       clearInterval(trackingIntervalRef.current);
-      saveProgress();
+      saveProgress(true, false);
       
       const activeVid = videoRefData.current || location.state?.video;
       const activeCourse = location.state?.course;
@@ -1120,6 +1120,11 @@ const VideoWatch = () => {
       const vidId = idRef.current || id || activeVid?.id;
 
       if (currentTimeRef.current >= 1 && vidId) {
+        const unmountPos = Math.round(videoRef.current ? videoRef.current.currentTime : (currentTimeRef.current || 0));
+        const unmountDur = Math.round(videoRef.current ? (videoRef.current.duration || activeVid?.duration || 300) : (activeVid?.duration || 300));
+        const unmountPct = Math.min(100, Math.round((unmountPos / (unmountDur || 1)) * 100));
+        const unmountComplete = unmountPct >= 90;
+
         api.dashboard.getUser('watchHistory', { 
           id: vidId,
           title: activeVid?.title || '',
@@ -1127,7 +1132,11 @@ const VideoWatch = () => {
           video_url: activeVid?.videoUrl || activeVid?.video_url || '',
           course_id: cId,
           chapter_id: chapId,
-          completion_percentage: Math.min(100, Math.round(((currentTimeRef.current || 1) / (duration || 300)) * 100))
+          completion_percentage: unmountPct,
+          lastPosition: unmountPos,
+          last_position: unmountPos,
+          status: unmountComplete,
+          staus: unmountComplete
         }).catch(err => {
           console.error("Failed to register watchHistory", err);
         });
@@ -1678,120 +1687,105 @@ const VideoWatch = () => {
 
   const handleSubmitQuiz = async () => {
     setQuizModal(prev => ({ ...prev, isSubmitting: true }));
-    let correctCount = 0;
-    const answerBreakdown = quizModal.questions.map(q => {
+
+    // Prepare answers payload for backend submission without frontend scoring
+    const answersPayload = quizModal.questions.map(q => {
       const qType = String(q.question_type || q.questionType || 1);
       const userAns = quizModal.userAnswers[q.id];
-      let isCorrect = false;
       let selectedDisplay = userAns;
-      let correctDisplay = q.correctAnswer;
+      let optionId = null;
 
       if (qType === '3') { // Fill in the blanks / Free text
-        let expectedAns = q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || '';
-        if (!expectedAns && Array.isArray(q.options) && q.options.length > 0) {
-          const cIdx = (typeof q.correctAnswer === 'number' && q.options[q.correctAnswer]) ? q.correctAnswer : 0;
-          expectedAns = q.options[cIdx];
-        }
-
-        const isFuzzyMatch = (userStr, targetStr) => {
-          if (!userStr || !targetStr) return false;
-          const uClean = String(userStr).trim().toLowerCase();
-          const tClean = String(targetStr).trim().toLowerCase();
-          if (!uClean || !tClean) return false;
-
-          // Direct exact match
-          if (uClean === tClean) return true;
-
-          // Substring match
-          if (uClean.length >= 4 && tClean.length >= 4) {
-            if (tClean.includes(uClean) || uClean.includes(tClean)) return true;
-          }
-
-          const stopwords = new Set([
-            'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-            'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'about', 'against',
-            'between', 'into', 'through', 'during', 'before', 'after', 'above',
-            'below', 'from', 'up', 'down', 'in', 'out', 'off', 'over', 'under',
-            'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where',
-            'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most',
-            'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same',
-            'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'and', 'or', 'if', 'as'
-          ]);
-
-          const tokenize = (str) => {
-            return str
-              .replace(/[^\w\s]/gi, ' ')
-              .toLowerCase()
-              .split(/\s+/)
-              .filter(w => w.length > 1 && !stopwords.has(w));
-          };
-
-          const uTokens = tokenize(uClean);
-          const tTokens = tokenize(tClean);
-
-          if (tTokens.length === 0) return uClean === tClean;
-          if (uTokens.length === 0) return false;
-
-          let matchCount = 0;
-          tTokens.forEach(tWord => {
-            if (uTokens.some(uWord => uWord === tWord || (tWord.length >= 4 && uWord.length >= 4 && (uWord.startsWith(tWord.slice(0, 4)) || tWord.startsWith(uWord.slice(0, 4)))))) {
-              matchCount++;
-            }
-          });
-
-          const tRatio = matchCount / tTokens.length;
-
-          let uMatchCount = 0;
-          uTokens.forEach(uWord => {
-            if (tTokens.some(tWord => uWord === tWord || (tWord.length >= 4 && uWord.length >= 4 && (uWord.startsWith(tWord.slice(0, 4)) || tWord.startsWith(uWord.slice(0, 4)))))) {
-              uMatchCount++;
-            }
-          });
-          const uRatio = uMatchCount / uTokens.length;
-
-          return tRatio >= 0.35 || uRatio >= 0.6 || (tTokens.length <= 3 && matchCount >= 1) || matchCount >= 2;
-        };
-
-        isCorrect = isFuzzyMatch(userAns, expectedAns);
         selectedDisplay = String(userAns || '').trim();
-        correctDisplay = String(expectedAns || '').trim();
+        optionId = q.option_id ?? q.optionId ?? q.blank_option_id ?? (Array.isArray(q.options) && q.options[0] && typeof q.options[0] === 'object' ? (q.options[0].option_id ?? q.options[0].id) : null);
       } else { // MCQ (1) or True/False (2)
         const selectedIdx = typeof userAns === 'number' ? userAns : parseInt(userAns, 10);
-        const correctIdx = typeof q.correctAnswer === 'number' ? q.correctAnswer : parseInt(q.correctAnswer, 10);
-        isCorrect = selectedIdx === correctIdx;
-
         const effectiveOptions = (qType === '2' && (!q.options || q.options.length < 2))
           ? ["True", "False"]
           : (q.options || []);
 
-        selectedDisplay = (Array.isArray(effectiveOptions) && selectedIdx >= 0 && selectedIdx < effectiveOptions.length)
+        const chosenOpt = (Array.isArray(effectiveOptions) && selectedIdx >= 0 && selectedIdx < effectiveOptions.length)
           ? effectiveOptions[selectedIdx]
-          : selectedIdx;
+          : null;
 
-        correctDisplay = (Array.isArray(effectiveOptions) && correctIdx >= 0 && correctIdx < effectiveOptions.length)
-          ? effectiveOptions[correctIdx]
-          : correctIdx;
+        if (chosenOpt && typeof chosenOpt === 'object') {
+          optionId = chosenOpt.option_id ?? chosenOpt.id ?? chosenOpt.optionId ?? null;
+          selectedDisplay = chosenOpt.text || chosenOpt.option_text || chosenOpt.label || chosenOpt.name || JSON.stringify(chosenOpt);
+        } else if (chosenOpt !== null && chosenOpt !== undefined) {
+          selectedDisplay = chosenOpt;
+        } else {
+          selectedDisplay = selectedIdx;
+        }
+
+        // Check question level arrays for optionId
+        if (optionId === null || optionId === undefined) {
+          if (Array.isArray(q.option_ids) && q.option_ids[selectedIdx] !== undefined) {
+            optionId = q.option_ids[selectedIdx];
+          } else if (Array.isArray(q.optionIds) && q.optionIds[selectedIdx] !== undefined) {
+            optionId = q.optionIds[selectedIdx];
+          } else if (Array.isArray(q.options_data) && q.options_data[selectedIdx] && typeof q.options_data[selectedIdx] === 'object') {
+            optionId = q.options_data[selectedIdx].option_id ?? q.options_data[selectedIdx].id ?? null;
+          } else if (qType === '2') {
+            if (selectedIdx === 0 && (q.true_option_id !== undefined || q.trueOptionId !== undefined)) {
+              optionId = q.true_option_id ?? q.trueOptionId;
+            } else if (selectedIdx === 1 && (q.false_option_id !== undefined || q.falseOptionId !== undefined)) {
+              optionId = q.false_option_id ?? q.falseOptionId;
+            }
+          }
+        }
+
+        if (optionId === null || optionId === undefined) {
+          if (typeof userAns === 'number') {
+            optionId = userAns;
+          } else if (!isNaN(selectedIdx) && selectedIdx >= 0) {
+            optionId = selectedIdx;
+          }
+        }
       }
 
-      if (isCorrect) correctCount++;
-
       return {
-        question_id: q.id,
-        question: q.question,
+        question_id: q.id || q.question_id || q.questionId,
         question_type: qType,
-        options: q.options || [],
         selected_option: userAns,
+        selected_option_id: optionId,
+        option_id: optionId,
         selected_text: selectedDisplay,
-        user_answer: userAns,
-        correct_option: q.correctAnswer,
-        correct_text: correctDisplay,
-        is_correct: isCorrect
+        user_answer: userAns
       };
     });
 
-    const totalQs = quizModal.questions.length;
-    const scorePct = totalQs > 0 ? Math.round((correctCount / totalQs) * 100) : 0;
-    const isPassedBool = scorePct >= 70;
+    const payload = {
+      formstep: 'submitQuiz',
+      formStep: 'submitQuiz',
+      course_id: quizModal.courseId,
+      chapter_id: quizModal.chapterId,
+      quiz_id: quizModal.quizId,
+      answers: answersPayload
+    };
+
+    let apiRes = null;
+    try {
+      apiRes = await api.dashboard.getUser('submitQuiz', payload);
+    } catch (err) {
+      console.error("Quiz submission API error", err);
+    }
+
+    // Extract evaluation result strictly from backend API response
+    const resData = Array.isArray(apiRes) && apiRes.length > 0
+      ? apiRes[0]
+      : (Array.isArray(apiRes?.data) && apiRes.data.length > 0
+          ? apiRes.data[0]
+          : (apiRes?.data || apiRes || {}));
+
+    const scoreVal = resData?.score ?? resData?.correct_count ?? 0;
+    const totalQs = resData?.total_questions ?? quizModal.questions.length;
+    const scorePct = resData?.percentage ?? (totalQs > 0 ? Math.round((scoreVal / totalQs) * 100) : 0);
+    const passingPct = resData?.passing_percentage ?? 70;
+    const isPassedBool = Boolean(
+      resData?.result === true ||
+      String(resData?.result_str).toLowerCase() === 'passed' ||
+      String(resData?.status).toLowerCase() === 'passed'
+    );
 
     let generatedCredentialId = null;
     let learnerName = 'Learner';
@@ -1833,32 +1827,40 @@ const VideoWatch = () => {
       }
     }
 
-    const payload = {
-      formstep: 'submitQuiz',
-      formStep: 'submitQuiz',
-      course_id: quizModal.courseId,
-      chapter_id: quizModal.chapterId,
-      quiz_id: quizModal.quizId,
-      score: correctCount,
-      total_questions: totalQs,
-      percentage: scorePct,
-      result: isPassedBool,
-      result_str: isPassedBool ? 'Passed' : 'Failed',
-      status: isPassedBool ? 'Passed' : 'Failed',
-      answers: answerBreakdown.map(a => ({
-        question_id: a.question_id,
-        question_type: a.question_type,
-        selected_option: a.selected_option,
-        user_answer: a.user_answer,
-        selected_text: a.selected_text,
-        is_correct: a.is_correct
-      }))
-    };
-
-    try {
-      await api.dashboard.getUser('submitQuiz', payload);
-    } catch (err) {
-      console.error("Quiz submission API error", err);
+    // Map detailed answer evaluation from backend response
+    let detailedAnswers = [];
+    if (Array.isArray(resData?.answers) && resData.answers.length > 0) {
+      detailedAnswers = resData.answers.map(ans => {
+        const origQ = quizModal.questions.find(q => String(q.id || q.question_id || q.questionId) === String(ans.question_id));
+        return {
+          question_id: ans.question_id,
+          question: ans.question_text || ans.question || origQ?.question || '',
+          question_text: ans.question_text || ans.question || origQ?.question || '',
+          question_type: String(ans.question_type || origQ?.question_type || origQ?.questionType || '1'),
+          selected_option: ans.selected_option,
+          selected_option_id: ans.selected_option_id,
+          selected_text: ans.selected_text || ans.user_answer || '',
+          user_answer: ans.selected_text || ans.user_answer || '',
+          correct_option: ans.correct_option,
+          correct_option_id: ans.correct_option_id,
+          correct_answer: ans.correct_answer || ans.correct_text || '',
+          correct_text: ans.correct_answer || ans.correct_text || '',
+          is_correct: ans.is_correct === true || String(ans.status).toLowerCase() === 'correct',
+          status: ans.status || (ans.is_correct ? 'Correct' : 'Wrong'),
+          options: Array.isArray(ans.options) && ans.options.length > 0 ? ans.options : (origQ?.options || [])
+        };
+      });
+    } else {
+      detailedAnswers = answersPayload.map(a => {
+        const origQ = quizModal.questions.find(q => String(q.id || q.question_id || q.questionId) === String(a.question_id));
+        return {
+          ...a,
+          question: origQ?.question || '',
+          question_text: origQ?.question || '',
+          options: origQ?.options || [],
+          is_correct: false
+        };
+      });
     }
 
     setQuizModal(prev => ({
@@ -1866,11 +1868,16 @@ const VideoWatch = () => {
       isSubmitting: false,
       completed: true,
       results: {
-        score: correctCount,
+        score: scoreVal,
         totalQuestions: totalQs,
         percentage: scorePct,
-        answers: answerBreakdown,
+        answers: detailedAnswers,
         isPassed: isPassedBool,
+        resultStr: resData?.result_str || (isPassedBool ? 'Passed' : 'Failed'),
+        status: resData?.status || (isPassedBool ? 'Passed' : 'Failed'),
+        passingPercentage: passingPct,
+        correctCount: resData?.correct_count ?? scoreVal,
+        wrongCount: resData?.wrong_count ?? (totalQs - scoreVal),
         credentialId: generatedCredentialId,
         learnerName: learnerName
       }
@@ -2069,20 +2076,21 @@ const VideoWatch = () => {
     }
   };
 
-  async function saveProgress(force = false) {
+  async function saveProgress(forceFlush = false, forceComplete = false) {
     const activeVid = videoRefData.current || video || location.state?.video;
-    const pos = Math.round(videoRef.current ? videoRef.current.currentTime : (currentTimeRef.current || 0));
+    const rawPos = Math.round(videoRef.current ? videoRef.current.currentTime : (currentTimeRef.current || 0));
     const dur = Math.round(videoRef.current ? (videoRef.current.duration || activeVid?.duration || 300) : (activeVid?.duration || 300));
+    const pos = forceComplete ? dur : rawPos;
     const deltaWatchTime = trackingDataRef.current.watchTime;
     const vidId = idRef.current || id || activeVid?.id;
     
-    if ((pos > 0 && (deltaWatchTime > 0 || force)) || force) {
+    if ((pos > 0 && (deltaWatchTime > 0 || forceFlush)) || forceFlush) {
       try {
         const activeCourse = location.state?.course;
         const cId = activeVid?.course_id ?? activeVid?.courseId ?? activeCourse?.id ?? activeCourse?.course_id ?? location.state?.courseId ?? location.state?.course_id ?? 0;
         const chapId = activeVid?.chapter_id ?? activeVid?.chapterId ?? location.state?.chapterId ?? location.state?.chapter_id ?? 0;
-        const compPercent = force ? 100 : Math.min(100, Math.round((pos / (dur || 1)) * 100));
-        const isComplete = compPercent >= 90 || force;
+        const compPercent = forceComplete ? 100 : Math.min(100, Math.round((pos / (dur || 1)) * 100));
+        const isComplete = compPercent >= 90;
 
         await api.dashboard.getUser('watchsession', {
           id: vidId,
@@ -2129,7 +2137,8 @@ const VideoWatch = () => {
       return;
     }
 
-    await saveProgress(true);
+    // Flush actual watched progress before switching videos (without forcing complete)
+    await saveProgress(true, false);
 
     const activeVid = videoRefData.current || video || location.state?.video;
     const activeCourse = location.state?.course;
@@ -2139,6 +2148,11 @@ const VideoWatch = () => {
 
     if ((currentTimeRef.current >= 1 || trackingDataRef.current.watchTime >= 1) && vidId) {
       try {
+        const switchPos = Math.round(videoRef.current ? videoRef.current.currentTime : (currentTimeRef.current || 0));
+        const switchDur = Math.round(videoRef.current ? (videoRef.current.duration || activeVid?.duration || 300) : (activeVid?.duration || 300));
+        const switchPct = Math.min(100, Math.round((switchPos / (switchDur || 1)) * 100));
+        const switchComplete = switchPct >= 90;
+
         await api.dashboard.getUser('watchHistory', { 
           id: vidId,
           title: activeVid?.title || '',
@@ -2146,7 +2160,11 @@ const VideoWatch = () => {
           video_url: activeVid?.videoUrl || activeVid?.video_url || '',
           course_id: cId,
           chapter_id: chapId,
-          completion_percentage: Math.min(100, Math.round(((currentTimeRef.current || 1) / (duration || 300)) * 100))
+          completion_percentage: switchPct,
+          lastPosition: switchPos,
+          last_position: switchPos,
+          status: switchComplete,
+          staus: switchComplete
         });
       } catch (err) {
         console.error("Failed to register watchHistory on video switch", err);
@@ -2161,7 +2179,8 @@ const VideoWatch = () => {
   };
 
   const handleVideoEnded = async () => {
-    await saveProgress(true);
+    // Video reached the end, so mark as completed
+    await saveProgress(true, true);
 
     const activeVid = videoRefData.current || video || location.state?.video;
     const activeCourse = location.state?.course || video?.course || null;
@@ -6139,21 +6158,21 @@ const VideoWatch = () => {
                     textAlign: 'center',
                     padding: '24px',
                     borderRadius: '16px',
-                    background: quizModal.results?.percentage >= 70 
+                    background: quizModal.results?.isPassed 
                       ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'
                       : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))',
-                    border: `1px solid ${quizModal.results?.percentage >= 70 ? '#10b981' : '#ef4444'}`
+                    border: `1px solid ${quizModal.results?.isPassed ? '#10b981' : '#ef4444'}`
                   }}>
                     <span style={{ fontSize: '48px', display: 'block', marginBottom: '8px' }}>
-                      {quizModal.results?.percentage >= 70 ? '🎉' : '📊'}
+                      {quizModal.results?.isPassed ? '🎉' : '📊'}
                     </span>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 800, color: 'var(--text-primary, #ffffff)' }}>
                       Score: {quizModal.results?.score} / {quizModal.results?.totalQuestions} ({quizModal.results?.percentage}%)
                     </h3>
-                    <p style={{ margin: 0, fontSize: '14px', color: quizModal.results?.percentage >= 70 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
-                      {quizModal.results?.percentage >= 70 ? 'Congratulations! You passed the chapter quiz.' : 'Quiz completed. Review correct answers below.'}
+                    <p style={{ margin: 0, fontSize: '14px', color: quizModal.results?.isPassed ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                      {quizModal.results?.isPassed ? 'Congratulations! You passed the chapter quiz.' : 'Quiz completed. Review correct answers below.'}
                     </p>
-                    {quizModal.results?.percentage >= 70 && (
+                    {quizModal.results?.isPassed && (
                       <div style={{
                         marginTop: '16px',
                         padding: '16px 20px',
@@ -6219,7 +6238,7 @@ const VideoWatch = () => {
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '12px' }}>
                           <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #ffffff)' }}>
-                            {idx + 1}. {ans.question}
+                            {idx + 1}. {ans.question_text || ans.question}
                           </span>
                           <span style={{
                             fontSize: '12px',
@@ -6234,25 +6253,48 @@ const VideoWatch = () => {
                           </span>
                         </div>
 
-                        {ans.question_type === '3' ? (
+                        {String(ans.question_type) === '3' ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
                             <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: ans.is_correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', border: `1px solid ${ans.is_correct ? '#10b981' : '#ef4444'}` }}>
                               <span style={{ color: 'var(--text-secondary)' }}>Your Answer: </span>
-                              <strong style={{ color: ans.is_correct ? '#10b981' : '#ef4444' }}>{ans.user_answer || '(No answer provided)'}</strong>
+                              <strong style={{ color: ans.is_correct ? '#10b981' : '#ef4444' }}>{ans.selected_text || ans.user_answer || '(No answer provided)'}</strong>
                             </div>
                             {!ans.is_correct && (
                               <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Correct Answer: </span>
-                                <strong style={{ color: '#10b981' }}>{ans.correct_text}</strong>
+                                <strong style={{ color: '#10b981' }}>{ans.correct_answer || ans.correct_text}</strong>
                               </div>
                             )}
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
                             {(ans.options || []).map((opt, oIdx) => {
-                              const isUserChoice = ans.selected_option === oIdx;
-                              const isCorrectChoice = ans.correct_option === oIdx;
-                              const optText = typeof opt === 'object' ? (opt.text || opt.option_text || JSON.stringify(opt)) : String(opt);
+                              const optId = typeof opt === 'object' ? (opt.option_id ?? opt.id) : null;
+                              const optText = typeof opt === 'object' ? (opt.option_text || opt.text || opt.label || JSON.stringify(opt)) : String(opt);
+
+                              let isCorrectChoice = false;
+                              if (typeof opt?.is_correct === 'boolean') {
+                                isCorrectChoice = opt.is_correct;
+                              } else if (ans.correct_option_id !== undefined && ans.correct_option_id !== null && optId !== null) {
+                                isCorrectChoice = String(optId) === String(ans.correct_option_id);
+                              } else if (ans.correct_answer) {
+                                isCorrectChoice = String(optText).trim().toLowerCase() === String(ans.correct_answer).trim().toLowerCase();
+                              } else if (ans.correct_text) {
+                                isCorrectChoice = String(optText).trim().toLowerCase() === String(ans.correct_text).trim().toLowerCase();
+                              } else if (typeof ans.correct_option === 'number' && optId === null) {
+                                isCorrectChoice = ans.correct_option === oIdx;
+                              }
+
+                              let isUserChoice = false;
+                              if (typeof opt?.is_selected === 'boolean') {
+                                isUserChoice = opt.is_selected;
+                              } else if (ans.selected_option_id !== undefined && ans.selected_option_id !== null && optId !== null) {
+                                isUserChoice = String(optId) === String(ans.selected_option_id);
+                              } else if (ans.selected_text) {
+                                isUserChoice = String(optText).trim().toLowerCase() === String(ans.selected_text).trim().toLowerCase();
+                              } else if (typeof ans.selected_option === 'number' && optId === null) {
+                                isUserChoice = ans.selected_option === oIdx;
+                              }
 
                               let bg = 'transparent';
                               let color = 'var(--text-secondary, #a1a1aa)';

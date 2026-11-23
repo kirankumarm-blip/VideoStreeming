@@ -7,27 +7,25 @@
 export const getAssetBaseUrl = () => {
   let url = '';
 
-  // 1. Check Vite environment variable (using safe dynamic evaluation to avoid Webpack/Node parse error)
+  // 1. Direct Webpack compile-time substitution (CRA DefinePlugin replaces exact identifier)
   try {
-    // eslint-disable-next-line no-new-func
-    const metaEnv = (new Function("try { return import.meta.env; } catch(e) { return null; }"))();
-    if (metaEnv && (metaEnv.VITE_ASSET_BASE_URL || metaEnv.REACT_APP_ASSET_BASE_URL)) {
-      url = metaEnv.VITE_ASSET_BASE_URL || metaEnv.REACT_APP_ASSET_BASE_URL || '';
-    }
+    url = process.env.REACT_APP_ASSET_BASE_URL || process.env.VITE_ASSET_BASE_URL || '';
   } catch (e) {}
 
-  // 2. Check Webpack / CRA / Node environment variable
+  // 2. Check Vite environment variable
   if (!url) {
     try {
-      if (typeof process !== 'undefined' && process && process.env) {
-        url = process.env.REACT_APP_ASSET_BASE_URL || process.env.VITE_ASSET_BASE_URL || '';
+      // eslint-disable-next-line no-new-func
+      const metaEnv = (new Function("try { return import.meta.env; } catch(e) { return null; }"))();
+      if (metaEnv && (metaEnv.VITE_ASSET_BASE_URL || metaEnv.REACT_APP_ASSET_BASE_URL)) {
+        url = metaEnv.VITE_ASSET_BASE_URL || metaEnv.REACT_APP_ASSET_BASE_URL || '';
       }
     } catch (e) {}
   }
 
   // 3. Check window runtime override if present
   if (!url && typeof window !== 'undefined') {
-    url = window.__ASSET_BASE_URL__ || window.VITE_ASSET_BASE_URL || '';
+    url = window.__ASSET_BASE_URL__ || window.REACT_APP_ASSET_BASE_URL || window.VITE_ASSET_BASE_URL || '';
   }
 
   return (url || '').trim().replace(/\/+$/, '');

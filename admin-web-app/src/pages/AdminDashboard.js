@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, getCurrentUser } from '../services/api';
 import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
@@ -138,6 +139,7 @@ export const resolveVideoUrl = (item) => {
 };
 
 const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId, onTabChange }) => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState(activeTabOverride || 'overview'); // overview, users_all, video_upload, etc.
 
@@ -2210,6 +2212,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const data = await api.dashboard.getAdmin(formStep);
       setStats(data);
     } catch (err) {
+      if (err.status === 403 || err.statusCode === 403 || err.isForbidden || err.response?.status === 403) {
+        navigate('/unauthorized', { replace: true, state: { attemptedRoles: ['admin', 'author_admin'] } });
+        return;
+      }
       setError('Failed to load admin dashboard data');
     } finally {
       isFetchingDashboardRef.current = false;
@@ -10626,6 +10632,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 autoPlay
                 controlsList="nodownload"
                 onError={(e) => {
+                  e.target.onerror = null;
                   if (e.target.src !== 'https://www.w3schools.com/html/mov_bbb.mp4') {
                     e.target.src = 'https://www.w3schools.com/html/mov_bbb.mp4';
                   }

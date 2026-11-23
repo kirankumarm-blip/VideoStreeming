@@ -5,6 +5,9 @@ import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
+import InternationalPhoneInput, { validateInternationalPhoneNumber } from '../components/InternationalPhoneInput';
+import PasswordRequirementList from '../components/PasswordRequirementList';
+import { validatePassword, calculatePasswordStrength } from '../utils/passwordPolicy';
 import logoImg from '../assets/logo.png';
 
 const Signup = () => {
@@ -16,6 +19,7 @@ const Signup = () => {
   const [genders, setGenders] = useState([]);
   const [dob, setDob] = useState('');
   const [email, setEmail] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState({ code: 'IN', dialCode: '+91', name: 'India', flag: '🇮🇳' });
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -58,29 +62,6 @@ const Signup = () => {
     });
   };
 
-  // Password strength checker
-  const getPasswordStrength = (pwd) => {
-    if (!pwd) return { label: 'Empty', color: '#888', pct: 0 };
-    let score = 0;
-    if (pwd.length >= 6) score++;
-    if (/[A-Z]/.test(pwd)) score++;
-    if (/[0-9]/.test(pwd)) score++;
-    if (/[^A-Za-z0-9]/.test(pwd)) score++;
-
-    switch (score) {
-      case 0:
-      case 1:
-        return { label: 'Weak', color: '#ef4444', pct: 25 };
-      case 2:
-        return { label: 'Fair', color: '#f59e0b', pct: 50 };
-      case 3:
-        return { label: 'Good', color: '#3b82f6', pct: 75 };
-      case 4:
-      default:
-        return { label: 'Strong', color: '#10b981', pct: 100 };
-    }
-  };
-
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -99,8 +80,60 @@ const Signup = () => {
       showError('Please select gender');
       return;
     }
-    if (!dob) {
+    if (!dob || !dob.trim()) {
       showError('Please select date of birth');
+      return;
+    }
+
+    const trimmedDob = dob.trim();
+    // Validate format: YYYY-MM-DD
+    const dobMatch = trimmedDob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!dobMatch) {
+      showError('Please enter a valid date of birth in YYYY-MM-DD format');
+      return;
+    }
+
+    const dobYear = parseInt(dobMatch[1], 10);
+    const dobMonth = parseInt(dobMatch[2], 10);
+    const dobDay = parseInt(dobMatch[3], 10);
+
+    if (dobMonth < 1 || dobMonth > 12) {
+      showError('Invalid month in date of birth');
+      return;
+    }
+
+    // Days in month validation (including leap year for February)
+    const isLeapYear = (dobYear % 4 === 0 && dobYear % 100 !== 0) || (dobYear % 400 === 0);
+    const daysInMonth = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const maxDays = daysInMonth[dobMonth];
+
+    if (dobDay < 1 || dobDay > maxDays) {
+      showError(`Invalid date of birth: ${trimmedDob} is an impossible calendar date`);
+      return;
+    }
+
+    // DOB cannot be today or in the future
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (trimmedDob >= todayStr) {
+      showError('Date of birth cannot be today or in the future');
+      return;
+    }
+
+    if (dobYear < 1900) {
+      showError('Please enter a valid date of birth (year must be 1900 or later)');
+      return;
+    }
+
+    // Minimum Age Enforcement (16+ as per Terms of Service)
+    let age = now.getFullYear() - dobYear;
+    const mDiff = (now.getMonth() + 1) - dobMonth;
+    if (mDiff < 0 || (mDiff === 0 && now.getDate() < dobDay)) {
+      age--;
+    }
+
+    if (age < 16) {
+      showError('You must be at least 16 years old to register as per our Terms of Service.');
       return;
     }
     if (!email || !email.trim()) {
@@ -112,20 +145,18 @@ const Signup = () => {
       showError('Please enter a valid email address (e.g. name@domain.com)');
       return;
     }
-    if (!mobile || !mobile.trim()) {
-      showError('Please fill out phone number');
-      return;
-    }
-    if (mobile.length !== 10) {
-      showError('Phone number must be exactly 10 digits');
+    const phoneValidation = validateInternationalPhoneNumber(mobile, selectedCountry.code, selectedCountry.name);
+    if (!phoneValidation.isValid) {
+      showError(phoneValidation.error);
       return;
     }
     if (!password) {
       showError('Please fill out password');
       return;
     }
-    if (password.length < 6) {
-      showError('Password must be at least 6 characters long');
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      showError(passwordValidation.firstError);
       return;
     }
     if (!confirmPassword) {
@@ -141,12 +172,15 @@ const Signup = () => {
 
     try {
       await api.auth.signup({
-        firstName,
-        lastName,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         genderId,
-        dob: new Date(dob).toISOString(),
-        email,
-        mobile,
+        dob: trimmedDob,
+        email: email.trim(),
+        country_code: selectedCountry.dialCode,
+        dial_code: selectedCountry.dialCode,
+        country_iso: selectedCountry.code,
+        mobile: phoneValidation.nationalNumber,
         password,
         type: 'selfSignUp'
       });
@@ -160,7 +194,7 @@ const Signup = () => {
     }
   };
 
-  const strength = getPasswordStrength(password);
+  const strength = calculatePasswordStrength(password);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   React.useEffect(() => {
@@ -388,6 +422,7 @@ const Signup = () => {
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
                 placeholder="YYYY-MM-DD"
+                minAge={16}
               />
             </div>
           </div>
@@ -409,16 +444,14 @@ const Signup = () => {
 
           <div className="form-group">
             <label className="form-label">Phone Number</label>
-            <input
-              type="tel"
-              className="form-input"
-              placeholder="Enter 10-digit phone number"
+            <InternationalPhoneInput
+              selectedCountry={selectedCountry}
+              onCountryChange={setSelectedCountry}
               value={mobile}
-              onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              onInvalid={(e) => e.target.setCustomValidity('Please fill out phone number')}
-              onInput={(e) => e.target.setCustomValidity('')}
+              onChange={(e) => setMobile(e.target.value)}
+              placeholder="Enter phone number"
+              disabled={loading}
               required
-              style={{ width: '100%' }}
             />
           </div>
 
@@ -470,7 +503,7 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Password Strength Meter */}
+          {/* Password Strength Meter & Requirement Indicators */}
           {password && (
             <div style={{ marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
@@ -480,6 +513,7 @@ const Signup = () => {
               <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
                 <div style={{ width: `${strength.pct}%`, height: '100%', backgroundColor: strength.color, transition: 'width 0.3s' }} />
               </div>
+              <PasswordRequirementList requirements={strength.requirements} />
             </div>
           )}
 

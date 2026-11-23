@@ -85,7 +85,7 @@ const TermsConditions = () => {
             <ul style={{ margin: '0 0 10px', paddingLeft: '24px' }}>
               <li><strong>Mandatory Two-Factor Authentication:</strong> For enhanced account security and fraud prevention, XLURN requires 2-Step Verification (2FA) via numeric OTP. You are responsible for maintaining access to your registered email address or mobile device.</li>
               <li><strong>Account Non-Transferability:</strong> Accounts are strictly individual. You may not share, sell, rent, or transfer your login credentials or OTP codes to any third party.</li>
-              <li><strong>Session Inactivity:</strong> For your security on public or shared terminals, our system enforces automatic cross-tab session termination after 10 minutes of continuous inactivity.</li>
+              <li><strong>Session Inactivity:</strong> For your security on public or shared terminals, our system enforces automatic cross-tab session termination after 1 hour of continuous inactivity.</li>
               <li><strong>Security Breach:</strong> You must immediately notify XLURN security (<a href="mailto:security@xlurn.com" style={{ color: 'var(--accent-primary, #2563eb)' }}>security@xlurn.com</a>) if you suspect unauthorized access or compromise of your credentials.</li>
             </ul>
           </section>

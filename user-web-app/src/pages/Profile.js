@@ -4,6 +4,7 @@ import { api, setCurrentUser, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PaginatedTable from '../components/PaginatedTable';
 import { getAssetUrl } from '../utils/assetUrl';
+import { validatePassword } from '../utils/passwordPolicy';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -15,12 +16,14 @@ const Profile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form states
+  // Form states - managed in component state without storing profile details in localStorage
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
-  const [bio, setBio] = useState(localStorage.getItem('user_bio') || 'Movies are the ultimate escape.\nI watch, I learn, I grow.');
+  const [bio, setBio] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState('');
+  const [accountLoading, setAccountLoading] = useState(false);
 
   // Active Modal State ('account', 'password', 'privacy', 'notifications', 'payment', null)
   const [activeModal, setActiveModal] = useState(null);
@@ -149,16 +152,74 @@ const Profile = () => {
     fetchUserStats();
   }, []);
 
+  // Fetch fresh profile from vdUser with formstep = getProfile when Account modal opens
+  const fetchVdUserProfile = async () => {
+    setAccountLoading(true);
+    try {
+      const res = await api.user.getProfile();
+      const raw = Array.isArray(res) ? (res[0] || {}) : (res || {});
+      const data = (raw && typeof raw === 'object' && 'json' in raw) ? raw.json : raw;
+      const userPayload = data?.data || data?.user || data || {};
+
+      const resName = userPayload.name || userPayload.fullname || userPayload.full_name || '';
+      const resEmail = userPayload.email || '';
+      const resPhone = userPayload.phonenumber || userPayload.phone_number || userPayload.mobile || userPayload.phone || '';
+      const resBio = userPayload.bio !== undefined && userPayload.bio !== null ? userPayload.bio : '';
+
+      if (resName) setName(resName);
+      if (resEmail) setEmail(resEmail);
+      if (resPhone) setMobile(resPhone);
+      if (resBio !== undefined) setBio(resBio);
+
+      setProfile(prev => ({
+        ...(prev || {}),
+        name: resName || prev?.name,
+        email: resEmail || prev?.email,
+        phonenumber: resPhone || prev?.phonenumber,
+        mobile: resPhone || prev?.mobile,
+        bio: resBio
+      }));
+    } catch (err) {
+      console.warn('Failed to fetch profile from vdUser getProfile:', err);
+    } finally {
+      setAccountLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeModal === 'account') {
+      fetchVdUserProfile();
+    }
+  }, [activeModal]);
+
   const fetchProfile = async () => {
     setLoading(true);
     try {
-      const data = await api.auth.getProfile().catch(() => null);
+      const res = await api.user.getProfile().catch(() => null);
+      const raw = Array.isArray(res) ? (res[0] || {}) : (res || {});
+      const data = (raw && typeof raw === 'object' && 'json' in raw) ? raw.json : raw;
+      const userPayload = data?.data || data?.user || data || {};
+
       const localUser = getCurrentUser() || {};
-      const mergedUser = (data && (data.name || data.email || data.id)) ? { ...localUser, ...data } : (localUser.email ? localUser : { name: 'User', email: 'user@lurnax.com', ...localUser });
-      
+      const resName = userPayload.name || userPayload.fullname || localUser.name || 'User';
+      const resEmail = userPayload.email || localUser.email || 'user@lurnax.com';
+      const resPhone = userPayload.phonenumber || userPayload.phone_number || userPayload.mobile || userPayload.phone || localUser.phonenumber || localUser.mobile || '';
+      const resBio = userPayload.bio !== undefined && userPayload.bio !== null ? userPayload.bio : '';
+
+      const mergedUser = {
+        ...localUser,
+        name: resName,
+        email: resEmail,
+        phonenumber: resPhone,
+        mobile: resPhone,
+        bio: resBio
+      };
+
       setProfile(mergedUser);
-      setName(mergedUser.name || '');
-      setMobile(mergedUser.mobile || '');
+      setName(resName);
+      setEmail(resEmail);
+      setMobile(resPhone);
+      setBio(resBio);
       if (mergedUser.avatar) {
         setAvatarPreview(getAssetUrl(mergedUser.avatar));
       }
@@ -166,7 +227,9 @@ const Profile = () => {
       const localUser = getCurrentUser() || { name: 'User', email: 'user@lurnax.com' };
       setProfile(localUser);
       setName(localUser.name || '');
-      setMobile(localUser.mobile || '');
+      setEmail(localUser.email || 'user@lurnax.com');
+      setMobile(localUser.phonenumber || localUser.mobile || '');
+      setBio('');
       if (localUser.avatar) {
         setAvatarPreview(getAssetUrl(localUser.avatar));
       }
@@ -236,33 +299,64 @@ const Profile = () => {
     setError('');
     setSuccess('');
 
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('mobile', mobile);
-    if (avatarFile) {
-      formData.append('avatar', avatarFile);
-    }
-
     try {
-      const res = await api.auth.updateProfile(formData);
-      localStorage.setItem('user_bio', bio);
-      setSuccess(t('profile.updateSuccess', 'Profile updated successfully!'));
-      
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        setCurrentUser({
-          ...currentUser,
-          name: res.user.name,
-          mobile: res.user.mobile,
-          avatar: res.user.avatar
-        });
+      // 1. Call API of vdUser with formstep saveProfile
+      const payload = {
+        name,
+        phonenumber: mobile,
+        mobile,
+        bio
+      };
+
+      await api.user.saveProfile(payload);
+
+      // If avatar file is selected, sync avatar
+      if (avatarFile) {
+        try {
+          const avatarFormData = new FormData();
+          avatarFormData.append('name', name);
+          avatarFormData.append('mobile', mobile);
+          avatarFormData.append('avatar', avatarFile);
+          await api.auth.updateProfile(avatarFormData);
+        } catch (avErr) {
+          console.warn('Avatar upload fallback error:', avErr);
+        }
       }
 
-      fetchProfile();
+      // 2. Update local profile state without storing profile details in localStorage
+      const currentUser = getCurrentUser() || {};
+      const updatedUser = {
+        ...currentUser,
+        name,
+        mobile,
+        phonenumber: mobile,
+        bio
+      };
+      setProfile(prev => ({
+        ...(prev || {}),
+        ...updatedUser
+      }));
+
+      // Close the modal
       setActiveModal(null);
-      setTimeout(() => setSuccess(''), 4000);
+
+      // 3. Show good success pop up
+      setCustomAlert({
+        show: true,
+        title: 'Profile Updated Successfully!',
+        message: 'Your account information has been saved successfully.',
+        type: 'success',
+        buttonText: 'Done'
+      });
     } catch (err) {
       setError(err.message || 'Failed to update profile');
+      setCustomAlert({
+        show: true,
+        title: 'Update Failed',
+        message: err.message || 'Failed to update account information. Please try again.',
+        type: 'error',
+        buttonText: 'OK'
+      });
     }
   };
 
@@ -271,13 +365,19 @@ const Profile = () => {
     setError('');
     setSuccess('');
 
-    if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+    if (!newPassword) {
+      setError('Please fill out new password');
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long');
+    const pwdValidation = validatePassword(newPassword);
+    if (!pwdValidation.isValid) {
+      setError(pwdValidation.firstError);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
       return;
     }
 
@@ -560,21 +660,23 @@ const Profile = () => {
             </div>
 
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              {currentProfile.email || 'user@lurnax.com'}
+              {email || currentProfile.email || 'user@lurnax.com'}
             </div>
 
             {/* Quote / Bio */}
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--text-secondary)',
-              marginTop: '4px',
-              lineHeight: '1.4',
-              fontStyle: 'italic',
-              whiteSpace: 'pre-line',
-              opacity: 0.85
-            }}>
-              "{bio}"
-            </div>
+            {bio ? (
+              <div style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                lineHeight: '1.4',
+                fontStyle: 'italic',
+                whiteSpace: 'pre-line',
+                opacity: 0.85
+              }}>
+                "{bio}"
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -736,7 +838,14 @@ const Profile = () => {
         <div style={modalBackdropStyle} onClick={(e) => e.target === e.currentTarget && setActiveModal(null)}>
           <div style={modalCardStyle}>
             <div style={modalHeaderStyle}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Account Information</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Account Information</h3>
+                {accountLoading && (
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    (Loading...)
+                  </span>
+                )}
+              </div>
               <button type="button" onClick={() => setActiveModal(null)} style={closeBtnStyle}>✕</button>
             </div>
             <form onSubmit={handleUpdateProfile} style={{ padding: '20px' }}>
@@ -757,8 +866,9 @@ const Profile = () => {
                 <input
                   type="email"
                   className="form-input"
-                  value={currentProfile.email || 'user@lurnax.com'}
+                  value={email || currentProfile.email || 'user@lurnax.com'}
                   disabled
+                  readOnly
                   style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
                 />
               </div>
@@ -769,9 +879,10 @@ const Profile = () => {
                   type="tel"
                   className="form-input"
                   value={mobile}
-                  onChange={e => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  required
-                  style={inputStyle}
+                  disabled
+                  readOnly
+                  placeholder="Mobile number"
+                  style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
                 />
               </div>
 
@@ -782,12 +893,13 @@ const Profile = () => {
                   rows="3"
                   value={bio}
                   onChange={e => setBio(e.target.value)}
+                  placeholder="Tell us about yourself..."
                   style={{ ...inputStyle, resize: 'none' }}
                 />
               </div>
 
-              <button type="submit" style={primaryBtnStyle}>
-                Save Changes
+              <button type="submit" disabled={accountLoading} style={{ ...primaryBtnStyle, opacity: accountLoading ? 0.7 : 1 }}>
+                {accountLoading ? 'Loading details...' : 'Save Changes'}
               </button>
             </form>
           </div>
@@ -999,35 +1111,102 @@ const Profile = () => {
         </div>
       )}
 
-      {/* --- CUSTOM MODERATION ALERT MODAL --- */}
+      {/* --- CUSTOM POPUP MODAL (SUCCESS & ERROR) --- */}
       {customAlert.show && (
-        <div style={modalBackdropStyle}>
-          <div style={{ ...modalCardStyle, maxWidth: '360px', textAlign: 'center', padding: '32px 24px' }}>
+        <div
+          style={modalBackdropStyle}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCustomAlert(prev => ({ ...prev, show: false }));
+            }
+          }}
+        >
+          <div style={{
+            ...modalCardStyle,
+            maxWidth: '380px',
+            textAlign: 'center',
+            padding: '32px 28px',
+            borderRadius: '24px',
+            background: 'var(--bg-secondary)',
+            border: customAlert.type === 'success'
+              ? '1px solid rgba(16, 185, 129, 0.35)'
+              : '1px solid rgba(239, 68, 68, 0.35)',
+            boxShadow: customAlert.type === 'success'
+              ? '0 24px 50px rgba(0, 0, 0, 0.5), 0 0 35px rgba(16, 185, 129, 0.18)'
+              : '0 24px 50px rgba(0, 0, 0, 0.5), 0 0 35px rgba(239, 68, 68, 0.18)'
+          }}>
+            {/* Animated Icon Circle Badge */}
             <div style={{
-              width: '56px',
-              height: '56px',
+              width: '64px',
+              height: '64px',
               borderRadius: '50%',
-              border: '3px solid #ef4444',
+              background: customAlert.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              border: customAlert.type === 'success' ? '2.5px solid #10b981' : '2.5px solid #ef4444',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              margin: '0 auto 16px auto',
-              color: '#ef4444',
-              fontSize: '24px'
+              margin: '0 auto 20px auto',
+              color: customAlert.type === 'success' ? '#10b981' : '#ef4444',
+              boxShadow: customAlert.type === 'success' ? '0 0 20px rgba(16, 185, 129, 0.3)' : '0 0 20px rgba(239, 68, 68, 0.3)'
             }}>
-              ✕
+              {customAlert.type === 'success' ? (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              ) : (
+                <span style={{ fontSize: '26px', fontWeight: 800 }}>✕</span>
+              )}
             </div>
-            <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#ef4444', margin: '0 0 8px 0' }}>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: customAlert.type === 'success' ? '#10b981' : '#ef4444',
+              margin: '0 0 10px 0',
+              letterSpacing: '-0.3px'
+            }}>
               {customAlert.title}
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '0 0 24px 0' }}>
+
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--text-secondary)',
+              lineHeight: '1.55',
+              margin: '0 0 24px 0'
+            }}>
               {customAlert.message}
             </p>
+
+            {/* Action Button */}
             <button
-              onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
-              style={{ ...primaryBtnStyle, background: '#ef4444' }}
+              type="button"
+              onClick={() => {
+                if (typeof customAlert.onConfirm === 'function') {
+                  customAlert.onConfirm();
+                }
+                setCustomAlert(prev => ({ ...prev, show: false }));
+              }}
+              style={{
+                ...primaryBtnStyle,
+                background: customAlert.type === 'success'
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                boxShadow: customAlert.type === 'success'
+                  ? '0 6px 20px rgba(16, 185, 129, 0.35)'
+                  : '0 6px 20px rgba(239, 68, 68, 0.35)',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: 700,
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease, filter 0.15s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              {customAlert.buttonText}
+              {customAlert.buttonText || 'OK'}
             </button>
           </div>
         </div>

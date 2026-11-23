@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api, clearTokens, isValidToken } from '../services/api';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
+import { validatePassword } from '../utils/passwordPolicy';
 import logoImg from '../assets/logo.png';
 
 // 6-Digit Pin Input Component
@@ -156,7 +157,10 @@ const Login = ({ initialAuthMode }) => {
   useEffect(() => {
     if (sessionStorage.getItem('inactivityLoggedOut') === 'true') {
       sessionStorage.removeItem('inactivityLoggedOut');
-      showError('You have been automatically logged out due to 10 minutes of inactivity.');
+      showError('You have been automatically logged out due to 1 hour of inactivity.');
+    } else if (sessionStorage.getItem('sessionExpired') === 'true') {
+      sessionStorage.removeItem('sessionExpired');
+      showError('Your session has expired. Please log in again.', null, 'Session Expired');
     }
   }, []);
 
@@ -171,11 +175,11 @@ const Login = ({ initialAuthMode }) => {
     });
   };
 
-  const showError = (message, onConfirm = null) => {
+  const showError = (message, onConfirm = null, title = 'Oops!') => {
     setCustomAlert({
       show: true,
       type: 'error',
-      title: 'Oops!',
+      title: title || 'Oops!',
       message,
       buttonText: 'Try Again',
       onConfirm
@@ -184,7 +188,18 @@ const Login = ({ initialAuthMode }) => {
 
   // Server configuration states
   const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
+  const [serverUrl, setServerUrl] = useState(localStorage.getItem('server_url') || localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
+
+  const handleSaveServerConfig = (e) => {
+    e.preventDefault();
+    localStorage.setItem('serverUrl', serverUrl);
+    localStorage.setItem('server_url', serverUrl);
+    setShowServerConfig(false);
+    setSuccessMessage('Server URL updated successfully!');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
 
   useEffect(() => {
     let interval = null;
@@ -200,16 +215,6 @@ const Login = ({ initialAuthMode }) => {
       if (interval) clearInterval(interval);
     };
   }, [timer, timerActive]);
-
-  const handleSaveServerConfig = (e) => {
-    e.preventDefault();
-    localStorage.setItem('serverUrl', serverUrl);
-    setShowServerConfig(false);
-    setSuccessMessage('Server URL updated successfully!');
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -247,7 +252,10 @@ const Login = ({ initialAuthMode }) => {
       if (status === 401 || status === '401') {
         showError('Invalid Credentials');
       } else if (status === 404 || status === '404' || errMsg.includes('404')) {
-        showError('User does not exist');
+        const errorMsg = 'This account is registered for administrative access. Please use the Admin Portal to sign in.';
+        showError(errorMsg, null, 'Access Denied');
+        setError(errorMsg);
+        return;
       } else if (status === 430 || status === '430' || errMsg.includes('430')) {
         showError('Your account has been deactivated. Please contact your administrator for assistance.');
       } else {
@@ -362,11 +370,12 @@ const Login = ({ initialAuthMode }) => {
         token: refreshToken
       };
 
-      // Save tokens and session across all learner storage keys: accessToken for authorization, refreshToken as before
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('learner_accessToken', accessToken);
+      // Save tokens and session across all learner storage keys: token (refreshToken) for authorization
+      localStorage.setItem('token', refreshToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('learner_refreshToken', refreshToken);
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('learner_accessToken', accessToken);
       try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
       localStorage.setItem('user', JSON.stringify(finalUser));
       localStorage.setItem('learner_user', JSON.stringify(finalUser));
@@ -379,8 +388,15 @@ const Login = ({ initialAuthMode }) => {
       window.location.hash = '/';
       window.location.reload();
     } catch (err) {
-      if (err.status === 402) {
+      const status = err?.status || err?.statusCode || err?.response?.status;
+      const errMsg = String(err?.message || err || '');
+      if (err.status === 402 || status === 402 || status === '402') {
         showError('Invalid OTP');
+      } else if (status === 404 || status === '404' || errMsg.includes('404')) {
+        const errorMsg = 'This account is registered for administrative access. Please use the Admin Portal to sign in.';
+        showError(errorMsg, null, 'Access Denied');
+        setError(errorMsg);
+        return;
       } else {
         showError(err.message || 'Invalid OTP code. Please enter the correct code.');
       }
@@ -410,13 +426,19 @@ const Login = ({ initialAuthMode }) => {
     e.preventDefault();
     setError('');
 
-    if (newPassword !== confirmPassword) {
-      showError('Passwords do not match');
+    if (!newPassword) {
+      showError('Please fill out password');
       return;
     }
 
-    if (newPassword.length < 6) {
-      showError('Password must be at least 6 characters long');
+    const pwdValidation = validatePassword(newPassword);
+    if (!pwdValidation.isValid) {
+      showError(pwdValidation.firstError);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showError('Passwords do not match');
       return;
     }
 
@@ -467,12 +489,14 @@ const Login = ({ initialAuthMode }) => {
         role_id: 3,
         originalRole: 'USER'
       };
+      localStorage.setItem('token', ssoRefreshToken);
       localStorage.setItem('accessToken', ssoToken);
       localStorage.setItem('refreshToken', ssoRefreshToken);
       localStorage.setItem('learner_accessToken', ssoToken);
       localStorage.setItem('learner_refreshToken', ssoRefreshToken);
       localStorage.setItem('user', JSON.stringify(finalUser));
       localStorage.setItem('learner_user', JSON.stringify(finalUser));
+      localStorage.setItem('lastUserActivity', Date.now().toString());
       navigate('/');
       window.location.reload();
       return;

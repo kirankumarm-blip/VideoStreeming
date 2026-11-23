@@ -91,13 +91,78 @@ export const clearTokens = () => {
   sessionStorage.removeItem('admin_user');
   sessionStorage.removeItem('tempLoginData');
   sessionStorage.removeItem('rememberedPassword');
+  sessionStorage.removeItem('lastUserActivity');
+};
+
+// Helper to safely parse JWT payload
+export const parseJwtPayload = (token) => {
+  if (!isValidToken(token)) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    let base64Url = parts[1];
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = (4 - (base64.length % 4)) % 4;
+    base64 += '='.repeat(pad);
+    try {
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e1) {
+      return JSON.parse(atob(base64));
+    }
+  } catch (e) {
+    return null;
+  }
+};
+
+// Validates whether a token exists and is not expired
+export const isTokenExpired = (token) => {
+  if (!isValidToken(token)) return true;
+  const payload = parseJwtPayload(token);
+  if (!payload || typeof payload !== 'object') {
+    // If not a parseable JWT, it may be an opaque session token - do not falsely expire
+    return false;
+  }
+  if (typeof payload.exp !== 'number') {
+    return false;
+  }
+
+  // Normalize exp and current time to seconds
+  const expSeconds = payload.exp > 1e11 ? Math.floor(payload.exp / 1000) : payload.exp;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  // If iat (issued at) claim is present, handle client-server clock skew safely
+  if (typeof payload.iat === 'number') {
+    const iatSeconds = payload.iat > 1e11 ? Math.floor(payload.iat / 1000) : payload.iat;
+    const tokenLifetime = expSeconds - iatSeconds;
+
+    // Detect substantial clock skew between client and server (e.g. client clock is ahead/behind by > 1 hour)
+    const clockSkew = nowSeconds - iatSeconds;
+    if (tokenLifetime > 0 && Math.abs(clockSkew) > 3600) {
+      // Calculate remaining validity based on elapsed local time since login activity
+      const lastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
+      if (lastActivity > 0) {
+        const elapsedSec = (Date.now() - lastActivity) / 1000;
+        return elapsedSec > tokenLifetime;
+      }
+      return false;
+    }
+  }
+
+  // Standard absolute expiration check with 60s buffer for minor clock jitter
+  return expSeconds <= (nowSeconds - 60);
 };
 
 export const getCurrentUser = () => {
   try {
     // Cached user details alone are NEVER treated as proof of authentication
     const token = getRefreshToken() || getAccessToken();
-    if (!isValidToken(token)) {
+    if (!isValidToken(token) || isTokenExpired(token)) {
       return null;
     }
     const rawUser = localStorage.getItem('learner_user') || localStorage.getItem('user');
@@ -223,7 +288,7 @@ async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
-  // Attach Authorization Bearer token header: using refreshToken only, not access token
+  // Attach Authorization Bearer token header: using token (refreshToken) only, not access token
   const token = getRefreshToken();
   if (isValidToken(token)) {
     headers['Authorization'] = `Bearer ${token.trim()}`;
@@ -270,8 +335,14 @@ async function request(endpoint, options = {}) {
 
   let response = await fetch(url, config);
 
-  // If unauthorized, try to refresh token
-  if ((response.status === 401 || response.status === 403) && getRefreshToken()) {
+  const isLoginRequest = 
+    url.includes('/login') || 
+    url.includes('/vdlogin') || 
+    cleanEndpoint.includes('login') || 
+    cleanEndpoint.includes('/vdlogin');
+
+  // If unauthorized, try to refresh token (skip on login requests)
+  if ((response.status === 401 || response.status === 403) && getRefreshToken() && !isLoginRequest) {
     try {
       const refreshResponse = await fetch(`${getBaseUrl()}/auth/refresh`, {
         method: 'POST',
@@ -284,7 +355,7 @@ async function request(endpoint, options = {}) {
         setTokens(data.accessToken, data.refreshToken);
         
         // Retry original request with new token
-        config.headers['Authorization'] = `Bearer ${data.refreshToken || data.token || getRefreshToken()}`;
+        config.headers['Authorization'] = `Bearer ${data.token || data.refreshToken || getRefreshToken()}`;
         response = await fetch(url, config);
       }
     } catch (e) {
@@ -300,23 +371,28 @@ async function request(endpoint, options = {}) {
     responseData = responseRawText;
   }
 
-  const isNotLoggedIn = 
+  const isUnauthorized = 
     response.status === 401 ||
     (typeof responseData === 'string' && responseData.toLowerCase().includes('not logged in')) ||
     (responseData && typeof responseData === 'object' && String(responseData.message || responseData.error || '').toLowerCase().includes('not logged in'));
 
-  const lastAct = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
-  const isFreshLogin = lastAct && (Date.now() - lastAct < 15000); // 15 second grace period
-  if (isNotLoggedIn && !isFreshLogin && !url.includes('/login') && !url.includes('/otp') && !cleanEndpoint.includes('/auth/')) {
+  // Global 401 handling (except login): clear all authentication data and redirect to /login
+  if (isUnauthorized && !isLoginRequest) {
     clearTokens();
-    const isAuthPage = window.location.hash.includes('/login') || window.location.hash.includes('/signup');
-    if (!isAuthPage) {
-      sessionStorage.setItem('inactivityLoggedOut', 'true');
-      window.location.hash = '/login';
-      window.location.reload();
+    const currentHash = typeof window !== 'undefined' ? (window.location.hash || '') : '';
+    const isAuthPage = currentHash.includes('/login') || 
+                       currentHash.includes('/signup') || 
+                       currentHash.includes('/forgot-password') || 
+                       currentHash.includes('/reset-password');
+    if (!isAuthPage && typeof window !== 'undefined') {
+      sessionStorage.setItem('sessionExpired', 'true');
+      window.location.hash = '#/login';
+      window.dispatchEvent(new Event('hashchange'));
     }
-    const error = new Error('Session expired or not logged in.');
+    const errMsg = (responseData && (responseData.message || responseData.error)) || 'Session expired or unauthorized. Please log in again.';
+    const error = new Error(errMsg);
     error.status = 401;
+    error.statusCode = 401;
     throw error;
   }
 
@@ -352,6 +428,8 @@ async function request(endpoint, options = {}) {
       urlPath.endsWith('/videos') ||
       urlPath.endsWith('/notifications') ||
       urlPath.endsWith('/subscriptions') ||
+      urlPath.includes('/vd_subscriptions') ||
+      urlPath.includes('/vdsubscriptions') ||
       urlPath.endsWith('/plans') ||
       urlPath.includes('/history') ||
       urlPath.includes('/favorites') ||
@@ -360,6 +438,8 @@ async function request(endpoint, options = {}) {
       urlPath.includes('/admin-logs') ||
       urlPath.includes('/monitoring') ||
       urlPath.includes('analytics') ||
+      bodyObj.formstep === 'getPlans' ||
+      bodyObj.formStep === 'getPlans' ||
       bodyObj.formStep === 'getAllAdmins' ||
       bodyObj.formStep === 'getMyUsers' ||
       bodyObj.formStep === 'blockedUsers' ||
@@ -424,10 +504,9 @@ async function request(endpoint, options = {}) {
   return decryptResponseData(responseData);
 }
 
-const UPLOAD_SERVICE_URL = getAssetBaseUrl();
-
 async function uploadRequest(endpoint, options = {}) {
-  const url = `${UPLOAD_SERVICE_URL}${endpoint}`;
+  const baseUrl = getAssetBaseUrl() || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:5050' : 'http://localhost:5050');
+  const url = `${baseUrl}${endpoint}`;
   const headers = {
     ...options.headers,
   };
@@ -521,6 +600,7 @@ export const api = {
         body: JSON.stringify({ 
           email: encryptPayload(email), 
           password: encryptPayload(password),
+          portal_type: 'learner',
           device_type: deviceDetails.device_type,
           device_model: deviceDetails.device_model,
           brand: deviceDetails.brand,
@@ -536,6 +616,7 @@ export const api = {
           email, 
           formStep, 
           otp: otpCode,
+          portal_type: 'learner',
           device_type: deviceDetails.device_type,
           device_model: deviceDetails.device_model,
           brand: deviceDetails.brand,
@@ -553,6 +634,9 @@ export const api = {
           gender_id: data.genderId,
           date_of_birth: data.dob,
           email: data.email,
+          country_code: data.country_code || data.countryCode || '+91',
+          dial_code: data.dial_code || data.dialCode || data.country_code || '+91',
+          country_iso: data.country_iso || data.countryIso || 'IN',
           mobile: data.mobile || '0000000000',
           password: data.password,
           type: data.type
@@ -589,11 +673,50 @@ export const api = {
         }),
       });
     },
+    me: async () => {
+      try {
+        return await request('/auth/me', {
+          method: 'POST',
+          body: JSON.stringify({ formstep: 'me' })
+        });
+      } catch (err) {
+        // If /auth/me is not recognized or returns 404 (e.g. on UAT n8n webhook),
+        // gracefully verify session via /vdUser with getProfile (standard UAT profile webhook)
+        if (err && (err.status === 404 || err.statusCode === 404 || String(err.message).includes('404') || String(err.message).includes('not registered'))) {
+          const token = getAccessToken();
+          return await request('/vdUser', {
+            method: 'POST',
+            body: JSON.stringify({
+              token: token || '',
+              formstep: 'getProfile',
+              formStep: 'getProfile'
+            })
+          });
+        }
+        throw err;
+      }
+    },
     getProfile: () => request('/auth/profile'),
     updateProfile: (formData) => {
       return request('/auth/profile', {
         method: 'PUT',
         body: formData, // FormData contains name, mobile, and optional avatar file
+      });
+    },
+    saveProfile: (payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'saveProfile',
+          formStep: 'saveProfile',
+          name: payload.name || '',
+          phonenumber: payload.phonenumber || payload.mobile || '',
+          mobile: payload.mobile || payload.phonenumber || '',
+          bio: payload.bio !== undefined ? payload.bio : '',
+          ...payload
+        })
       });
     },
     logout: async (logoutType = 1) => {
@@ -1048,6 +1171,34 @@ export const api = {
     }
   },
   user: {
+    getProfile: (payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'getProfile',
+          formStep: 'getProfile',
+          ...payload
+        })
+      });
+    },
+    saveProfile: (payload = {}) => {
+      const token = getAccessToken();
+      return request('/vdUser', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: token || '',
+          formstep: 'saveProfile',
+          formStep: 'saveProfile',
+          name: payload.name || '',
+          phonenumber: payload.phonenumber || payload.mobile || '',
+          mobile: payload.mobile || payload.phonenumber || '',
+          bio: payload.bio !== undefined ? payload.bio : '',
+          ...payload
+        })
+      });
+    },
     getPlayList: (payload = {}) => {
       const token = getAccessToken();
       return request('/vdUser', {
@@ -1138,10 +1289,28 @@ export const api = {
     }
   },
   subscriptions: {
-    list: () => request('/subscriptions')
+    list: () => request('/subscriptions'),
+    getPlans: () => {
+      return request('/vd_subscriptions', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: 'getPlans'
+        }),
+        expectArray: true
+      });
+    }
   },
   plans: {
     list: () => request('/plans'),
+    getPlans: () => {
+      return request('/vd_subscriptions', {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: 'getPlans'
+        }),
+        expectArray: true
+      });
+    },
     create: (name, price, durationDays, features) => {
       return request('/plans', {
         method: 'POST',

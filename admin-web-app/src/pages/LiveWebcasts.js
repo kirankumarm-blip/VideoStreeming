@@ -190,7 +190,9 @@ const LiveWebcasts = ({ theme }) => {
     try {
       setLoading(true);
       const apiBase = getAssetBaseUrl();
-      const res = await fetch(`${apiBase}/api/live-classes`);
+      const res = await fetch(`${apiBase}/api/live-classes`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -227,7 +229,9 @@ const LiveWebcasts = ({ theme }) => {
       setAttendeesLoading(true);
       setAttendeesUnavailable(false);
       const apiBase = getAssetBaseUrl();
-      const res = await fetch(`${apiBase}/api/live-classes/${classId}`);
+      const res = await fetch(`${apiBase}/api/live-classes/${classId}`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const cls = await res.json();
         setSelectedClass(cls);
@@ -537,6 +541,7 @@ const LiveWebcasts = ({ theme }) => {
       await fetch(`${apiBase}/api/live-classes/${selectedClass.id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ status: nextStatus })
       });
     } catch (err) {
@@ -636,6 +641,7 @@ const LiveWebcasts = ({ theme }) => {
       await fetch(`${apiBase}/api/live-classes/${selectedClass.id}/poll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ question: pollQuestion.trim(), options: cleanOptions })
       });
     } catch (err) {
@@ -675,6 +681,7 @@ const LiveWebcasts = ({ theme }) => {
       await fetch(`${apiBase}/api/live-classes/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(scheduleForm)
       });
     } catch (err) {

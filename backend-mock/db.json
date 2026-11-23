@@ -21,6 +21,16 @@
         {
           "agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
           "lastLogin": "2026-07-06T08:40:43.330Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9818",
+          "portal_type": "admin",
+          "lastLogin": "2026-11-19T07:09:57.057Z"
+        },
+        {
+          "agent": "Unknown Device",
+          "portal_type": "admin",
+          "lastLogin": "2026-11-21T12:12:34.155Z"
         }
       ]
     },
@@ -78,6 +88,11 @@
         {
           "agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
           "lastLogin": "2026-07-06T08:26:25.635Z"
+        },
+        {
+          "agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.9818",
+          "portal_type": "learner",
+          "lastLogin": "2026-11-19T07:09:57.344Z"
         }
       ]
     },
@@ -127,6 +142,99 @@
       "status": "active",
       "avatar": "",
       "createdBy": "super_admin",
+      "devices": []
+    },
+    {
+      "id": "u-1795075292626",
+      "name": "Valid Teen 16",
+      "email": "teen16@stream.com",
+      "mobile": "9876543212",
+      "date_of_birth": "2010-01-01",
+      "password": "$2a$10$Jy1CA9Yajea1qdKbodgXae9TA8zxFueOb4GsCGGOXSZKpzCH79wmm",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
+      "devices": []
+    },
+    {
+      "id": "u-1795075292812",
+      "name": "Adult Leap",
+      "email": "adult2000@stream.com",
+      "mobile": "9876543213",
+      "date_of_birth": "2000-02-29",
+      "password": "$2a$10$EPuYutv.87dVMUW43pnER.y/sJQxpiao3JdQ3GQWW5tQY0i338mb.",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
+      "devices": []
+    },
+    {
+      "id": "u-1795077270169",
+      "name": "John Doe",
+      "email": "test_intl_1795077269896@example.com",
+      "mobile": "+12025550123",
+      "date_of_birth": "1995-05-15",
+      "password": "$2a$10$F4wGiBCD157pw7r5Th0JoOg69PVRIwPYPJCe5Rkby2Pj1DbTcAoTe",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
+      "devices": []
+    },
+    {
+      "id": "u-1795078749444",
+      "name": "Test Policy",
+      "email": "test_policy_yad8r@example.com",
+      "mobile": "+919876543210",
+      "date_of_birth": "1995-05-15",
+      "password": "$2a$10$/U18Ui/ZZvPGkrMVpuUS7etGSs3IwRuRcGdRnTZ0.RvEpx5e8Gjda",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
+      "devices": []
+    },
+    {
+      "id": "u-1795078749594",
+      "name": "Test Policy",
+      "email": "test_policy_ttfl4@example.com",
+      "mobile": "+919876543210",
+      "date_of_birth": "1995-05-15",
+      "password": "$2a$10$0NuLcxp84/wS7DqhORGYNee3MMwhf0E1IvM9geAaywhGLakL9Tbd.",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
+      "devices": []
+    },
+    {
+      "id": "u-1795078878700",
+      "name": "Test Policy",
+      "email": "test_policy_qm05o5@example.com",
+      "mobile": "+919876543210",
+      "date_of_birth": "1995-05-15",
+      "password": "$2a$10$JFaYBUXTg9PB7B32gmuMX.PA.mUNRjzAIMeEWj5/kACrRoZhaP3sK",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
+      "devices": []
+    },
+    {
+      "id": "u-1795079468646",
+      "name": "Jane Doe",
+      "email": "test_separated_1795079468455@example.com",
+      "country_code": "+91",
+      "dial_code": "+91",
+      "mobile": "9876543210",
+      "date_of_birth": "1998-08-20",
+      "password": "$2a$10$3W7XvRyrFTV7BOcRV988FuHeU6X/Ng9XG880VFoXwaMQG.SmaSraK",
+      "role": "user",
+      "status": "active",
+      "avatar": "",
+      "createdBy": "self",
       "devices": []
     }
   ],
@@ -687,6 +795,62 @@
       "message": "\"Student Data\" has been uploaded in Technology. Watch it now!",
       "date": "2026-07-06T11:37:46.898Z",
       "read": false
+    },
+    {
+      "id": "n-179507529263031",
+      "userId": "u-1795075292626",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, Valid Teen 16!",
+      "date": "2026-11-19T08:01:32.630Z",
+      "read": false
+    },
+    {
+      "id": "n-179507529281438",
+      "userId": "u-1795075292812",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, Adult Leap!",
+      "date": "2026-11-19T08:01:32.814Z",
+      "read": false
+    },
+    {
+      "id": "n-179507727017569",
+      "userId": "u-1795077270169",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, John Doe!",
+      "date": "2026-11-19T08:34:30.175Z",
+      "read": false
+    },
+    {
+      "id": "n-17950787494488",
+      "userId": "u-1795078749444",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, Test Policy!",
+      "date": "2026-11-19T08:59:09.448Z",
+      "read": false
+    },
+    {
+      "id": "n-17950787495981",
+      "userId": "u-1795078749594",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, Test Policy!",
+      "date": "2026-11-19T08:59:09.598Z",
+      "read": false
+    },
+    {
+      "id": "n-179507887870526",
+      "userId": "u-1795078878700",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, Test Policy!",
+      "date": "2026-11-19T09:01:18.705Z",
+      "read": false
+    },
+    {
+      "id": "n-179507946865097",
+      "userId": "u-1795079468646",
+      "title": "Account Created",
+      "message": "Welcome to Video Streaming Platform, Jane Doe!",
+      "date": "2026-11-19T09:11:08.650Z",
+      "read": false
     }
   ],
   "reportedVideos": [
@@ -878,6 +1042,26 @@
       ],
       "created_at": "2026-09-04T09:12:09.290Z",
       "updated_at": "2026-09-04T09:12:09.290Z"
+    }
+  ],
+  "authorAdmins": [
+    {
+      "id": "1795259462288",
+      "first_name": "Test",
+      "last_name": "Author",
+      "name": "Test Author",
+      "email": "testauthor@admin.com",
+      "phonenumber": "",
+      "gender_id": null,
+      "date_of_birth": null,
+      "address": "",
+      "state": "",
+      "city": "",
+      "zipcode": "",
+      "client_id": null,
+      "role": "Author Admin",
+      "status": "Active",
+      "created_at": "2026-11-21"
     }
   ]
 }

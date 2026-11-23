@@ -1,86 +1,121 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, setCurrentUser, api } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { getCurrentUser, api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 
+const PLAN_STYLES = {
+  free: {
+    icon: '🌱',
+    color: '#94a3b8',
+    accentGradient: 'linear-gradient(135deg, #64748b, #475569)',
+    border: 'var(--border-color)',
+    highlightBorder: null
+  },
+  intermediate: {
+    icon: '⭐️',
+    color: '#3b82f6',
+    accentGradient: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+    border: 'rgba(59, 130, 246, 0.45)',
+    highlightBorder: null
+  },
+  premium: {
+    icon: '👑',
+    color: '#eab308',
+    accentGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    btnTextColor: '#000000',
+    border: 'rgba(234, 179, 8, 0.55)',
+    highlightBorder: '#eab308'
+  }
+};
+
 const Plans = () => {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const currentUser = getCurrentUser();
 
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
+  const [plansData, setPlansData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFaq, setActiveFaq] = useState(null);
-  const [selectedPlanModal, setSelectedPlanModal] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
+  const [customAlert, setCustomAlert] = useState({
+    show: false,
+    title: 'Coming Soon!',
+    message: 'Coming soon!',
+    buttonText: 'OK'
+  });
 
-  const userPlan = String(currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
+  // Fetch plans from API: vd_subscriptions with formstep: getPlans
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSubscriptionPlans = async () => {
+      try {
+        setLoading(true);
+        const res = await api.subscriptions.getPlans();
+        let list = [];
+        if (Array.isArray(res)) {
+          list = res;
+        } else if (res && Array.isArray(res.data)) {
+          list = res.data;
+        } else if (res && Array.isArray(res.json)) {
+          list = res.json;
+        }
+        if (isMounted && list.length > 0) {
+          setPlansData(list);
+        }
+      } catch (err) {
+        console.warn('Could not fetch subscription plans from vd_subscriptions:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-  const plans = [
-    {
-      id: 'free',
-      planId: '1',
-      name: 'Free',
-      subtitle: 'Good for trying out our platform',
-      priceMonthly: 0,
-      priceYearly: 0,
-      color: '#94a3b8',
-      accentGradient: 'linear-gradient(135deg, #64748b, #475569)',
-      border: 'var(--border-color)',
-      isCurrent: userPlan === '1',
-      features: [
-        'Watch limited content',
-        'Ads supported',
-        '720p Video Quality',
-        '1 Device at a time'
-      ]
-    },
-    {
-      id: 'intermediate',
-      planId: '2',
-      name: 'Intermediate',
-      popular: true,
-      icon: '⭐️',
-      subtitle: 'Better experience with more access',
-      priceMonthly: 149,
-      priceYearly: 1429, // 20% discount
-      color: '#3b82f6',
-      accentGradient: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-      border: 'rgba(59, 130, 246, 0.45)',
-      isCurrent: userPlan === '2',
-      features: [
-        'Watch most content',
-        'Fewer ads',
-        '1080p Full HD',
-        '2 Devices at a time',
-        'Download & Watch Offline'
-      ]
-    },
-    {
-      id: 'premium',
-      planId: '3',
-      name: 'Premium',
-      icon: '👑',
-      subtitle: 'Ultimate experience with all access',
-      priceMonthly: 299,
-      priceYearly: 2870, // 20% discount
-      color: '#eab308',
-      accentGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-      btnTextColor: '#000000',
-      border: 'rgba(234, 179, 8, 0.55)',
-      highlightBorder: '#eab308',
-      isCurrent: userPlan === '3',
-      features: [
-        'All content unlocked',
-        'Ad-free experience',
-        '4K Ultra HD',
-        '4 Devices at a time',
-        'Download & Watch Offline',
-        'Exclusive Originals',
-        'Early Access to New Releases'
-      ]
+    fetchSubscriptionPlans();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Filter plans dynamically based on selected billing interval (Monthly / Yearly)
+  const filteredPlans = plansData
+    .filter((p) => {
+      const interval = String(p.billing_interval || '').toLowerCase();
+      const intervalId = String(p.billing_interval_id || '');
+      if (billingCycle === 'yearly') {
+        return interval === 'yearly' || intervalId === '2';
+      }
+      return interval === 'monthly' || intervalId === '1';
+    })
+    .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+
+  // Determine if a plan is the user's current plan
+  const isCurrentPlan = (plan) => {
+    const currentPlanVal = String(currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1').toLowerCase();
+    const currentPlanName = String(currentUser?.plan_name || '').toLowerCase();
+    const planName = String(plan.plan_name || '').toLowerCase();
+    const planId = String(plan.plan_id || '');
+
+    if (planId === currentPlanVal) return true;
+    if (currentPlanName && planName === currentPlanName) return true;
+
+    // Standard defaults: 1 / free, 2 / intermediate, 3 / premium
+    if ((currentPlanVal === '1' || currentPlanVal === 'free' || !currentUser?.user_plan) && planName === 'free') {
+      return true;
     }
-  ];
+    if ((currentPlanVal === '2' || currentPlanVal === 'intermediate') && planName === 'intermediate') {
+      return true;
+    }
+    if ((currentPlanVal === '3' || currentPlanVal === 'premium') && planName === 'premium') {
+      return true;
+    }
+    return false;
+  };
+
+  // Show "Coming soon!" alert popup on click of upgrade
+  const handleUpgradeClick = (plan) => {
+    if (plan && isCurrentPlan(plan)) return;
+    setCustomAlert({
+      show: true,
+      title: 'Coming Soon!',
+      message: 'Coming soon!',
+      buttonText: 'OK'
+    });
+  };
 
   const faqs = [
     {
@@ -109,45 +144,6 @@ const Plans = () => {
     }
   ];
 
-  const handleSelectPlan = (plan) => {
-    if (plan.isCurrent) return;
-    setSelectedPlanModal(plan);
-  };
-
-  const handleConfirmUpgrade = async () => {
-    if (!selectedPlanModal) return;
-    setIsProcessing(true);
-
-    try {
-      // Simulate upgrade / call backend subscription
-      const price = billingCycle === 'yearly' ? selectedPlanModal.priceYearly : selectedPlanModal.priceMonthly;
-      
-      // Update local storage user plan
-      const user = getCurrentUser() || {};
-      user.user_plan = selectedPlanModal.planId;
-      user.user_plan_id = selectedPlanModal.planId;
-      setCurrentUser(user);
-
-      setToastMessage({
-        type: 'success',
-        text: `🎉 Congratulations! Successfully upgraded to ${selectedPlanModal.name} Plan (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'}).`
-      });
-
-      setSelectedPlanModal(null);
-      setTimeout(() => {
-        setToastMessage(null);
-        window.location.reload();
-      }, 2000);
-    } catch (e) {
-      setToastMessage({
-        type: 'error',
-        text: 'Failed to process upgrade. Please try again.'
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   return (
     <div className="plans-page-wrapper" style={{
       maxWidth: '1080px',
@@ -156,35 +152,6 @@ const Plans = () => {
       color: 'var(--text-primary)',
       boxSizing: 'border-box'
     }}>
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div style={{
-          position: 'fixed',
-          top: '24px',
-          right: '24px',
-          zIndex: 9999,
-          background: toastMessage.type === 'success' ? '#10b981' : '#ef4444',
-          color: '#ffffff',
-          padding: '14px 22px',
-          borderRadius: '12px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-          fontWeight: 600,
-          fontSize: '14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          animation: 'fadeIn 0.3s ease'
-        }}>
-          <span>{toastMessage.text}</span>
-          <button 
-            onClick={() => setToastMessage(null)}
-            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '16px' }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Top Header & Toggle Row */}
       <div style={{
         display: 'flex',
@@ -206,7 +173,7 @@ const Plans = () => {
           </p>
         </div>
 
-        {/* Monthly / Yearly Pill Toggle */}
+        {/* Monthly / Yearly Pill Filter Toggle */}
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -269,124 +236,205 @@ const Plans = () => {
       </div>
 
       {/* 3-Column Pricing Cards Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '24px',
-        marginBottom: '36px'
-      }}>
-        {plans.map((plan) => {
-          const displayPrice = billingCycle === 'yearly' ? plan.priceYearly : plan.priceMonthly;
-          const cycleLabel = billingCycle === 'yearly' ? '/year' : '/month';
+      {loading ? (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '280px',
+          gap: '16px'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '3px solid rgba(124, 58, 237, 0.2)',
+            borderTop: '3px solid #7c3aed',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite'
+          }} />
+          <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            {t('plans.loading', 'Loading subscription plans...')}
+          </span>
+        </div>
+      ) : filteredPlans.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '60px 20px',
+          background: 'var(--bg-secondary)',
+          borderRadius: '20px',
+          border: '1px solid var(--border-color)',
+          marginBottom: '36px'
+        }}>
+          <p style={{ fontSize: '15px', color: 'var(--text-secondary)', margin: 0 }}>
+            {t('plans.noPlans', 'No plans available for this billing interval.')}
+          </p>
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '24px',
+          marginBottom: '36px'
+        }}>
+          {filteredPlans.map((plan) => {
+            const planKey = (plan.plan_name || '').toLowerCase();
+            const styleConfig = PLAN_STYLES[planKey] || {
+              icon: '💎',
+              color: '#3b82f6',
+              accentGradient: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+              border: 'var(--border-color)',
+              highlightBorder: null
+            };
 
-          return (
-            <div
-              key={plan.id}
-              style={{
-                position: 'relative',
-                background: 'var(--bg-secondary)',
-                borderRadius: '24px',
-                border: plan.highlightBorder ? `1.5px solid ${plan.highlightBorder}` : `1px solid ${plan.border}`,
-                padding: '28px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: plan.highlightBorder
-                  ? '0 12px 36px rgba(234, 179, 8, 0.12)'
-                  : '0 8px 24px rgba(0,0,0,0.06)',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-              }}
-            >
-              {/* Top Title & Popular Badge */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {plan.icon && <span style={{ fontSize: '18px' }}>{plan.icon}</span>}
-                  <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                    {t(`plans.${plan.id}`, plan.name)}
-                  </h3>
+            const isCurrent = isCurrentPlan(plan);
+            const rawAmount = parseFloat(plan.plan_amount || 0);
+            const rawOriginal = parseFloat(plan.original_amount || 0);
+            const discountPct = parseFloat(plan.discount_percentage || 0);
+            const isDiscounted = rawOriginal > rawAmount;
+
+            const displayAmount = rawAmount === 0 ? '0' : (rawAmount % 1 === 0 ? rawAmount : rawAmount.toFixed(2));
+            const displayOriginal = rawOriginal % 1 === 0 ? rawOriginal : rawOriginal.toFixed(2);
+            const cycleLabel = billingCycle === 'yearly' ? `/${t('plans.yearly', 'year').toLowerCase()}` : `/${t('plans.monthly', 'month').toLowerCase()}`;
+
+            // Sort features by display_order
+            const sortedFeatures = Array.isArray(plan.features)
+              ? [...plan.features].sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0))
+              : [];
+
+            const isPopular = Boolean(plan.is_popular) || Boolean(plan.badge_text);
+            const badgeText = plan.badge_text || 'POPULAR';
+
+            return (
+              <div
+                key={plan.plan_id || `${plan.plan_name}-${plan.billing_interval_id}`}
+                style={{
+                  position: 'relative',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '24px',
+                  border: styleConfig.highlightBorder ? `1.5px solid ${styleConfig.highlightBorder}` : `1px solid ${styleConfig.border}`,
+                  padding: '28px 24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: styleConfig.highlightBorder
+                    ? '0 12px 36px rgba(234, 179, 8, 0.12)'
+                    : '0 8px 24px rgba(0,0,0,0.06)',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                }}
+              >
+                {/* Top Title & Popular Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '20px' }}>{styleConfig.icon}</span>
+                    <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                      {t(`plans.${planKey}`, plan.plan_name)}
+                    </h3>
+                  </div>
+
+                  {isPopular && (
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      background: '#2563eb',
+                      color: '#ffffff',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {t(`plans.${badgeText.toLowerCase()}`, badgeText)}
+                    </span>
+                  )}
                 </div>
 
-                {plan.popular && (
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: 800,
-                    padding: '4px 10px',
-                    borderRadius: '12px',
-                    background: '#2563eb',
-                    color: '#ffffff',
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase'
-                  }}>
-                    {t('plans.popular', 'POPULAR')}
+                {/* Subtitle / Description */}
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px 0', minHeight: '38px', lineHeight: '1.4' }}>
+                  {t(`plans.${planKey}Sub`, plan.description)}
+                </p>
+
+                {/* Price Row */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                    ₹{displayAmount}
                   </span>
-                )}
-              </div>
 
-              {/* Subtitle */}
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px 0', minHeight: '38px', lineHeight: '1.4' }}>
-                {t(`plans.${plan.id}Sub`, plan.subtitle)}
-              </p>
-
-              {/* Price Row */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '24px' }}>
-                <span style={{ fontSize: '32px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                  ₹{displayPrice}
-                </span>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  {billingCycle === 'yearly' ? `/${t('plans.yearly', 'year').toLowerCase()}` : `/${t('plans.monthly', 'month').toLowerCase()}`}
-                </span>
-              </div>
-
-              {/* Action Button */}
-              <button
-                type="button"
-                disabled={plan.isCurrent}
-                onClick={() => handleSelectPlan(plan)}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: '14px',
-                  border: 'none',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  cursor: plan.isCurrent ? 'default' : 'pointer',
-                  background: plan.isCurrent 
-                    ? 'var(--bg-tertiary)' 
-                    : plan.accentGradient,
-                  color: plan.isCurrent 
-                    ? 'var(--text-secondary)' 
-                    : (plan.btnTextColor || '#ffffff'),
-                  boxShadow: plan.isCurrent 
-                    ? 'none' 
-                    : '0 4px 16px rgba(0,0,0,0.15)',
-                  marginBottom: '28px',
-                  transition: 'transform 0.15s ease'
-                }}
-                onMouseEnter={e => !plan.isCurrent && (e.currentTarget.style.transform = 'scale(1.02)')}
-                onMouseLeave={e => !plan.isCurrent && (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                {plan.isCurrent ? t('plans.currentPlan', 'Current Plan') : t('plans.upgrade', 'Upgrade')}
-              </button>
-
-              {/* Divider */}
-              <div style={{ height: '1px', background: 'var(--border-color)', marginBottom: '20px' }} />
-
-              {/* Features List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                {plan.features.map((feature, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    <span style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                      {feature}
+                  {isDiscounted && (
+                    <span style={{ fontSize: '16px', color: 'var(--text-secondary)', textDecoration: 'line-through', fontWeight: 600 }}>
+                      ₹{displayOriginal}
                     </span>
-                  </div>
-                ))}
+                  )}
+
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    {cycleLabel}
+                  </span>
+
+                  {discountPct > 0 && (
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '8px',
+                      background: '#10b981',
+                      color: '#ffffff',
+                      marginLeft: 'auto'
+                    }}>
+                      {Math.round(discountPct)}% OFF
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Button: Upgrade (shows Coming soon! popup) or Current Plan */}
+                <button
+                  type="button"
+                  disabled={isCurrent}
+                  onClick={() => handleUpgradeClick(plan)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    border: 'none',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: isCurrent ? 'default' : 'pointer',
+                    background: isCurrent 
+                      ? 'var(--bg-tertiary)' 
+                      : styleConfig.accentGradient,
+                    color: isCurrent 
+                      ? 'var(--text-secondary)' 
+                      : (styleConfig.btnTextColor || '#ffffff'),
+                    boxShadow: isCurrent 
+                      ? 'none' 
+                      : '0 4px 16px rgba(0,0,0,0.15)',
+                    marginBottom: '28px',
+                    transition: 'transform 0.15s ease'
+                  }}
+                  onMouseEnter={e => !isCurrent && (e.currentTarget.style.transform = 'scale(1.02)')}
+                  onMouseLeave={e => !isCurrent && (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                  {isCurrent ? t('plans.currentPlan', 'Current Plan') : t('plans.upgrade', 'Upgrade')}
+                </button>
+
+                {/* Divider */}
+                <div style={{ height: '1px', background: 'var(--border-color)', marginBottom: '20px' }} />
+
+                {/* Features List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                  {sortedFeatures.map((feature) => (
+                    <div key={feature.feature_id || feature.feature_name} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      <span style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                        {feature.feature_name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Special Offer Luxury Banner */}
       <div style={{
@@ -403,7 +451,6 @@ const Plans = () => {
         marginBottom: '48px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          {/* 3D Gift Box Icon Bubble */}
           <div style={{
             width: '56px',
             height: '56px',
@@ -431,10 +478,7 @@ const Plans = () => {
 
         <button
           type="button"
-          onClick={() => {
-            setBillingCycle('yearly');
-            setSelectedPlanModal(plans.find(p => p.id === 'premium'));
-          }}
+          onClick={() => handleUpgradeClick({ plan_name: 'Premium' })}
           style={{
             padding: '12px 26px',
             borderRadius: '14px',
@@ -454,7 +498,7 @@ const Plans = () => {
         </button>
       </div>
 
-      {/* --- FAQ SECTION --- */}
+      {/* FAQ Section */}
       <div style={{ marginTop: '32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
@@ -534,124 +578,98 @@ const Plans = () => {
         </div>
       </div>
 
-      {/* --- CHECKOUT / CONFIRMATION MODAL --- */}
-      {selectedPlanModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px'
-        }} onClick={(e) => e.target === e.currentTarget && setSelectedPlanModal(null)}>
+      {/* --- CUSTOM ALERT POPUP MODAL (Coming Soon!) --- */}
+      {customAlert.show && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCustomAlert(prev => ({ ...prev, show: false }));
+            }
+          }}
+        >
           <div style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '24px',
+            maxWidth: '380px',
             width: '100%',
-            maxWidth: '460px',
-            overflow: 'hidden',
-            boxShadow: '0 24px 48px rgba(0,0,0,0.3)',
-            animation: 'fadeIn 0.2s ease'
+            textAlign: 'center',
+            padding: '36px 28px',
+            borderRadius: '24px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid rgba(124, 58, 237, 0.35)',
+            boxShadow: '0 24px 50px rgba(0, 0, 0, 0.5), 0 0 35px rgba(124, 58, 237, 0.2)',
+            animation: 'fadeIn 0.2s ease',
+            color: 'var(--text-primary)'
           }}>
-            {/* Modal Header */}
+            {/* Animated Icon Circle Badge */}
             <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid var(--border-color)',
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(124, 58, 237, 0.15)',
+              border: '2.5px solid #8b5cf6',
               display: 'flex',
+              justifyContent: 'center',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              margin: '0 auto 20px auto',
+              fontSize: '30px',
+              boxShadow: '0 0 25px rgba(139, 92, 246, 0.3)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>{selectedPlanModal.icon || '👑'}</span>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
-                  {t('plans.modalTitle', 'Confirm Upgrade to')} {t(`plans.${selectedPlanModal.id}`, selectedPlanModal.name)}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedPlanModal(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px' }}
-              >
-                ✕
-              </button>
+              🚀
             </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: '24px' }}>
-              <div style={{
-                background: 'var(--bg-tertiary)',
-                borderRadius: '16px',
-                padding: '16px',
-                marginBottom: '20px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>
-                    {t('plans.billingSummary', 'Billing Summary')}
-                  </div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, marginTop: '2px' }}>
-                    {t(`plans.${selectedPlanModal.id}`, selectedPlanModal.name)} ({billingCycle === 'yearly' ? t('plans.yearly', 'Yearly') : t('plans.monthly', 'Monthly')})
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '22px', fontWeight: 900, color: '#10b981' }}>
-                    ₹{billingCycle === 'yearly' ? selectedPlanModal.priceYearly : selectedPlanModal.priceMonthly}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {billingCycle === 'yearly' ? t('plans.billedAnnually', 'Billed annually') : t('plans.billedMonthly', 'Billed monthly')}
-                  </div>
-                </div>
-              </div>
+            {/* Title */}
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              margin: '0 0 10px 0',
+              letterSpacing: '-0.3px'
+            }}>
+              {customAlert.title}
+            </h3>
 
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '0 0 24px 0' }}>
-                {t('plans.accessGuarantee', 'You will get immediate access to all features, 4K HD streaming, and full downloads. Cancel anytime.')}
-              </p>
+            {/* Message */}
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--text-secondary)',
+              lineHeight: '1.55',
+              margin: '0 0 24px 0'
+            }}>
+              {customAlert.message}
+            </p>
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlanModal(null)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color)',
-                    background: 'transparent',
-                    color: 'var(--text-primary)',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {t('plans.cancel', 'Cancel')}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={handleConfirmUpgrade}
-                  style={{
-                    flex: 2,
-                    padding: '12px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: selectedPlanModal.accentGradient || '#4f46e5',
-                    color: selectedPlanModal.btnTextColor || '#ffffff',
-                    fontWeight: 800,
-                    cursor: isProcessing ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
-                  }}
-                >
-                  {isProcessing ? t('plans.activating', 'Activating...') : t('plans.confirmActivate', 'Confirm & Activate')}
-                </button>
-              </div>
-            </div>
+            {/* Action Button */}
+            <button
+              type="button"
+              onClick={() => setCustomAlert(prev => ({ ...prev, show: false }))}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: 700,
+                borderRadius: '12px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(124, 58, 237, 0.35)',
+                transition: 'transform 0.15s ease, filter 0.15s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              {customAlert.buttonText || 'OK'}
+            </button>
           </div>
         </div>
       )}

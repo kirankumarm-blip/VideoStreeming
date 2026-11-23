@@ -2,8 +2,8 @@ import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
 export { getAssetUrl, getAssetBaseUrl, getApiBaseUrl, calculateBackoffDelay };
 
-const getBaseUrl = () => {
-  return 'https://uat-02-admin-api.darpanx.com/webhook';
+export const getBaseUrl = () => {
+  return getApiBaseUrl() || 'https://uat-02-admin-api.darpanx.com/webhook';
 };
 
 // Token validation helper
@@ -22,80 +22,277 @@ export const isValidToken = (token) => {
   return true;
 };
 
-// Helper to get tokens
+let inMemoryAdminUser = null;
+let inMemoryAccessToken = null;
+let inMemoryRefreshToken = null;
+
+// Session Expiration Checker: Verifies whether the session has expired before routes render
+export const isSessionExpired = () => {
+  try {
+    const expStr = sessionStorage.getItem('admin_session_expires_at');
+    if (expStr) {
+      const expiresAt = parseInt(expStr, 10);
+      if (!isNaN(expiresAt) && Date.now() >= expiresAt) {
+        return true;
+      }
+      return false;
+    }
+    const lastActStr = localStorage.getItem('lastUserActivity');
+    if (lastActStr) {
+      const lastAct = parseInt(lastActStr, 10);
+      if (!isNaN(lastAct) && Date.now() - lastAct > 60 * 60 * 1000) {
+        return true;
+      }
+      return false;
+    }
+    // If neither expiration timestamp is present, verify whether user profile exists
+    const hasUser = !!sessionStorage.getItem('admin_session_user') || !!localStorage.getItem('admin_user') || !!localStorage.getItem('user');
+    return !hasUser;
+  } catch (e) {
+    return false;
+  }
+};
+
+// Store session metadata and active session tokens.
+export const setSessionData = (user, expiresAt = null, tokens = null) => {
+  inMemoryAdminUser = user || null;
+  const expiryTime = expiresAt || (Date.now() + 60 * 60 * 1000);
+  try {
+    sessionStorage.setItem('admin_session_expires_at', expiryTime.toString());
+    if (user) {
+      sessionStorage.setItem('admin_session_user', JSON.stringify(user));
+      localStorage.setItem('admin_user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem('admin_session_user');
+      localStorage.removeItem('admin_user');
+      localStorage.removeItem('user');
+    }
+    if (tokens) {
+      if (tokens.accessToken) {
+        inMemoryAccessToken = tokens.accessToken;
+        sessionStorage.setItem('admin_session_access_token', tokens.accessToken);
+        localStorage.setItem('admin_accessToken', tokens.accessToken);
+        localStorage.setItem('accessToken', tokens.accessToken);
+      }
+      if (tokens.refreshToken) {
+        inMemoryRefreshToken = tokens.refreshToken;
+        sessionStorage.setItem('admin_session_refresh_token', tokens.refreshToken);
+        localStorage.setItem('admin_refreshToken', tokens.refreshToken);
+        localStorage.setItem('refreshToken', tokens.refreshToken);
+        localStorage.setItem('token', tokens.refreshToken);
+      }
+    }
+    localStorage.setItem('lastUserActivity', Date.now().toString());
+  } catch (e) {}
+};
+
 export const getAccessToken = () => {
-  const t = localStorage.getItem('admin_accessToken') || 
-            localStorage.getItem('accessToken') || 
-            localStorage.getItem('token') || 
-            sessionStorage.getItem('accessToken') || 
-            sessionStorage.getItem('token');
-  return isValidToken(t) ? t.trim() : null;
+  if (isSessionExpired()) {
+    return null;
+  }
+  if (inMemoryAccessToken) return inMemoryAccessToken;
+  try {
+    const stored = sessionStorage.getItem('admin_session_access_token');
+    if (stored) {
+      inMemoryAccessToken = stored;
+      return stored;
+    }
+    const loc = localStorage.getItem('admin_accessToken') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+    if (isValidToken(loc)) {
+      inMemoryAccessToken = loc.trim();
+      return inMemoryAccessToken;
+    }
+  } catch (e) {}
+  return null;
 };
+
 export const getRefreshToken = () => {
-  const t = localStorage.getItem('admin_refreshToken') || 
-            localStorage.getItem('refreshToken') || 
-            localStorage.getItem('token') || 
-            sessionStorage.getItem('refreshToken') || 
-            sessionStorage.getItem('token');
-  return isValidToken(t) ? t.trim() : null;
+  if (isSessionExpired()) {
+    return null;
+  }
+  if (inMemoryRefreshToken) return inMemoryRefreshToken;
+  try {
+    const stored = sessionStorage.getItem('admin_session_refresh_token');
+    if (stored) {
+      inMemoryRefreshToken = stored;
+      return stored;
+    }
+    const loc = localStorage.getItem('admin_refreshToken') || localStorage.getItem('refreshToken') || localStorage.getItem('token');
+    if (isValidToken(loc)) {
+      inMemoryRefreshToken = loc.trim();
+      return inMemoryRefreshToken;
+    }
+  } catch (e) {}
+  return null;
 };
+
 export const setTokens = (accessToken, refreshToken) => {
-  if (isValidToken(accessToken)) {
-    localStorage.setItem('admin_accessToken', accessToken.trim());
-    localStorage.setItem('accessToken', accessToken.trim());
+  if (isSessionExpired()) return;
+  if (accessToken) {
+    inMemoryAccessToken = accessToken;
+    try { sessionStorage.setItem('admin_session_access_token', accessToken); } catch (e) {}
+    try {
+      localStorage.setItem('admin_accessToken', accessToken);
+      localStorage.setItem('accessToken', accessToken);
+    } catch (e) {}
   }
-  if (isValidToken(refreshToken)) {
-    localStorage.setItem('admin_refreshToken', refreshToken.trim());
-    localStorage.setItem('refreshToken', refreshToken.trim());
+  if (refreshToken) {
+    inMemoryRefreshToken = refreshToken;
+    try { sessionStorage.setItem('admin_session_refresh_token', refreshToken); } catch (e) {}
+    try {
+      localStorage.setItem('admin_refreshToken', refreshToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('token', refreshToken);
+    } catch (e) {}
   }
 };
+
 export const clearTokens = () => {
-  localStorage.removeItem('admin_accessToken');
-  localStorage.removeItem('admin_refreshToken');
-  localStorage.removeItem('admin_user');
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('learner_user');
-  localStorage.removeItem('learner_accessToken');
-  localStorage.removeItem('learner_refreshToken');
-  localStorage.removeItem('token');
-  localStorage.removeItem('rememberedPassword');
-  localStorage.removeItem('lastUserActivity');
-  sessionStorage.removeItem('accessToken');
-  sessionStorage.removeItem('refreshToken');
-  sessionStorage.removeItem('token');
-  sessionStorage.removeItem('user');
-  sessionStorage.removeItem('admin_user');
-  sessionStorage.removeItem('learner_user');
-  sessionStorage.removeItem('tempLoginData');
-  sessionStorage.removeItem('rememberedPassword');
+  const baseUrl = getBaseUrl();
+  inMemoryAdminUser = null;
+  inMemoryAccessToken = null;
+  inMemoryRefreshToken = null;
+  try {
+    sessionStorage.removeItem('admin_session_user');
+    sessionStorage.removeItem('admin_session_expires_at');
+    sessionStorage.removeItem('admin_session_access_token');
+    sessionStorage.removeItem('admin_session_refresh_token');
+    sessionStorage.removeItem('admin_user');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('tempLoginData');
+    sessionStorage.removeItem('rememberedPassword');
+
+    // Wipe session keys
+    localStorage.removeItem('admin_accessToken');
+    localStorage.removeItem('admin_refreshToken');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('admin_session_expires_at');
+    localStorage.removeItem('token');
+    localStorage.removeItem('rememberedPassword');
+    localStorage.removeItem('lastUserActivity');
+  } catch (e) {}
+
+  // Request backend to clear httpOnly cookies if supported
+  try {
+    if (baseUrl && !baseUrl.includes('darpanx.com')) {
+      fetch(`${baseUrl}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      }).catch(() => {});
+    }
+  } catch (e) {}
 };
 
 export const getCurrentUser = () => {
   try {
-    const token = getRefreshToken() || getAccessToken();
-    if (!isValidToken(token)) {
+    if (isSessionExpired()) {
       return null;
     }
-    const adminUser = JSON.parse(localStorage.getItem('admin_user'));
-    if (adminUser) return adminUser;
-    const u = JSON.parse(localStorage.getItem('user'));
-    if (!u) return null;
-    const role = String(u.role || u.role_id || '').toLowerCase();
-    // If the session in localStorage is a student/learner, it doesn't apply to admin portal
-    if (role === 'user' || role === 'student' || role === 'end_user') {
-      return null;
+    if (inMemoryAdminUser) {
+      const role = String(inMemoryAdminUser.role || inMemoryAdminUser.role_id || '').toLowerCase();
+      if (role === 'user' || role === 'student' || role === 'end_user') return null;
+      return inMemoryAdminUser;
     }
-    return u;
+    const stored = sessionStorage.getItem('admin_session_user');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const role = String(parsed.role || parsed.role_id || '').toLowerCase();
+      if (role === 'user' || role === 'student' || role === 'end_user') return null;
+      inMemoryAdminUser = parsed;
+      return parsed;
+    }
+    const locAdmin = localStorage.getItem('admin_user');
+    if (locAdmin) {
+      const parsed = JSON.parse(locAdmin);
+      const role = String(parsed.role || parsed.role_id || '').toLowerCase();
+      if (role === 'user' || role === 'student' || role === 'end_user') return null;
+      inMemoryAdminUser = parsed;
+      return parsed;
+    }
+    const locUser = localStorage.getItem('user');
+    if (locUser) {
+      const parsed = JSON.parse(locUser);
+      const role = String(parsed.role || parsed.role_id || '').toLowerCase();
+      if (role === 'user' || role === 'student' || role === 'end_user') return null;
+      inMemoryAdminUser = parsed;
+      return parsed;
+    }
+    return null;
   } catch (e) {
     return null;
   }
 };
 
 export const setCurrentUser = (user) => {
-  localStorage.setItem('admin_user', JSON.stringify(user));
-  localStorage.setItem('user', JSON.stringify(user));
+  inMemoryAdminUser = user;
+  if (user) {
+    try {
+      sessionStorage.setItem('admin_session_user', JSON.stringify(user));
+      localStorage.setItem('admin_user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(user));
+    } catch (e) {}
+  }
+};
+
+// Verify active session with backend before protected routes render
+export const verifySession = async () => {
+  if (isSessionExpired()) {
+    clearTokens();
+    return { valid: false, message: 'Session expired' };
+  }
+
+  const baseUrl = getBaseUrl();
+  // Remote n8n webhooks on darpanx.com do not implement cookie session verification; validate local session expiry
+  if (baseUrl.includes('darpanx.com')) {
+    const user = getCurrentUser();
+    if (user && !isSessionExpired()) {
+      return { valid: true, user };
+    }
+    clearTokens();
+    return { valid: false };
+  }
+
+  try {
+    const url = `${baseUrl}/auth/verify-session`;
+    const token = getRefreshToken() || getAccessToken();
+    const headers = { 'Accept': 'application/json' };
+    if (isValidToken(token)) {
+      headers['Authorization'] = `Bearer ${token.trim()}`;
+    }
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      credentials: 'include' // Sends httpOnly cookies
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.valid && data.user) {
+        const expiresAt = data.expiresAt || (Date.now() + 60 * 60 * 1000);
+        // Overwrite client user with authoritative server-verified session user
+        setSessionData(data.user, expiresAt);
+        return { valid: true, user: data.user, expiresAt };
+      }
+    }
+
+    clearTokens();
+    return { valid: false, message: 'Invalid session' };
+  } catch (err) {
+    console.error("Session verification network error:", err);
+    // If backend is momentarily unreachable but local session is within expiry window
+    if (!isSessionExpired() && getCurrentUser()) {
+      return { valid: true, user: getCurrentUser() };
+    }
+    clearTokens();
+    return { valid: false };
+  }
 };
 
 function rc4(key, str) {
@@ -229,10 +426,14 @@ async function request(endpoint, options = {}) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
   }
 
+  const isDarpanx = url.includes('darpanx.com');
+  const shouldUseCredentials = !isDarpanx; // darpanx.com does not support credentials and rejects with CORS error
+
   const config = {
     ...options,
     method: 'POST', // Force POST for all UAT n8n Webhook APIs
     headers,
+    ...(shouldUseCredentials ? { credentials: 'include' } : {}),
   };
 
   // Ensure no token key is ever present in the JSON body payload
@@ -249,28 +450,44 @@ async function request(endpoint, options = {}) {
     }
   }
 
-  let response = await fetch(url, config);
+  let response;
+  try {
+    response = await fetch(url, config);
+  } catch (fetchErr) {
+    // If request failed with a CORS error due to credentials: 'include', automatically retry without credentials
+    if (config.credentials === 'include') {
+      try {
+        const fallbackConfig = { ...config };
+        delete fallbackConfig.credentials;
+        response = await fetch(url, fallbackConfig);
+      } catch (retryErr) {
+        throw fetchErr;
+      }
+    } else {
+      throw fetchErr;
+    }
+  }
 
-  // If unauthorized, try to refresh token
-  if ((response.status === 401 || response.status === 403) && getRefreshToken()) {
+  // If unauthenticated (401), try to refresh token.
+  // Note: 403 Forbidden indicates an authenticated user lacking permissions for a privileged resource.
+  if (response.status === 401) {
     try {
-      const refreshResponse = await fetch(`${getBaseUrl()}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: getRefreshToken() }),
-      });
+      const baseUrl = getBaseUrl();
+      if (!baseUrl.includes('darpanx.com')) {
+        const refreshResponse = await fetch(`${baseUrl}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({}),
+        });
 
-      if (refreshResponse.ok) {
-        const data = await refreshResponse.json();
-        setTokens(data.accessToken, data.refreshToken);
-        
-        // Retry original request with new token
-        config.headers['Authorization'] = `Bearer ${data.refreshToken || data.token || getRefreshToken()}`;
-        response = await fetch(url, config);
-      } else {
-        // Refresh token failed, logout user
-        clearTokens();
-        window.location.hash = '/login';
+        if (refreshResponse.ok) {
+          response = await fetch(url, config);
+        } else {
+          // Refresh token failed, logout user
+          clearTokens();
+          window.location.hash = '/login';
+        }
       }
     } catch (e) {
       console.error("Token refresh failed", e);
@@ -300,6 +517,7 @@ async function request(endpoint, options = {}) {
     const error = new Error(errMsg);
     error.status = response.status;
     error.statusCode = response.status;
+    error.isForbidden = response.status === 403;
     error.data = errorData;
     throw error;
   }
@@ -433,10 +651,9 @@ async function request(endpoint, options = {}) {
   return decryptResponseData(responseData);
 }
 
-const UPLOAD_SERVICE_URL = getAssetBaseUrl();
-
 async function uploadRequest(endpoint, options = {}) {
-  const url = `${UPLOAD_SERVICE_URL}${endpoint}`;
+  const baseUrl = getAssetBaseUrl() || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:5050' : '');
+  const url = `${baseUrl}${endpoint}`;
   const headers = {
     ...options.headers,
   };
@@ -450,6 +667,7 @@ async function uploadRequest(endpoint, options = {}) {
   const config = {
     ...options,
     headers,
+    credentials: 'include'
   };
   const response = await fetch(url, config);
   if (!response.ok) {
@@ -530,6 +748,7 @@ export const api = {
         body: JSON.stringify({ 
           email: encryptPayload(email), 
           password: encryptPayload(password),
+          portal_type: 'admin',
           device_type: deviceDetails.device_type,
           device_model: deviceDetails.device_model,
           brand: deviceDetails.brand,
@@ -545,6 +764,7 @@ export const api = {
           email, 
           formStep, 
           otp: otpCode,
+          portal_type: 'admin',
           device_type: deviceDetails.device_type,
           device_model: deviceDetails.device_model,
           brand: deviceDetails.brand,
@@ -1438,6 +1658,7 @@ export const api = {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : ''
         },
+        credentials: 'include',
         body: JSON.stringify(bodyObj)
       });
       if (!response.ok) {
@@ -1498,6 +1719,7 @@ export const api = {
               'Content-Type': 'application/json',
               'Authorization': token ? `Bearer ${token}` : ''
             },
+            credentials: 'include',
             body: JSON.stringify(bodyObj)
           });
           if (response.ok) {
@@ -1551,6 +1773,7 @@ export const api = {
               'Content-Type': 'application/json',
               'Authorization': token ? `Bearer ${token}` : ''
             },
+            credentials: 'include',
             body: JSON.stringify(bodyObj)
           });
           if (response.ok) {

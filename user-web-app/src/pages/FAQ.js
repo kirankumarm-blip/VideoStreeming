@@ -31,7 +31,7 @@ const FAQ_DATA = [
     id: 5,
     category: 'security',
     question: 'Why was I automatically logged out after being away?',
-    answer: 'For your security—especially on shared devices or university labs—XLURN includes a cross-tab inactivity monitor. If no keyboard or mouse activity is detected across all open tabs for 10 consecutive minutes, your session is securely terminated.'
+    answer: 'For your security—especially on shared devices or university labs—XLURN includes a cross-tab inactivity monitor. If no keyboard or mouse activity is detected across all open tabs for 1 hour of continuous inactivity, your session is securely terminated.'
   },
   {
     id: 6,

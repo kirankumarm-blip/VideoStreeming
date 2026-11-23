@@ -6,23 +6,18 @@ import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import LiveWebcasts from './pages/LiveWebcasts';
-import { getCurrentUser, getAccessToken, getRefreshToken, clearTokens, isValidToken, api } from './services/api';
+import Unauthorized from './pages/Unauthorized';
+import { getCurrentUser, getAccessToken, getRefreshToken, clearTokens, isValidToken, isSessionExpired, setSessionData, verifySession, api } from './services/api';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ROLES } from './constants/roles';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import RoleRoute from './components/auth/RoleRoute';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 
-// Clean up any legacy password storage or invalid tokens on application startup
+// Clean up any legacy password storage on startup
 try {
-  const curAccess = localStorage.getItem('accessToken');
-  if (curAccess && (!curAccess.trim() || curAccess === 'undefined' || curAccess === 'null')) {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('admin_accessToken');
-  }
-  const curRefresh = localStorage.getItem('refreshToken');
-  if (curRefresh && (!curRefresh.trim() || curRefresh === 'undefined' || curRefresh === 'null')) {
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('admin_refreshToken');
-  }
   localStorage.removeItem('rememberedPassword');
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
@@ -48,12 +43,7 @@ try {
       role_id: isSuper ? 1 : 2,
       originalRole: ssoRole
     };
-    localStorage.setItem('accessToken', ssoToken);
-    localStorage.setItem('admin_accessToken', ssoToken);
-    localStorage.setItem('refreshToken', ssoRefreshToken);
-    localStorage.setItem('admin_refreshToken', ssoRefreshToken);
-    localStorage.setItem('user', JSON.stringify(ssoUser));
-    localStorage.setItem('admin_user', JSON.stringify(ssoUser));
+    setSessionData(ssoUser, Date.now() + 60 * 60 * 1000);
     localStorage.setItem('lastUserActivity', Date.now().toString());
     const targetHash = isSuper ? '#/super-admin' : '#/admin';
     window.history.replaceState(null, '', window.location.pathname + targetHash);
@@ -135,97 +125,34 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Route protection for authenticated users
-const ProtectedRoute = ({ children }) => {
-  const user = getCurrentUser();
-  const token = getRefreshToken() || getAccessToken();
-  if (!user || !isValidToken(token)) {
-    clearTokens();
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
-
-// Route protection based on user roles
-const RoleRoute = ({ children, allowedRoles }) => {
-  const user = getCurrentUser();
-  const token = getRefreshToken() || getAccessToken();
-  if (!user || !isValidToken(token)) {
-    clearTokens();
-    return <Navigate to="/login" replace />;
-  }
-  const userRole = String(user.role || user.role_id || '').toLowerCase();
-  const rawRole = user.role ?? user.role_id;
-  if (userRole === 'user' || userRole === 'student' || userRole === 'end_user' || rawRole === 3 || rawRole === '3') {
-    return <Navigate to="/login" replace />;
-  }
-  const isAllowed = allowedRoles.some(r => {
-    if (r === 'admin') {
-      return (
-        userRole === 'admin' || 
-        userRole === '2' || 
-        rawRole === 2 || 
-        rawRole === '2' ||
-        userRole === 'client_admin' || 
-        userRole === 'clientadmin' || 
-        userRole === 'client admin' || 
-        userRole === '4' || 
-        rawRole === 4 || 
-        rawRole === '4' ||
-        userRole === 'author_admin' || 
-        userRole === 'author admin'
-      );
-    }
-    if (r === 'super_admin') {
-      return (
-        userRole === 'super_admin' || 
-        userRole === '1' || 
-        rawRole === 1 || 
-        rawRole === '1' ||
-        userRole === 'superadmin'
-      );
-    }
-    if (r === 'author_admin') {
-      return (
-        userRole === 'author_admin' || 
-        userRole === '4' || 
-        rawRole === 4 || 
-        rawRole === '4' ||
-        userRole === 'author admin'
-      );
-    }
-    return r === userRole || r === String(rawRole);
-  });
-  if (!isAllowed) {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
-
 // Sub-component to manage navigation rendering based on route
 const AppLayout = ({ theme, setTheme }) => {
   const location = useLocation();
-  const user = getCurrentUser();
+  const { user, isAuthenticated, isSuperAdmin, isAdmin, isAuthorAdmin, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Hide global navigation on Login / Signup screens
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
 
-  // 10 minutes inactivity auto-logout listener with Cross-Tab Sync
+  // 1 hour inactivity auto-logout listener with Cross-Tab Sync
   useEffect(() => {
-    if (!user || isAuthPage) return;
+    if (!isAuthenticated || isAuthPage) return;
 
-    const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
+    const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour in milliseconds
     let timeoutId = null;
 
     const checkAndPerformAutoLogout = () => {
+      if (isSessionExpired()) {
+        sessionStorage.setItem('inactivityLoggedOut', 'true');
+        logout();
+        return;
+      }
       const lastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
       const timeSinceLastActivity = Date.now() - lastActivity;
 
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
         sessionStorage.setItem('inactivityLoggedOut', 'true');
-        api.auth.logout(2);
-        window.location.hash = '/login';
+        logout();
       } else {
         const remainingTime = INACTIVITY_TIMEOUT_MS - timeSinceLastActivity;
         timeoutId = setTimeout(checkAndPerformAutoLogout, remainingTime);
@@ -273,7 +200,7 @@ const AppLayout = ({ theme, setTheme }) => {
       window.removeEventListener('storage', handleStorageChange);
       activityEvents.forEach(event => window.removeEventListener(event, handleUserActivity));
     };
-  }, [user?.id || user?.email, isAuthPage]);
+  }, [user?.id || user?.email, isAuthPage, isAuthenticated, logout]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => !prev);
@@ -285,7 +212,7 @@ const AppLayout = ({ theme, setTheme }) => {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
-      {!isAuthPage && user && (
+      {!isAuthPage && isAuthenticated && (
         <Navigation 
           toggleSidebar={toggleSidebar} 
           theme={theme} 
@@ -295,7 +222,7 @@ const AppLayout = ({ theme, setTheme }) => {
       <div style={{ flex: 1, display: 'flex', position: 'relative', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
         <div style={{ 
           flex: 1, 
-          padding: !isAuthPage ? (user && (user.role === 'admin' || user.role === 'super_admin') ? '0' : '40px') : '0',
+          padding: !isAuthPage ? ((isAdmin || isSuperAdmin || isAuthorAdmin) ? '0' : '40px') : '0',
           position: 'relative',
           minWidth: 0,
           height: '100%',
@@ -303,9 +230,9 @@ const AppLayout = ({ theme, setTheme }) => {
         }}>
           <Routes>
           {/* Public Authentication routes */}
-          <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+          <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
 
-          {/* Protected routes */}
+          {/* Protected routes - Authenticated users only */}
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
@@ -318,25 +245,38 @@ const AppLayout = ({ theme, setTheme }) => {
             </ProtectedRoute>
           } />
 
-          {/* Admin Specific Paths */}
+          {/* Admin Specific Paths - Authorization guard */}
           <Route path="/admin" element={
-            <RoleRoute allowedRoles={['admin', 'author_admin']}>
-              <AdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
-            </RoleRoute>
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={[ROLES.ADMIN, ROLES.AUTHOR_ADMIN]}>
+                <AdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
+              </RoleRoute>
+            </ProtectedRoute>
           } />
 
-          {/* Super Admin Specific Paths */}
+          {/* Super Admin Specific Paths - Authorization guard */}
           <Route path="/super-admin" element={
-            <RoleRoute allowedRoles={['super_admin']}>
-              <SuperAdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
-            </RoleRoute>
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+                <SuperAdminDashboard isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} theme={theme} />
+              </RoleRoute>
+            </ProtectedRoute>
           } />
 
-          {/* Live Webcast Studio Path */}
+          {/* Live Webcast Studio Path - Authorization guard */}
           <Route path="/live-webcasts" element={
-            <RoleRoute allowedRoles={['admin', 'super_admin', 'author_admin']}>
-              <LiveWebcasts theme={theme} />
-            </RoleRoute>
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={[ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.AUTHOR_ADMIN]}>
+                <LiveWebcasts theme={theme} />
+              </RoleRoute>
+            </ProtectedRoute>
+          } />
+
+          {/* 403 Forbidden / Unauthorized Route */}
+          <Route path="/unauthorized" element={
+            <ProtectedRoute>
+              <Unauthorized />
+            </ProtectedRoute>
           } />
 
           {/* Fallback route */}
@@ -350,34 +290,14 @@ const AppLayout = ({ theme, setTheme }) => {
 
 // Helper component to redirect authenticated user to their role-specific dashboard
 const DashboardRedirect = () => {
-  const user = getCurrentUser();
-  const token = getRefreshToken() || getAccessToken();
-  if (!user || !isValidToken(token)) {
-    clearTokens();
-    return <Navigate to="/login" replace />;
-  }
-  const r = String(user.role || user.role_id || '').toLowerCase();
-  const rawRole = user.role ?? user.role_id;
-  if (r === 'super_admin' || r === '1' || rawRole === 1 || rawRole === '1' || r === 'superadmin') {
+  const { isSuperAdmin, isAdmin, isAuthorAdmin } = useAuth();
+  if (isSuperAdmin) {
     return <Navigate to="/super-admin" replace />;
   }
-  if (
-    r === 'admin' || 
-    r === '2' || 
-    rawRole === 2 || 
-    rawRole === '2' ||
-    r === 'client_admin' || 
-    r === 'clientadmin' || 
-    r === 'client admin' || 
-    r === '4' || 
-    rawRole === 4 || 
-    rawRole === '4' ||
-    r === 'author_admin' || 
-    r === 'author admin'
-  ) {
+  if (isAdmin || isAuthorAdmin) {
     return <Navigate to="/admin" replace />;
   }
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/unauthorized" replace />;
 };
 
 const AppContent = () => {
@@ -399,7 +319,9 @@ function App() {
     <ErrorBoundary>
       <LanguageProvider>
         <ThemeCustomizerProvider>
-          <AppContent />
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
         </ThemeCustomizerProvider>
       </LanguageProvider>
     </ErrorBoundary>

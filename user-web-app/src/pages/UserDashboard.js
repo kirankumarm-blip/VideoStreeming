@@ -222,25 +222,29 @@ const HoverThumbnail = ({ video }) => {
         }} 
       />
       
-      <video
-        ref={videoRef}
-        src={srcUrl}
-        muted
-        loop
-        playsInline
-        onContextMenu={(e) => e.preventDefault()}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          opacity: isHovered ? 1 : 0,
-          transition: 'opacity 0.4s ease',
-          pointerEvents: 'none'
-        }}
-      />
+      {isHovered && (
+        <video
+          ref={videoRef}
+          src={srcUrl}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            opacity: 1,
+            transition: 'opacity 0.4s ease',
+            pointerEvents: 'none'
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -2647,7 +2651,7 @@ const UserDashboard = () => {
                                     alt={pl.name}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     onError={(e) => {
-                                      e.target.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60';
+                                      e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60';
                                     }}
                                   />
                                   <div style={{
@@ -2834,7 +2838,7 @@ const UserDashboard = () => {
                                 alt={item.title}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 onError={(e) => {
-                                  e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
+                                  e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
                                 }}
                               />
                               {/* Duration Badge */}

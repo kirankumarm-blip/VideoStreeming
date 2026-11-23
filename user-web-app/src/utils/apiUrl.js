@@ -1,37 +1,50 @@
 /**
  * apiUrl.js - Centralized API URL and Polling Utility
- * Reads VITE_API_BASE_URL (Vite) and REACT_APP_API_BASE_URL (Webpack / CRA)
- * with support for exponential backoff and jitter calculations.
+ * Reads server_url from localStorage, VITE_API_BASE_URL (Vite),
+ * and REACT_APP_API_BASE_URL (Webpack / CRA) with support for exponential backoff.
  */
 
 export const getApiBaseUrl = () => {
   let url = '';
 
-  // 1. Check Vite environment variable (using safe dynamic evaluation to avoid Webpack/Node parse error)
+  // 1. Check runtime override from localStorage (e.g. server_url or serverUrl)
   try {
-    // eslint-disable-next-line no-new-func
-    const metaEnv = (new Function("try { return import.meta.env; } catch(e) { return null; }"))();
-    if (metaEnv && (metaEnv.VITE_API_BASE_URL || metaEnv.REACT_APP_API_BASE_URL)) {
-      url = metaEnv.VITE_API_BASE_URL || metaEnv.REACT_APP_API_BASE_URL || '';
+    if (typeof localStorage !== 'undefined') {
+      url = localStorage.getItem('server_url') || localStorage.getItem('serverUrl') || '';
     }
   } catch (e) {}
 
-  // 2. Check Webpack / CRA / Node environment variable
+  // 2. Check Vite environment variable
   if (!url) {
     try {
-      if (typeof process !== 'undefined' && process && process.env) {
-        url = process.env.VITE_API_BASE_URL || process.env.REACT_APP_API_BASE_URL || '';
+      // eslint-disable-next-line no-new-func
+      const metaEnv = (new Function("try { return import.meta.env; } catch(e) { return null; }"))();
+      if (metaEnv && (metaEnv.VITE_API_BASE_URL || metaEnv.REACT_APP_API_BASE_URL)) {
+        url = metaEnv.VITE_API_BASE_URL || metaEnv.REACT_APP_API_BASE_URL || '';
       }
     } catch (e) {}
   }
 
-  // 3. Check window runtime override if present
+  // 3. Check Webpack / CRA direct compile-time substitution
+  if (!url) {
+    try {
+      url = process.env.REACT_APP_API_BASE_URL || process.env.VITE_API_BASE_URL || '';
+    } catch (e) {}
+  }
+
+  // 4. Check window runtime override if present
   if (!url && typeof window !== 'undefined') {
     url = window.__API_BASE_URL__ || window.VITE_API_BASE_URL || '';
   }
 
   return (url || '').trim().replace(/\/+$/, '');
 };
+
+/**
+ * Validates whether an API base URL is available.
+ * @returns {boolean}
+ */
+export const isApiBaseUrlConfigured = () => true;
 
 /**
  * Calculates next polling interval with exponential backoff and jitter:

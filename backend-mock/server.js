@@ -13,7 +13,59 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = 'super-secret-video-streaming-platform-jwt-token-key-2026';
 const JWT_REFRESH_SECRET = 'super-secret-refresh-token-key-2026';
 
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    callback(null, true);
+  },
+  credentials: true
+}));
+
+// Cookie parser middleware for session cookies
+app.use((req, res, next) => {
+  const cookieHeader = req.headers.cookie;
+  req.cookies = {};
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(c => {
+      const parts = c.split('=');
+      if (parts.length >= 2) {
+        const key = parts[0].trim();
+        const val = decodeURIComponent(parts.slice(1).join('=').trim());
+        req.cookies[key] = val;
+      }
+    });
+  }
+  next();
+});
+
+// Helper functions for secure httpOnly session cookies
+function setAuthCookies(res, accessToken, refreshToken) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/'
+  };
+  res.cookie('admin_accessToken', accessToken, { ...cookieOptions, maxAge: 60 * 60 * 1000 }); // 1 hour
+  res.cookie('admin_refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 days
+  res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 60 * 60 * 1000 });
+  res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+}
+
+function clearAuthCookies(res) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/'
+  };
+  res.clearCookie('admin_accessToken', cookieOptions);
+  res.clearCookie('admin_refreshToken', cookieOptions);
+  res.clearCookie('accessToken', cookieOptions);
+  res.clearCookie('refreshToken', cookieOptions);
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -153,18 +205,38 @@ function writeDB(data) {
 
 // Middleware: Authenticate JWT Token
 function authenticateToken(req, res, next) {
+  let token = null;
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  if (authHeader && authHeader.split(' ')[1]) {
+    token = authHeader.split(' ')[1];
+  }
+  if (!token && req.cookies) {
+    token = req.cookies.admin_accessToken || req.cookies.accessToken || req.cookies.admin_refreshToken || req.cookies.refreshToken;
+  }
+  if (!token && req.body && req.body.token) {
+    token = req.body.token;
+  }
   
   if (!token) return res.status(401).json({ message: "Authentication token required" });
   
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: "Invalid or expired token" });
+    if (err) {
+      jwt.verify(token, JWT_REFRESH_SECRET, (err2, decoded2) => {
+        if (err2) return res.status(401).json({ message: "Invalid or expired token" });
+        const db = readDB();
+        const user = db.users.find(u => String(u.id) === String(decoded2.id));
+        if (!user) return res.status(401).json({ message: "User not found" });
+        if (user.status === 'disabled') return res.status(403).json({ message: "Account is disabled" });
+        req.user = user;
+        next();
+      });
+      return;
+    }
     
     // Check if user exists and is active
     const db = readDB();
-    const user = db.users.find(u => u.id === decoded.id);
-    if (!user) return res.status(403).json({ message: "User not found" });
+    const user = db.users.find(u => String(u.id) === String(decoded.id));
+    if (!user) return res.status(401).json({ message: "User not found" });
     if (user.status === 'disabled') return res.status(403).json({ message: "Account is disabled" });
     
     req.user = user;
@@ -197,13 +269,51 @@ function addNotification(userId, title, message) {
   writeDB(db);
 }
 
-// ================= AUTH ROUTES =================
+// ================= AUTH ROUTES & RC4 DECRYPTION =================
 
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
+function rc4(key, str) {
+  var s = [], j = 0, x, res = '';
+  for (var i = 0; i < 256; i++) { s[i] = i; }
+  for (var i = 0; i < 256; i++) {
+    j = (j + s[i] + key.charCodeAt(i % key.length)) % 256;
+    x = s[i]; s[i] = s[j]; s[j] = x;
+  }
+  var i = 0; j = 0;
+  for (var y = 0; y < str.length; y++) {
+    i = (i + 1) % 256;
+    j = (j + s[i]) % 256;
+    x = s[i]; s[i] = s[j]; s[j] = x;
+    res += String.fromCharCode(str.charCodeAt(y) ^ s[(s[i] + s[j]) % 256]);
+  }
+  return res;
+}
+
+function decryptPayload(ciphertextBase64) {
+  if (!ciphertextBase64 || typeof ciphertextBase64 !== 'string') return ciphertextBase64;
+  try {
+    const key = "LurnAxSecretEncryptionKey2026";
+    const decodedBytes = Buffer.from(ciphertextBase64, 'base64').toString('binary');
+    const decryptedBytes = rc4(key, decodedBytes);
+    const result = decodeURIComponent(escape(decryptedBytes));
+    return result || ciphertextBase64;
+  } catch (e) {
+    return ciphertextBase64;
+  }
+}
+
+app.post(['/api/auth/login', '/vdlogin'], (req, res) => {
+  let { email, password, portal_type } = req.body;
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
+
+  // Support both RC4 encryptedPayload and plaintext credentials
+  try {
+    const decEmail = decryptPayload(email);
+    if (decEmail && decEmail.includes('@')) email = decEmail;
+    const decPass = decryptPayload(password);
+    if (decPass) password = decPass;
+  } catch (e) {}
 
   const db = readDB();
   const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -221,7 +331,20 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(400).json({ message: "Invalid email or password" });
   }
 
-  const tokenPayload = { id: user.id, email: user.email, role: user.role };
+  // Validate portal_type against user role if portal_type is supplied
+  if (portal_type) {
+    const isLearner = user.role === 'user' || user.role === 'learner' || user.role === 'student';
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.role === 'author_admin';
+    
+    if (portal_type.toLowerCase() === 'admin' && isLearner) {
+      return res.status(404).json({ message: "This account does not have administrative privileges. Please use the Learner Portal to sign in." });
+    }
+    if (portal_type.toLowerCase() === 'learner' && isAdmin) {
+      return res.status(404).json({ message: "This account is registered for administrative access. Please use the Admin Portal to sign in." });
+    }
+  }
+
+  const tokenPayload = { id: user.id, email: user.email, role: user.role, portal_type: portal_type || null };
   const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1d' });
   const refreshToken = jwt.sign(tokenPayload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
@@ -231,14 +354,21 @@ app.post('/api/auth/login', (req, res) => {
   const existingDeviceIdx = user.devices.findIndex(d => d.agent === deviceAgent);
   if (existingDeviceIdx !== -1) {
     user.devices[existingDeviceIdx].lastLogin = new Date().toISOString();
+    if (portal_type) user.devices[existingDeviceIdx].portal_type = portal_type;
   } else {
-    user.devices.push({ agent: deviceAgent, lastLogin: new Date().toISOString() });
+    user.devices.push({ agent: deviceAgent, portal_type: portal_type || null, lastLogin: new Date().toISOString() });
   }
   writeDB(db);
 
+  setAuthCookies(res, accessToken, refreshToken);
+
   res.json({
+    success: true,
+    expiresAt: Date.now() + (60 * 60 * 1000),
+    expiresIn: 3600,
     accessToken,
     refreshToken,
+    portal_type: portal_type || null,
     user: {
       id: user.id,
       name: user.name,
@@ -250,7 +380,145 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
-app.post('/api/auth/signup', (req, res) => {
+app.post(['/api/auth/otp', '/vdotp', '/otp'], (req, res) => {
+  const { email, formStep, otp, portal_type } = req.body;
+  const db = readDB();
+  const user = email ? db.users.find(u => u.email.toLowerCase() === email.toLowerCase()) : null;
+
+  if (formStep === 'generateOtp') {
+    return res.json({ message: "OTP sent successfully", success: true });
+  }
+
+  if (user) {
+    if (portal_type) {
+      const isLearner = user.role === 'user' || user.role === 'learner' || user.role === 'student';
+      const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.role === 'author_admin';
+      if (portal_type.toLowerCase() === 'admin' && isLearner) {
+        return res.status(404).json({ message: "This account does not have administrative privileges. Please use the Learner Portal to sign in." });
+      }
+      if (portal_type.toLowerCase() === 'learner' && isAdmin) {
+        return res.status(404).json({ message: "This account is registered for administrative access. Please use the Admin Portal to sign in." });
+      }
+    }
+
+    const tokenPayload = { id: user.id, email: user.email, role: user.role, portal_type: portal_type || null };
+    const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1d' });
+    const refreshToken = jwt.sign(tokenPayload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+
+    const userPhone = user.phonenumber || user.mobile || '+91 98765 43210';
+    const userBio = user.bio || 'Movies are the ultimate escape. I watch, I learn, I grow.';
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return res.json({
+      success: true,
+      expiresAt: Date.now() + (60 * 60 * 1000),
+      expiresIn: 3600,
+      accessToken,
+      refreshToken,
+      jwt: accessToken,
+      token: refreshToken,
+      portal_type: portal_type || null,
+      role: user.role,
+      phonenumber: userPhone,
+      mobile: userPhone,
+      bio: userBio,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        mobile: userPhone,
+        phonenumber: userPhone,
+        bio: userBio,
+        avatar: user.avatar
+      }
+    });
+  }
+
+  res.json({
+    message: "OTP verified",
+    success: true,
+    phonenumber: '+91 98765 43210',
+    mobile: '+91 98765 43210',
+    bio: 'Movies are the ultimate escape. I watch, I learn, I grow.'
+  });
+});
+
+// Session Verification Endpoint: checks httpOnly cookies before rendering protected routes
+app.all(['/api/auth/verify-session', '/auth/verify-session', '/vdauth/verify-session', '/api/auth/session', '/auth/session', '/vdverify-session', '/webhook/auth/verify-session', '/webhook/vdverify-session'], (req, res) => {
+  let token = null;
+  if (req.cookies) {
+    token = req.cookies.admin_accessToken || req.cookies.accessToken || req.cookies.admin_refreshToken || req.cookies.refreshToken;
+  }
+  if (!token && req.headers['authorization']) {
+    const authHeader = req.headers['authorization'];
+    token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+  }
+
+  if (!token) {
+    return res.status(401).json({ valid: false, message: "No active session cookie found" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      jwt.verify(token, JWT_REFRESH_SECRET, (err2, decoded2) => {
+        if (err2) {
+          clearAuthCookies(res);
+          return res.status(401).json({ valid: false, message: "Session expired or invalid" });
+        }
+        const db = readDB();
+        const user = db.users.find(u => String(u.id) === String(decoded2.id));
+        if (!user || user.status === 'disabled') {
+          clearAuthCookies(res);
+          return res.status(401).json({ valid: false, message: "User disabled or not found" });
+        }
+        const expiresAt = decoded2.exp ? decoded2.exp * 1000 : (Date.now() + 3600000);
+        return res.json({
+          valid: true,
+          expiresAt,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            mobile: user.mobile || user.phonenumber || '',
+            avatar: user.avatar || ''
+          }
+        });
+      });
+      return;
+    }
+
+    const db = readDB();
+    const user = db.users.find(u => String(u.id) === String(decoded.id));
+    if (!user || user.status === 'disabled') {
+      clearAuthCookies(res);
+      return res.status(401).json({ valid: false, message: "User disabled or not found" });
+    }
+    const expiresAt = decoded.exp ? decoded.exp * 1000 : (Date.now() + 3600000);
+    return res.json({
+      valid: true,
+      expiresAt,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        mobile: user.mobile || user.phonenumber || '',
+        avatar: user.avatar || ''
+      }
+    });
+  });
+});
+
+// Logout endpoint: clears httpOnly cookies
+app.all(['/api/auth/logout', '/auth/logout', '/vdlogout', '/logout'], (req, res) => {
+  clearAuthCookies(res);
+  res.json({ success: true, message: "Logged out successfully" });
+});
+
+app.post(['/api/auth/signup', '/vdsignup'], (req, res) => {
   if (req.body.formstep === 'getGender') {
     return res.json([
       { id: 1, name: "Male" },
@@ -259,10 +527,51 @@ app.post('/api/auth/signup', (req, res) => {
     ]);
   }
 
-  const { name, email, mobile, password } = req.body;
+  const { name, email, mobile, password, country_code, dial_code } = req.body;
+  const dobValue = req.body.date_of_birth || req.body.dob;
   
   if (!name || !email || !mobile || !password) {
     return res.status(400).json({ message: "All fields are required" });
+  }
+
+  // Server-side Minimum Age (16+) Validation
+  if (dobValue) {
+    const dobMatch = String(dobValue).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (dobMatch) {
+      const birthYear = parseInt(dobMatch[1], 10);
+      const birthMonth = parseInt(dobMatch[2], 10);
+      const birthDay = parseInt(dobMatch[3], 10);
+
+      const today = new Date();
+      let age = today.getFullYear() - birthYear;
+      const mDiff = (today.getMonth() + 1) - birthMonth;
+      if (mDiff < 0 || (mDiff === 0 && today.getDate() < birthDay)) {
+        age--;
+      }
+
+      if (age < 16) {
+        return res.status(400).json({
+          message: "You must be at least 16 years old to register as per our Terms of Service."
+        });
+      }
+    }
+  }
+
+  // Server-side Password Policy Validation
+  if (password.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+  if (!/[A-Z]/.test(password)) {
+    return res.status(400).json({ message: "Password must contain at least one uppercase letter (A-Z)" });
+  }
+  if (!/[a-z]/.test(password)) {
+    return res.status(400).json({ message: "Password must contain at least one lowercase letter (a-z)" });
+  }
+  if (!/[0-9]/.test(password)) {
+    return res.status(400).json({ message: "Password must contain at least one number (0-9)" });
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return res.status(400).json({ message: "Password must contain at least one special character (!@#$%^&*...)" });
   }
 
   const db = readDB();
@@ -276,7 +585,10 @@ app.post('/api/auth/signup', (req, res) => {
     id: 'u-' + Date.now(),
     name,
     email,
+    country_code: country_code || dial_code || '+91',
+    dial_code: dial_code || country_code || '+91',
     mobile,
+    date_of_birth: dobValue || null,
     password: hashedPassword,
     role: 'user',
     status: 'active',
@@ -311,9 +623,42 @@ app.post('/api/auth/refresh', (req, res) => {
   });
 });
 
+app.all(['/api/auth/me', '/auth/me', '/vdauth/me', '/vdme', '/me'], authenticateToken, (req, res) => {
+  const db = readDB();
+  const user = (db.users || []).find(u => String(u.id) === String(req.user.id)) || req.user;
+  res.json({
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      mobile: user.mobile || user.phonenumber || '',
+      phonenumber: user.phonenumber || user.mobile || '',
+      avatar: user.avatar || '',
+      bio: user.bio || ''
+    }
+  });
+});
+
 app.post('/api/auth/change-password', authenticateToken, (req, res) => {
   const { oldPassword, newPassword } = req.body;
   if (!oldPassword || !newPassword) return res.status(400).json({ message: "Both old and new passwords are required" });
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+  if (!/[A-Z]/.test(newPassword)) {
+    return res.status(400).json({ message: "Password must contain at least one uppercase letter (A-Z)" });
+  }
+  if (!/[a-z]/.test(newPassword)) {
+    return res.status(400).json({ message: "Password must contain at least one lowercase letter (a-z)" });
+  }
+  if (!/[0-9]/.test(newPassword)) {
+    return res.status(400).json({ message: "Password must contain at least one number (0-9)" });
+  }
+  if (!/[^A-Za-z0-9]/.test(newPassword)) {
+    return res.status(400).json({ message: "Password must contain at least one special character (!@#$%^&*...)" });
+  }
 
   const db = readDB();
   const user = db.users.find(u => u.id === req.user.id);
@@ -621,6 +966,14 @@ const handleVdClients = (req, res) => {
 
   const formstep = req.body.formstep || req.body.formStep;
 
+  // Server re-authorization: mutations require verified super_admin session
+  const superAdminOnlyClientSteps = ['add client', 'addClient', 'edit client', 'editClient', 'delete client', 'deleteClient'];
+  if (superAdminOnlyClientSteps.includes(formstep)) {
+    if (!req.user || req.user.role !== 'super_admin') {
+      return res.status(403).json({ message: "Access Denied: Super Admin privileges required for client management" });
+    }
+  }
+
   if (formstep === 'getClients' || formstep === 'get client') {
     return res.json(db.clients);
   }
@@ -686,17 +1039,26 @@ const handleVdClients = (req, res) => {
   return res.json(db.clients);
 };
 
-app.post('/vdClients', handleVdClients);
-app.post('/api/vdClients', handleVdClients);
-app.post('/webhook/vdClients', handleVdClients);
-app.post('/vdclients', handleVdClients);
-app.post('/api/vdclients', handleVdClients);
-app.post('/webhook/vdclients', handleVdClients);
+app.all([
+  '/vdClients', '/api/vdClients', '/webhook/vdClients',
+  '/vdclients', '/api/vdclients', '/webhook/vdclients'
+], authenticateToken, authorizeRoles('super_admin', 'admin', 'author_admin'), handleVdClients);
 
 // ================= VdAdmins GET ADMINS & LISTING =================
 const handleVdAdmins = (req, res) => {
   const formstep = req.body.formstep || req.body.formStep;
   const db = readDB();
+
+  // Server re-authorization: Administrator management & assignment requires verified super_admin session
+  const superAdminOnlyAdminSteps = [
+    'addAuthorAdmin', 'deleteAuthorAdmin', 'deleteAdmin',
+    'toggleAuthorAdminStatus', 'AssignVideo', 'assignCourse'
+  ];
+  if (superAdminOnlyAdminSteps.includes(formstep)) {
+    if (!req.user || req.user.role !== 'super_admin') {
+      return res.status(403).json({ message: "Access Denied: Super Admin privileges required for administrator management" });
+    }
+  }
 
   if (formstep === 'getClients') {
     const clients = db.clients || [{ id: "1", name: "Acme Media Corp" }];
@@ -822,11 +1184,13 @@ const handleVdAdmins = (req, res) => {
   return res.json(db.admins || []);
 };
 
-app.post('/vdadmins', handleVdAdmins);
-app.post('/api/vdadmins', handleVdAdmins);
-app.post('/webhook/vdadmins', handleVdAdmins);
+app.all([
+  '/vdadmins', '/api/vdadmins', '/webhook/vdadmins'
+], authenticateToken, authorizeRoles('super_admin', 'admin', 'author_admin'), handleVdAdmins);
 
-app.post(['/adminUsers', '/api/adminUsers', '/webhook/adminUsers'], (req, res) => {
+app.all([
+  '/adminUsers', '/api/adminUsers', '/webhook/adminUsers'
+], authenticateToken, authorizeRoles('super_admin', 'admin'), (req, res) => {
   const formstep = req.body.formstep || req.body.formStep;
   if (formstep === 'getGender') {
     return res.json([
@@ -908,7 +1272,7 @@ app.get('/api/users', authenticateToken, authorizeRoles('super_admin', 'admin'),
 });
 
 app.post('/api/users', authenticateToken, authorizeRoles('super_admin', 'admin'), (req, res) => {
-  const { name, email, mobile, password } = req.body;
+  const { name, email, mobile, password, country_code, dial_code } = req.body;
   if (!name || !email || !mobile || !password) {
     return res.status(400).json({ message: "All fields are required" });
   }
@@ -969,7 +1333,7 @@ app.get('/api/admins', authenticateToken, authorizeRoles('super_admin'), (req, r
 });
 
 app.post('/api/admins', authenticateToken, authorizeRoles('super_admin'), (req, res) => {
-  const { name, email, mobile, password } = req.body;
+  const { name, email, mobile, password, country_code, dial_code } = req.body;
   if (!name || !email || !mobile || !password) {
     return res.status(400).json({ message: "All fields are required" });
   }
@@ -1263,12 +1627,151 @@ const handleVdAdminVideos = (req, res) => {
   return res.json(db.videos || []);
 };
 
-app.post([
-  '/vdadminVideos', '/api/vdadminVideos', '/webhook/vdadminVideos',
-  '/vdSuperAdminVideos', '/api/vdSuperAdminVideos', '/webhook/vdSuperAdminVideos',
+// Handler for Super Admin Dashboard & Super Admin Videos (Strictly re-authorized on the server)
+const handleVdSuperAdminDashboard = (req, res) => {
+  const db = readDB();
+  const formstep = req.body?.formstep || req.body?.formStep || 'overview';
+
+  if (formstep === 'overview') {
+    const totalAdmins = db.users.filter(u => u.role === 'admin').length;
+    const totalUsers = db.users.filter(u => u.role === 'user').length;
+    const totalVideos = (db.videos || []).length;
+    const totalCategories = (db.categories || []).length;
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const videosWatchedToday = (db.watchHistory || []).filter(h => h.watchDate && h.watchDate.startsWith(todayStr)).length;
+    const activeUsers = new Set((db.watchHistory || []).map(h => h.userId)).size;
+
+    const categoryViews = (db.categories || []).map(cat => {
+      const vids = (db.videos || []).filter(v => v.category === cat.name);
+      const views = vids.reduce((sum, v) => sum + (v.views || 0), 0);
+      return { name: cat.name, count: views };
+    });
+
+    const dailyWatchStats = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const count = (db.watchHistory || []).filter(h => h.watchDate && h.watchDate.startsWith(dateStr)).length;
+      const label = date.toLocaleDateString('en-US', { weekday: 'short' });
+      dailyWatchStats.push({ label, count });
+    }
+
+    const adminUsage = db.users.filter(u => u.role === 'admin').map(admin => {
+      const videoCount = (db.videos || []).filter(v => v.uploadedBy === admin.id).length;
+      return { name: admin.name, count: videoCount };
+    });
+
+    const userGrowth = [
+      { label: "Mar", count: Math.round(totalUsers * 0.4) },
+      { label: "Apr", count: Math.round(totalUsers * 0.6) },
+      { label: "May", count: Math.round(totalUsers * 0.9) },
+      { label: "Jun", count: totalUsers }
+    ];
+
+    const recentActivities = (db.watchHistory || []).slice(-5).map(h => {
+      const user = db.users.find(u => u.id === h.userId);
+      const video = (db.videos || []).find(v => v.id === h.videoId);
+      return {
+        id: h.id,
+        user: user ? user.name : 'Unknown User',
+        video: video ? video.title : 'Deleted Video',
+        action: h.status === 'completed' ? 'finished watching' : 'started watching',
+        time: h.watchDate
+      };
+    }).reverse();
+
+    const storageMetrics = {
+      totalStorageUsedBytes: 912680550400,
+      awsS3BucketSize: 730144448512,
+      localStorageUsed: 182536101888,
+      bandwidthUsedToday: 48318382080,
+      s3ObjectsCount: 1420
+    };
+
+    const systemHealth = {
+      cpuUsage: 14,
+      memoryUsage: "4.1 GB / 8.0 GB",
+      apiLatency: "38ms",
+      serverStatus: "Healthy"
+    };
+
+    const encodingQueue = [
+      { id: "job-1", videoTitle: "Getting Started with Flutter", resolution: "1080p", progress: 85, status: "processing" },
+      { id: "job-2", videoTitle: "Advanced Redux Tutorial", resolution: "720p", progress: 30, status: "processing" }
+    ];
+
+    const watchHistoryDetails = (db.watchHistory || []).map(h => {
+      const user = db.users.find(u => u.id === h.userId);
+      const video = (db.videos || []).find(v => v.id === h.videoId);
+      return {
+        id: h.id,
+        userName: user ? user.name : 'Unknown User',
+        userEmail: user ? user.email : 'Unknown Email',
+        videoTitle: video ? video.title : 'Deleted Video',
+        videoCategory: video ? video.category : 'N/A',
+        views: h.views || 1,
+        completed: h.status === 'completed' ? 'Yes' : 'No',
+        completionPercentage: h.completionPercentage || 0,
+        watchTime: h.watchTime || h.lastPosition || 0,
+        pausedCount: h.pausedCount || 0,
+        forwardedCount: h.forwardedCount || 0,
+        backwardCount: h.backwardCount || 0,
+        lastPosition: h.lastPosition || 0,
+        watchDate: h.watchDate
+      };
+    });
+
+    return res.json({
+      cards: { totalAdmins, totalUsers, totalVideos, totalCategories, videosWatchedToday, activeUsers },
+      charts: { dailyWatchStats, categoryViews, userGrowth, adminUsage },
+      recentActivities,
+      storageMetrics,
+      systemHealth,
+      encodingQueue,
+      watchHistoryDetails
+    });
+  }
+
+  if (formstep === 'users_all') {
+    return res.json(db.users || []);
+  }
+
+  if (formstep === 'users_blocked') {
+    return res.json((db.users || []).filter(u => u.status === 'disabled'));
+  }
+
+  if (formstep === 'users_logs' || formstep === 'analytics') {
+    return res.json(db.watchHistory || []);
+  }
+
+  if (formstep === 'getGender') {
+    return res.json([
+      { id: "1", name: "Male" },
+      { id: "2", name: "Female" },
+      { id: "3", name: "Other" }
+    ]);
+  }
+
+  if (formstep === 'getCategories') {
+    return res.json(db.categories || []);
+  }
+
+  return handleVdAdminVideos(req, res);
+};
+
+// Protected Super Admin Endpoints (Strictly re-authorizes on the server from session)
+app.all([
   '/vddashboard/super-admin', '/api/vddashboard/super-admin', '/webhook/vddashboard/super-admin',
-  '/dashboard/super-admin', '/api/dashboard/super-admin', '/webhook/dashboard/super-admin'
-], handleVdAdminVideos);
+  '/dashboard/super-admin', '/api/dashboard/super-admin', '/webhook/dashboard/super-admin',
+  '/vdSuperAdminVideos', '/api/vdSuperAdminVideos', '/webhook/vdSuperAdminVideos'
+], authenticateToken, authorizeRoles('super_admin'), handleVdSuperAdminDashboard);
+
+// Protected Admin Endpoints (Strictly re-authorizes on the server from session)
+app.all([
+  '/vdadminVideos', '/api/vdadminVideos', '/webhook/vdadminVideos'
+], authenticateToken, authorizeRoles('admin', 'super_admin', 'author_admin'), handleVdAdminVideos);
 
 app.post('/api/videos/assign', authenticateToken, authorizeRoles('super_admin'), (req, res) => {
   const { videoId, assignedAdmins } = req.body;
@@ -1527,21 +2030,26 @@ app.get('/api/dashboard/super-admin', authenticateToken, authorizeRoles('super_a
   });
 });
 
-app.get('/api/dashboard/admin', authenticateToken, authorizeRoles('admin'), (req, res) => {
+const handleVdDashboardAdmin = (req, res) => {
   const db = readDB();
-  const adminId = req.user.id;
+  // Server-side authorization check:
+  // Only super_admin may query other admins' dashboards. Normal admins are strictly locked to their own verified session id.
+  const isSuper = req.user && req.user.role === 'super_admin';
+  const requestedAdminId = req.body?.adminId || req.body?.admin_id || req.body?.assigned_admin;
+  const adminId = (isSuper && requestedAdminId) ? requestedAdminId : (req.user?.id || 'u-admin1');
 
-  const myUsers = db.users.filter(u => u.role === 'user' && u.createdBy === adminId);
-  const myVideos = db.videos.filter(v => v.uploadedBy === adminId);
+  const myUsers = db.users.filter(u => u.role === 'user' && (u.createdBy === adminId || !adminId));
+  const myVideos = db.videos.filter(v => v.uploadedBy === adminId || !adminId);
   const myVideoIds = myVideos.map(v => v.id);
 
-  const totalUsers = myUsers.length;
-  const totalVideos = myVideos.length;
-  const totalViews = myVideos.reduce((sum, v) => sum + (v.views || 0), 0);
+  const totalUsers = myUsers.length || db.users.filter(u => u.role === 'user').length;
+  const totalVideos = myVideos.length || db.videos.length;
+  const totalViews = myVideos.reduce((sum, v) => sum + (v.views || 0), 0) || db.videos.reduce((sum, v) => sum + (v.views || 0), 0);
+  const totalCourses = (db.courses && db.courses.length) || 0;
   
   // Active users under this admin (watched any video in past 7 days)
   const myWatchHistories = db.watchHistory.filter(h => myVideoIds.includes(h.videoId));
-  const activeUsers = new Set(myWatchHistories.map(h => h.userId)).size;
+  const activeUsers = new Set(myWatchHistories.map(h => h.userId)).size || Math.min(totalUsers, 5);
 
   // Chart: Most Viewed Videos
   const mostViewedVideos = [...myVideos]
@@ -1550,12 +2058,12 @@ app.get('/api/dashboard/admin', authenticateToken, authorizeRoles('admin'), (req
     .map(v => ({ name: v.title, count: v.views || 0 }));
 
   // Chart: Category Distribution
-  const categoryDistribution = db.categories.map(cat => {
+  const categoryDistribution = (db.categories || []).map(cat => {
     const count = myVideos.filter(v => v.category === cat.name).length;
     return { name: cat.name, count };
   }).filter(c => c.count > 0);
 
-  // Chart: User Engagement (completion rate)
+  // Chart: User Engagement
   const completedCount = myWatchHistories.filter(h => h.status === 'completed').length;
   const partialCount = myWatchHistories.filter(h => h.status === 'partially_watched').length;
   const userEngagement = [
@@ -1565,9 +2073,9 @@ app.get('/api/dashboard/admin', authenticateToken, authorizeRoles('admin'), (req
   ];
 
   const storageMetrics = {
-    totalStorageUsedBytes: 214748364800, // ~200 GB
+    totalStorageUsedBytes: 214748364800,
     localStorageUsed: 214748364800,
-    bandwidthUsedToday: 12884901888, // ~12 GB
+    bandwidthUsedToday: 12884901888,
   };
 
   const systemHealth = {
@@ -1603,14 +2111,29 @@ app.get('/api/dashboard/admin', authenticateToken, authorizeRoles('admin'), (req
   });
 
   res.json({
-    cards: { totalUsers, totalVideos, totalViews, activeUsers },
+    total_users: totalUsers,
+    total_videos: totalVideos,
+    total_courses: totalCourses,
+    total_video_views: totalViews,
+    today_watch_sec: 9000,
+    month_watch_sec: 270000,
+    users_growth_percent: 12,
+    video_views_growth_percent: -34,
+    daily_watch_growth_percent: 8,
+    monthly_target_percent: 92,
+    cards: { totalUsers, totalVideos, totalCourses, totalViews, activeUsers },
     charts: { mostViewedVideos, categoryDistribution, userEngagement },
     storageMetrics,
     systemHealth,
     encodingQueue,
     watchHistoryDetails
   });
-});
+};
+
+app.all([
+  '/vddashboard/admin', '/api/vddashboard/admin', '/webhook/vddashboard/admin',
+  '/dashboard/admin', '/api/dashboard/admin', '/webhook/dashboard/admin'
+], authenticateToken, authorizeRoles('admin', 'super_admin', 'author_admin'), handleVdDashboardAdmin);
 
 app.get('/api/dashboard/user', authenticateToken, authorizeRoles('user'), (req, res) => {
   const db = readDB();
@@ -1857,6 +2380,118 @@ const handleVdUser = (req, res) => {
   }
   if (!userId && req.user) {
     userId = req.user.id;
+  }
+
+  // --- ME / SESSION VERIFICATION API (vdUser: formstep = me) ---
+  if (formstep === 'me' || formstep === 'getMe' || formstep === 'authMe') {
+    let targetUser = null;
+    if (userId) {
+      targetUser = (db.users || []).find(u => String(u.id) === String(userId));
+    }
+    if (!targetUser && req.body.email) {
+      targetUser = (db.users || []).find(u => u.email && u.email.toLowerCase() === req.body.email.toLowerCase());
+    }
+    if (!targetUser && (db.users || []).length > 0) {
+      targetUser = (db.users || []).find(u => u.role === 'user') || db.users[0];
+    }
+    if (!targetUser) {
+      return res.status(401).json({ message: "Session invalid or user not found" });
+    }
+    return res.json({
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+        mobile: targetUser.mobile || targetUser.phonenumber || '',
+        phonenumber: targetUser.phonenumber || targetUser.mobile || '',
+        avatar: targetUser.avatar || '',
+        bio: targetUser.bio || ''
+      }
+    });
+  }
+
+  // --- GET PROFILE API (vdUser: formstep = getProfile) ---
+  if (formstep === 'getProfile' || formstep === 'getprofile') {
+    let targetUser = null;
+    if (userId) {
+      targetUser = (db.users || []).find(u => String(u.id) === String(userId));
+    }
+    if (!targetUser && req.body.email) {
+      targetUser = (db.users || []).find(u => u.email && u.email.toLowerCase() === req.body.email.toLowerCase());
+    }
+    if (!targetUser && (db.users || []).length > 0) {
+      targetUser = (db.users || []).find(u => u.role === 'user') || db.users[0];
+    }
+
+    const name = targetUser ? targetUser.name : 'Learner User';
+    const email = targetUser ? targetUser.email : 'user@lurnax.com';
+    const phonenumber = targetUser ? (targetUser.phonenumber || targetUser.mobile || '+91 98765 43210') : '+91 98765 43210';
+    const bio = targetUser ? (targetUser.bio || '') : '';
+
+    return res.status(200).json({
+      success: true,
+      name,
+      email,
+      phonenumber,
+      mobile: phonenumber,
+      bio,
+      user: {
+        id: targetUser ? targetUser.id : userId,
+        name,
+        email,
+        phonenumber,
+        mobile: phonenumber,
+        bio,
+        role: targetUser ? targetUser.role : 'user',
+        avatar: targetUser ? targetUser.avatar : null
+      }
+    });
+  }
+
+  // --- SAVE PROFILE API (vdUser: formstep = saveProfile) ---
+  if (formstep === 'saveProfile' || formstep === 'saveprofile' || formstep === 'updateProfile') {
+    let userToUpdate = null;
+    if (userId) {
+      userToUpdate = (db.users || []).find(u => String(u.id) === String(userId));
+    }
+    if (!userToUpdate && req.body.email) {
+      userToUpdate = (db.users || []).find(u => u.email && u.email.toLowerCase() === req.body.email.toLowerCase());
+    }
+    if (!userToUpdate && (db.users || []).length > 0) {
+      userToUpdate = (db.users || []).find(u => u.role === 'user') || db.users[0];
+    }
+
+    const updatedName = req.body.name || (userToUpdate ? userToUpdate.name : '');
+    const updatedPhone = req.body.phonenumber || req.body.mobile || req.body.phone || (userToUpdate ? (userToUpdate.phonenumber || userToUpdate.mobile) : '');
+    const updatedBio = req.body.bio !== undefined ? req.body.bio : (userToUpdate ? (userToUpdate.bio || '') : '');
+
+    if (userToUpdate) {
+      if (updatedName) userToUpdate.name = updatedName;
+      userToUpdate.phonenumber = updatedPhone;
+      userToUpdate.mobile = updatedPhone;
+      userToUpdate.bio = updatedBio;
+      writeDB(db);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile saved successfully via vdUser',
+      data: {
+        id: userId || (userToUpdate ? userToUpdate.id : null),
+        name: updatedName,
+        phonenumber: updatedPhone,
+        mobile: updatedPhone,
+        bio: updatedBio
+      },
+      user: userToUpdate || {
+        id: userId,
+        name: updatedName,
+        phonenumber: updatedPhone,
+        mobile: updatedPhone,
+        bio: updatedBio
+      }
+    });
   }
 
   if (formstep === 'saveNotification') {
@@ -2174,6 +2809,105 @@ const handleVdUser = (req, res) => {
     });
   }
 
+  // --- SUBMIT QUIZ API (vdUser: formstep = submitQuiz) ---
+  if (formstep === 'submitQuiz') {
+    const courseId = req.body.course_id || 1;
+    const chapterId = req.body.chapter_id || 1;
+    const quizId = req.body.quiz_id || 1;
+    const submittedAnswers = Array.isArray(req.body.answers) ? req.body.answers : [];
+
+    let correctCount = 0;
+    const evaluatedAnswers = submittedAnswers.map((subAns, idx) => {
+      const qId = subAns.question_id || (idx + 1);
+      const qType = String(subAns.question_type || '1');
+      const selectedOptId = subAns.selected_option_id ?? subAns.option_id;
+      const selectedText = subAns.selected_text || String(subAns.user_answer ?? '');
+
+      let isCorrect = false;
+      let correctOptId = 1;
+      let correctAns = "Jam";
+      let qText = "Question " + qId;
+      let optionsList = [];
+
+      if (qId === 1 || idx === 0) {
+        qText = "Who created java?";
+        correctOptId = 1;
+        correctAns = "Jam";
+        isCorrect = selectedOptId === 1 || String(selectedText).trim().toLowerCase() === 'jam';
+        optionsList = [
+          { option_id: 1, option_text: "Jam", option_order: 1, is_correct: true, is_selected: selectedOptId === 1 || String(selectedText).trim().toLowerCase() === 'jam' },
+          { option_id: 2, option_text: "RAM", option_order: 2, is_correct: false, is_selected: selectedOptId === 2 || String(selectedText).trim().toLowerCase() === 'ram' },
+          { option_id: 3, option_text: "NAN", option_order: 3, is_correct: false, is_selected: selectedOptId === 3 || String(selectedText).trim().toLowerCase() === 'nan' },
+          { option_id: 4, option_text: "NEEDN", option_order: 4, is_correct: false, is_selected: selectedOptId === 4 || String(selectedText).trim().toLowerCase() === 'needn' }
+        ];
+      } else if (qId === 2 || idx === 1) {
+        qText = "IS JAVA COMPACT?";
+        correctOptId = 5;
+        correctAns = "True";
+        isCorrect = selectedOptId === 5 || String(selectedText).trim().toLowerCase() === 'true';
+        optionsList = [
+          { option_id: 5, option_text: "True", option_order: 1, is_correct: true, is_selected: selectedOptId === 5 || String(selectedText).trim().toLowerCase() === 'true' },
+          { option_id: 6, option_text: "False", option_order: 2, is_correct: false, is_selected: selectedOptId === 6 || String(selectedText).trim().toLowerCase() === 'false' }
+        ];
+      } else if (qId === 3 || idx === 2) {
+        qText = "WHO CREATED REACT JS?";
+        correctOptId = 7;
+        correctAns = "KIRAN";
+        isCorrect = String(selectedText).trim().toLowerCase() === 'kiran';
+        optionsList = [
+          { option_id: 7, option_text: "KIRAN", option_order: 1, is_correct: true, is_selected: String(selectedText).trim().toLowerCase() === 'kiran' }
+        ];
+      } else {
+        qText = `Question ${qId}`;
+        correctOptId = 1;
+        correctAns = "Option 1";
+        isCorrect = subAns.is_correct ?? true;
+        optionsList = [
+          { option_id: 1, option_text: "Option 1", option_order: 1, is_correct: true, is_selected: true },
+          { option_id: 2, option_text: "Option 2", option_order: 2, is_correct: false, is_selected: false }
+        ];
+      }
+
+      if (isCorrect) correctCount++;
+
+      return {
+        question_id: qId,
+        question_type: qType,
+        question_text: qText,
+        selected_option_id: selectedOptId,
+        selected_text: selectedText,
+        correct_option_id: correctOptId,
+        correct_answer: correctAns,
+        is_correct: isCorrect,
+        status: isCorrect ? "Correct" : "Wrong",
+        options: optionsList
+      };
+    });
+
+    const totalQuestions = submittedAnswers.length || 3;
+    const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+    const isPassed = percentage >= 70;
+    const wrongCount = totalQuestions - correctCount;
+
+    return res.json([
+      {
+        quiz_id: quizId,
+        course_id: courseId,
+        chapter_id: chapterId,
+        score: correctCount,
+        total_questions: totalQuestions,
+        percentage: percentage,
+        result: isPassed,
+        result_str: isPassed ? "Passed" : "Failed",
+        status: isPassed ? "Passed" : "Failed",
+        passing_percentage: 70,
+        correct_count: correctCount,
+        wrong_count: wrongCount,
+        answers: evaluatedAnswers
+      }
+    ]);
+  }
+
   return res.json({ success: true, message: 'vdUser processed' });
 };
 
@@ -2199,7 +2933,9 @@ app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
 
 // ================= REPORTS & ANALYTICS EXPORTS =================
 
-app.get('/api/reports/super-admin', authenticateToken, authorizeRoles('super_admin'), (req, res) => {
+app.all([
+  '/api/reports/super-admin', '/reports/super-admin', '/vdsuperadmin/report', '/webhook/vdsuperadmin/report'
+], authenticateToken, authorizeRoles('super_admin'), (req, res) => {
   const db = readDB();
   
   // Generate a mock detailed list for export
@@ -2264,7 +3000,9 @@ app.get('/api/reports/admin', authenticateToken, authorizeRoles('admin'), (req, 
   });
 });
 
-app.all(['/api/admin/report', '/vdadmin/report', '/api/vdadmin/report'], (req, res) => {
+app.all([
+  '/api/admin/report', '/vdadmin/report', '/api/vdadmin/report'
+], authenticateToken, authorizeRoles('admin', 'super_admin', 'author_admin'), (req, res) => {
   const body = req.body || {};
   const formstep = body.formstep || req.query.formstep || 'course_analytics';
 
@@ -2626,6 +3364,343 @@ app.delete('/api/plans/:id', authenticateToken, authorizeRoles('super_admin'), (
   db.subscriptionPlans = (db.subscriptionPlans || []).filter(p => p.id !== req.params.id);
   writeDB(db);
   res.json({ message: "Plan deleted successfully" });
+});
+
+const defaultVdSubscriptionPlans = [
+  {
+    "plan_id": "2",
+    "plan_name": "Free",
+    "description": "Good for trying out our platform",
+    "billing_interval_id": "1",
+    "billing_interval": "Monthly",
+    "plan_amount": "0.00",
+    "original_amount": "0.00",
+    "discount_percentage": "0.00",
+    "duration_days": 30,
+    "max_devices": 1,
+    "ads_type": "Ads Supported",
+    "content_access": "Limited",
+    "allow_download": false,
+    "allow_exclusive_content": false,
+    "allow_early_access": false,
+    "is_popular": false,
+    "badge_text": null,
+    "display_order": 1,
+    "is_active": true,
+    "features": [
+      {
+        "feature_id": 2,
+        "is_included": true,
+        "feature_name": "Watch limited content",
+        "display_order": 1
+      },
+      {
+        "feature_id": 4,
+        "is_included": true,
+        "feature_name": "Ads supported",
+        "display_order": 2
+      },
+      {
+        "feature_id": 6,
+        "is_included": true,
+        "feature_name": "720p Video Quality",
+        "display_order": 3
+      },
+      {
+        "feature_id": 8,
+        "is_included": true,
+        "feature_name": "1 Device at a time",
+        "display_order": 4
+      }
+    ]
+  },
+  {
+    "plan_id": "3",
+    "plan_name": "Free",
+    "description": "Good for trying out our platform",
+    "billing_interval_id": "2",
+    "billing_interval": "Yearly",
+    "plan_amount": "0.00",
+    "original_amount": "0.00",
+    "discount_percentage": "0.00",
+    "duration_days": 365,
+    "max_devices": 1,
+    "ads_type": "Ads Supported",
+    "content_access": "Limited",
+    "allow_download": false,
+    "allow_exclusive_content": false,
+    "allow_early_access": false,
+    "is_popular": false,
+    "badge_text": null,
+    "display_order": 1,
+    "is_active": true,
+    "features": [
+      {
+        "feature_id": 1,
+        "is_included": true,
+        "feature_name": "Watch limited content",
+        "display_order": 1
+      },
+      {
+        "feature_id": 3,
+        "is_included": true,
+        "feature_name": "Ads supported",
+        "display_order": 2
+      },
+      {
+        "feature_id": 5,
+        "is_included": true,
+        "feature_name": "720p Video Quality",
+        "display_order": 3
+      },
+      {
+        "feature_id": 7,
+        "is_included": true,
+        "feature_name": "1 Device at a time",
+        "display_order": 4
+      }
+    ]
+  },
+  {
+    "plan_id": "4",
+    "plan_name": "Intermediate",
+    "description": "Better experience with more access",
+    "billing_interval_id": "1",
+    "billing_interval": "Monthly",
+    "plan_amount": "149.00",
+    "original_amount": "149.00",
+    "discount_percentage": "0.00",
+    "duration_days": 30,
+    "max_devices": 2,
+    "ads_type": "Fewer Ads",
+    "content_access": "Most",
+    "allow_download": true,
+    "allow_exclusive_content": false,
+    "allow_early_access": false,
+    "is_popular": true,
+    "badge_text": "POPULAR",
+    "display_order": 2,
+    "is_active": true,
+    "features": [
+      {
+        "feature_id": 10,
+        "is_included": true,
+        "feature_name": "Watch most content",
+        "display_order": 1
+      },
+      {
+        "feature_id": 12,
+        "is_included": true,
+        "feature_name": "Fewer ads",
+        "display_order": 2
+      },
+      {
+        "feature_id": 14,
+        "is_included": true,
+        "feature_name": "1080p Full HD",
+        "display_order": 3
+      },
+      {
+        "feature_id": 16,
+        "is_included": true,
+        "feature_name": "2 Devices at a time",
+        "display_order": 4
+      },
+      {
+        "feature_id": 18,
+        "is_included": true,
+        "feature_name": "Download & Watch Offline",
+        "display_order": 5
+      }
+    ]
+  },
+  {
+    "plan_id": "5",
+    "plan_name": "Intermediate",
+    "description": "Better experience with more access",
+    "billing_interval_id": "2",
+    "billing_interval": "Yearly",
+    "plan_amount": "1429.00",
+    "original_amount": "1788.00",
+    "discount_percentage": "20.00",
+    "duration_days": 365,
+    "max_devices": 2,
+    "ads_type": "Fewer Ads",
+    "content_access": "Most",
+    "allow_download": true,
+    "allow_exclusive_content": false,
+    "allow_early_access": false,
+    "is_popular": true,
+    "badge_text": "POPULAR",
+    "display_order": 2,
+    "is_active": true,
+    "features": [
+      {
+        "feature_id": 9,
+        "is_included": true,
+        "feature_name": "Watch most content",
+        "display_order": 1
+      },
+      {
+        "feature_id": 11,
+        "is_included": true,
+        "feature_name": "Fewer ads",
+        "display_order": 2
+      },
+      {
+        "feature_id": 13,
+        "is_included": true,
+        "feature_name": "1080p Full HD",
+        "display_order": 3
+      },
+      {
+        "feature_id": 15,
+        "is_included": true,
+        "feature_name": "2 Devices at a time",
+        "display_order": 4
+      },
+      {
+        "feature_id": 17,
+        "is_included": true,
+        "feature_name": "Download & Watch Offline",
+        "display_order": 5
+      }
+    ]
+  },
+  {
+    "plan_id": "6",
+    "plan_name": "Premium",
+    "description": "Ultimate experience with all access",
+    "billing_interval_id": "1",
+    "billing_interval": "Monthly",
+    "plan_amount": "299.00",
+    "original_amount": "299.00",
+    "discount_percentage": "0.00",
+    "duration_days": 30,
+    "max_devices": 4,
+    "ads_type": "Ad Free",
+    "content_access": "All",
+    "allow_download": true,
+    "allow_exclusive_content": true,
+    "allow_early_access": true,
+    "is_popular": false,
+    "badge_text": null,
+    "display_order": 3,
+    "is_active": true,
+    "features": [
+      {
+        "feature_id": 20,
+        "is_included": true,
+        "feature_name": "All content unlocked",
+        "display_order": 1
+      },
+      {
+        "feature_id": 22,
+        "is_included": true,
+        "feature_name": "Ad-free experience",
+        "display_order": 2
+      },
+      {
+        "feature_id": 24,
+        "is_included": true,
+        "feature_name": "4K Ultra HD",
+        "display_order": 3
+      },
+      {
+        "feature_id": 26,
+        "is_included": true,
+        "feature_name": "4 Devices at a time",
+        "display_order": 4
+      },
+      {
+        "feature_id": 28,
+        "is_included": true,
+        "feature_name": "Download & Watch Offline",
+        "display_order": 5
+      },
+      {
+        "feature_id": 30,
+        "is_included": true,
+        "feature_name": "Exclusive Originals",
+        "display_order": 6
+      },
+      {
+        "feature_id": 32,
+        "is_included": true,
+        "feature_name": "Early Access to New Releases",
+        "display_order": 7
+      }
+    ]
+  },
+  {
+    "plan_id": "7",
+    "plan_name": "Premium",
+    "description": "Ultimate experience with all access",
+    "billing_interval_id": "2",
+    "billing_interval": "Yearly",
+    "plan_amount": "2870.00",
+    "original_amount": "3588.00",
+    "discount_percentage": "20.00",
+    "duration_days": 365,
+    "max_devices": 4,
+    "ads_type": "Ad Free",
+    "content_access": "All",
+    "allow_download": true,
+    "allow_exclusive_content": true,
+    "allow_early_access": true,
+    "is_popular": false,
+    "badge_text": null,
+    "display_order": 3,
+    "is_active": true,
+    "features": [
+      {
+        "feature_id": 19,
+        "is_included": true,
+        "feature_name": "All content unlocked",
+        "display_order": 1
+      },
+      {
+        "feature_id": 21,
+        "is_included": true,
+        "feature_name": "Ad-free experience",
+        "display_order": 2
+      },
+      {
+        "feature_id": 23,
+        "is_included": true,
+        "feature_name": "4K Ultra HD",
+        "display_order": 3
+      },
+      {
+        "feature_id": 25,
+        "is_included": true,
+        "feature_name": "4 Devices at a time",
+        "display_order": 4
+      },
+      {
+        "feature_id": 27,
+        "is_included": true,
+        "feature_name": "Download & Watch Offline",
+        "display_order": 5
+      },
+      {
+        "feature_id": 29,
+        "is_included": true,
+        "feature_name": "Exclusive Originals",
+        "display_order": 6
+      },
+      {
+        "feature_id": 31,
+        "is_included": true,
+        "feature_name": "Early Access to New Releases",
+        "display_order": 7
+      }
+    ]
+  }
+];
+
+app.all(['/api/vd_subscriptions', '/vd_subscriptions', '/webhook/vd_subscriptions', '/api/vdsubscriptions', '/vdsubscriptions', '/webhook/vdsubscriptions'], (req, res) => {
+  res.json(defaultVdSubscriptionPlans);
 });
 
 // 5. Moderation Reports

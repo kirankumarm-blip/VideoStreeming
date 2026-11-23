@@ -87,7 +87,7 @@ const PrivacyPolicy = () => {
               <li>Delivering low-latency video streaming, adaptive bitrate playback, and live WebRTC webcasts.</li>
               <li>Tracking individual learning progress, scoring multiple-choice quizzes, and generating digital completion certificates.</li>
               <li>Synchronizing collaborative study rooms and student-instructor doubt resolution queues.</li>
-              <li>Enforcing our 10-minute inactivity security guard to automatically log out unattended sessions across open browser tabs.</li>
+              <li>Enforcing our 1-hour inactivity security guard to automatically log out unattended sessions across open browser tabs.</li>
             </ul>
           </section>
 
