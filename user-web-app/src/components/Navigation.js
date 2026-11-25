@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, getCurrentUser, clearTokens } from '../services/api';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
 import { AppearancePopover } from './AppearanceCustomizer';
 import PremiumSelect from './PremiumSelect';
 import { getAssetUrl } from '../utils/assetUrl';
+import { formatDate } from '../utils/dateFormatter';
 import logoImg from '../assets/logo.png';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
-  const user = getCurrentUser();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { language, setLanguage, t } = useLanguage();
   const [searchParams] = useSearchParams();
@@ -237,8 +239,19 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
 
   // Compute categorized search results across courses, videos, resources, and categories
   const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return { courses: [], videos: [], resources: [], categories: [], total: 0 };
+    const rawQuery = searchQuery.trim().toLowerCase();
+    if (!rawQuery) return { courses: [], videos: [], resources: [], categories: [], total: 0 };
+
+    // Expand common codebase & domain typos and synonyms so searches match accurately
+    const queryVariants = [rawQuery];
+    if (rawQuery.includes('couse')) queryVariants.push(rawQuery.replace(/couse/g, 'course'));
+    if (rawQuery.includes('course')) queryVariants.push(rawQuery.replace(/course/g, 'couse'));
+    if (rawQuery.includes('webcast')) queryVariants.push(rawQuery.replace(/webcast/g, 'class'));
+    if (rawQuery.includes('class')) queryVariants.push(rawQuery.replace(/class/g, 'webcast'));
+    if (rawQuery.includes('streeming')) queryVariants.push(rawQuery.replace(/streeming/g, 'streaming'));
+    if (rawQuery.includes('streaming')) queryVariants.push(rawQuery.replace(/streaming/g, 'streeming'));
+
+    const matchesAny = (text) => queryVariants.some(q => text.includes(q));
 
     // Search in Courses
     const matchedCourses = (searchIndex.courses || []).filter(c => {
@@ -247,7 +260,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       const instructor = String(c.instructor || '').toLowerCase();
       const category = String(c.category || '').toLowerCase();
       const tags = Array.isArray(c.tags) ? c.tags.join(' ').toLowerCase() : String(c.tags || '').toLowerCase();
-      return title.includes(q) || desc.includes(q) || instructor.includes(q) || category.includes(q) || tags.includes(q);
+      return matchesAny(title) || matchesAny(desc) || matchesAny(instructor) || matchesAny(category) || matchesAny(tags);
     }).slice(0, 5);
 
     // Search in Videos / Lessons
@@ -257,7 +270,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       const instructor = String(v.instructor || '').toLowerCase();
       const category = String(v.category || '').toLowerCase();
       const tags = Array.isArray(v.tags) ? v.tags.join(' ').toLowerCase() : String(v.tags || '').toLowerCase();
-      return title.includes(q) || desc.includes(q) || instructor.includes(q) || category.includes(q) || tags.includes(q);
+      return matchesAny(title) || matchesAny(desc) || matchesAny(instructor) || matchesAny(category) || matchesAny(tags);
     }).slice(0, 5);
 
     // Search in Resources / Documents / PDFs
@@ -268,7 +281,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
         files.forEach(f => {
           const fName = String(f.file_name || f.fileName || f.name || f.title || '').toLowerCase();
           const fType = String(f.file_type || f.type || '').toLowerCase();
-          if (fName.includes(q) || fType.includes(q)) {
+          if (matchesAny(fName) || matchesAny(fType)) {
             matchedResources.push({
               id: f.id || `${v.id}_res_${fName}`,
               fileName: f.file_name || f.fileName || f.name || f.title || 'Resource Document',
@@ -289,7 +302,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       if (typeof cat === 'object' && cat.sub_categories) {
         subNames = (Array.isArray(cat.sub_categories) ? cat.sub_categories.map(s => typeof s === 'object' ? s.name : s).join(' ') : String(cat.sub_categories)).toLowerCase();
       }
-      return name.includes(q) || subNames.includes(q);
+      return matchesAny(name) || matchesAny(subNames);
     }).slice(0, 4);
 
     const total = matchedCourses.length + matchedVideos.length + matchedResources.length + matchedCategories.length;
@@ -390,17 +403,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   };
 
   const handleLogout = async () => {
-    try {
-      await api.auth.logout(1);
-    } catch (err) {
-      console.error('Logout error', err);
-    } finally {
-      clearTokens();
-      window.history.replaceState(null, '', window.location.pathname + '#/login');
-      navigate('/login', { replace: true });
-      window.location.hash = '/login';
-      window.location.reload();
-    }
+    await logout(1);
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -448,6 +451,9 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           <img 
             src={logoImg} 
             alt="XLurn" 
+            width={140}
+            height={42}
+            decoding="async"
             className="nav-brand-logo"
             style={{ 
               height: '42px', 
@@ -540,7 +546,12 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           <img 
                             src={getAssetUrl(course.thumbnail, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100')} 
                             alt={course.title}
+                            width={62}
+                            height={38}
+                            loading="lazy"
+                            decoding="async"
                             className="search-result-thumb"
+                            style={{ aspectRatio: '16 / 9' }}
                           />
                           <div className="search-result-info">
                             <div className="search-result-title">{highlightMatch(course.title || course.name, searchQuery)}</div>
@@ -571,7 +582,12 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           <img 
                             src={getAssetUrl(video.thumbnail, 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100')} 
                             alt={video.title}
+                            width={62}
+                            height={38}
+                            loading="lazy"
+                            decoding="async"
                             className="search-result-thumb"
+                            style={{ aspectRatio: '16 / 9' }}
                           />
                           <div className="search-result-info">
                             <div className="search-result-title">{highlightMatch(video.title || video.video_title, searchQuery)}</div>
@@ -855,7 +871,11 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           <img 
                             src={getAssetUrl(video.thumbnail, 'https://placehold.co/180x101?text=No+Thumbnail')} 
                             alt={video.title} 
-                            style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                            width={70}
+                            height={40}
+                            loading="lazy"
+                            decoding="async"
+                            style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px', aspectRatio: '16 / 9' }}
                           />
                           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: '2px' }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1032,7 +1052,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                         {!n.read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#7c3aed' }}></span>}
                       </div>
                       <div className="notification-msg" style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{typeof n.message === 'object' ? (n.message?.text || JSON.stringify(n.message)) : String(n.message || '')}</div>
-                      <div className="notification-date" style={{ fontSize: '11px', color: 'var(--text-tertiary, #a1a1aa)', marginTop: '4px' }}>{new Date(n.date).toLocaleString()}</div>
+                      <div className="notification-date" style={{ fontSize: '11px', color: 'var(--text-tertiary, #a1a1aa)', marginTop: '4px' }}>{formatDate(n.date)}</div>
                     </div>
                   ))
                 )}
@@ -1060,7 +1080,15 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               overflow: 'hidden'
             }}>
               {user.avatar ? (
-                <img src={getAssetUrl(user.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img 
+                  src={getAssetUrl(user.avatar)} 
+                  alt="Avatar" 
+                  width={36} 
+                  height={36} 
+                  loading="lazy" 
+                  decoding="async" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
               ) : (
                 (user.name || user.email || 'U').charAt(0).toUpperCase()
               )}

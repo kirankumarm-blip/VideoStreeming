@@ -7,6 +7,7 @@ import { useThemeCustomizer } from '../context/ThemeCustomizerContext';
 import { AppearancePopover } from './AppearanceCustomizer';
 import PremiumSelect from './PremiumSelect';
 import { getAssetUrl } from '../utils/assetUrl';
+import { formatDate } from '../utils/dateFormatter';
 import logoImg from '../assets/logo.png';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
@@ -229,6 +230,9 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
           <img 
             src={logoImg} 
             alt="XLurn" 
+            width={140}
+            height={42}
+            decoding="async"
             className="nav-brand-logo"
             style={{ 
               height: '42px', 
@@ -368,7 +372,11 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                           <img 
                             src={getAssetUrl(video.thumbnail, 'https://placehold.co/180x101?text=No+Thumbnail')} 
                             alt={video.title} 
-                            style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                            width={70}
+                            height={40}
+                            loading="lazy"
+                            decoding="async"
+                            style={{ width: '70px', height: '40px', objectFit: 'cover', borderRadius: '4px', aspectRatio: '16 / 9' }}
                           />
                           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: '2px' }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -522,7 +530,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
                     >
                       <div className="notification-title">{n?.title || n?.heading || 'Notification'}</div>
                       <div className="notification-msg">{n?.message || n?.msg || n?.notificationMessage || n?.notification_message || ''}</div>
-                      <div className="notification-date">{(n?.date || n?.created_at) ? new Date(n.date || n.created_at).toLocaleString() : ''}</div>
+                      <div className="notification-date">{formatDate(n?.date || n?.created_at)}</div>
                     </div>
                   ))
                 )}
@@ -550,7 +558,15 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
               overflow: 'hidden'
             }}>
               {user.avatar ? (
-                <img src={getAssetUrl(user.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img 
+                  src={getAssetUrl(user.avatar)} 
+                  alt="Avatar" 
+                  width={36} 
+                  height={36} 
+                  loading="lazy" 
+                  decoding="async" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
               ) : (
                 (user.name || user.email || 'U').charAt(0).toUpperCase()
               )}

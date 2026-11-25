@@ -5,13 +5,15 @@ import { BarChart, DonutChart, LineChart } from '../components/SVGCharts';
 import { useLanguage } from '../context/LanguageContext';
 import { encryptUrl, decryptUrl } from '../utils/crypto';
 import * as XLSX from 'xlsx';
-import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActionButton } from '../components/PaginatedTable';
+import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActionButton, getUserStatusConfig, USER_STATUS_CONFIG } from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
 import LiveWebcasts from './LiveWebcasts';
 import { getAssetUrl } from '../utils/assetUrl';
+
+export { getUserStatusConfig, USER_STATUS_CONFIG };
 
 const getFormattedSeconds = (sec) => {
   if (sec === undefined || sec === null) return '';
@@ -136,6 +138,139 @@ export const resolveVideoUrl = (item) => {
   if (typeof item === 'string') return resolveMediaUrl(item);
   const raw = item.videoUrl || item.video_url || item.url || item.video || item.streamUrl || item.stream_url || '';
   return resolveMediaUrl(raw);
+};
+
+export const parseQuizFromApi = (rawQuiz, defaultChapterTitle) => {
+  if (!rawQuiz) return null;
+
+  let quizObj = null;
+  if (Array.isArray(rawQuiz)) {
+    if (rawQuiz.length === 0) return null;
+    quizObj = rawQuiz[0];
+  } else if (typeof rawQuiz === 'object') {
+    quizObj = rawQuiz;
+  }
+
+  if (!quizObj || typeof quizObj !== 'object') return null;
+
+  const quizId = quizObj.quiz_id || quizObj.id || null;
+  const quizTitle = quizObj.title || quizObj.quiz_title || quizObj.name || `${defaultChapterTitle || 'Chapter'} Quiz`;
+
+  const rawQuestions = Array.isArray(quizObj.questions) ? quizObj.questions : (Array.isArray(quizObj.question_list) ? quizObj.question_list : []);
+  if (rawQuestions.length === 0) return null;
+
+  const parsedQuestions = rawQuestions.map((q, idx) => {
+    const qId = q.question_id || q.id || idx + 1;
+    const qText = q.question || q.question_text || q.statement || q.title || '';
+    const rawOpts = Array.isArray(q.options) ? q.options : (Array.isArray(q.choices) ? q.choices : (Array.isArray(q.answers) ? q.answers : []));
+
+    let optionsArray = [];
+    let correctIdx = -1;
+
+    if (rawOpts.length > 0) {
+      if (typeof rawOpts[0] === 'object' && rawOpts[0] !== null) {
+        const sortedOpts = [...rawOpts].sort((a, b) => (a.option_order || 0) - (b.option_order || 0));
+        optionsArray = sortedOpts.slice(0, 4).map(opt => ({
+          id: opt.option_id || opt.id || null,
+          option_id: opt.option_id || opt.id || null,
+          text: String(opt.option_text || opt.text || opt.label || opt.option || '')
+        }));
+        correctIdx = sortedOpts.slice(0, 4).findIndex(opt => opt && (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === 'true' || opt.isCorrect === true));
+        if (correctIdx === -1 && q.correct_option_id !== undefined) {
+          correctIdx = sortedOpts.slice(0, 4).findIndex(opt => String(opt.option_id || opt.id) === String(q.correct_option_id));
+        }
+      } else {
+        optionsArray = rawOpts.slice(0, 4).map(opt => String(opt));
+      }
+    }
+
+    if (correctIdx === -1) {
+      const cAns = q.correctAnswer !== undefined ? q.correctAnswer : (q.correct_answer !== undefined ? q.correct_answer : q.answer);
+      if (typeof cAns === 'number' && cAns >= 0 && cAns < optionsArray.length) {
+        correctIdx = cAns;
+      } else if (cAns !== undefined && cAns !== null && String(cAns).trim() !== '') {
+        const foundIndex = optionsArray.findIndex(opt => (typeof opt === 'object' ? opt.text : String(opt)).trim().toLowerCase() === String(cAns).trim().toLowerCase());
+        if (foundIndex !== -1) {
+          correctIdx = foundIndex;
+        } else {
+          const parsedInt = parseInt(cAns, 10);
+          if (!isNaN(parsedInt) && parsedInt >= 0 && parsedInt < optionsArray.length) {
+            correctIdx = parsedInt;
+          }
+        }
+      }
+    }
+
+    const rawQType = String(
+      q.question_type !== undefined && q.question_type !== null && String(q.question_type).trim() !== ''
+        ? q.question_type
+        : (q.type !== undefined && q.type !== null && String(q.type).trim() !== ''
+            ? q.type
+            : (q.questionType !== undefined && q.questionType !== null && String(q.questionType).trim() !== ''
+                ? q.questionType
+                : (q.question_type_name || '1')))
+    ).toLowerCase().trim();
+
+    let typeVal = '1';
+    if (rawQType === '2' || rawQType.includes('true') || rawQType.includes('tf') || rawQType.includes('false')) {
+      typeVal = '2';
+    } else if (rawQType === '3' || rawQType.includes('blank') || rawQType.includes('fill')) {
+      typeVal = '3';
+    } else if (rawQType === '1' || rawQType.includes('mcq') || rawQType.includes('choice')) {
+      typeVal = '1';
+    } else if (!isNaN(parseInt(rawQType, 10)) && parseInt(rawQType, 10) > 0) {
+      typeVal = String(parseInt(rawQType, 10));
+    }
+
+    const isTF = typeVal === '2';
+    const isBlank = typeVal === '3';
+    const isMCQ = !isTF && !isBlank;
+
+    if (isMCQ) {
+      if (correctIdx < 0 || correctIdx >= optionsArray.length) {
+        const chapterPrefix = defaultChapterTitle ? `${defaultChapterTitle}: ` : 'Chapter: ';
+        throw new Error(`${chapterPrefix}Question ${idx + 1}: no valid correct option`);
+      }
+    } else {
+      if (correctIdx === -1 || correctIdx >= 4) {
+        correctIdx = 0;
+      }
+    }
+
+    while (optionsArray.length < 4) {
+      optionsArray.push('');
+    }
+
+    if (optionsArray.length > 4) {
+      optionsArray = optionsArray.slice(0, 4);
+    }
+
+    const qTypeName = q.question_type_name || (typeVal === '1' ? 'Multiple Choice(MCQ)' : (typeVal === '2' ? 'True or False' : 'Fill in the Blank'));
+
+    const tfVal = String(q.tfAnswer || q.tf_answer || q.correct_answer || q.answer || (correctIdx === 0 ? 'true' : 'false')).toLowerCase().includes('false') ? 'false' : 'true';
+    const firstOptText = optionsArray[0] ? (typeof optionsArray[0] === 'object' ? optionsArray[0].text : optionsArray[0]) : '';
+    const blankVal = String(q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || firstOptText || '');
+
+    return {
+      id: qId,
+      existingId: q.question_id || q.id || null,
+      type: typeVal,
+      question_type: typeVal,
+      question_type_name: qTypeName,
+      question: qText,
+      options: optionsArray,
+      correctAnswer: correctIdx,
+      tfAnswer: tfVal,
+      blankAnswer: blankVal
+    };
+  });
+
+  return {
+    id: quizId,
+    existingId: quizId,
+    title: quizTitle,
+    questions: parsedQuestions
+  };
 };
 
 const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride, justContent, selectedAdminId, onTabChange }) => {
@@ -857,129 +992,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     videoSource: 2
   });
 
-  const parseQuizFromApi = (rawQuiz, defaultChapterTitle) => {
-    if (!rawQuiz) return null;
-
-    let quizObj = null;
-    if (Array.isArray(rawQuiz)) {
-      if (rawQuiz.length === 0) return null;
-      quizObj = rawQuiz[0];
-    } else if (typeof rawQuiz === 'object') {
-      quizObj = rawQuiz;
-    }
-
-    if (!quizObj || typeof quizObj !== 'object') return null;
-
-    const quizId = quizObj.quiz_id || quizObj.id || null;
-    const quizTitle = quizObj.title || quizObj.quiz_title || quizObj.name || `${defaultChapterTitle || 'Chapter'} Quiz`;
-
-    const rawQuestions = Array.isArray(quizObj.questions) ? quizObj.questions : (Array.isArray(quizObj.question_list) ? quizObj.question_list : []);
-    if (rawQuestions.length === 0) return null;
-
-    const parsedQuestions = rawQuestions.map((q, idx) => {
-      const qId = q.question_id || q.id || idx + 1;
-      const qText = q.question || q.question_text || q.statement || q.title || '';
-      const rawOpts = Array.isArray(q.options) ? q.options : (Array.isArray(q.choices) ? q.choices : (Array.isArray(q.answers) ? q.answers : []));
-
-      let optionsArray = [];
-      let optionObjectsArray = [];
-      let correctIdx = -1;
-
-      if (rawOpts.length > 0) {
-        if (typeof rawOpts[0] === 'object' && rawOpts[0] !== null) {
-          const sortedOpts = [...rawOpts].sort((a, b) => (a.option_order || 0) - (b.option_order || 0));
-          optionsArray = sortedOpts.slice(0, 4).map(opt => ({
-            id: opt.option_id || opt.id || null,
-            option_id: opt.option_id || opt.id || null,
-            text: String(opt.option_text || opt.text || opt.label || opt.option || '')
-          }));
-          correctIdx = sortedOpts.slice(0, 4).findIndex(opt => opt && (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === 'true' || opt.isCorrect === true));
-          if (correctIdx === -1 && q.correct_option_id !== undefined) {
-            correctIdx = sortedOpts.slice(0, 4).findIndex(opt => String(opt.option_id || opt.id) === String(q.correct_option_id));
-          }
-        } else {
-          optionsArray = rawOpts.slice(0, 4).map(opt => String(opt));
-        }
-      }
-
-      if (correctIdx === -1) {
-        const cAns = q.correctAnswer !== undefined ? q.correctAnswer : (q.correct_answer !== undefined ? q.correct_answer : q.answer);
-        if (typeof cAns === 'number' && cAns >= 0 && cAns < optionsArray.length) {
-          correctIdx = cAns;
-        } else if (cAns !== undefined && cAns !== null && String(cAns).trim() !== '') {
-          const foundIndex = optionsArray.findIndex(opt => (typeof opt === 'object' ? opt.text : String(opt)).trim().toLowerCase() === String(cAns).trim().toLowerCase());
-          if (foundIndex !== -1) {
-            correctIdx = foundIndex;
-          } else {
-            const parsedInt = parseInt(cAns);
-            if (!isNaN(parsedInt) && parsedInt >= 0 && parsedInt < optionsArray.length) {
-              correctIdx = parsedInt;
-            }
-          }
-        }
-      }
-
-      if (correctIdx === -1 || correctIdx >= 4) {
-        correctIdx = 0;
-      }
-
-      while (optionsArray.length < 4) {
-        optionsArray.push('');
-      }
-
-      if (optionsArray.length > 4) {
-        optionsArray = optionsArray.slice(0, 4);
-      }
-
-      const rawQType = String(
-        q.question_type !== undefined && q.question_type !== null && String(q.question_type).trim() !== ''
-          ? q.question_type
-          : (q.type !== undefined && q.type !== null && String(q.type).trim() !== ''
-              ? q.type
-              : (q.questionType !== undefined && q.questionType !== null && String(q.questionType).trim() !== ''
-                  ? q.questionType
-                  : (q.question_type_name || '1')))
-      ).toLowerCase().trim();
-
-      let typeVal = '1';
-      if (rawQType === '2' || rawQType.includes('true') || rawQType.includes('tf') || rawQType.includes('false')) {
-        typeVal = '2';
-      } else if (rawQType === '3' || rawQType.includes('blank') || rawQType.includes('fill')) {
-        typeVal = '3';
-      } else if (rawQType === '1' || rawQType.includes('mcq') || rawQType.includes('choice')) {
-        typeVal = '1';
-      } else if (!isNaN(parseInt(rawQType, 10)) && parseInt(rawQType, 10) > 0) {
-        typeVal = String(parseInt(rawQType, 10));
-      }
-
-      const qTypeName = q.question_type_name || (typeVal === '1' ? 'Multiple Choice(MCQ)' : (typeVal === '2' ? 'True or False' : 'Fill in the Blank'));
-
-      const tfVal = String(q.tfAnswer || q.tf_answer || q.correct_answer || q.answer || (correctIdx === 0 ? 'true' : 'false')).toLowerCase().includes('false') ? 'false' : 'true';
-      const firstOptText = optionsArray[0] ? (typeof optionsArray[0] === 'object' ? optionsArray[0].text : optionsArray[0]) : '';
-      const blankVal = String(q.blankAnswer || q.blank_answer || q.correct_answer || q.answer || firstOptText || '');
-
-      return {
-        id: qId,
-        existingId: q.question_id || q.id || null,
-        type: typeVal,
-        question_type: typeVal,
-        question_type_name: qTypeName,
-        question: qText,
-        options: optionsArray,
-        correctAnswer: correctIdx,
-        tfAnswer: tfVal,
-        blankAnswer: blankVal
-      };
-    });
-
-    return {
-      id: quizId,
-      existingId: quizId,
-      title: quizTitle,
-      questions: parsedQuestions
-    };
-  };
-
   const handleViewCourseDetails = (course) => {
     handleEditCourse(course, true);
   };
@@ -1193,62 +1205,67 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     }
 
     if (Array.isArray(course.chapters) && course.chapters.length > 0) {
-      setChapters(course.chapters.map((ch, idx) => {
-        const exChId = ch.chapter_id || ch.id || null;
-        const rawChVis = ch.visibility_id || ch.visibility || '';
-        const foundChVis = visibilities.find(v => 
-          String(v.id) === String(rawChVis) || 
-          String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
-        );
-        const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visibilities[0]?.id || '');
-        const chTitle = ch.chapter_title || ch.title || `Chapter ${idx + 1}`;
-        return {
-          id: exChId || idx + 1,
-          existingId: exChId,
-          title: chTitle,
-          description: ch.chapter_description || ch.description || '',
-          visibility: chVisVal,
-          order: ch.chapter_order || ch.order || idx + 1,
-          quiz: parseQuizFromApi(ch.quiz, chTitle),
-          videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
-            const exVidId = v.id || v.video_id || null;
-            const urlVal = v.video_url || v.videoUrl || '';
-            const thumbVal = v.thumbnail || v.thumbnailUrl || '';
-            return {
-              id: exVidId || vIdx + 1,
-              existingId: exVidId,
-              title: v.title || `Lesson ${vIdx + 1}`,
-              videoUrl: urlVal,
-              thumbnailUrl: thumbVal,
-              fileName: v.fileName || v.title || 'video.mp4',
-              duration: v.duration || '0',
-              isPreview: v.isPreview || v.type === 1,
-              uploadStatus: urlVal ? 'success' : null,
-              thumbStatus: thumbVal ? 'success' : null,
-              subtitles: v.subtitles || null,
-              subtitleTracks: v.subtitleTracks || v.subtitle_tracks || null,
-              subtitle_tracks: v.subtitleTracks || v.subtitle_tracks || null,
-              transcripts: v.transcripts || null,
-              transcript: v.transcript || null
-            };
-          }),
-          resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
-            const exResId = r.id || r.resource_id || null;
-            const rUrl = decryptUrl(r.file_url || r.fileUrl || r.url || '');
-            return {
-              id: exResId || `res-${rIdx + 1}`,
-              existingId: exResId,
-              title: r.title || r.name || `Resource ${rIdx + 1}`,
-              fileName: r.file_name || r.fileName || r.name || (rUrl ? rUrl.split('/').pop() : 'document.pdf'),
-              fileUrl: rUrl,
-              fileSize: formatResourceSize(r.file_size || r.fileSize || 0),
-              type: r.type || r.file_type || getResourceFileType(r.file_name || r.name || '', ''),
-              uploadStatus: rUrl ? 'success' : null,
-              uploadProgress: 100
-            };
-          })
-        };
-      }));
+      try {
+        setChapters(course.chapters.map((ch, idx) => {
+          const exChId = ch.chapter_id || ch.id || null;
+          const rawChVis = ch.visibility_id || ch.visibility || '';
+          const foundChVis = visibilities.find(v => 
+            String(v.id) === String(rawChVis) || 
+            String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
+          );
+          const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visibilities[0]?.id || '');
+          const chTitle = ch.chapter_title || ch.title || `Chapter ${idx + 1}`;
+          return {
+            id: exChId || idx + 1,
+            existingId: exChId,
+            title: chTitle,
+            description: ch.chapter_description || ch.description || '',
+            visibility: chVisVal,
+            order: ch.chapter_order || ch.order || idx + 1,
+            quiz: parseQuizFromApi(ch.quiz, chTitle),
+            videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
+              const exVidId = v.id || v.video_id || null;
+              const urlVal = v.video_url || v.videoUrl || '';
+              const thumbVal = v.thumbnail || v.thumbnailUrl || '';
+              return {
+                id: exVidId || vIdx + 1,
+                existingId: exVidId,
+                title: v.title || `Lesson ${vIdx + 1}`,
+                videoUrl: urlVal,
+                thumbnailUrl: thumbVal,
+                fileName: v.fileName || v.title || 'video.mp4',
+                duration: v.duration || '0',
+                isPreview: v.isPreview || v.type === 1,
+                uploadStatus: urlVal ? 'success' : null,
+                thumbStatus: thumbVal ? 'success' : null,
+                subtitles: v.subtitles || null,
+                subtitleTracks: v.subtitleTracks || v.subtitle_tracks || null,
+                subtitle_tracks: v.subtitleTracks || v.subtitle_tracks || null,
+                transcripts: v.transcripts || null,
+                transcript: v.transcript || null
+              };
+            }),
+            resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
+              const exResId = r.id || r.resource_id || null;
+              const rUrl = decryptUrl(r.file_url || r.fileUrl || r.url || '');
+              return {
+                id: exResId || `res-${rIdx + 1}`,
+                existingId: exResId,
+                title: r.title || r.name || `Resource ${rIdx + 1}`,
+                fileName: r.file_name || r.fileName || r.name || (rUrl ? rUrl.split('/').pop() : 'document.pdf'),
+                fileUrl: rUrl,
+                fileSize: formatResourceSize(r.file_size || r.fileSize || 0),
+                type: r.type || r.file_type || getResourceFileType(r.file_name || r.name || '', ''),
+                uploadStatus: rUrl ? 'success' : null,
+                uploadProgress: 100
+              };
+            })
+          };
+        }));
+      } catch (err) {
+        showError(err.message || 'Quiz parsing error: no valid correct option');
+        return;
+      }
     } else {
       setChapters([
         {
@@ -2420,7 +2437,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       setCategories(normalizedList);
       return normalizedList;
     } catch (e) {
-      console.error(e);
+      console.error('Failed to fetch categories:', e);
+      if (typeof showError === 'function') {
+        showError(e.message || 'Failed to load categories');
+      }
       setCategories([]);
       return [];
     }
@@ -2454,22 +2474,25 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           console.warn('getAuthorAdmin failed, trying fallback:', e);
         }
 
-        // 2. Fallback to getAthorAdmins
+        // 2. Fallback to getAuthorAdmins / getAthorAdmins
         if (!list || list.length === 0) {
           try {
-            const resOther = await api.vdadminVideos.getAthorAdmins();
-            if (Array.isArray(resOther)) {
-              list = resOther;
-            } else if (resOther && Array.isArray(resOther.data)) {
-              list = resOther.data;
-            } else if (resOther && Array.isArray(resOther.result)) {
-              list = resOther.result;
-            } else if (resOther && typeof resOther === 'object') {
-              const arrKey = Object.keys(resOther).find(k => Array.isArray(resOther[k]));
-              if (arrKey) list = resOther[arrKey];
+            const fetchAdminsFn = api.videos?.getAuthorAdmins || api.videos?.getAthorAdmins || api.vdadminVideos?.getAuthorAdmins || api.vdadminVideos?.getAthorAdmins;
+            if (typeof fetchAdminsFn === 'function') {
+              const resOther = await fetchAdminsFn();
+              if (Array.isArray(resOther)) {
+                list = resOther;
+              } else if (resOther && Array.isArray(resOther.data)) {
+                list = resOther.data;
+              } else if (resOther && Array.isArray(resOther.result)) {
+                list = resOther.result;
+              } else if (resOther && typeof resOther === 'object') {
+                const arrKey = Object.keys(resOther).find(k => Array.isArray(resOther[k]));
+                if (arrKey) list = resOther[arrKey];
+              }
             }
           } catch (e) {
-            console.warn('getAthorAdmins fallback failed:', e);
+            console.warn('getAuthorAdmins fallback failed:', e);
           }
         }
 
@@ -2718,7 +2741,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
         if (obj && typeof obj === 'object') {
           const rawCats = Array.isArray(obj.categories) ? obj.categories : (Array.isArray(obj.category) ? obj.category : []);
-          const normalizedCats = rawCats.map(item => {
+          let normalizedCats = rawCats.map(item => {
             const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
             return {
               ...item,
@@ -2743,7 +2766,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 });
               }
             } catch (fbErr) {
-              console.warn("Fallback categories fetch failed:", fbErr);
+              console.error("Fallback categories fetch failed:", fbErr);
+              if (typeof showError === 'function') {
+                showError(fbErr.message || 'Failed to load categories. Please try again.');
+              }
             }
           }
           setCategories(normalizedCats);
@@ -2880,7 +2906,30 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         }
         return [];
       } catch (err) {
-        console.error('Failed to fetch dropdown data with client', err);
+        console.error('Failed to fetch dropdown data with client:', err);
+        // Attempt fallback category fetch so category dropdown does not remain empty on initial fetch failure
+        try {
+          const directCats = await api.vdcategories.getCategories(clientId, effectiveUploadType, effectiveVideoSource);
+          const rawDirect = Array.isArray(directCats) ? directCats : (directCats && Array.isArray(directCats.data) ? directCats.data : []);
+          if (rawDirect.length > 0) {
+            const normalizedFallback = rawDirect.map(item => {
+              const j = (item && item.json) ? (typeof item.json === 'string' ? JSON.parse(item.json) : item.json) : item;
+              return {
+                ...item,
+                ...j,
+                id: String(item.id || j.id || item.category_id || j.category_id || ''),
+                name: item.name || j.name || item.category_name || j.category_name || item.title || j.title || ''
+              };
+            });
+            setCategories(normalizedFallback);
+            return { categories: normalizedFallback };
+          }
+        } catch (fbErr) {
+          console.error('Direct fallback categories fetch also failed:', fbErr);
+        }
+        if (typeof showError === 'function') {
+          showError(err.message || 'Failed to load category dropdown options. Please refresh or try again.');
+        }
         return [];
       } finally {
         isFetchingDropdownDataRef.current = false;
@@ -3404,61 +3453,66 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
     // 10. Chapters, Videos, Resources, Quiz
     if (Array.isArray(draftObj.chapters) && draftObj.chapters.length > 0) {
-      setChapters(draftObj.chapters.map((ch, idx) => {
-        const exChId = ch.chapter_id || ch.id || null;
-        const rawChVis = ch.visibility_id || ch.visibility || '';
-        const foundChVis = visibilities.find(v => 
-          String(v.id) === String(rawChVis) || 
-          String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
-        );
-        const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visVal);
-        const chTitle = ch.chapter_title || ch.title || `Chapter ${idx + 1}`;
-        return {
-          id: exChId || idx + 1,
-          existingId: exChId,
-          title: chTitle,
-          description: ch.chapter_description || ch.description || '',
-          visibility: chVisVal,
-          order: ch.chapter_order || ch.order || idx + 1,
-          quiz: parseQuizFromApi(ch.quiz, chTitle),
-          videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
-            const exVidId = v.id || v.video_id || null;
-            const rawVidUrl = v.video_url || v.videoUrl || v.url || '';
-            const rawThumbUrl = v.thumbnail || v.thumbnailUrl || v.thumbnail_image || v.thumbnail_url || '';
-            const parsedVidUrl = decryptUrl(rawVidUrl);
-            const parsedThumbUrl = decryptUrl(rawThumbUrl);
-            return {
-              id: exVidId || vIdx + 1,
-              existingId: exVidId,
-              title: v.title || `Lesson ${vIdx + 1}`,
-              fileName: v.fileName || v.video_name || v.name || v.title || (parsedVidUrl ? parsedVidUrl.split('/').pop() : 'video.mp4'),
-              videoUrl: parsedVidUrl,
-              thumbName: v.thumbName || 'thumb.png',
-              thumbnailUrl: parsedThumbUrl,
-              duration: v.duration || '05:00',
-              isPreview: !!v.isPreview || v.type === 1,
-              uploadStatus: parsedVidUrl ? 'success' : null,
-              thumbStatus: parsedThumbUrl ? 'success' : null
-            };
-          }),
-          resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
-            const exResId = r.id || r.resource_id || null;
-            const rawResUrl = r.file_url || r.fileUrl || r.url || '';
-            const parsedResUrl = decryptUrl(rawResUrl);
-            return {
-              id: exResId || `res-${rIdx + 1}`,
-              existingId: exResId,
-              title: r.title || r.name || `Resource ${rIdx + 1}`,
-              fileName: r.fileName || r.file_name || r.name || (parsedResUrl ? parsedResUrl.split('/').pop() : 'document.pdf'),
-              fileUrl: parsedResUrl,
-              fileSize: formatResourceSize(r.fileSize || r.file_size || 0),
-              type: r.type || r.file_type || getResourceFileType(r.fileName || r.file_name || '', ''),
-              uploadStatus: parsedResUrl ? 'success' : null,
-              uploadProgress: 100
-            };
-          })
-        };
-      }));
+      try {
+        setChapters(draftObj.chapters.map((ch, idx) => {
+          const exChId = ch.chapter_id || ch.id || null;
+          const rawChVis = ch.visibility_id || ch.visibility || '';
+          const foundChVis = visibilities.find(v => 
+            String(v.id) === String(rawChVis) || 
+            String(v.name || v.visibility || v.title || '').toLowerCase() === String(rawChVis).toLowerCase()
+          );
+          const chVisVal = foundChVis ? String(foundChVis.id) : String(rawChVis || visVal);
+          const chTitle = ch.chapter_title || ch.title || `Chapter ${idx + 1}`;
+          return {
+            id: exChId || idx + 1,
+            existingId: exChId,
+            title: chTitle,
+            description: ch.chapter_description || ch.description || '',
+            visibility: chVisVal,
+            order: ch.chapter_order || ch.order || idx + 1,
+            quiz: parseQuizFromApi(ch.quiz, chTitle),
+            videos: (Array.isArray(ch.videos) ? ch.videos : (Array.isArray(ch.lessons) ? ch.lessons : [])).map((v, vIdx) => {
+              const exVidId = v.id || v.video_id || null;
+              const rawVidUrl = v.video_url || v.videoUrl || v.url || '';
+              const rawThumbUrl = v.thumbnail || v.thumbnailUrl || v.thumbnail_image || v.thumbnail_url || '';
+              const parsedVidUrl = decryptUrl(rawVidUrl);
+              const parsedThumbUrl = decryptUrl(rawThumbUrl);
+              return {
+                id: exVidId || vIdx + 1,
+                existingId: exVidId,
+                title: v.title || `Lesson ${vIdx + 1}`,
+                fileName: v.fileName || v.video_name || v.name || v.title || (parsedVidUrl ? parsedVidUrl.split('/').pop() : 'video.mp4'),
+                videoUrl: parsedVidUrl,
+                thumbName: v.thumbName || 'thumb.png',
+                thumbnailUrl: parsedThumbUrl,
+                duration: v.duration || '05:00',
+                isPreview: !!v.isPreview || v.type === 1,
+                uploadStatus: parsedVidUrl ? 'success' : null,
+                thumbStatus: parsedThumbUrl ? 'success' : null
+              };
+            }),
+            resources: (Array.isArray(ch.resources) ? ch.resources : (Array.isArray(ch.learning_aids) ? ch.learning_aids : (Array.isArray(ch.attachments) ? ch.attachments : []))).map((r, rIdx) => {
+              const exResId = r.id || r.resource_id || null;
+              const rawResUrl = r.file_url || r.fileUrl || r.url || '';
+              const parsedResUrl = decryptUrl(rawResUrl);
+              return {
+                id: exResId || `res-${rIdx + 1}`,
+                existingId: exResId,
+                title: r.title || r.name || `Resource ${rIdx + 1}`,
+                fileName: r.fileName || r.file_name || r.name || (parsedResUrl ? parsedResUrl.split('/').pop() : 'document.pdf'),
+                fileUrl: parsedResUrl,
+                fileSize: formatResourceSize(r.fileSize || r.file_size || 0),
+                type: r.type || r.file_type || getResourceFileType(r.fileName || r.file_name || '', ''),
+                uploadStatus: parsedResUrl ? 'success' : null,
+                uploadProgress: 100
+              };
+            })
+          };
+        }));
+      } catch (err) {
+        showError(err.message || 'Draft quiz parsing error: no valid correct option');
+        return;
+      }
     } else {
       setChapters([
         {
@@ -4539,7 +4593,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               return;
             }
             if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
-              showError(`Chapter ${i + 1} Quiz (Question ${qIdx + 1}): Correct answer selection is required`);
+              showError(`Chapter ${i + 1}: Question ${qIdx + 1}: no valid correct option`);
               return;
             }
           } else if (isBlank) {
@@ -6499,7 +6553,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           >
             ✕
           </button>
-          <img src={logoImg} alt="XLurn" style={{ height: '40px', objectFit: 'contain' }} />
+          <img src={logoImg} alt="XLurn" width={140} height={40} decoding="async" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
         </div>
         )}
 
@@ -7146,15 +7200,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     }
                     emptyMessage="No users registered under this administrator"
                     renderRow={(user, index) => {
-                      const isUserActive = user.status === true || String(user.status).toLowerCase() === 'true' || String(user.status).toLowerCase() === 'active';
+                      const statusConfig = getUserStatusConfig(user.status);
+                      const isUserActive = statusConfig.key === 'active';
                       return (
                         <tr key={user.id || index}>
                           <td style={{ fontWeight: 600 }}>{user.first_name ? `${user.first_name} ${user.last_name || ''}` : user.name || 'User'}</td>
                           <td>{user.email}</td>
                           <td>{user.phonenumber || user.mobile}</td>
                           <td>
-                            <span className={`badge ${isUserActive ? 'badge-active' : 'badge-disabled'}`}>
-                              {isUserActive ? 'Active' : 'InActive'}
+                            <span 
+                              className={`badge ${statusConfig.className}`}
+                              style={{ background: statusConfig.background, color: statusConfig.color }}
+                            >
+                              {statusConfig.label}
                             </span>
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
@@ -7737,7 +7795,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       />
                     ) : thumbPreviewUrl ? (
                       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                        <img src={thumbPreviewUrl} alt="Thumbnail preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img 
+                          src={thumbPreviewUrl} 
+                          alt="Thumbnail preview" 
+                          width={320}
+                          height={180}
+                          loading="lazy"
+                          decoding="async"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16 / 9' }} 
+                        />
                         <div style={{
                           position: 'absolute',
                           top: 0,
@@ -7947,7 +8013,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <img 
                                   src={thumbPreviewUrl} 
                                   alt="Thumbnail preview" 
-                                  style={{ width: '32px', height: '20px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }} 
+                                  width={32}
+                                  height={20}
+                                  loading="lazy"
+                                  decoding="async"
+                                  style={{ width: '32px', height: '20px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)', aspectRatio: '16 / 9' }} 
                                 />
                               ) : (
                                 <i className="fa-solid fa-file-image" style={{ color: '#3b82f6' }}></i>
@@ -8361,7 +8431,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <img
                                 src={courseThumbnailPreview || decryptUrl(courseThumbnailUrl)}
                                 alt="Course Thumbnail"
-                                style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                                width={80}
+                                height={48}
+                                loading="lazy"
+                                decoding="async"
+                                style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', aspectRatio: '16 / 9' }}
                                 onError={(e) => {
                                   e.target.onerror = null;
                                   e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
@@ -8442,7 +8516,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <img
                                 src={courseBannerPreview || decryptUrl(courseBannerUrl)}
                                 alt="Course Banner"
-                                style={{ width: '100px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                                width={100}
+                                height={48}
+                                loading="lazy"
+                                decoding="async"
+                                style={{ width: '100px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', aspectRatio: '25 / 12' }}
                                 onError={(e) => {
                                   e.target.onerror = null;
                                   e.target.src = 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1000';
@@ -8786,7 +8864,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                                 <img
                                                   src={vid.thumbnailPreview || decryptUrl(vid.thumbnailUrl || vid.thumbnail)}
                                                   alt="Lesson Thumb"
-                                                  style={{ width: '36px', height: '22px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                                  width={36}
+                                                  height={22}
+                                                  loading="lazy"
+                                                  decoding="async"
+                                                  style={{ width: '36px', height: '22px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)', aspectRatio: '16 / 9' }}
                                                   onError={(e) => {
                                                     e.target.onerror = null;
                                                     e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400';
@@ -9459,7 +9541,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <img 
                                 src={thumbUrl} 
                                 alt={video.title || 'Video'} 
-                                style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                                width={80}
+                                height={45}
+                                loading="lazy"
+                                decoding="async"
+                                style={{ width: '80px', height: '45px', borderRadius: '4px', aspectRatio: '16 / 9', objectFit: 'cover' }} 
                                 onError={(e) => {
                                   e.target.onerror = null;
                                   e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
@@ -9675,7 +9761,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <img 
                                   src={courseBanner} 
                                   alt={displayTitle} 
-                                  style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                  width={80}
+                                  height={45}
+                                  loading="lazy"
+                                  decoding="async"
+                                  style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px', aspectRatio: '16 / 9' }} 
                                   onError={(e) => {
                                     e.target.onerror = null;
                                     e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
@@ -9801,7 +9891,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                                 <img 
                                   src={courseBanner} 
                                   alt={displayTitle} 
-                                  style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} 
+                                  width={80}
+                                  height={45}
+                                  loading="lazy"
+                                  decoding="async"
+                                  style={{ width: '80px', height: '45px', objectFit: 'cover', borderRadius: '4px', aspectRatio: '16 / 9' }} 
                                   onError={(e) => {
                                     e.target.onerror = null;
                                     e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800';
@@ -10032,7 +10126,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     }
                     emptyMessage="No users found in this tab status"
                     renderRow={(u, index) => {
-                      const isUActive = u.status === true || String(u.status).toLowerCase() === 'true' || String(u.status).toLowerCase() === 'active';
+                      const statusConfig = getUserStatusConfig(u.status);
+                      const isUActive = statusConfig.key === 'active';
                       return (
                         <tr key={u.id || index}>
                           <td style={{ fontWeight: 600 }}>{u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.name || 'User'}</td>
@@ -10040,8 +10135,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                           <td>{u.phonenumber || u.mobile}</td>
                           <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{u.role || 'user'}</span></td>
                           <td>
-                            <span className={`badge ${isUActive ? 'badge-active' : 'badge-disabled'}`}>
-                              {isUActive ? 'Active' : 'InActive'}
+                            <span 
+                              className={`badge ${statusConfig.className}`}
+                              style={{ background: statusConfig.background, color: statusConfig.color }}
+                            >
+                              {statusConfig.label}
                             </span>
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>

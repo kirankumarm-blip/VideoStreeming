@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api, clearTokens, isValidToken } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import { validatePassword } from '../utils/passwordPolicy';
@@ -97,6 +98,7 @@ const SixDigitOtpInput = ({ value, onChange, disabled }) => {
 };
 
 const Login = ({ initialAuthMode }) => {
+  const { login: authLogin, theme: authTheme, setTheme: authSetTheme } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
@@ -184,21 +186,6 @@ const Login = ({ initialAuthMode }) => {
       buttonText: 'Try Again',
       onConfirm
     });
-  };
-
-  // Server configuration states
-  const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem('server_url') || localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
-
-  const handleSaveServerConfig = (e) => {
-    e.preventDefault();
-    localStorage.setItem('serverUrl', serverUrl);
-    localStorage.setItem('server_url', serverUrl);
-    setShowServerConfig(false);
-    setSuccessMessage('Server URL updated successfully!');
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
   };
 
   useEffect(() => {
@@ -370,23 +357,15 @@ const Login = ({ initialAuthMode }) => {
         token: refreshToken
       };
 
-      // Save tokens and session across all learner storage keys: token (refreshToken) for authorization
-      localStorage.setItem('token', refreshToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('learner_refreshToken', refreshToken);
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('learner_accessToken', accessToken);
+      // Save tokens and session via AuthProvider
+      authLogin(finalUser, { accessToken, refreshToken, token: refreshToken });
       try { sessionStorage.removeItem('tempLoginData'); } catch (e) {}
-      localStorage.setItem('user', JSON.stringify(finalUser));
-      localStorage.setItem('learner_user', JSON.stringify(finalUser));
-      localStorage.setItem('lastUserActivity', Date.now().toString());
       localStorage.removeItem('rememberedPassword');
       sessionStorage.removeItem('rememberedPassword');
       setSuccessMessage('');
       setTimerActive(false);
 
-      window.location.hash = '/';
-      window.location.reload();
+      navigate('/');
     } catch (err) {
       const status = err?.status || err?.statusCode || err?.response?.status;
       const errMsg = String(err?.message || err || '');
@@ -464,7 +443,7 @@ const Login = ({ initialAuthMode }) => {
   const handleResetSubmit = handleForgotSubmit;
 
   // Pre-fill email and password if remembered
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const [theme, setTheme] = useState(() => authTheme || localStorage.getItem('theme') || 'dark');
 
   React.useEffect(() => {
     // Automatically purge legacy saved passwords from browser storage
@@ -489,16 +468,8 @@ const Login = ({ initialAuthMode }) => {
         role_id: 3,
         originalRole: 'USER'
       };
-      localStorage.setItem('token', ssoRefreshToken);
-      localStorage.setItem('accessToken', ssoToken);
-      localStorage.setItem('refreshToken', ssoRefreshToken);
-      localStorage.setItem('learner_accessToken', ssoToken);
-      localStorage.setItem('learner_refreshToken', ssoRefreshToken);
-      localStorage.setItem('user', JSON.stringify(finalUser));
-      localStorage.setItem('learner_user', JSON.stringify(finalUser));
-      localStorage.setItem('lastUserActivity', Date.now().toString());
+      authLogin(finalUser, { accessToken: ssoToken, refreshToken: ssoRefreshToken, token: ssoRefreshToken });
       navigate('/');
-      window.location.reload();
       return;
     }
 
@@ -521,7 +492,11 @@ const Login = ({ initialAuthMode }) => {
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      if (authSetTheme) authSetTheme(next);
+      return next;
+    });
   };
 
   return (
@@ -536,7 +511,7 @@ const Login = ({ initialAuthMode }) => {
         left: '24px',
         zIndex: 100
       }}>
-        <img src={logoImg} alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src={logoImg} alt="XLurn" width={180} height={50} decoding="async" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Controls: Language Switcher & Theme Toggle */}

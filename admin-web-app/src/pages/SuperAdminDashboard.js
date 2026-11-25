@@ -11,6 +11,9 @@ import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
 import { decryptUrl } from '../utils/crypto';
 import { getAssetUrl } from '../utils/assetUrl';
+import { formatDate } from '../utils/dateFormatter';
+import { getUserStatusConfig, USER_STATUS_CONFIG } from '../utils/statusConfig';
+export { getUserStatusConfig, USER_STATUS_CONFIG };
 
 const resolveMediaUrl = (rawUrl) => {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
@@ -2077,7 +2080,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
           >
             ✕
           </button>
-          <img src={logoImg} alt="XLurn" style={{ height: '40px', objectFit: 'contain' }} />
+          <img src={logoImg} alt="XLurn" width={140} height={40} decoding="async" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
         </div>
         )}
 
@@ -2896,7 +2899,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             {act.action.toUpperCase()}
                           </span>
                         </td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{new Date(act.time).toLocaleString()}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{formatDate(act.time)}</td>
                       </tr>
                     )}
                   />
@@ -3003,7 +3006,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           {log.details && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '8px' }}>({log.details})</span>}
                         </td>
                         <td><code>{log.ip}</code></td>
-                        <td>{new Date(log.timestamp).toLocaleString()}</td>
+                        <td>{formatDate(log.timestamp)}</td>
                       </tr>
                     )}
                   />
@@ -3082,10 +3085,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     data={(Array.isArray(users) ? users : [])
                       .filter(u => {
                         if (!u) return false;
-                        if (activeTab === 'users_all' || activeTab === 'users_blocked') return true;
-                        const uStatus = String(u.status || '').toLowerCase();
-                        if (activeTab === 'users_active') return uStatus === 'active';
-                        if (activeTab === 'users_inactive') return uStatus === 'disabled';
+                        if (activeTab === 'users_all') return true;
+                        const statusConfig = getUserStatusConfig(u.status);
+                        if (activeTab === 'users_blocked') return statusConfig.key === 'blocked';
+                        if (activeTab === 'users_active') return statusConfig.key === 'active';
+                        if (activeTab === 'users_inactive') return statusConfig.key === 'inactive' || statusConfig.key === 'disabled';
                         return true;
                       })
                     }
@@ -3095,8 +3099,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       const emailVal = u.user_email || u.email || '';
                       const mobileVal = u.phonenumber || u.mobile || '';
                       const roleVal = u.role || 'user';
-                      const statusVal = String(u.status || '').toLowerCase();
-                      const isActive = statusVal === 'active' || statusVal === 'blocked';
+                      const statusConfig = getUserStatusConfig(u.status);
                       const idVal = u.id || u.user_id || idx;
                       return (
                         <tr key={idVal}>
@@ -3105,8 +3108,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           <td>{mobileVal}</td>
                           <td><span style={{ fontSize: '11px', textTransform: 'uppercase' }}>{roleVal}</span></td>
                           <td>
-                            <span className={`badge ${statusVal === 'blocked' ? 'badge-disabled' : (isActive ? 'badge-active' : 'badge-disabled')}`}>
-                              {statusVal ? statusVal.toUpperCase() : 'ACTIVE'}
+                            <span 
+                              className={`badge ${statusConfig.className}`}
+                              style={{
+                                background: statusConfig.background,
+                                color: statusConfig.color
+                              }}
+                            >
+                              {statusConfig.label}
                             </span>
                           </td>
                         </tr>
@@ -3154,7 +3163,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                               {String(actionVal).toUpperCase()}
                             </span>
                           </td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{timeVal ? new Date(timeVal).toLocaleString() : 'N/A'}</td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{formatDate(timeVal)}</td>
                         </tr>
                       );
                     }}
@@ -3178,7 +3187,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                           <img 
                             src={resolveThumbnailUrl(v) || 'https://placehold.co/180x101?text=No+Thumbnail'}
                             alt="Thumb" 
-                            style={{ width: '80px', borderRadius: '4px', aspectRatio: '16/9', objectFit: 'cover' }} 
+                            width={80}
+                            height={45}
+                            loading="lazy"
+                            decoding="async"
+                            style={{ width: '80px', height: '45px', borderRadius: '4px', aspectRatio: '16 / 9', objectFit: 'cover' }} 
                             onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800'; }}
                           />
                         </td>

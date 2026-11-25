@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getCurrentUser, api } from '../services/api';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 const PLAN_STYLES = {
@@ -29,7 +30,7 @@ const PLAN_STYLES = {
 
 const Plans = () => {
   const { t } = useLanguage();
-  const currentUser = getCurrentUser();
+  const { user: currentUser, plan: userPlan, updatePlan } = useAuth();
 
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
   const [plansData, setPlansData] = useState([]);
@@ -85,7 +86,7 @@ const Plans = () => {
 
   // Determine if a plan is the user's current plan
   const isCurrentPlan = (plan) => {
-    const currentPlanVal = String(currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1').toLowerCase();
+    const currentPlanVal = String(userPlan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1').toLowerCase();
     const currentPlanName = String(currentUser?.plan_name || '').toLowerCase();
     const planName = String(plan.plan_name || '').toLowerCase();
     const planId = String(plan.plan_id || '');
@@ -106,15 +107,20 @@ const Plans = () => {
     return false;
   };
 
-  // Show "Coming soon!" alert popup on click of upgrade
+  // Handle plan upgrade/subscription selection
   const handleUpgradeClick = (plan) => {
     if (plan && isCurrentPlan(plan)) return;
-    setCustomAlert({
-      show: true,
-      title: 'Coming Soon!',
-      message: 'Coming soon!',
-      buttonText: 'OK'
-    });
+    try {
+      updatePlan(plan);
+      setCustomAlert({
+        show: true,
+        title: 'Plan Upgraded!',
+        message: `You have successfully switched to the ${plan.plan_name || 'selected'} plan. Enjoy your learning!`,
+        buttonText: 'OK'
+      });
+    } catch (e) {
+      console.error('Upgrade plan error', e);
+    }
   };
 
   const faqs = [

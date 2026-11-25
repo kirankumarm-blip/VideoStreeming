@@ -3,7 +3,8 @@ import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
 export { getAssetUrl, getAssetBaseUrl, getApiBaseUrl, calculateBackoffDelay };
 
 export const getBaseUrl = () => {
-  return getApiBaseUrl() || 'https://uat-02-admin-api.darpanx.com/webhook';
+  const url = getApiBaseUrl() || process.env.REACT_APP_WEBHOOK_BASE_URL || 'https://uat-02-admin-api.darpanx.com/webhook';
+  return (url || '').trim().replace(/\/+$/, '');
 };
 
 // Token validation helper
@@ -175,6 +176,8 @@ export const clearTokens = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('admin_session_expires_at');
     localStorage.removeItem('token');
+    localStorage.removeItem('server_url');
+    localStorage.removeItem('serverUrl');
     localStorage.removeItem('rememberedPassword');
     localStorage.removeItem('lastUserActivity');
   } catch (e) {}
@@ -427,7 +430,8 @@ async function request(endpoint, options = {}) {
   }
 
   const isDarpanx = url.includes('darpanx.com');
-  const shouldUseCredentials = !isDarpanx; // darpanx.com does not support credentials and rejects with CORS error
+  const isRelativeWebhook = url.startsWith('/webhook');
+  const shouldUseCredentials = !isDarpanx && !isRelativeWebhook; // darpanx.com and dev proxy do not support credentials and reject with CORS error
 
   const config = {
     ...options,
@@ -666,8 +670,7 @@ async function uploadRequest(endpoint, options = {}) {
   }
   const config = {
     ...options,
-    headers,
-    credentials: 'include'
+    headers
   };
   const response = await fetch(url, config);
   if (!response.ok) {
@@ -1529,6 +1532,19 @@ export const api = {
         expectArray: true
       });
     },
+    getAuthorAdmins: (params = {}) => {
+      const user = getCurrentUser();
+      const isSuperAdmin = user && user.role === 'super_admin';
+      const endpoint = isSuperAdmin ? '/dashboard/super-admin' : '/vdadminVideos';
+      return request(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          formstep: "getAthorAdmins"
+        }),
+        expectArray: true
+      });
+    },
+    // Backward compatibility alias for legacy typo getAthorAdmins
     getAthorAdmins: (params = {}) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
@@ -1639,7 +1655,9 @@ export const api = {
     registerVideo: async (payload) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
-      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
+      const cleanBase = (getBaseUrl() || '').trim().replace(/\/+$/, '');
+      const endpoint = isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos';
+      const url = `${cleanBase}/${endpoint}`;
       const token = getRefreshToken();
       const bodyObj = { ...payload };
       const step = bodyObj.formstep || bodyObj.formStep || 'uploadVideo';
@@ -1652,15 +1670,33 @@ export const api = {
       if (token) {
         bodyObj.token = token;
       }
-      const response = await fetch(url, {
+      const isDarpanx = url.includes('darpanx.com');
+      const isRelativeWebhook = url.startsWith('/webhook');
+      const shouldUseCredentials = !isDarpanx && !isRelativeWebhook;
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (isValidToken(token)) {
+        headers['Authorization'] = `Bearer ${token.trim()}`;
+      }
+      const fetchConfig = {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        credentials: 'include',
-        body: JSON.stringify(bodyObj)
-      });
+        headers,
+        body: JSON.stringify(bodyObj),
+        ...(shouldUseCredentials ? { credentials: 'include' } : {})
+      };
+      let response;
+      try {
+        response = await fetch(url, fetchConfig);
+      } catch (fetchErr) {
+        if (fetchConfig.credentials === 'include') {
+          const fallbackConfig = { ...fetchConfig };
+          delete fallbackConfig.credentials;
+          response = await fetch(url, fallbackConfig);
+        } else {
+          throw fetchErr;
+        }
+      }
       if (!response.ok) {
         throw new Error(`Failed to register video metadata: ${response.status}`);
       }
@@ -1698,30 +1734,49 @@ export const api = {
       if (token) {
         bodyObj.token = token;
       }
+      const cleanBase = (getBaseUrl() || '').trim().replace(/\/+$/, '');
       const candidateUrls = isSuperAdmin
         ? [
-            `${getBaseUrl()}/vdSuperAdminVideos`,
-            `${getBaseUrl()}/vddashboard/super-admin`,
-            `${getBaseUrl()}/dashboard/super-admin`,
-            `${getBaseUrl()}/vdadminVideos`
+            `${cleanBase}/vdSuperAdminVideos`,
+            `${cleanBase}/vddashboard/super-admin`,
+            `${cleanBase}/dashboard/super-admin`,
+            `${cleanBase}/vdadminVideos`
           ]
         : [
-            `${getBaseUrl()}/vdadminVideos`,
-            `${getBaseUrl()}/adminVideos`
+            `${cleanBase}/vdadminVideos`,
+            `${cleanBase}/adminVideos`
           ];
 
       let lastError = null;
       for (const targetUrl of candidateUrls) {
         try {
-          const response = await fetch(targetUrl, {
+          const isDarpanx = targetUrl.includes('darpanx.com');
+          const isRelativeWebhook = targetUrl.startsWith('/webhook');
+          const shouldUseCredentials = !isDarpanx && !isRelativeWebhook;
+          const headers = {
+            'Content-Type': 'application/json',
+          };
+          if (isValidToken(token)) {
+            headers['Authorization'] = `Bearer ${token.trim()}`;
+          }
+          const fetchConfig = {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : ''
-            },
-            credentials: 'include',
-            body: JSON.stringify(bodyObj)
-          });
+            headers,
+            body: JSON.stringify(bodyObj),
+            ...(shouldUseCredentials ? { credentials: 'include' } : {})
+          };
+          let response;
+          try {
+            response = await fetch(targetUrl, fetchConfig);
+          } catch (e) {
+            if (fetchConfig.credentials === 'include') {
+              const fallbackConfig = { ...fetchConfig };
+              delete fallbackConfig.credentials;
+              response = await fetch(targetUrl, fallbackConfig);
+            } else {
+              throw e;
+            }
+          }
           if (response.ok) {
             const text = await response.text();
             try {
@@ -1751,31 +1806,50 @@ export const api = {
         bodyObj.token = token;
       }
 
+      const cleanBase = (getBaseUrl() || '').trim().replace(/\/+$/, '');
       const candidateUrls = isSuperAdmin
         ? [
-            `${getBaseUrl()}/vdSuperAdminVideos`,
-            `${getBaseUrl()}/vddashboard/super-admin`,
-            `${getBaseUrl()}/dashboard/super-admin`,
-            `${getBaseUrl()}/vdadminVideos`
+            `${cleanBase}/vdSuperAdminVideos`,
+            `${cleanBase}/vddashboard/super-admin`,
+            `${cleanBase}/dashboard/super-admin`,
+            `${cleanBase}/vdadminVideos`
           ]
         : [
-            `${getBaseUrl()}/vdadminVideos`,
-            `${getBaseUrl()}/adminVideos`
+            `${cleanBase}/vdadminVideos`,
+            `${cleanBase}/adminVideos`
           ];
 
       let lastError = null;
       for (const targetUrl of candidateUrls) {
         try {
           console.log(`[updateTranscriptCourse] Calling ${targetUrl} with formstep=transcriptCourse...`);
-          const response = await fetch(targetUrl, {
+          const isDarpanx = targetUrl.includes('darpanx.com');
+          const isRelativeWebhook = targetUrl.startsWith('/webhook');
+          const shouldUseCredentials = !isDarpanx && !isRelativeWebhook;
+          const headers = {
+            'Content-Type': 'application/json',
+          };
+          if (isValidToken(token)) {
+            headers['Authorization'] = `Bearer ${token.trim()}`;
+          }
+          const fetchConfig = {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : ''
-            },
-            credentials: 'include',
-            body: JSON.stringify(bodyObj)
-          });
+            headers,
+            body: JSON.stringify(bodyObj),
+            ...(shouldUseCredentials ? { credentials: 'include' } : {})
+          };
+          let response;
+          try {
+            response = await fetch(targetUrl, fetchConfig);
+          } catch (e) {
+            if (fetchConfig.credentials === 'include') {
+              const fallbackConfig = { ...fetchConfig };
+              delete fallbackConfig.credentials;
+              response = await fetch(targetUrl, fallbackConfig);
+            } else {
+              throw e;
+            }
+          }
           if (response.ok) {
             const text = await response.text();
             try {

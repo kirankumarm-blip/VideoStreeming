@@ -171,21 +171,6 @@ const Login = () => {
     }
   }, []);
 
-  // Server configuration states
-  const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem('server_url') || localStorage.getItem('serverUrl') || 'http://localhost:5000/api');
-
-  const handleSaveServerConfig = (e) => {
-    e.preventDefault();
-    localStorage.setItem('serverUrl', serverUrl);
-    localStorage.setItem('server_url', serverUrl);
-    setShowServerConfig(false);
-    setSuccessMessage('Server URL updated successfully!');
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  };
-
   useEffect(() => {
     let interval = null;
     if (timerActive && timer > 0) {
@@ -570,7 +555,7 @@ const Login = () => {
         left: '24px',
         zIndex: 100
       }}>
-        <img src={logoImg} alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src={logoImg} alt="XLurn" width={180} height={50} decoding="async" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Controls: Language Switcher & Theme Toggle */}

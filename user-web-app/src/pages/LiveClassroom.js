@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getCurrentUser, getAccessToken, isValidToken } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { getAccessToken, isValidToken } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl } from '../utils/apiUrl';
@@ -69,7 +70,8 @@ const LiveClassroom = () => {
 
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const currentUser = getCurrentUser() || {};
+  const { user } = useAuth();
+  const currentUser = user || {};
 
   const [liveClass, setLiveClass] = useState(null);
   const [loading, setLoading] = useState(true);

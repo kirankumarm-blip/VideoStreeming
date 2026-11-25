@@ -11,7 +11,47 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 5050;
 
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Range',
+    'X-Upload-Id',
+    'X-Chunk-Index',
+    'X-Correlation-ID',
+    'X-Request-ID'
+  ],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'ETag']
+}));
+
+app.options('*', cors({
+  origin: (origin, callback) => {
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Range',
+    'X-Upload-Id',
+    'X-Chunk-Index',
+    'X-Correlation-ID',
+    'X-Request-ID'
+  ],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'ETag']
+}));
 app.use(express.json());
 
 // Normalize double slashes in URL paths (e.g. /uploads//file.mp4 -> /uploads/file.mp4)
@@ -66,8 +106,14 @@ app.get('/uploads/:filename(*)', async (req, res, next) => {
   const filePath = path.join(staticUploadsDir, cleanFilename);
   const ext = path.extname(cleanFilename).toLowerCase();
 
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
+  const reqOrigin = req.headers.origin;
+  if (reqOrigin) {
+    res.header('Access-Control-Allow-Origin', reqOrigin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range, Authorization, X-Upload-Id, X-Chunk-Index');
 
   // 1. If file exists locally on disk, stream it
   if (fs.existsSync(filePath) && !fs.statSync(filePath).isDirectory()) {
@@ -673,6 +719,10 @@ process.on('unhandledRejection', (reason) => {
   console.warn('[Upload Service Warning] Unhandled rejection safely handled:', reason?.message || reason);
 });
 
-app.listen(PORT, () => {
-  console.log(`Chunked upload service running on port ${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Chunked upload service running on http://0.0.0.0:${PORT} and http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+  console.error('[Upload Service Error]:', err.message);
 });

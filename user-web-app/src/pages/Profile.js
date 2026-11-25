@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, setCurrentUser, getCurrentUser } from '../services/api';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import PaginatedTable from '../components/PaginatedTable';
 import { getAssetUrl } from '../utils/assetUrl';
 import { validatePassword } from '../utils/passwordPolicy';
+import { formatDate } from '../utils/dateFormatter';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user: authUser, updateUser } = useAuth();
   const fileInputRef = useRef(null);
 
   const [profile, setProfile] = useState(null);
@@ -200,7 +203,7 @@ const Profile = () => {
       const data = (raw && typeof raw === 'object' && 'json' in raw) ? raw.json : raw;
       const userPayload = data?.data || data?.user || data || {};
 
-      const localUser = getCurrentUser() || {};
+      const localUser = authUser || {};
       const resName = userPayload.name || userPayload.fullname || localUser.name || 'User';
       const resEmail = userPayload.email || localUser.email || 'user@lurnax.com';
       const resPhone = userPayload.phonenumber || userPayload.phone_number || userPayload.mobile || userPayload.phone || localUser.phonenumber || localUser.mobile || '';
@@ -224,7 +227,7 @@ const Profile = () => {
         setAvatarPreview(getAssetUrl(mergedUser.avatar));
       }
     } catch (e) {
-      const localUser = getCurrentUser() || { name: 'User', email: 'user@lurnax.com' };
+      const localUser = authUser || { name: 'User', email: 'user@lurnax.com' };
       setProfile(localUser);
       setName(localUser.name || '');
       setEmail(localUser.email || 'user@lurnax.com');
@@ -279,14 +282,12 @@ const Profile = () => {
       const res = await api.auth.updateProfile(formData);
       setSuccess('Profile photo updated successfully!');
       
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        setCurrentUser({
-          ...currentUser,
-          name: res.user?.name || currentUser.name,
-          avatar: res.user?.avatar || currentUser.avatar
-        });
-      }
+      const newAvatar = res?.user?.avatar || res?.avatar;
+      const newName = res?.user?.name || res?.name;
+      updateUser({
+        ...(newName ? { name: newName } : {}),
+        ...(newAvatar ? { avatar: newAvatar } : {})
+      });
       fetchProfile();
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
@@ -317,21 +318,17 @@ const Profile = () => {
           avatarFormData.append('name', name);
           avatarFormData.append('mobile', mobile);
           avatarFormData.append('avatar', avatarFile);
-          await api.auth.updateProfile(avatarFormData);
+          const avRes = await api.auth.updateProfile(avatarFormData);
+          if (avRes?.user?.avatar) {
+            payload.avatar = avRes.user.avatar;
+          }
         } catch (avErr) {
           console.warn('Avatar upload fallback error:', avErr);
         }
       }
 
-      // 2. Update local profile state without storing profile details in localStorage
-      const currentUser = getCurrentUser() || {};
-      const updatedUser = {
-        ...currentUser,
-        name,
-        mobile,
-        phonenumber: mobile,
-        bio
-      };
+      // 2. Update via AuthProvider to ensure single source of truth across the app
+      const updatedUser = updateUser(payload);
       setProfile(prev => ({
         ...(prev || {}),
         ...updatedUser
@@ -381,7 +378,7 @@ const Profile = () => {
       return;
     }
 
-    const userEmail = currentProfile.email || profile?.email || getCurrentUser()?.email;
+    const userEmail = currentProfile.email || profile?.email || authUser?.email;
     if (!userEmail) {
       setError('User email not found. Please log in again.');
       return;
@@ -470,7 +467,7 @@ const Profile = () => {
     }
   ];
 
-  const currentProfile = profile || getCurrentUser() || { name: 'User', email: 'user@lurnax.com' };
+  const currentProfile = profile || authUser || { name: 'User', email: 'user@lurnax.com' };
 
   return (
     <div className="profile-page-wrapper" style={{
@@ -593,7 +590,15 @@ const Profile = () => {
                 userSelect: 'none'
               }}>
                 {avatarPreview ? (
-                  <img src={avatarPreview} alt="User Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img 
+                    src={avatarPreview} 
+                    alt="User Avatar" 
+                    width={100} 
+                    height={100} 
+                    loading="lazy" 
+                    decoding="async" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
                 ) : (
                   (name || currentProfile.name || currentProfile.email || 'U').charAt(0).toUpperCase()
                 )}
@@ -976,7 +981,7 @@ const Profile = () => {
                   renderRow={(dev, i) => (
                     <tr key={i}>
                       <td style={{ fontSize: '12px', fontFamily: 'monospace' }}>{dev.agent}</td>
-                      <td style={{ fontSize: '12px' }}>{new Date(dev.lastLogin).toLocaleString()}</td>
+                      <td style={{ fontSize: '12px' }}>{formatDate(dev.lastLogin)}</td>
                       <td>
                         <span style={{
                           fontSize: '11px',

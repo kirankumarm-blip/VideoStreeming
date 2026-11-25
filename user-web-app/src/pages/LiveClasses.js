@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getCurrentUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { getApiBaseUrl } from '../utils/apiUrl';
 import { getAssetBaseUrl } from '../utils/assetUrl';
 import { logFormError, extractRequestId } from '../utils/formErrorHandler';
@@ -130,7 +130,8 @@ export const getNextUpcomingSession = (classes, referenceTime = Date.now()) => {
 const LiveClasses = ({ initialDemoMode = false }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const currentUser = getCurrentUser() || {};
+  const { user } = useAuth();
+  const currentUser = user || {};
 
   const [classes, setClasses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -733,10 +734,15 @@ const LiveClasses = ({ initialDemoMode = false }) => {
                   <img
                     src={cls.thumbnail}
                     alt={cls.title}
+                    width={320}
+                    height={180}
+                    loading="lazy"
+                    decoding="async"
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover'
+                      objectFit: 'cover',
+                      aspectRatio: '16 / 9'
                     }}
                   />
 

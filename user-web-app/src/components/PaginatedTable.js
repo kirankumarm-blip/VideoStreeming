@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import PremiumSelect from './PremiumSelect';
+import { formatDate } from '../utils/dateFormatter';
+import { getUserStatusConfig, USER_STATUS_CONFIG } from '../utils/statusConfig';
+export { getUserStatusConfig, USER_STATUS_CONFIG };
 
 // Helper for Initials Avatar
 export const UserAvatar = ({ name = '', index = 0, style = {} }) => {
@@ -53,24 +56,29 @@ export const UserAvatar = ({ name = '', index = 0, style = {} }) => {
 };
 
 // Helper for Status Badge
-export const TableStatusBadge = ({ status = 'Active', style = {} }) => {
-  const isActive = status === true || String(status).toLowerCase() === 'true' || String(status).toLowerCase() === 'active';
+export const TableStatusBadge = ({ status, style = {} }) => {
+  const config = getUserStatusConfig(status);
   return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '6px 14px',
-      borderRadius: '20px',
-      fontSize: '12px',
-      fontWeight: 600,
-      background: isActive ? '#dcfce7' : '#fee2e2',
-      color: isActive ? '#15803d' : '#b91c1c',
-      ...style
-    }}>
-      {isActive ? 'Active' : 'InActive'}
+    <span
+      className={`badge ${config.className}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '6px 14px',
+        borderRadius: '20px',
+        fontSize: '12px',
+        fontWeight: 600,
+        background: config.background,
+        color: config.color,
+        ...style
+      }}
+    >
+      {config.label}
     </span>
   );
 };
+
+export const UserStatusBadge = TableStatusBadge;
 
 // Helper for Role Badge
 export const TableRoleBadge = ({ role = 'User', style = {} }) => {
@@ -243,7 +251,10 @@ const PaginatedTable = ({
     if (labelStr.includes('mobile') || labelStr.includes('phone')) return item.phonenumber || item.mobile || item.phone;
     if (labelStr.includes('status')) return item.status;
     if (labelStr.includes('role')) return item.role;
-    if (labelStr.includes('date') || labelStr.includes('time') || labelStr.includes('created')) return item.date || item.timestamp || item.created_at;
+    if (labelStr.includes('date') || labelStr.includes('time') || labelStr.includes('created')) {
+      const rawDate = item.date || item.timestamp || item.created_at || item.submitted_at || item.watched_at;
+      return formatDate(rawDate);
+    }
 
     const camelKey = labelStr.replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
     const snakeKey = labelStr.replace(/[^a-zA-Z0-9]+/g, '_');

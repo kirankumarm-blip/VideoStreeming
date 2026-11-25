@@ -750,6 +750,16 @@ select option {
   color: #ef4444;
 }
 
+.badge-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.badge-unknown {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+}
+
 /* Animations */
 @keyframes pulse {
   0% { transform: scale(1); }

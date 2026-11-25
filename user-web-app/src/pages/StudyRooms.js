@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getCurrentUser, getAccessToken } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { getAccessToken } from '../services/api';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
 import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
 
 const StudyRooms = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const user = getCurrentUser() || {};
+  const { user: authUser } = useAuth();
+  const user = authUser || {};
 
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -529,7 +531,11 @@ const StudyRooms = () => {
                 <img
                   src={room.thumbnail}
                   alt={room.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
+                  width={320}
+                  height={170}
+                  loading="lazy"
+                  decoding="async"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85, aspectRatio: '16 / 9' }}
                 />
 
                 {/* Live Badge */}

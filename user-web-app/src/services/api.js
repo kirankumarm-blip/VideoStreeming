@@ -22,8 +22,18 @@ export {
   handleFormApiError 
 };
 
-const getBaseUrl = () => {
-  return 'https://uat-02-admin-api.darpanx.com/webhook';
+export const getBaseUrl = () => {
+  let url = '';
+  try {
+    url = process.env.REACT_APP_WEBHOOK_BASE_URL ||
+          process.env.VITE_WEBHOOK_BASE_URL ||
+          (process.env.REACT_APP_API_BASE_URL && process.env.REACT_APP_API_BASE_URL.includes('/webhook') ? process.env.REACT_APP_API_BASE_URL : '') ||
+          (process.env.VITE_API_BASE_URL && process.env.VITE_API_BASE_URL.includes('/webhook') ? process.env.VITE_API_BASE_URL : '') ||
+          'https://uat-02-admin-api.darpanx.com/webhook';
+  } catch (e) {
+    url = 'https://uat-02-admin-api.darpanx.com/webhook';
+  }
+  return (url || '').trim().replace(/\/+$/, '');
 };
 
 // Token validation helper
@@ -83,6 +93,8 @@ export const clearTokens = () => {
   localStorage.removeItem('admin_refreshToken');
   localStorage.removeItem('rememberedPassword');
   localStorage.removeItem('lastUserActivity');
+  localStorage.removeItem('server_url');
+  localStorage.removeItem('serverUrl');
   sessionStorage.removeItem('accessToken');
   sessionStorage.removeItem('refreshToken');
   sessionStorage.removeItem('token');
@@ -1010,7 +1022,9 @@ export const api = {
     registerVideo: async (payload) => {
       const user = getCurrentUser();
       const isSuperAdmin = user && user.role === 'super_admin';
-      const url = `${getBaseUrl()}/${isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos'}`;
+      const cleanBase = (getBaseUrl() || '').trim().replace(/\/+$/, '');
+      const endpoint = isSuperAdmin ? 'vdSuperAdminVideos' : 'vdadminVideos';
+      const url = `${cleanBase}/${endpoint}`;
       const token = getRefreshToken();
       const bodyObj = {
         ...payload,
@@ -1019,14 +1033,33 @@ export const api = {
       if (token) {
         bodyObj.token = token;
       }
-      const response = await fetch(url, {
+      const isDarpanx = url.includes('darpanx.com');
+      const isRelativeWebhook = url.startsWith('/webhook');
+      const shouldUseCredentials = !isDarpanx && !isRelativeWebhook;
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (isValidToken(token)) {
+        headers['Authorization'] = `Bearer ${token.trim()}`;
+      }
+      const fetchConfig = {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify(bodyObj)
-      });
+        headers,
+        body: JSON.stringify(bodyObj),
+        ...(shouldUseCredentials ? { credentials: 'include' } : {})
+      };
+      let response;
+      try {
+        response = await fetch(url, fetchConfig);
+      } catch (fetchErr) {
+        if (fetchConfig.credentials === 'include') {
+          const fallbackConfig = { ...fetchConfig };
+          delete fallbackConfig.credentials;
+          response = await fetch(url, fallbackConfig);
+        } else {
+          throw fetchErr;
+        }
+      }
       if (!response.ok) {
         throw new Error(`Failed to register video metadata: ${response.status}`);
       }

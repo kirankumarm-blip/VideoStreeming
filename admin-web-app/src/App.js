@@ -15,12 +15,22 @@ import { ROLES } from './constants/roles';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import RoleRoute from './components/auth/RoleRoute';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
+import { validateApiConfiguration } from './utils/apiUrl';
 
-// Clean up any legacy password storage on startup
+// Clean up any legacy insecure storage keys on startup
 try {
+  localStorage.removeItem('server_url');
+  localStorage.removeItem('serverUrl');
   localStorage.removeItem('rememberedPassword');
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
+
+// Validate API configuration on application startup
+try {
+  validateApiConfiguration();
+} catch (e) {
+  console.error('API configuration validation failed:', e.message);
+}
 
 // Check for cross-portal SSO token handoff (e.g. redirected from User Portal)
 try {
@@ -263,8 +273,15 @@ const AppLayout = ({ theme, setTheme }) => {
             </ProtectedRoute>
           } />
 
-          {/* Live Webcast Studio Path - Authorization guard */}
+          {/* Live Webcast Studio Path & Live Classes Alias - Authorization guard */}
           <Route path="/live-webcasts" element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles={[ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.AUTHOR_ADMIN]}>
+                <LiveWebcasts theme={theme} />
+              </RoleRoute>
+            </ProtectedRoute>
+          } />
+          <Route path="/live-classes" element={
             <ProtectedRoute>
               <RoleRoute allowedRoles={[ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.AUTHOR_ADMIN]}>
                 <LiveWebcasts theme={theme} />

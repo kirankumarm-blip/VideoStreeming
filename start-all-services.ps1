@@ -39,7 +39,7 @@ if ($minioRunning) {
 
 # 2. Start Backend Mock Server
 Write-Host "`n[2/5] Starting Backend Mock Server..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", `
+Start-Process powershell -ArgumentList "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", `
     "cd '$root\backend-mock'; Write-Host 'Backend Mock (port 5000)' -ForegroundColor Cyan; node server.js" `
     -WindowStyle Normal
 Write-Host "      Backend started -> http://localhost:5000" -ForegroundColor Green
@@ -48,7 +48,7 @@ Start-Sleep -Seconds 2
 
 # 3. Start Upload Service
 Write-Host "`n[3/5] Starting Upload Service..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", `
+Start-Process powershell -ArgumentList "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", `
     "cd '$root\backend-mock'; Write-Host 'Upload Service (port 5050)' -ForegroundColor Cyan; node upload-service.js" `
     -WindowStyle Normal
 Write-Host "      Upload service  -> http://localhost:5050" -ForegroundColor Green
@@ -57,8 +57,8 @@ Start-Sleep -Seconds 2
 
 # 4. Start Admin Web App
 Write-Host "`n[4/5] Starting Admin Web App..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", `
-    "cd '$root\admin-web-app'; Write-Host 'Admin Portal (port 3000)' -ForegroundColor Cyan; npm start" `
+Start-Process powershell -ArgumentList "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", `
+    "cd '$root\admin-web-app'; Write-Host 'Admin Portal (port 3000)' -ForegroundColor Cyan; npm.cmd start" `
     -WindowStyle Normal
 Write-Host "      Admin portal    -> http://localhost:3000/VideoStreeming/admin" -ForegroundColor Green
 
@@ -66,8 +66,8 @@ Start-Sleep -Seconds 2
 
 # 5. Start User Web App
 Write-Host "`n[5/5] Starting User Web App..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", `
-    "cd '$root\user-web-app'; Write-Host 'User Portal (port 3001)' -ForegroundColor Cyan; npm start" `
+Start-Process powershell -ArgumentList "-ExecutionPolicy", "Bypass", "-NoExit", "-Command", `
+    "cd '$root\user-web-app'; Write-Host 'User Portal (port 3001)' -ForegroundColor Cyan; npm.cmd start" `
     -WindowStyle Normal
 Write-Host "      User portal     -> http://localhost:3001/VideoStreeming" -ForegroundColor Green
 

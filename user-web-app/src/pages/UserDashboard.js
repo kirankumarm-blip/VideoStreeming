@@ -1,9 +1,11 @@
 import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl } from '../utils/assetUrl';
+import { formatDate } from '../utils/dateFormatter';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, getCurrentUser } from '../services/api';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
@@ -209,6 +211,10 @@ const HoverThumbnail = ({ video }) => {
       <img 
         src={thumbUrl} 
         alt={video.title} 
+        width={320}
+        height={180}
+        loading="lazy"
+        decoding="async"
         className="thumbnail-img" 
         style={{ 
           opacity: isHovered ? 0 : 1, 
@@ -216,6 +222,7 @@ const HoverThumbnail = ({ video }) => {
           width: '100%',
           height: '100%',
           objectFit: 'cover',
+          aspectRatio: '16 / 9',
           position: 'absolute',
           top: 0,
           left: 0
@@ -319,6 +326,7 @@ const ProBadge = ({ onClick }) => (
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+  const { user: currentUser, plan: authPlan } = useAuth();
   const { t, language } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -1102,8 +1110,7 @@ const UserDashboard = () => {
 
   const isVideoLocked = (item) => {
     if (!item) return false;
-    const currentUser = getCurrentUser();
-    const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
+    const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? authPlan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
     if (userPlan !== '1') return false;
 
     const vis = item.visibility ?? item.visibility_id ?? item.is_private ?? item.isPrivate;
@@ -1116,8 +1123,7 @@ const UserDashboard = () => {
       showUpgradeAlert('Need to upgrade your plan');
       return;
     }
-    const currentUser = getCurrentUser();
-    const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
+    const userPlan = String(dashboardData?.user_plan ?? dashboardData?.user_plan_id ?? authPlan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
     const id = typeof video === 'object' && video ? (video.id || video.videoUrl || video.video_url) : video;
     const videoObj = typeof video === 'object' && video ? video : getAllVideosList().find(v => v.id === id);
     navigate(`/watch/${id}`, { state: { video: videoObj, course: courseContext, userPlan } });
@@ -1181,12 +1187,22 @@ const UserDashboard = () => {
     let result = Array.isArray(baseList) ? [...baseList] : [];
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(v => 
-        (v.title && v.title.toLowerCase().includes(query)) || 
-        (v.description && v.description.toLowerCase().includes(query)) ||
-        (Array.isArray(v.tags) && v.tags.some(t => typeof t === 'string' && t.toLowerCase().includes(query)))
-      );
+      const rawQuery = searchQuery.toLowerCase().trim();
+      const queryVariants = [rawQuery];
+      // Expand common codebase & domain typos and synonyms so searches match seamlessly
+      if (rawQuery.includes('couse')) queryVariants.push(rawQuery.replace(/couse/g, 'course'));
+      if (rawQuery.includes('course')) queryVariants.push(rawQuery.replace(/course/g, 'couse'));
+      if (rawQuery.includes('webcast')) queryVariants.push(rawQuery.replace(/webcast/g, 'class'));
+      if (rawQuery.includes('class')) queryVariants.push(rawQuery.replace(/class/g, 'webcast'));
+      if (rawQuery.includes('streeming')) queryVariants.push(rawQuery.replace(/streeming/g, 'streaming'));
+      if (rawQuery.includes('streaming')) queryVariants.push(rawQuery.replace(/streaming/g, 'streeming'));
+
+      result = result.filter(v => {
+        const title = (v.title || '').toLowerCase();
+        const desc = (v.description || '').toLowerCase();
+        const tags = Array.isArray(v.tags) ? v.tags.map(t => typeof t === 'string' ? t.toLowerCase() : '').join(' ') : '';
+        return queryVariants.some(q => title.includes(q) || desc.includes(q) || tags.includes(q));
+      });
     }
 
     if (selectedCategory) {
@@ -1432,7 +1448,11 @@ const UserDashboard = () => {
           <img 
             src={thumbUrl} 
             alt={course.title || course.course_name} 
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            width={320}
+            height={180}
+            loading="lazy"
+            decoding="async"
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16 / 9' }}
           />
           {isVideoLocked(course) && (
             <ProBadge onClick={() => showUpgradeAlert('Need to upgrade your plan')} />
@@ -2649,7 +2669,11 @@ const UserDashboard = () => {
                                   <img 
                                     src={pl.thumbnail} 
                                     alt={pl.name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    width={320}
+                                    height={180}
+                                    loading="lazy"
+                                    decoding="async"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16 / 9' }}
                                     onError={(e) => {
                                       e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=60';
                                     }}
@@ -2836,7 +2860,11 @@ const UserDashboard = () => {
                               <img 
                                 src={item.thumbnail} 
                                 alt={item.title}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                width={220}
+                                height={124}
+                                loading="lazy"
+                                decoding="async"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16 / 9' }}
                                 onError={(e) => {
                                   e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=60';
                                 }}
@@ -2892,7 +2920,7 @@ const UserDashboard = () => {
                                 )}
                                 {item.watched_at && (
                                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                    {new Date(item.watched_at).toLocaleDateString()}
+                                    {formatDate(item.watched_at, { dateOnly: true })}
                                   </span>
                                 )}
                                 {item.duration && (
@@ -2931,7 +2959,7 @@ const UserDashboard = () => {
                                   {isComplete ? '✅ Completed' : `⏳ In Progress (${pct}%)`}
                                 </span>
                                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                  <i className="fa-regular fa-calendar"></i> {item.date || (item.watched_at && !item.watched_at.includes('T') ? item.watched_at : (item.watched_at ? new Date(item.watched_at).toLocaleDateString() : 'Recently'))}
+                                  <i className="fa-regular fa-calendar"></i> {formatDate(item.date || item.watched_at) !== 'N/A' ? formatDate(item.date || item.watched_at) : 'Recently'}
                                 </span>
                                 {item.watch_time > 0 && (
                                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
@@ -3024,7 +3052,11 @@ const UserDashboard = () => {
                             <img 
                               src={offVid.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600'} 
                               alt={offVid.title}
-                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                              width={320}
+                              height={180}
+                              loading="lazy"
+                              decoding="async"
+                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16 / 9' }}
                             />
                             <span style={{ 
                               position: 'absolute', 
@@ -3169,7 +3201,7 @@ const UserDashboard = () => {
                           <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: 'auto', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             Instructor: <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{h.video.instructor || 'Dr. Sarah'}</span>
                             <br />
-                            Issued on: {new Date(h.watchDate).toLocaleDateString()}
+                            Issued on: {formatDate(h.watchDate, { dateOnly: true })}
                           </div>
                           <button 
                             onClick={() => alert(`LinkedIn Share Triggered for course: "${h.video.title}"!`)}
@@ -3289,7 +3321,7 @@ const UserDashboard = () => {
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                           <span style={{ fontWeight: 700, fontSize: '14px' }}>{c.user}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{new Date(c.date).toLocaleDateString()}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatDate(c.date)}</span>
                         </div>
                         <p style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.4' }}>{c.text}</p>
                         

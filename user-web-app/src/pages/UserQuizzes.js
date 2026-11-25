@@ -9,6 +9,7 @@ const UserQuizzes = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [quizzes, setQuizzes] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterResult, setFilterResult] = useState('All');
@@ -25,6 +26,25 @@ const UserQuizzes = () => {
     setLoading(true);
     try {
       const response = await api.dashboard.getUser('getQuizHistory', { formstep: 'getQuizHistory' });
+
+      try {
+        const cRes = await api.dashboard.getUser('getAllCourses').catch(() => null);
+        let courseList = [];
+        if (Array.isArray(cRes)) courseList = cRes;
+        else if (Array.isArray(cRes?.data)) courseList = cRes.data;
+        else if (Array.isArray(cRes?.json)) courseList = cRes.json;
+
+        if (courseList.length === 0) {
+          const dash = await api.dashboard.getUser('Dashboard').catch(() => null);
+          const dData = Array.isArray(dash) ? (dash[0]?.json || dash[0] || {}) : (dash?.json || dash || {});
+          courseList = dData.your_courses || dData.yourCourses || dData.courses || [];
+        }
+        if (courseList.length > 0) {
+          setCourses(courseList);
+        }
+      } catch (cErr) {
+        console.warn('Could not load course list for UserQuizzes:', cErr);
+      }
       
       let rawList = [];
       if (Array.isArray(response)) {
@@ -57,21 +77,31 @@ const UserQuizzes = () => {
         const courseName = d?.course || d?.course_title || d?.course_name || 'N/A';
         const chapterName = d?.chapter || d?.chapter_name || d?.chapter_title || (d?.chapter_id ? `Chapter ${d.chapter_id}` : 'N/A');
         
+        const totalQs = d?.total_questions ?? d?.totalQuestions ?? d?.total ?? d?.total_count ?? (Array.isArray(d?.questions) ? d.questions.length : null);
+        const pct = d?.percentage !== undefined ? parseFloat(d.percentage) : (d?.score !== undefined && totalQs ? Math.round((Number(d.score) / totalQs) * 100) : null);
+
         let scoreStr = 'N/A';
         if (d?.score_display) {
           scoreStr = d.score_display;
         } else if (typeof d?.score === 'string' && d.score.includes('/')) {
           scoreStr = d.score;
+        } else if (d?.score !== undefined && totalQs) {
+          scoreStr = pct !== null ? `${d.score}/${totalQs} (${pct}%)` : `${d.score}/${totalQs}`;
         } else if (d?.score !== undefined) {
-          const totalQs = d.total_questions || d.total || (d.percentage ? 10 : 10);
-          const pctVal = d.percentage !== undefined ? parseFloat(d.percentage) : Math.round((d.score / totalQs) * 100);
-          scoreStr = `${d.score}/${totalQs} (${pctVal}%)`;
+          scoreStr = pct !== null ? `${d.score} (${pct}%)` : `${d.score}`;
+        } else if (pct !== null) {
+          scoreStr = `${pct}%`;
         }
 
-        const pct = d?.percentage !== undefined ? parseFloat(d.percentage) : 0;
-        const resStr = d?.result || d?.status || (pct >= 70 ? 'Passed' : 'Failed');
+        const resStr = d?.result_str || (typeof d?.result === 'boolean' ? (d.result ? 'Passed' : 'Failed') : (d?.result || d?.status || (pct !== null ? (pct >= 70 ? 'Passed' : 'Failed') : 'N/A')));
         const attemptVal = d?.attempt || d?.attempt_number || d?.attempts || 1;
         const dateVal = d?.date || d?.created_at || d?.submitted_at || 'N/A';
+
+        const rawCourseId = d?.course_id || d?.courseId || (d?.course && typeof d.course === 'object' ? (d.course.id || d.course.course_id) : null);
+        const courseId = rawCourseId || 1;
+
+        const rawChapId = d?.chapter_id || d?.chapterId || (d?.chapter && typeof d.chapter === 'object' ? (d.chapter.id || d.chapter.chapter_id) : null);
+        const chapterId = rawChapId || (typeof chapterName === 'string' && chapterName.match(/\d+/) ? parseInt(chapterName.match(/\d+/)[0], 10) : 1);
 
         return {
           id: d?.id || d?.quiz_id || idx + 1,
@@ -83,8 +113,9 @@ const UserQuizzes = () => {
           result: resStr,
           attempt: attemptVal,
           date: dateVal,
-          courseId: d?.course_id || 1,
-          chapterId: d?.chapter_id || 1
+          courseId,
+          chapterId,
+          raw: d
         };
       });
 
@@ -98,60 +129,31 @@ const UserQuizzes = () => {
     }
   };
 
-  const getFallbackQuizHistory = () => [
-    {
-      id: 1,
-      quiz: 'Data Types Quiz',
-      course: 'TypeScript Basics',
-      chapter: 'Chapter 1',
-      score: '8/10 (80%)',
-      percentage: 80,
-      result: 'Passed',
-      attempt: 1,
-      date: '07 Aug 2026, 2:15 PM',
-      courseId: 1,
-      chapterId: 1
-    },
-    {
-      id: 2,
-      quiz: 'Array Quiz',
-      course: 'TypeScript Basics',
-      chapter: 'Chapter 2',
-      score: '6/10 (60%)',
-      percentage: 60,
-      result: 'Failed',
-      attempt: 1,
-      date: '08 Aug 2026, 10:30 AM',
-      courseId: 1,
-      chapterId: 2
-    },
-    {
-      id: 3,
-      quiz: 'Functions Quiz',
-      course: 'TypeScript Basics',
-      chapter: 'Chapter 3',
-      score: '10/10 (100%)',
-      percentage: 100,
-      result: 'Passed',
-      attempt: 2,
-      date: '09 Aug 2026, 4:45 PM',
-      courseId: 1,
-      chapterId: 3
-    },
-    {
-      id: 4,
-      quiz: 'Interfaces Quiz',
-      course: 'Advanced TypeScript',
-      chapter: 'Chapter 1',
-      score: '9/10 (90%)',
-      percentage: 90,
-      result: 'Passed',
-      attempt: 1,
-      date: '10 Aug 2026, 9:20 AM',
-      courseId: 2,
-      chapterId: 1
-    }
-  ];
+  const handleRetakeQuiz = (item) => {
+    if (!item) return;
+
+    // Resolve matching course object if available from fetched courses
+    const matchedCourse = courses.find(c => 
+      String(c.id || c.course_id) === String(item.courseId) ||
+      (c.title && item.course && String(c.title).toLowerCase() === String(item.course).toLowerCase()) ||
+      (c.course_name && item.course && String(c.course_name).toLowerCase() === String(item.course).toLowerCase())
+    ) || (courses.length > 0 ? courses[0] : null);
+
+    const targetCourseId = matchedCourse?.id || matchedCourse?.course_id || item.courseId || 1;
+    const targetChapterId = item.chapterId || 1;
+
+    // Navigate to /watch/{courseId} with the chapter selected and retake flag so the quiz opens directly
+    navigate(`/watch/${targetCourseId}?chapter=${targetChapterId}&retake=true`, {
+      state: {
+        course: matchedCourse,
+        courseId: targetCourseId,
+        chapterId: targetChapterId,
+        chapter: targetChapterId,
+        retake: true,
+        quizId: item.id
+      }
+    });
+  };
 
   const filteredQuizzes = quizzes.filter(q => {
     const matchesSearch = 
@@ -247,7 +249,7 @@ const UserQuizzes = () => {
             </button>
           ) : (
             <button
-              onClick={() => navigate('/')}
+              onClick={() => handleRetakeQuiz(item)}
               style={{
                 background: 'linear-gradient(135deg, #e50914, #b20710)',
                 border: 'none',
@@ -437,70 +439,108 @@ const UserQuizzes = () => {
             boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
             overflow: 'hidden'
           }}>
-            <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid var(--border-color)',
-              display: 'flex',
-              justify: 'space-between',
-              alignItems: 'center',
-              background: 'linear-gradient(90deg, rgba(16,185,129,0.1), transparent)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>🏆</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{selectedQuizDetail.quiz}</h3>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {selectedQuizDetail.course} • {selectedQuizDetail.chapter}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedQuizDetail(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '20px', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
-            </div>
+            {(() => {
+              const isPassed = String(selectedQuizDetail.result).toLowerCase() === 'passed';
+              return (
+                <>
+                  <div style={{
+                    padding: '20px 24px',
+                    borderBottom: '1px solid var(--border-color)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: isPassed 
+                      ? 'linear-gradient(90deg, rgba(16,185,129,0.1), transparent)' 
+                      : 'linear-gradient(90deg, rgba(239,68,68,0.1), transparent)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '24px' }}>{isPassed ? '🏆' : '📝'}</span>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{selectedQuizDetail.quiz}</h3>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          {selectedQuizDetail.course} • {selectedQuizDetail.chapter}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedQuizDetail(null)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: '20px', cursor: 'pointer' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
 
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{
-                textAlign: 'center',
-                padding: '20px',
-                borderRadius: '12px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)'
-              }}>
-                <span style={{ fontSize: '36px', display: 'block', marginBottom: '6px' }}>🎉</span>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: '#10b981' }}>
-                  Score: {selectedQuizDetail.score}
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Status: 🟢 Passed on Attempt {selectedQuizDetail.attempt}
-                </div>
-              </div>
+                  <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '20px',
+                      borderRadius: '12px',
+                      backgroundColor: isPassed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      border: isPassed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'
+                    }}>
+                      <span style={{ fontSize: '36px', display: 'block', marginBottom: '6px' }}>{isPassed ? '🎉' : '⚠️'}</span>
+                      <div style={{ fontSize: '22px', fontWeight: 800, color: isPassed ? '#10b981' : '#ef4444' }}>
+                        Score: {selectedQuizDetail.score}
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        Status: {isPassed ? '🟢 Passed' : '🔴 Failed'} on Attempt {selectedQuizDetail.attempt}
+                      </div>
+                    </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.completedOn', 'Completed On:')}</span>
-                  <span style={{ fontWeight: 600 }}>{selectedQuizDetail.date}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.attemptCount', 'Total Attempt Count:')}</span>
-                  <span style={{ fontWeight: 600 }}>{selectedQuizDetail.attempt}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.rating', 'Performance Rating:')}</span>
-                  <span style={{ fontWeight: 600, color: '#10b981' }}>{t('quiz.ratingExcellent', 'Excellent')}</span>
-                </div>
-              </div>
-            </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.completedOn', 'Completed On:')}</span>
+                        <span style={{ fontWeight: 600 }}>{selectedQuizDetail.date}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.attemptCount', 'Total Attempt Count:')}</span>
+                        <span style={{ fontWeight: 600 }}>{selectedQuizDetail.attempt}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-primary)', borderRadius: '6px' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>{t('quiz.rating', 'Performance Rating:')}</span>
+                        <span style={{ fontWeight: 600, color: isPassed ? '#10b981' : '#ef4444' }}>
+                          {isPassed ? t('quiz.ratingPassed', 'Passed') : t('quiz.ratingNeedsImprovement', 'Needs Improvement')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             <div style={{
               padding: '16px 24px',
               borderTop: '1px solid var(--border-color)',
-              textAlign: 'right',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
               backgroundColor: 'var(--bg-primary)'
             }}>
+              {String(selectedQuizDetail.result).toLowerCase() !== 'passed' ? (
+                <button
+                  onClick={() => {
+                    const quizToRetake = selectedQuizDetail;
+                    setSelectedQuizDetail(null);
+                    handleRetakeQuiz(quizToRetake);
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #e50914, #b20710)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 18px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(229, 9, 20, 0.3)'
+                  }}
+                >
+                  🔄 {t('quiz.retake', 'Retake Quiz')}
+                </button>
+              ) : <div />}
               <button
                 onClick={() => setSelectedQuizDetail(null)}
                 className="btn btn-primary"

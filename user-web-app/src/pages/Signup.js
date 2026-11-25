@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Background3D from '../components/Background3D';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
@@ -12,6 +13,7 @@ import logoImg from '../assets/logo.png';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { theme: authTheme, setTheme: authSetTheme } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -195,7 +197,7 @@ const Signup = () => {
   };
 
   const strength = calculatePasswordStrength(password);
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const [theme, setTheme] = useState(() => authTheme || localStorage.getItem('theme') || 'dark');
 
   React.useEffect(() => {
     localStorage.setItem('theme', theme);
@@ -253,7 +255,11 @@ const Signup = () => {
   }, []);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      if (authSetTheme) authSetTheme(next);
+      return next;
+    });
   };
 
   return (
@@ -268,7 +274,7 @@ const Signup = () => {
         left: '24px',
         zIndex: 100
       }}>
-        <img src={logoImg} alt="XLurn" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
+        <img src={logoImg} alt="XLurn" width={180} height={50} decoding="async" style={{ height: '50px', width: 'auto', maxWidth: '180px', objectFit: 'contain', objectPosition: 'left', imageRendering: '-webkit-optimize-contrast' }} />
       </div>
 
       {/* Floating Controls: Language Switcher & Theme Toggle */}

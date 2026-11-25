@@ -5,10 +5,18 @@ import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHan
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { api, getCurrentUser, decryptUrl, decryptIfNeeded } from '../services/api';
+import { api, decryptUrl, decryptIfNeeded } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import PremiumSelect from '../components/PremiumSelect';
 import logoImg from '../assets/logo.png';
+import Player from '../components/video/Player';
+import QuizPanel from '../components/video/QuizPanel';
+import CertificatePanel from '../components/video/CertificatePanel';
+import StudyRoomChat from '../components/video/StudyRoomChat';
+import { formatTime } from '../hooks/useVideoPlayer';
+import { useVideoQuiz, findQuizForChapter } from '../hooks/useVideoQuiz';
+import { useStudyRoom } from '../hooks/useStudyRoom';
 
 const SUPPORTED_SUBTITLE_LANGUAGES = [
   { id: 'en', code: 'en', name: 'English', label: 'English', default: true },
@@ -443,6 +451,8 @@ const VideoWatch = () => {
   const { t } = useLanguage();
   
   const [video, setVideo] = useState(null);
+  const [courseState, setCourseState] = useState(location.state?.course || null);
+  const activeCourse = courseState || location.state?.course || video?.course || null;
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -475,9 +485,10 @@ const VideoWatch = () => {
     });
   };
 
-  const currentUser = getCurrentUser();
-  const userEmail = currentUser?.email || localStorage.getItem('user_email') || currentUser?.username || 'user@lurnax.com';
-  const userPlan = String(location.state?.userPlan ?? location.state?.user_plan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
+  const { user: authUser, plan: authPlan } = useAuth();
+  const currentUser = authUser;
+  const userEmail = currentUser?.email || currentUser?.username || 'user@lurnax.com';
+  const userPlan = String(location.state?.userPlan ?? location.state?.user_plan ?? authPlan ?? currentUser?.user_plan ?? currentUser?.user_plan_id ?? '1');
 
   const isChapterLocked = (lesson, courseObj = null) => {
     if (!lesson) return false;
@@ -582,229 +593,45 @@ const VideoWatch = () => {
   // ----------------------------------------------------
   const [searchParams, setSearchParams] = useSearchParams();
   const roomQueryParam = searchParams.get('room');
+  const retakeParam = searchParams.get('retake') === 'true' || searchParams.get('retake') === '1' || location.state?.retake === true;
+  const chapterParam = searchParams.get('chapter') || searchParams.get('chapterId') || searchParams.get('chapter_id') || location.state?.chapterId || location.state?.chapter;
+  const courseParam = searchParams.get('courseId') || searchParams.get('course_id') || location.state?.courseId || location.state?.course_id || id;
 
-  const [activeStudyRoom, setActiveStudyRoom] = useState(null);
-  const [studyRoomMessages, setStudyRoomMessages] = useState([]);
-  const [studyRoomMembers, setStudyRoomMembers] = useState([]);
-  const [showStudyRoomDrawer, setShowStudyRoomDrawer] = useState(false);
-  const [showStudyRoomModal, setShowStudyRoomModal] = useState(false);
-  const [studySyncBanner, setStudySyncBanner] = useState('');
-  const [studyInputMessage, setStudyInputMessage] = useState('');
-  const [studyJoinCodeInput, setStudyJoinCodeInput] = useState('');
-  const [studyCreatingRoom, setStudyCreatingRoom] = useState(false);
-  const [studyInviteCopied, setStudyInviteCopied] = useState(false);
+  const {
+    activeStudyRoom,
+    studyRoomMessages,
+    studyRoomMembers,
+    showStudyRoomDrawer,
+    setShowStudyRoomDrawer,
+    showStudyRoomModal,
+    setShowStudyRoomModal,
+    studySyncBanner,
+    studyInputMessage,
+    setStudyInputMessage,
+    studyJoinCodeInput,
+    setStudyJoinCodeInput,
+    studyCreatingRoom,
+    studyInviteCopied,
+    handleSendStudyMessage,
+    handleLeaveStudyRoom,
+    handleCreateWatchPartyNow,
+    handleJoinWatchPartyByCode,
+    handleCopyStudyInvite,
+    isRemoteSyncRef,
+    studyWsRef
+  } = useStudyRoom({
+    video,
+    activeCourse,
+    currentUser,
+    userEmail,
+    videoId: id,
+    videoRef,
+    roomQueryParam,
+    searchParams,
+    setSearchParams
+  });
 
-  const studyWsRef = useRef(null);
-  const isRemoteSyncRef = useRef(false);
-  const studySyncBannerTimerRef = useRef(null);
-
-  const triggerStudyBanner = (msg) => {
-    if (studySyncBannerTimerRef.current) clearTimeout(studySyncBannerTimerRef.current);
-    setStudySyncBanner(msg);
-    studySyncBannerTimerRef.current = setTimeout(() => {
-      setStudySyncBanner('');
-    }, 3200);
-  };
-
-  useEffect(() => {
-    const targetRoomId = roomQueryParam || (activeStudyRoom?.roomId);
-    if (!targetRoomId) return;
-
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.hostname || 'localhost';
-    const socket = new WebSocket(`${wsProtocol}//${wsHost}:5000`);
-    studyWsRef.current = socket;
-
-    socket.onopen = () => {
-      const username = currentUser?.username || currentUser?.name || (userEmail.split('@')[0]) || 'Learner';
-      socket.send(JSON.stringify({
-        type: 'JOIN_ROOM',
-        roomId: targetRoomId,
-        user: {
-          id: currentUser?.id || 'learner_' + Math.random().toString(36).substring(2, 7),
-          username: username,
-          email: userEmail
-        }
-      }));
-    };
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'ROOM_STATE') {
-          setActiveStudyRoom(data.room);
-          setStudyRoomMessages(data.room.chatMessages || []);
-          setStudyRoomMembers(data.room.activeMembers || []);
-          setShowStudyRoomDrawer(true);
-          
-          if (videoRef.current && data.room.currentTime !== undefined) {
-            if (Math.abs(videoRef.current.currentTime - data.room.currentTime) > 1.5) {
-              isRemoteSyncRef.current = true;
-              videoRef.current.currentTime = data.room.currentTime;
-              setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
-            }
-            if (data.room.isPlaying) {
-              videoRef.current.play().catch(e => console.log('Autoplay sync notice:', e));
-            } else {
-              videoRef.current.pause();
-            }
-          }
-        } else if (data.type === 'SYNC_PLAY') {
-          isRemoteSyncRef.current = true;
-          if (videoRef.current) {
-            if (Math.abs(videoRef.current.currentTime - data.currentTime) > 1.5) {
-              videoRef.current.currentTime = data.currentTime;
-            }
-            videoRef.current.play().catch(e => console.log(e));
-          }
-          triggerStudyBanner(`▶️ ${data.senderName || 'Peer'} resumed playback`);
-          setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
-        } else if (data.type === 'SYNC_PAUSE') {
-          isRemoteSyncRef.current = true;
-          if (videoRef.current) {
-            if (Math.abs(videoRef.current.currentTime - data.currentTime) > 1.5) {
-              videoRef.current.currentTime = data.currentTime;
-            }
-            videoRef.current.pause();
-          }
-          triggerStudyBanner(`⏸️ ${data.senderName || 'Peer'} paused the video`);
-          setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
-        } else if (data.type === 'SYNC_SEEK') {
-          isRemoteSyncRef.current = true;
-          if (videoRef.current) {
-            videoRef.current.currentTime = data.currentTime;
-          }
-          const min = Math.floor(data.currentTime / 60);
-          const sec = Math.floor(data.currentTime % 60);
-          const formatted = `${min}:${sec < 10 ? '0' : ''}${sec}`;
-          triggerStudyBanner(`⏩ ${data.senderName || 'Peer'} seeked to ${formatted}`);
-          setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
-        } else if (data.type === 'CHAT_MESSAGE') {
-          setStudyRoomMessages(prev => [...prev, data.message]);
-        } else if (data.type === 'MEMBER_JOINED') {
-          setStudyRoomMembers(data.activeMembers || []);
-          triggerStudyBanner(`👋 ${data.user?.username || 'A learner'} joined study party`);
-        } else if (data.type === 'MEMBER_LEFT') {
-          setStudyRoomMembers(data.activeMembers || []);
-        } else if (data.type === 'ERROR') {
-          triggerStudyBanner(`⚠️ ${data.message || 'Room error'}`);
-        }
-      } catch (err) {
-        console.error('Error handling Study Room WS message:', err);
-      }
-    };
-
-    socket.onerror = (err) => {
-      console.log('Study Room WS error:', err);
-    };
-
-    socket.onclose = () => {
-      console.log('Study Room WS closed');
-    };
-
-    return () => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
-      }
-      studyWsRef.current = null;
-    };
-  }, [roomQueryParam, activeStudyRoom?.roomId]);
-
-  const handleSendStudyMessage = (customText = null) => {
-    const textToSend = (typeof customText === 'string' ? customText : studyInputMessage).trim();
-    if (!textToSend || !studyWsRef.current || studyWsRef.current.readyState !== WebSocket.OPEN) return;
-    studyWsRef.current.send(JSON.stringify({
-      type: 'CHAT_MESSAGE',
-      text: textToSend
-    }));
-    setStudyInputMessage('');
-  };
-
-  const handleLeaveStudyRoom = () => {
-    if (studyWsRef.current) {
-      studyWsRef.current.close();
-      studyWsRef.current = null;
-    }
-    setActiveStudyRoom(null);
-    setShowStudyRoomDrawer(false);
-    setStudyRoomMessages([]);
-    setStudyRoomMembers([]);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('room');
-    setSearchParams(nextParams);
-    triggerStudyBanner('🚪 Left study party');
-  };
-
-  const handleCreateWatchPartyNow = async () => {
-    setStudyCreatingRoom(true);
-    const clientCorrelationId = generateCorrelationId();
-    try {
-      const activeCourse = location.state?.course;
-      const apiBase = getApiBaseUrl() || getAssetBaseUrl();
-      const res = await fetch(`${apiBase}/api/study-rooms/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Correlation-ID': clientCorrelationId,
-          'X-Request-ID': clientCorrelationId
-        },
-        body: JSON.stringify({
-          title: `${video?.title || 'Lesson'} Watch Party`,
-          courseId: video?.course_id || activeCourse?.id || 1,
-          courseTitle: activeCourse?.title || video?.course_name || 'Active Course',
-          videoId: id || video?.id || 1,
-          hostName: currentUser?.username || currentUser?.name || (userEmail.split('@')[0]) || 'Learner',
-          userEmail: userEmail
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.room) {
-          setShowStudyRoomModal(false);
-          const nextParams = new URLSearchParams(searchParams);
-          nextParams.set('room', data.room.roomId);
-          setSearchParams(nextParams);
-          setActiveStudyRoom(data.room);
-          setShowStudyRoomDrawer(true);
-          triggerStudyBanner(`🎉 Study Room ${data.room.roomId} is ready!`);
-        }
-      } else {
-        const errResult = await handleFormApiError(res, null, {
-          formName: 'CreateWatchPartyInstant',
-          clientCorrelationId
-        });
-        triggerStudyBanner(`⚠️ ${errResult.displayMessage}`);
-      }
-    } catch (err) {
-      const errResult = await handleFormApiError(null, err, {
-        formName: 'CreateWatchPartyInstant',
-        clientCorrelationId
-      });
-      triggerStudyBanner(`⚠️ ${errResult.displayMessage}`);
-    } finally {
-      setStudyCreatingRoom(false);
-    }
-  };
-
-  const handleJoinWatchPartyByCode = (code) => {
-    const trimmed = (code || studyJoinCodeInput).trim().toUpperCase();
-    if (!trimmed) return;
-    setShowStudyRoomModal(false);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('room', trimmed);
-    setSearchParams(nextParams);
-    setShowStudyRoomDrawer(true);
-  };
-
-  const handleCopyStudyInvite = () => {
-    const targetRoomId = activeStudyRoom?.roomId || roomQueryParam;
-    const inviteUrl = `${window.location.origin}/watch/${id}?room=${targetRoomId}`;
-    navigator.clipboard.writeText(inviteUrl);
-    setStudyInviteCopied(true);
-    triggerStudyBanner('📋 Invite link copied to clipboard!');
-    setTimeout(() => setStudyInviteCopied(false), 2500);
-  };
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
 
   const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -1196,7 +1023,54 @@ const VideoWatch = () => {
   const fetchVideoAndRecommendations = async (passedVideo = null) => {
     setLoading(true);
     try {
+      // Ensure course data is loaded if missing or if navigating via courseId/retake
+      let currentCourse = location.state?.course || courseState;
+      if (!currentCourse) {
+        try {
+          const cRes = await api.dashboard.getUser('getAllCourses').catch(() => null);
+          let courseList = [];
+          if (Array.isArray(cRes)) courseList = cRes;
+          else if (Array.isArray(cRes?.data)) courseList = cRes.data;
+          else if (Array.isArray(cRes?.json)) courseList = cRes.json;
+
+          if (courseList.length === 0) {
+            const dash = await api.dashboard.getUser('Dashboard').catch(() => null);
+            const dData = Array.isArray(dash) ? (dash[0]?.json || dash[0] || {}) : (dash?.json || dash || {});
+            courseList = dData.your_courses || dData.yourCourses || dData.courses || [];
+          }
+
+          if (courseList.length > 0) {
+            const targetCId = String(courseParam || id);
+            const matched = courseList.find(c => String(c.id || c.course_id) === targetCId) || courseList[0];
+            if (matched) {
+              currentCourse = matched;
+              setCourseState(matched);
+            }
+          }
+        } catch (cErr) {
+          console.warn("Could not load course list in VideoWatch:", cErr);
+        }
+      }
+
       let videoData = passedVideo || location.state?.video;
+      if (!videoData && currentCourse) {
+        const courseChaps = getCourseChapters(currentCourse);
+        if (courseChaps.length > 0) {
+          let targetChap = null;
+          if (chapterParam) {
+            targetChap = courseChaps.find(c => 
+              String(c.id || c.chapter_id || '') === String(chapterParam) ||
+              String(c.title || '').toLowerCase().includes(`chapter ${chapterParam}`)
+            );
+          }
+          if (!targetChap) targetChap = courseChaps[0];
+          const chapLesson = targetChap?.lessons?.[0];
+          if (chapLesson) {
+            videoData = chapLesson;
+          }
+        }
+      }
+
       if (!videoData) {
         try {
           videoData = await api.videos.get(id);
@@ -1312,575 +1186,6 @@ const VideoWatch = () => {
     setExpandedChapters(prev => ({
       ...prev,
       [chapKey]: prev[chapKey] !== undefined ? !prev[chapKey] : false
-    }));
-  };
-
-  // Chapter Quiz Modal State
-  const [quizModal, setQuizModal] = useState({
-    show: false,
-    title: '',
-    quizId: 0,
-    chapterId: 0,
-    courseId: 0,
-    questions: [],
-    currentIdx: 0,
-    userAnswers: {},
-    isSubmitting: false,
-    completed: false,
-    results: null
-  });
-
-  const getFallbackQuestions = (quizTitle, chapId) => {
-    const titleLower = (quizTitle || '').toLowerCase();
-    if (String(chapId) === '1' || titleLower.includes('data types') || titleLower.includes('type script')) {
-      return [
-        {
-          id: 1,
-          question: "What is TypeScript?",
-          options: ["A typed superset of JavaScript", "A relational database engine", "A CSS preprocessor framework", "A web server runtime"],
-          correctAnswer: 0
-        },
-        {
-          id: 2,
-          question: "Which of the following is a primitive data type in TypeScript?",
-          options: ["string", "Array", "Object", "Function"],
-          correctAnswer: 0
-        },
-        {
-          id: 3,
-          question: "What keyword is used to declare a variable with an explicit type?",
-          options: ["const name: string", "var name = string", "type name = string", "dim name as string"],
-          correctAnswer: 0
-        }
-      ];
-    } else {
-      return [
-        {
-          id: 1,
-          question: "What method is used to add an element to the end of an Array?",
-          options: ["push()", "pop()", "shift()", "unshift()"],
-          correctAnswer: 0
-        },
-        {
-          id: 2,
-          question: "How do you access the first element of an array 'arr'?",
-          options: ["arr[0]", "arr[1]", "arr.first()", "arr.get(0)"],
-          correctAnswer: 0
-        },
-        {
-          id: 3,
-          question: "What does Array.prototype.length return?",
-          options: ["Total number of elements", "Memory size in bytes", "Array index limit", "Last element value"],
-          correctAnswer: 0
-        }
-      ];
-    }
-  };
-
-  const findQuizForChapter = (chapId, courseObj) => {
-    if (!courseObj) {
-      return { id: chapId || 1, title: `Chapter Quiz`, chapter_id: chapId || 1 };
-    }
-    
-    // 1. Direct quiz property on courseObj or chapter
-    if (courseObj.quiz && typeof courseObj.quiz === 'object') return courseObj.quiz;
-
-    // 2. If courseObj.quizzes is a single object
-    if (courseObj.quizzes && !Array.isArray(courseObj.quizzes) && typeof courseObj.quizzes === 'object') {
-      return courseObj.quizzes;
-    }
-
-    // 3. Search in courseObj.quizzes array matching chapter_id
-    if (Array.isArray(courseObj.quizzes) && courseObj.quizzes.length > 0) {
-      const found = courseObj.quizzes.find(q => 
-        q && (
-          String(q.chapter_id || q.chapterId || q.chapter || '') === String(chapId) ||
-          String(q.course_id || q.courseId || '') === String(courseObj.id || courseObj.course_id || '')
-        )
-      );
-      if (found) return found;
-
-      // If single quiz in array (or single chapter course), return the single quiz!
-      if (courseObj.quizzes.length === 1) {
-        return courseObj.quizzes[0];
-      }
-    }
-
-    // 4. Search in courseObj.chapters array
-    if (Array.isArray(courseObj.chapters) && courseObj.chapters.length > 0) {
-      for (let i = 0; i < courseObj.chapters.length; i++) {
-        const chap = courseObj.chapters[i];
-        const cId = chap.id || chap.chapter_id || chap.chapterId;
-        if (String(cId) === String(chapId) || courseObj.chapters.length === 1) {
-          if (chap.quiz) return chap.quiz;
-          if (Array.isArray(chap.quizzes) && chap.quizzes.length > 0) return chap.quizzes[0];
-          if (chap.quiz_id || chap.quizId) return { id: chap.quiz_id || chap.quizId, title: chap.title || `Chapter Quiz` };
-        }
-      }
-    }
-
-    // 5. Fallback matching chapter_id to index in quizzes
-    if (Array.isArray(courseObj.quizzes) && courseObj.quizzes.length > 0) {
-      let idx = parseInt(chapId, 10) - 1;
-      if (isNaN(idx) || idx < 0 || idx >= courseObj.quizzes.length) {
-        idx = 0;
-      }
-      return courseObj.quizzes[idx];
-    }
-
-    // 6. Default fallback so triggerQuizForChapter always executes
-    return {
-      id: courseObj.quiz_id || courseObj.quizId || chapId || 1,
-      chapter_id: chapId || 1,
-      title: `Chapter Quiz`
-    };
-  };
-
-  const extractQuizFromResponse = (res, quizInfo, chapId) => {
-    let actualQuiz = null;
-
-    if (Array.isArray(res) && res.length > 0) {
-      const item = res[0];
-      if (item?.json?.quiz) actualQuiz = item.json.quiz;
-      else if (item?.json?.questions) actualQuiz = item.json;
-      else if (item?.json?.quizzes && Array.isArray(item.json.quizzes) && item.json.quizzes.length > 0) actualQuiz = item.json.quizzes[0];
-      else if (item?.quiz) actualQuiz = item.quiz;
-      else if (item?.questions) actualQuiz = item;
-      else if (item?.quizzes && Array.isArray(item.quizzes) && item.quizzes.length > 0) actualQuiz = item.quizzes[0];
-    } else if (res && typeof res === 'object') {
-      if (res.json?.quiz) actualQuiz = res.json.quiz;
-      else if (res.json?.questions) actualQuiz = res.json;
-      else if (res.json?.quizzes && Array.isArray(res.json.quizzes) && res.json.quizzes.length > 0) actualQuiz = res.json.quizzes[0];
-      else if (res.quiz) actualQuiz = res.quiz;
-      else if (res.questions) actualQuiz = res;
-      else if (res.quizzes && Array.isArray(res.quizzes) && res.quizzes.length > 0) actualQuiz = res.quizzes[0];
-    }
-
-    let questions = [];
-    let title = quizInfo?.title || `Chapter ${chapId} Quiz`;
-
-    if (actualQuiz) {
-      if (Array.isArray(actualQuiz.questions) && actualQuiz.questions.length > 0) {
-        questions = actualQuiz.questions;
-      }
-      if (actualQuiz.title) {
-        title = actualQuiz.title;
-      }
-    }
-
-    if (questions.length === 0 && Array.isArray(quizInfo?.questions) && quizInfo.questions.length > 0) {
-      questions = quizInfo.questions;
-    }
-
-    if (questions.length === 0) {
-      questions = getFallbackQuestions(title, chapId);
-    }
-
-    return {
-      questions,
-      title,
-      quizId: actualQuiz?.quiz_id || actualQuiz?.id || quizInfo?.id || chapId
-    };
-  };
-
-  const triggerQuizForChapter = async (chapId, cId, courseObj) => {
-    // Verify that the video in this chapter has been watched
-    const activeCourse = courseObj || location.state?.course;
-    const allChaps = getCourseChapters(activeCourse);
-    const targetChap = allChaps.find(c => String(c.id || '') === String(chapId));
-    if (targetChap && targetChap.lessons && targetChap.lessons.length > 0) {
-      const watchable = targetChap.lessons.filter(l => !isChapterLocked(l, activeCourse));
-      const hasWatched = watchable.length > 0 && watchable.some(l => isLessonCompleted(l));
-      if (watchable.length > 0 && !hasWatched) {
-        setCustomAlert({
-          show: true,
-          title: 'Quiz Locked',
-          message: 'Please watch the video lesson first to unlock this Chapter Quiz Assessment!',
-          buttonText: 'OK'
-        });
-        return;
-      }
-    }
-
-    let quizInfo = findQuizForChapter(chapId, courseObj);
-    if (!quizInfo) {
-      quizInfo = {
-        id: courseObj?.quiz_id || courseObj?.quizId || chapId || 1,
-        title: `Chapter Quiz`,
-        chapter_id: chapId
-      };
-    }
-
-    try {
-      // Call vdUser API with formstep of getQuizDetails
-      const res = await api.dashboard.getUser('getQuizDetails', {
-        formstep: 'getQuizDetails',
-        course_id: cId,
-        chapter_id: chapId,
-        quiz_id: quizInfo.id || quizInfo.quiz_id || chapId,
-        id: quizInfo.id || chapId
-      });
-
-      const { questions, title, quizId } = extractQuizFromResponse(res, quizInfo, chapId);
-
-      setQuizModal({
-        show: true,
-        title,
-        quizId,
-        chapterId: chapId,
-        courseId: cId,
-        questions,
-        currentIdx: 0,
-        userAnswers: {},
-        isSubmitting: false,
-        completed: false,
-        results: null
-      });
-    } catch (err) {
-      console.error("Failed to fetch quiz details via API, using fallback", err);
-      const fallbackQs = (Array.isArray(quizInfo.questions) && quizInfo.questions.length > 0)
-        ? quizInfo.questions
-        : getFallbackQuestions(quizInfo.title || `Chapter ${chapId} Quiz`, chapId);
-
-      setQuizModal({
-        show: true,
-        title: quizInfo.title || `Chapter ${chapId} Quiz`,
-        quizId: quizInfo.id || chapId,
-        chapterId: chapId,
-        courseId: cId,
-        questions: fallbackQs,
-        currentIdx: 0,
-        userAnswers: {},
-        isSubmitting: false,
-        completed: false,
-        results: null
-      });
-    }
-  };
-
-  const handleSelectOption = (optIdx) => {
-    const q = quizModal.questions[quizModal.currentIdx];
-    if (!q) return;
-    setQuizModal(prev => ({
-      ...prev,
-      userAnswers: {
-        ...prev.userAnswers,
-        [q.id]: optIdx
-      }
-    }));
-  };
-
-  const handleTextAnswer = (textVal) => {
-    const q = quizModal.questions[quizModal.currentIdx];
-    if (!q) return;
-    // Disallow leading whitespace and empty spaces
-    const sanitized = (textVal || '').replace(/^\s+/, '');
-    setQuizModal(prev => ({
-      ...prev,
-      userAnswers: {
-        ...prev.userAnswers,
-        [q.id]: sanitized
-      }
-    }));
-  };
-
-  const isCurrentQuestionAnswered = () => {
-    const currentQ = quizModal.questions[quizModal.currentIdx];
-    if (!currentQ) return false;
-    const ans = quizModal.userAnswers[currentQ.id];
-    if (ans === undefined || ans === null) return false;
-    const qType = String(currentQ.question_type || currentQ.questionType || 1);
-    if (qType === '3') {
-      return String(ans).trim().length > 0;
-    }
-    return true;
-  };
-
-  const handleNextQuizQuestion = () => {
-    if (quizModal.currentIdx < quizModal.questions.length - 1) {
-      setQuizModal(prev => ({
-        ...prev,
-        currentIdx: prev.currentIdx + 1
-      }));
-    }
-  };
-
-  const navigateToNextLessonOrChapter = (completedChapId = null) => {
-    const activeVid = videoRefData.current || video || location.state?.video;
-    const activeCourse = location.state?.course || video?.course;
-    const vidId = idRef.current || id || activeVid?.id;
-
-    if (!activeCourse) return;
-
-    const chapters = getCourseChapters(activeCourse);
-    const allLessons = getCourseLessonsList(activeCourse);
-
-    // 1. Find current video index in the global lessons list
-    let currentIdx = -1;
-    if (allLessons.length > 0) {
-      currentIdx = allLessons.findIndex(l => 
-        String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl || activeVid?.video_url)
-      );
-    }
-
-    // 2. Search forward from current video for the next PLAYABLE (unlocked) video
-    let nextPlayableLesson = null;
-    if (currentIdx !== -1) {
-      for (let i = currentIdx + 1; i < allLessons.length; i++) {
-        const candidate = allLessons[i];
-        if (!isChapterLocked(candidate, activeCourse)) {
-          nextPlayableLesson = candidate;
-          break;
-        }
-      }
-    }
-
-    // 3. Fallback: Search subsequent chapters starting after completedChapId
-    if (!nextPlayableLesson && chapters.length > 0) {
-      const targetChapId = completedChapId ?? activeVid?.chapter_id ?? activeVid?.chapterId;
-      let chapIdx = -1;
-      if (targetChapId !== undefined && targetChapId !== null) {
-        chapIdx = chapters.findIndex(c => String(c.id) === String(targetChapId));
-      }
-      const startIdx = chapIdx !== -1 ? chapIdx + 1 : 0;
-      for (let c = startIdx; c < chapters.length; c++) {
-        const chapLessons = chapters[c].lessons || [];
-        const candidate = chapLessons.find(l => !isChapterLocked(l, activeCourse));
-        if (candidate) {
-          nextPlayableLesson = candidate;
-          break;
-        }
-      }
-    }
-
-    // 4. Navigate and autoplay the next playable video
-    if (nextPlayableLesson) {
-      setTimeout(() => {
-        handleNavigateToVideo(nextPlayableLesson, activeCourse);
-      }, 300);
-    } else {
-      console.log("No further unlocked lessons found in this course.");
-    }
-  };
-
-  const handleCloseQuizModal = () => {
-    const wasCompleted = quizModal.completed;
-    const completedChapId = quizModal.chapterId;
-    setQuizModal({
-      show: false,
-      title: '',
-      quizId: 0,
-      chapterId: 0,
-      courseId: 0,
-      questions: [],
-      currentIdx: 0,
-      userAnswers: {},
-      isSubmitting: false,
-      completed: false,
-      results: null
-    });
-
-    if (wasCompleted) {
-      navigateToNextLessonOrChapter(completedChapId);
-    }
-  };
-
-  const handleSubmitQuiz = async () => {
-    setQuizModal(prev => ({ ...prev, isSubmitting: true }));
-
-    // Prepare answers payload for backend submission without frontend scoring
-    const answersPayload = quizModal.questions.map(q => {
-      const qType = String(q.question_type || q.questionType || 1);
-      const userAns = quizModal.userAnswers[q.id];
-      let selectedDisplay = userAns;
-      let optionId = null;
-
-      if (qType === '3') { // Fill in the blanks / Free text
-        selectedDisplay = String(userAns || '').trim();
-        optionId = q.option_id ?? q.optionId ?? q.blank_option_id ?? (Array.isArray(q.options) && q.options[0] && typeof q.options[0] === 'object' ? (q.options[0].option_id ?? q.options[0].id) : null);
-      } else { // MCQ (1) or True/False (2)
-        const selectedIdx = typeof userAns === 'number' ? userAns : parseInt(userAns, 10);
-        const effectiveOptions = (qType === '2' && (!q.options || q.options.length < 2))
-          ? ["True", "False"]
-          : (q.options || []);
-
-        const chosenOpt = (Array.isArray(effectiveOptions) && selectedIdx >= 0 && selectedIdx < effectiveOptions.length)
-          ? effectiveOptions[selectedIdx]
-          : null;
-
-        if (chosenOpt && typeof chosenOpt === 'object') {
-          optionId = chosenOpt.option_id ?? chosenOpt.id ?? chosenOpt.optionId ?? null;
-          selectedDisplay = chosenOpt.text || chosenOpt.option_text || chosenOpt.label || chosenOpt.name || JSON.stringify(chosenOpt);
-        } else if (chosenOpt !== null && chosenOpt !== undefined) {
-          selectedDisplay = chosenOpt;
-        } else {
-          selectedDisplay = selectedIdx;
-        }
-
-        // Check question level arrays for optionId
-        if (optionId === null || optionId === undefined) {
-          if (Array.isArray(q.option_ids) && q.option_ids[selectedIdx] !== undefined) {
-            optionId = q.option_ids[selectedIdx];
-          } else if (Array.isArray(q.optionIds) && q.optionIds[selectedIdx] !== undefined) {
-            optionId = q.optionIds[selectedIdx];
-          } else if (Array.isArray(q.options_data) && q.options_data[selectedIdx] && typeof q.options_data[selectedIdx] === 'object') {
-            optionId = q.options_data[selectedIdx].option_id ?? q.options_data[selectedIdx].id ?? null;
-          } else if (qType === '2') {
-            if (selectedIdx === 0 && (q.true_option_id !== undefined || q.trueOptionId !== undefined)) {
-              optionId = q.true_option_id ?? q.trueOptionId;
-            } else if (selectedIdx === 1 && (q.false_option_id !== undefined || q.falseOptionId !== undefined)) {
-              optionId = q.false_option_id ?? q.falseOptionId;
-            }
-          }
-        }
-
-        if (optionId === null || optionId === undefined) {
-          if (typeof userAns === 'number') {
-            optionId = userAns;
-          } else if (!isNaN(selectedIdx) && selectedIdx >= 0) {
-            optionId = selectedIdx;
-          }
-        }
-      }
-
-      return {
-        question_id: q.id || q.question_id || q.questionId,
-        question_type: qType,
-        selected_option: userAns,
-        selected_option_id: optionId,
-        option_id: optionId,
-        selected_text: selectedDisplay,
-        user_answer: userAns
-      };
-    });
-
-    const payload = {
-      formstep: 'submitQuiz',
-      formStep: 'submitQuiz',
-      course_id: quizModal.courseId,
-      chapter_id: quizModal.chapterId,
-      quiz_id: quizModal.quizId,
-      answers: answersPayload
-    };
-
-    let apiRes = null;
-    try {
-      apiRes = await api.dashboard.getUser('submitQuiz', payload);
-    } catch (err) {
-      console.error("Quiz submission API error", err);
-    }
-
-    // Extract evaluation result strictly from backend API response
-    const resData = Array.isArray(apiRes) && apiRes.length > 0
-      ? apiRes[0]
-      : (Array.isArray(apiRes?.data) && apiRes.data.length > 0
-          ? apiRes.data[0]
-          : (apiRes?.data || apiRes || {}));
-
-    const scoreVal = resData?.score ?? resData?.correct_count ?? 0;
-    const totalQs = resData?.total_questions ?? quizModal.questions.length;
-    const scorePct = resData?.percentage ?? (totalQs > 0 ? Math.round((scoreVal / totalQs) * 100) : 0);
-    const passingPct = resData?.passing_percentage ?? 70;
-    const isPassedBool = Boolean(
-      resData?.result === true ||
-      String(resData?.result_str).toLowerCase() === 'passed' ||
-      String(resData?.status).toLowerCase() === 'passed'
-    );
-
-    let generatedCredentialId = null;
-    let learnerName = 'Learner';
-
-    if (isPassedBool) {
-      try {
-        const u = getCurrentUser() || {};
-        learnerName = u.name || u.fullname || u.username || (u.email ? u.email.split('@')[0] : 'Alex Graham');
-        const courseName = video?.courseTitle || video?.course_title || video?.title || 'TypeScript Basics & Architecture';
-        const acronym = (courseName.replace(/[^a-zA-Z]/g, '').slice(0, 3) || 'TSB').toUpperCase();
-        const randomNum = Math.floor(1000 + Math.random() * 9000);
-        const year = new Date().getFullYear();
-        generatedCredentialId = `CERT-${acronym}-${year}-${randomNum}`;
-        const issueDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-
-        const newCertificate = {
-          id: `cert_${Date.now()}`,
-          title: courseName,
-          chapterTitle: quizModal.title || 'Chapter Assessment',
-          issuer: 'XLurn Learning Academy',
-          issueDate: issueDate,
-          credentialId: generatedCredentialId,
-          score: `${scorePct}%`,
-          badge: scorePct >= 90 ? '🏆' : '🎓',
-          learnerName: learnerName,
-          verified: true,
-          courseId: quizModal.courseId || video?.id || 1,
-          chapterId: quizModal.chapterId || 1
-        };
-
-        const existingCerts = JSON.parse(localStorage.getItem('earned_certificates') || '[]');
-        const filtered = existingCerts.filter(c => c.courseId !== newCertificate.courseId || c.title !== newCertificate.title);
-        const updatedCerts = [newCertificate, ...filtered];
-        localStorage.setItem('earned_certificates', JSON.stringify(updatedCerts));
-
-        window.dispatchEvent(new CustomEvent('certificate_earned', { detail: newCertificate }));
-      } catch (e) {
-        console.error('Error generating certificate:', e);
-      }
-    }
-
-    // Map detailed answer evaluation from backend response
-    let detailedAnswers = [];
-    if (Array.isArray(resData?.answers) && resData.answers.length > 0) {
-      detailedAnswers = resData.answers.map(ans => {
-        const origQ = quizModal.questions.find(q => String(q.id || q.question_id || q.questionId) === String(ans.question_id));
-        return {
-          question_id: ans.question_id,
-          question: ans.question_text || ans.question || origQ?.question || '',
-          question_text: ans.question_text || ans.question || origQ?.question || '',
-          question_type: String(ans.question_type || origQ?.question_type || origQ?.questionType || '1'),
-          selected_option: ans.selected_option,
-          selected_option_id: ans.selected_option_id,
-          selected_text: ans.selected_text || ans.user_answer || '',
-          user_answer: ans.selected_text || ans.user_answer || '',
-          correct_option: ans.correct_option,
-          correct_option_id: ans.correct_option_id,
-          correct_answer: ans.correct_answer || ans.correct_text || '',
-          correct_text: ans.correct_answer || ans.correct_text || '',
-          is_correct: ans.is_correct === true || String(ans.status).toLowerCase() === 'correct',
-          status: ans.status || (ans.is_correct ? 'Correct' : 'Wrong'),
-          options: Array.isArray(ans.options) && ans.options.length > 0 ? ans.options : (origQ?.options || [])
-        };
-      });
-    } else {
-      detailedAnswers = answersPayload.map(a => {
-        const origQ = quizModal.questions.find(q => String(q.id || q.question_id || q.questionId) === String(a.question_id));
-        return {
-          ...a,
-          question: origQ?.question || '',
-          question_text: origQ?.question || '',
-          options: origQ?.options || [],
-          is_correct: false
-        };
-      });
-    }
-
-    setQuizModal(prev => ({
-      ...prev,
-      isSubmitting: false,
-      completed: true,
-      results: {
-        score: scoreVal,
-        totalQuestions: totalQs,
-        percentage: scorePct,
-        answers: detailedAnswers,
-        isPassed: isPassedBool,
-        resultStr: resData?.result_str || (isPassedBool ? 'Passed' : 'Failed'),
-        status: resData?.status || (isPassedBool ? 'Passed' : 'Failed'),
-        passingPercentage: passingPct,
-        correctCount: resData?.correct_count ?? scoreVal,
-        wrongCount: resData?.wrong_count ?? (totalQs - scoreVal),
-        credentialId: generatedCredentialId,
-        learnerName: learnerName
-      }
     }));
   };
 
@@ -2036,6 +1341,95 @@ const VideoWatch = () => {
     }
     return [];
   };
+
+  const navigateToNextLessonOrChapter = (completedChapId = null) => {
+    const activeVid = videoRefData.current || video || location.state?.video;
+    const activeCourse = location.state?.course || video?.course;
+    const vidId = idRef.current || id || activeVid?.id;
+
+    if (!activeCourse) return;
+
+    const chapters = getCourseChapters(activeCourse);
+    const allLessons = getCourseLessonsList(activeCourse);
+
+    // 1. Find current video index in the global lessons list
+    let currentIdx = -1;
+    if (allLessons.length > 0) {
+      currentIdx = allLessons.findIndex(l => 
+        String(l.id || l.videoUrl || l.video_url) === String(vidId || activeVid?.videoUrl || activeVid?.video_url)
+      );
+    }
+
+    // 2. Search forward from current video for the next PLAYABLE (unlocked) video
+    let nextPlayableLesson = null;
+    if (currentIdx !== -1) {
+      for (let i = currentIdx + 1; i < allLessons.length; i++) {
+        const candidate = allLessons[i];
+        if (!isChapterLocked(candidate, activeCourse)) {
+          nextPlayableLesson = candidate;
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback: Search subsequent chapters starting after completedChapId
+    if (!nextPlayableLesson && chapters.length > 0) {
+      const targetChapId = completedChapId ?? activeVid?.chapter_id ?? activeVid?.chapterId;
+      let chapIdx = -1;
+      if (targetChapId !== undefined && targetChapId !== null) {
+        chapIdx = chapters.findIndex(c => String(c.id) === String(targetChapId));
+      }
+      const startIdx = chapIdx !== -1 ? chapIdx + 1 : 0;
+      for (let c = startIdx; c < chapters.length; c++) {
+        const chapLessons = chapters[c].lessons || [];
+        const candidate = chapLessons.find(l => !isChapterLocked(l, activeCourse));
+        if (candidate) {
+          nextPlayableLesson = candidate;
+          break;
+        }
+      }
+    }
+
+    // 4. Navigate and autoplay the next playable video
+    if (nextPlayableLesson) {
+      setTimeout(() => {
+        handleNavigateToVideo(nextPlayableLesson, activeCourse);
+      }, 300);
+    } else {
+      console.log("No further unlocked lessons found in this course.");
+    }
+  };
+
+  // Chapter Quiz Assessment Hook
+  const {
+    quizModal,
+    setQuizModal,
+    earnedCertificate,
+    setEarnedCertificate,
+    triggerQuizForChapter,
+    handleSelectOption,
+    handleTextAnswer,
+    isCurrentQuestionAnswered,
+    handleNextQuizQuestion,
+    handleCloseQuizModal,
+    handleRetakeQuiz,
+    handleSubmitQuiz
+  } = useVideoQuiz({
+    authUser: currentUser,
+    video,
+    activeCourse,
+    locationState: location.state,
+    retakeParam,
+    chapterParam,
+    courseParam,
+    videoId: id,
+    loading,
+    isLessonCompleted,
+    isChapterLocked,
+    getCourseChapters,
+    setCustomAlert,
+    onNavigateToNextLesson: navigateToNextLessonOrChapter
+  });
 
   const startProgressTracking = () => {
     // Silent local tracking of metrics (watchTime increments automatically in active play interval)
@@ -3063,495 +2457,57 @@ const VideoWatch = () => {
       {/* LEFT COLUMN: PLAYER & METADATA */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
-        {/* Video Player */}
-        <div 
-          ref={playerContainerRef}
-          className="video-player-container animate-fade-in" 
-          style={{ position: 'relative', overflow: 'hidden' }}
-        >
-          
-          <video
-            ref={videoRef}
-            src={srcUrl}
-            className="video-player-element"
-            onTimeUpdate={handleTimeUpdate}
-            onSeeked={handleSeeked}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onEnded={handleVideoEnded}
-            onClick={handlePlayPause}
-            onContextMenu={(e) => e.preventDefault()}
-            controls={false}
-            preload="auto"
-          />
-
-          {/* Top-Right Video Watermark: Brand Logo & User Email */}
-          <div 
-            className="video-watermark-overlay"
-            style={{
-              position: 'absolute',
-              top: '14px',
-              right: '18px',
-              zIndex: 35,
-              pointerEvents: 'none',
-              userSelect: 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-end',
-              gap: '4px'
-            }}
-          >
-            {/* Logo Watermark (Direct on video, no blur container) */}
-            <img 
-              src={logoImg} 
-              alt="XLurn" 
-              style={{ 
-                height: '34px', 
-                width: 'auto',
-                maxWidth: '130px', 
-                objectFit: 'contain',
-                display: 'block',
-                filter: 'drop-shadow(0 2px 6px rgba(0, 0, 0, 0.9))'
-              }} 
-            />
-
-            {/* User Email Watermark */}
-            {userEmail && (
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: 'rgba(255, 255, 255, 0.85)',
-                fontFamily: 'monospace, sans-serif',
-                textShadow: '0 1px 4px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9)',
-                letterSpacing: '0.4px'
-              }}>
-                {userEmail}
-              </span>
-            )}
-          </div>
-
-          {/* Top-Left Live Study Room Indicator */}
-          {activeStudyRoom && (
-            <div 
-              onClick={() => setShowStudyRoomDrawer(v => !v)}
-              style={{
-                position: 'absolute',
-                top: '14px',
-                left: '18px',
-                zIndex: 35,
-                background: 'rgba(15, 23, 42, 0.88)',
-                border: '1px solid rgba(16, 185, 129, 0.6)',
-                borderRadius: '20px',
-                padding: '6px 14px',
-                color: '#34d399',
-                fontSize: '12px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-                backdropFilter: 'blur(8px)',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
-                transition: 'all 0.2s ease'
-              }}
-              title="Click to toggle Study Room Chat & Members"
-            >
-              <span style={{ 
-                width: '8px', 
-                height: '8px', 
-                borderRadius: '50%', 
-                background: '#10b981',
-                boxShadow: '0 0 8px #10b981'
-              }} />
-              <span>{activeStudyRoom.roomId}</span>
-              <span style={{ color: 'var(--text-secondary, #9ca3af)', fontSize: '11px', fontWeight: 500 }}>
-                ({studyRoomMembers.length || 1} online)
-              </span>
-            </div>
-          )}
-
-          {/* Real-Time Sync Action Banner */}
-          {studySyncBanner && (
-            <div style={{
-              position: 'absolute',
-              top: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 45,
-              background: 'rgba(15, 23, 42, 0.94)',
-              border: '1px solid #6366f1',
-              color: '#ffffff',
-              padding: '8px 20px',
-              borderRadius: '24px',
-              fontSize: '13px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              boxShadow: '0 6px 24px rgba(99, 102, 241, 0.45)',
-              backdropFilter: 'blur(10px)',
-              pointerEvents: 'none'
-            }}>
-              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }} />
-              {studySyncBanner}
-            </div>
-          )}
-
-          {/* Buffering quality overlay spinner */}
-          {isQualitySwitching && (
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              background: 'rgba(0,0,0,0.7)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 99
-            }}>
-              <span style={{ fontSize: '32px', animation: 'spin 1s infinite linear', marginBottom: '12px' }}>🌀</span>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>Switching to {quality}...</span>
-            </div>
-          )}
-
-          {/* Auto Resume Toast Overlay */}
-          {savedPositionText && (
-            <div style={{
-              position: 'absolute',
-              bottom: '90px',
-              left: '20px',
-              background: 'rgba(18, 18, 23, 0.95)',
-              border: '1px solid var(--accent-secondary)',
-              padding: '16px 20px',
-              borderRadius: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              zIndex: 100,
-              boxShadow: 'var(--shadow-lg)',
-              maxWidth: '320px'
-            }}>
-              <span style={{ fontSize: '13px', fontWeight: 600 }}>{savedPositionText}</span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={handleResume} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                  {t('watch.resumeBtn')}
-                </button>
-                <button onClick={() => setSavedPositionText('')} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                  {t('watch.startOverBtn')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* YouTube-Style Synchronized Subtitle Caption Overlay */}
-          {subtitlesEnabled && activeCue && (
-            <div 
-              className="video-subtitle-overlay animate-fade-in"
-              style={{
-                position: 'absolute',
-                bottom: '62px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(8, 8, 8, 0.82)',
-                color: '#ffffff',
-                padding: '4px 12px',
-                borderRadius: '4px',
-                fontSize: '16px',
-                fontWeight: 500,
-                lineHeight: '1.35',
-                fontFamily: '"YouTube Noto", Roboto, "Segoe UI", Arial, sans-serif',
-                textAlign: 'center',
-                maxWidth: '85%',
-                zIndex: 30,
-                pointerEvents: 'none',
-                textShadow: '0 0 2px #000, 0 1px 2px #000',
-                letterSpacing: '0.3px',
-                transition: 'all 0.12s ease-out',
-                userSelect: 'none'
-              }}
-            >
-              <span>{activeCue.text}</span>
-            </div>
-          )}
-
-          {/* CUSTOM CONTROLS PANEL */}
-          <div className="video-player-controls" style={{ flexWrap: 'wrap', gap: '12px' }}>
-            
-            {/* Play/Pause */}
-            <button 
-              onClick={handlePlayPause} 
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', width: '32px' }}
-            >
-              {isPlaying ? '⏸' : '▶'}
-            </button>
-
-            {/* Volume controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button 
-                onClick={handleMuteToggle}
-                style={{ background: 'none', border: 'none', color: '#fff', fontSize: '16px', cursor: 'pointer' }}
-                title={t('watch.volume')}
-              >
-                {isMuted ? '🔇' : volume < 0.3 ? '🔈' : volume < 0.7 ? '🔉' : '🔊'}
-              </button>
-              <input 
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => handleVolumeChange(e.target.value)}
-                style={{
-                  width: '60px',
-                  height: '4px',
-                  accentColor: 'var(--accent-secondary)',
-                  cursor: 'pointer'
-                }}
-              />
-            </div>
-
-            {/* Rewind 10s */}
-            <button 
-              onClick={() => handleSeek(-10)} 
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}
-              title="Seek Back 10s"
-            >
-              ⏪ 10s
-            </button>
-
-            {/* Forward 10s */}
-            <button 
-              onClick={() => handleSeek(10)} 
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '13px', cursor: 'pointer' }}
-              title="Seek Forward 10s"
-            >
-              10s ⏩
-            </button>
-
-            {/* Time Slider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 200px' }}>
-              <span style={{ fontSize: '12px', color: '#aaa', minWidth: '35px' }}>{formatTime(currentTime)}</span>
-              <input
-                type="range"
-                min="0"
-                max={duration || 100}
-                value={currentTime}
-                onChange={(e) => {
-                  if (videoRef.current) videoRef.current.currentTime = e.target.value;
-                }}
-                onMouseDown={handleTimelineDragStart}
-                onTouchStart={handleTimelineDragStart}
-                onMouseUp={handleTimelineDragEnd}
-                onTouchEnd={handleTimelineDragEnd}
-                style={{
-                  flex: 1,
-                  height: '4px',
-                  accentColor: 'var(--accent-primary)',
-                  cursor: 'pointer'
-                }}
-              />
-              <span style={{ fontSize: '12px', color: '#aaa', minWidth: '35px' }}>{formatTime(duration)}</span>
-            </div>
-
-            {/* Subtitles CC Button with Language Selector Menu */}
-            <div className="cc-control-wrapper" ref={ccMenuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setShowCcMenu(prev => !prev)}
-                style={{
-                  background: subtitlesEnabled ? 'rgba(99, 102, 241, 0.35)' : 'transparent',
-                  border: subtitlesEnabled ? '1px solid var(--accent-primary)' : '1px solid rgba(255,255,255,0.25)',
-                  color: subtitlesEnabled ? 'var(--accent-secondary)' : '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '11px',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  letterSpacing: '0.5px',
-                  transition: 'all 0.2s ease',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title={subtitlesEnabled ? `Captions: ${SUPPORTED_SUBTITLE_LANGUAGES.find(l => l.code === subtitleLang)?.name || 'ON'} (Click to change)` : 'Closed Captions (CC)'}
-              >
-                <span>CC</span>
-                {subtitlesEnabled && (
-                  <span style={{ 
-                    fontSize: '9px', 
-                    background: 'var(--accent-primary)', 
-                    color: '#fff', 
-                    padding: '1px 4px', 
-                    borderRadius: '3px', 
-                    textTransform: 'uppercase',
-                    fontWeight: 700
-                  }}>
-                    {subtitleLang}
-                  </span>
-                )}
-              </button>
-
-              {/* CC Language Selection Popover */}
-              {showCcMenu && (
-                <div 
-                  className="cc-menu-dropdown animate-fade-in"
-                  style={{
-                    position: 'absolute',
-                    bottom: '36px',
-                    left: '0',
-                    background: 'rgba(18, 18, 24, 0.96)',
-                    backdropFilter: 'blur(16px)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '8px',
-                    padding: '6px 0',
-                    minWidth: '140px',
-                    zIndex: 120,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.7)'
-                  }}
-                >
-                  <div style={{
-                    padding: '4px 12px 6px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.8px',
-                    color: 'rgba(255,255,255,0.45)',
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
-                    marginBottom: '4px'
-                  }}>
-                    Closed Captions
-                  </div>
-
-                  {/* Off Option */}
-                  <div
-                    onClick={() => {
-                      setSubtitlesEnabled(false);
-                      setShowCcMenu(false);
-                    }}
-                    style={{
-                      padding: '7px 12px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      color: !subtitlesEnabled ? 'var(--accent-secondary)' : '#ffffff',
-                      background: !subtitlesEnabled ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                      fontWeight: !subtitlesEnabled ? 700 : 400,
-                      transition: 'background 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (subtitlesEnabled) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (subtitlesEnabled) e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <span>Off</span>
-                    {!subtitlesEnabled && <span style={{ color: 'var(--accent-primary)', fontSize: '13px' }}>✓</span>}
-                  </div>
-
-                  {/* Supported Language Options (English, Hindi, Kannada, Telugu) */}
-                  {availableLanguages.map(lang => {
-                    const isSelected = subtitlesEnabled && subtitleLang === lang.code;
-                    return (
-                      <div
-                        key={lang.code}
-                        onClick={() => {
-                          setSubtitleLang(lang.code);
-                          setSubtitlesEnabled(true);
-                          setShowCcMenu(false);
-                          if (videoRef.current) {
-                            const cur = videoRef.current.currentTime;
-                            const cues = (multilingualData.transcripts[lang.code] || []).length > 0
-                              ? multilingualData.transcripts[lang.code]
-                              : (fetchedVttTranscripts[lang.code] || generateTranscriptForVideo(video, lang.code, duration || 180));
-                            const match = cues.find(c => cur >= c.start && cur < c.end);
-                            setActiveCue(match || null);
-                          }
-                        }}
-                        style={{
-                          padding: '7px 12px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          color: isSelected ? 'var(--accent-secondary)' : '#ffffff',
-                          background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                          fontWeight: isSelected ? 700 : 400,
-                          transition: 'background 0.15s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <span>{lang.label || lang.name}</span>
-                        {isSelected && <span style={{ color: 'var(--accent-primary)', fontSize: '13px' }}>✓</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Playback Speed */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#aaa' }}>{t('watch.playbackSpeed')}:</span>
-              <PremiumSelect
-                options={[
-                  { id: '0.5', name: '0.5x' },
-                  { id: '1', name: '1.0x' },
-                  { id: '1.5', name: '1.5x' },
-                  { id: '2', name: '2.0x' }
-                ]}
-                value={String(playbackSpeed)}
-                onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
-                searchable={false}
-                size="small"
-                icon="fa-solid fa-gauge-high"
-                style={{ width: '76px' }}
-                dropUp={true}
-              />
-            </div>
-
-            {/* Quality Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#aaa' }}>{t('watch.quality')}:</span>
-              <PremiumSelect
-                options={[
-                  { id: 'Auto', name: 'Auto' },
-                  { id: '1080p', name: '1080p' },
-                  { id: '720p', name: '720p' },
-                  { id: '480p', name: '480p' }
-                ]}
-                value={quality}
-                onChange={(e) => handleQualityChange(e.target.value)}
-                searchable={false}
-                size="small"
-                icon="fa-solid fa-sliders"
-                style={{ width: '82px' }}
-                dropUp={true}
-              />
-            </div>
-
-            {/* Fullscreen */}
-            <button 
-              onClick={handleFullscreen} 
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: '18px', cursor: 'pointer' }}
-              title="Fullscreen"
-            >
-              🖵
-            </button>
-
-          </div>
-        </div>
+        {/* Video Player Component */}
+        <Player
+          playerContainerRef={playerContainerRef}
+          videoRef={videoRef}
+          srcUrl={srcUrl}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          volume={volume}
+          isMuted={isMuted}
+          playbackSpeed={playbackSpeed}
+          quality={quality}
+          isQualitySwitching={isQualitySwitching}
+          savedPositionText={savedPositionText}
+          subtitlesEnabled={subtitlesEnabled}
+          subtitleLang={subtitleLang}
+          showCcMenu={showCcMenu}
+          ccMenuRef={ccMenuRef}
+          activeCue={activeCue}
+          availableLanguages={availableLanguages}
+          multilingualData={multilingualData}
+          fetchedVttTranscripts={fetchedVttTranscripts}
+          generateTranscriptForVideo={generateTranscriptForVideo}
+          video={video}
+          handlePlayPause={handlePlayPause}
+          handlePlay={handlePlay}
+          handlePause={handlePause}
+          handleVideoEnded={handleVideoEnded}
+          handleTimeUpdate={handleTimeUpdate}
+          handleSeeked={handleSeeked}
+          handleSeek={handleSeek}
+          handleVolumeChange={handleVolumeChange}
+          handleMuteToggle={handleMuteToggle}
+          handleSpeedChange={handleSpeedChange}
+          handleQualityChange={handleQualityChange}
+          handleFullscreen={handleFullscreen}
+          handleTimelineDragStart={handleTimelineDragStart}
+          handleTimelineDragEnd={handleTimelineDragEnd}
+          handleResume={handleResume}
+          setSavedPositionText={setSavedPositionText}
+          setSubtitlesEnabled={setSubtitlesEnabled}
+          setShowCcMenu={setShowCcMenu}
+          setSubtitleLang={setSubtitleLang}
+          setActiveCue={setActiveCue}
+          formatTime={formatTime}
+          activeStudyRoom={activeStudyRoom}
+          setShowStudyRoomDrawer={setShowStudyRoomDrawer}
+          studyRoomMembers={studyRoomMembers}
+          studySyncBanner={studySyncBanner}
+          userEmail={userEmail}
+        />
 
         {/* Widescreen YouTube Details Container */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="animate-fade-in">
@@ -5285,12 +4241,13 @@ const VideoWatch = () => {
 
       {/* RIGHT COLUMN: RECOMMENDATIONS OR COURSE PLAYLIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {location.state?.course && getCourseChapters(location.state.course).length > 0 ? (
+        {(activeCourse || location.state?.course) && getCourseChapters(activeCourse || location.state?.course).length > 0 ? (
           (() => {
-            const courseChapters = getCourseChapters(location.state.course);
-            const courseLessons = getCourseLessonsList(location.state.course);
-            const courseTitle = location.state.course.title || location.state.course.course_name || 'Course';
-            const courseId = location.state.course.id || location.state.course.course_id || location.state.course.courseId || 1;
+            const currentCourseObj = activeCourse || location.state?.course;
+            const courseChapters = getCourseChapters(currentCourseObj);
+            const courseLessons = getCourseLessonsList(currentCourseObj);
+            const courseTitle = currentCourseObj.title || currentCourseObj.course_name || 'Course';
+            const courseId = currentCourseObj.id || currentCourseObj.course_id || currentCourseObj.courseId || 1;
             
             // Calculate completion progress based on ACTUALLY completed lessons
             const completedCount = courseLessons.filter(l => isLessonCompleted(l)).length;
@@ -5378,17 +4335,17 @@ const VideoWatch = () => {
                     // Condition 1: If chapter has only 1 video and that video is private:
                     // Blur video & quiz, and lock should be in center
                     const isSingleVideo = chapLessons.length === 1;
-                    const isSingleVideoLocked = isSingleVideo && isChapterLocked(chapLessons[0], location.state?.course);
+                    const isSingleVideoLocked = isSingleVideo && isChapterLocked(chapLessons[0], currentCourseObj);
 
                     // Condition 2 & 3: Without watching video no need to open quiz
-                    const watchableLessons = chapLessons.filter(l => !isChapterLocked(l, location.state?.course));
+                    const watchableLessons = chapLessons.filter(l => !isChapterLocked(l, currentCourseObj));
                     const isChapterWatched = watchableLessons.length > 0 && watchableLessons.some(l => isLessonCompleted(l));
 
-                    const isCurrentChapter = chapLessons.some(l => 
+                    const isCurrentChapter = (chapterParam && String(chapter.id) === String(chapterParam)) || chapLessons.some(l => 
                       String(l.id || l.videoUrl || l.video_url) === String(video?.id || video?.videoUrl || video?.video_url)
                     );
 
-                    const quizObj = findQuizForChapter(chapter.id, location.state?.course);
+                    const quizObj = findQuizForChapter(chapter.id, currentCourseObj);
 
                     return (
                       <div 
@@ -5459,15 +4416,15 @@ const VideoWatch = () => {
                               {chapLessons.map((lesson, lIdx) => {
                                 const globalIdx = courseLessons.findIndex(gl => String(gl.id || gl.videoUrl || gl.video_url) === String(lesson.id || lesson.videoUrl || lesson.video_url));
                                 const isLessonActive = String(lesson.id || lesson.videoUrl || lesson.video_url) === String(video?.id || video?.videoUrl || video?.video_url);
-                                const isLocked = isChapterLocked(lesson, location.state?.course);
-                                const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || location.state?.course?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
+                                const isLocked = isChapterLocked(lesson, currentCourseObj);
+                                const lessonThumb = lesson.thumbnail || lesson.thumbnailUrl || lesson.thumbnail_url || currentCourseObj?.thumbnail || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600';
                                 const lessonDuration = lesson.duration || (globalIdx === 0 ? '5:21' : globalIdx === 1 ? '8:45' : globalIdx === 2 ? '6:30' : '7:15');
                                 const isCompleted = isLessonCompleted(lesson);
 
                                 return (
                                   <div 
                                     key={lesson.id || lIdx}
-                                    onClick={() => handleNavigateToVideo(lesson, location.state?.course)}
+                                    onClick={() => handleNavigateToVideo(lesson, currentCourseObj)}
                                     style={{
                                       display: 'flex',
                                       gap: '10px',
@@ -5504,7 +4461,11 @@ const VideoWatch = () => {
                                       <img 
                                         src={lessonThumb} 
                                         alt={lesson.title || `Lesson ${lIdx + 1}`} 
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                        width={64}
+                                        height={38}
+                                        loading="lazy"
+                                        decoding="async"
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '16 / 9' }} 
                                       />
                                       {isLocked && (
                                         <div style={{
@@ -5688,7 +4649,7 @@ const VideoWatch = () => {
                               )}
 
                               {/* Chapter Quiz Trigger Button under Chapter */}
-                              {(quizObj || location.state?.course?.quizzes) && (
+                              {(quizObj || currentCourseObj?.quizzes) && (
                                 <div 
                                   onClick={() => {
                                     if (!isChapterWatched) {
@@ -5700,7 +4661,7 @@ const VideoWatch = () => {
                                       });
                                       return;
                                     }
-                                    triggerQuizForChapter(chapter.id, courseId, location.state?.course);
+                                    triggerQuizForChapter(chapter.id, courseId, currentCourseObj);
                                   }}
                                   style={{
                                     display: 'flex',
@@ -5826,7 +4787,11 @@ const VideoWatch = () => {
                       return getAssetUrl(thumb, 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600');
                     })()} 
                     alt={rec.title} 
-                    style={{ width: '100px', height: '56px', objectFit: 'cover', borderRadius: '4px' }} 
+                    width={100}
+                    height={56}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ width: '100px', height: '56px', objectFit: 'cover', borderRadius: '4px', aspectRatio: '16 / 9' }} 
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -5954,498 +4919,32 @@ const VideoWatch = () => {
       )}
 
       {/* ================= CHAPTER QUIZ MODAL PORTAL ================= */}
-      {quizModal.show && ReactDOM.createPortal(
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.82)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 999999,
-          padding: '20px'
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '640px',
-            backgroundColor: 'var(--bg-secondary, #181824)',
-            border: '1px solid var(--border-color, #2e2e3e)',
-            borderRadius: '20px',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.6)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '90vh',
-            animation: 'fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-          }}>
-            {/* Quiz Modal Header */}
-            <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid var(--border-color, #2e2e3e)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'linear-gradient(90deg, rgba(229,9,20,0.12), transparent)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '26px' }}>📝</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary, #ffffff)' }}>
-                    {quizModal.title}
-                  </h3>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary, #a1a1aa)' }}>
-                    Chapter {quizModal.chapterId} Quiz Assessment
-                  </span>
-                </div>
-              </div>
+      <QuizPanel
+        quizModal={quizModal}
+        isCurrentQuestionAnswered={isCurrentQuestionAnswered}
+        handleSelectOption={handleSelectOption}
+        handleTextAnswer={handleTextAnswer}
+        handleNextQuizQuestion={handleNextQuizQuestion}
+        handleSubmitQuiz={handleSubmitQuiz}
+        handleCloseQuizModal={handleCloseQuizModal}
+        handleRetakeQuiz={handleRetakeQuiz}
+        onViewCertificate={() => setShowCertificateModal(true)}
+      />
 
-              {!quizModal.completed && (
-                <span style={{
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  backgroundColor: 'rgba(229, 9, 20, 0.15)',
-                  color: '#e50914',
-                  border: '1px solid rgba(229, 9, 20, 0.3)'
-                }}>
-                  Question {quizModal.currentIdx + 1} of {quizModal.questions.length}
-                </span>
-              )}
-            </div>
-
-            {/* Quiz Progress Bar */}
-            {!quizModal.completed && (
-              <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary, #2a2a38)' }}>
-                <div style={{
-                  width: `${((quizModal.currentIdx + 1) / quizModal.questions.length) * 100}%`,
-                  height: '100%',
-                  backgroundColor: '#e50914',
-                  transition: 'width 0.3s ease'
-                }} />
-              </div>
-            )}
-
-            {/* Quiz Body Content */}
-            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-              {!quizModal.completed ? (() => {
-                const currentQ = quizModal.questions[quizModal.currentIdx];
-                if (!currentQ) return null;
-                const selectedOpt = quizModal.userAnswers[currentQ.id];
-                const qType = String(currentQ.question_type || currentQ.questionType || 1);
-
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* Question Statement */}
-                    <h4 style={{
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      color: 'var(--text-primary, #ffffff)',
-                      margin: 0,
-                      lineHeight: '1.5'
-                    }}>
-                      {currentQ.question}
-                    </h4>
-
-                    {/* Question Input / Options based on question_type */}
-                    {qType === '3' ? (
-                      /* Question Type 3: Fill in the Blanks Input */
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary, #a1a1aa)' }}>
-                          ✏️ Type your answer below:
-                        </label>
-                        <input
-                          type="text"
-                          value={selectedOpt || ''}
-                          onKeyDown={(e) => {
-                            if (e.key === ' ' && (!e.currentTarget.value || e.currentTarget.selectionStart === 0)) {
-                              e.preventDefault();
-                            }
-                          }}
-                          onChange={(e) => handleTextAnswer(e.target.value)}
-                          placeholder="Enter your answer here..."
-                          style={{
-                            width: '100%',
-                            padding: '16px 20px',
-                            borderRadius: '12px',
-                            backgroundColor: 'var(--bg-primary, #12121a)',
-                            border: `1.5px solid ${String(selectedOpt || '').trim() ? '#e50914' : 'var(--border-color, #2e2e3e)'}`,
-                            color: 'var(--text-primary, #ffffff)',
-                            fontSize: '15px',
-                            fontWeight: 500,
-                            outline: 'none',
-                            transition: 'all 0.2s ease',
-                            boxShadow: String(selectedOpt || '').trim() ? '0 4px 14px rgba(229, 9, 20, 0.15)' : 'none'
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      /* Question Types 1 (MCQ) & 2 (True / False) Options */
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {(() => {
-                          const tfDefaults = ["True", "False"];
-                          const optionsToRender = (qType === '2' && (!currentQ.options || currentQ.options.length < 2))
-                            ? tfDefaults
-                            : (currentQ.options || []);
-
-                          return optionsToRender.map((opt, optIdx) => {
-                            const isSelected = selectedOpt === optIdx;
-                            const optText = typeof opt === 'object' ? (opt.text || opt.option_text || JSON.stringify(opt)) : String(opt);
-
-                            return (
-                              <div
-                                key={optIdx}
-                                onClick={() => handleSelectOption(optIdx)}
-                                style={{
-                                  padding: '14px 18px',
-                                  borderRadius: '12px',
-                                  backgroundColor: isSelected ? 'rgba(229, 9, 20, 0.14)' : 'var(--bg-primary, #12121a)',
-                                  border: `1.5px solid ${isSelected ? '#e50914' : 'var(--border-color, #2e2e3e)'}`,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '14px',
-                                  transition: 'all 0.2s ease',
-                                  boxShadow: isSelected ? '0 4px 14px rgba(229, 9, 20, 0.25)' : 'none'
-                                }}
-                              >
-                                {/* Option Radio Circle */}
-                                <div style={{
-                                  width: '20px',
-                                  height: '20px',
-                                  borderRadius: '50%',
-                                  border: `2px solid ${isSelected ? '#e50914' : '#666'}`,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0
-                                }}>
-                                  {isSelected && <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#e50914' }} />}
-                                </div>
-
-                                <span style={{
-                                  fontSize: '13px',
-                                  fontWeight: 700,
-                                  color: isSelected ? '#e50914' : 'var(--text-secondary, #a1a1aa)'
-                                }}>
-                                  {String.fromCharCode(65 + optIdx)}.
-                                </span>
-
-                                <span style={{
-                                  fontSize: '14px',
-                                  color: isSelected ? 'var(--text-primary, #ffffff)' : 'var(--text-secondary, #d1d5db)',
-                                  fontWeight: isSelected ? 600 : 400
-                                }}>
-                                  {optText}
-                                </span>
-                              </div>
-                            );
-                          });
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                );
-              })() : (
-                /* Quiz Results View */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {/* Score Banner */}
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '24px',
-                    borderRadius: '16px',
-                    background: quizModal.results?.isPassed 
-                      ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'
-                      : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))',
-                    border: `1px solid ${quizModal.results?.isPassed ? '#10b981' : '#ef4444'}`
-                  }}>
-                    <span style={{ fontSize: '48px', display: 'block', marginBottom: '8px' }}>
-                      {quizModal.results?.isPassed ? '🎉' : '📊'}
-                    </span>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: 800, color: 'var(--text-primary, #ffffff)' }}>
-                      Score: {quizModal.results?.score} / {quizModal.results?.totalQuestions} ({quizModal.results?.percentage}%)
-                    </h3>
-                    <p style={{ margin: 0, fontSize: '14px', color: quizModal.results?.isPassed ? '#10b981' : '#ef4444', fontWeight: 600 }}>
-                      {quizModal.results?.isPassed ? 'Congratulations! You passed the chapter quiz.' : 'Quiz completed. Review correct answers below.'}
-                    </p>
-                    {quizModal.results?.isPassed && (
-                      <div style={{
-                        marginTop: '16px',
-                        padding: '16px 20px',
-                        borderRadius: '12px',
-                        backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                        border: '1px solid rgba(99, 102, 241, 0.4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '12px',
-                        textAlign: 'left'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                          <span style={{ fontSize: '32px' }}>📜</span>
-                          <div>
-                            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary, #ffffff)' }}>
-                              Official Completion Certificate Generated!
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary, #94a3b8)', marginTop: '2px' }}>
-                              Credential ID: <code style={{ color: '#10b981', fontWeight: 700, backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>{quizModal.results?.credentialId || 'CERT-VERIFIED-2026'}</code>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            handleCloseQuizModal();
-                            navigate('/certificates');
-                          }}
-                          style={{
-                            padding: '9px 18px',
-                            borderRadius: '8px',
-                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                            color: '#ffffff',
-                            fontWeight: 700,
-                            fontSize: '13px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
-                          }}
-                        >
-                          View Certificate ➔
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Detailed Question Review */}
-                  <h4 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary, #ffffff)' }}>
-                    Detailed Answer Breakdown
-                  </h4>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {(quizModal.results?.answers || []).map((ans, idx) => (
-                      <div key={idx} style={{
-                        padding: '16px',
-                        borderRadius: '12px',
-                        backgroundColor: ans.is_correct ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                        border: `1px solid ${ans.is_correct ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', gap: '12px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary, #ffffff)' }}>
-                            {idx + 1}. {ans.question_text || ans.question}
-                          </span>
-                          <span style={{
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            padding: '2px 10px',
-                            borderRadius: '6px',
-                            backgroundColor: ans.is_correct ? '#10b981' : '#ef4444',
-                            color: '#ffffff',
-                            flexShrink: 0
-                          }}>
-                            {ans.is_correct ? '✔ Correct' : '❌ Wrong'}
-                          </span>
-                        </div>
-
-                        {String(ans.question_type) === '3' ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
-                            <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: ans.is_correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', border: `1px solid ${ans.is_correct ? '#10b981' : '#ef4444'}` }}>
-                              <span style={{ color: 'var(--text-secondary)' }}>Your Answer: </span>
-                              <strong style={{ color: ans.is_correct ? '#10b981' : '#ef4444' }}>{ans.selected_text || ans.user_answer || '(No answer provided)'}</strong>
-                            </div>
-                            {!ans.is_correct && (
-                              <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Correct Answer: </span>
-                                <strong style={{ color: '#10b981' }}>{ans.correct_answer || ans.correct_text}</strong>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
-                            {(ans.options || []).map((opt, oIdx) => {
-                              const optId = typeof opt === 'object' ? (opt.option_id ?? opt.id) : null;
-                              const optText = typeof opt === 'object' ? (opt.option_text || opt.text || opt.label || JSON.stringify(opt)) : String(opt);
-
-                              let isCorrectChoice = false;
-                              if (typeof opt?.is_correct === 'boolean') {
-                                isCorrectChoice = opt.is_correct;
-                              } else if (ans.correct_option_id !== undefined && ans.correct_option_id !== null && optId !== null) {
-                                isCorrectChoice = String(optId) === String(ans.correct_option_id);
-                              } else if (ans.correct_answer) {
-                                isCorrectChoice = String(optText).trim().toLowerCase() === String(ans.correct_answer).trim().toLowerCase();
-                              } else if (ans.correct_text) {
-                                isCorrectChoice = String(optText).trim().toLowerCase() === String(ans.correct_text).trim().toLowerCase();
-                              } else if (typeof ans.correct_option === 'number' && optId === null) {
-                                isCorrectChoice = ans.correct_option === oIdx;
-                              }
-
-                              let isUserChoice = false;
-                              if (typeof opt?.is_selected === 'boolean') {
-                                isUserChoice = opt.is_selected;
-                              } else if (ans.selected_option_id !== undefined && ans.selected_option_id !== null && optId !== null) {
-                                isUserChoice = String(optId) === String(ans.selected_option_id);
-                              } else if (ans.selected_text) {
-                                isUserChoice = String(optText).trim().toLowerCase() === String(ans.selected_text).trim().toLowerCase();
-                              } else if (typeof ans.selected_option === 'number' && optId === null) {
-                                isUserChoice = ans.selected_option === oIdx;
-                              }
-
-                              let bg = 'transparent';
-                              let color = 'var(--text-secondary, #a1a1aa)';
-                              let border = '1px transparent solid';
-
-                              if (isCorrectChoice) {
-                                bg = 'rgba(16, 185, 129, 0.2)';
-                                color = '#10b981';
-                                border = '1px solid #10b981';
-                              } else if (isUserChoice && !ans.is_correct) {
-                                bg = 'rgba(239, 68, 68, 0.2)';
-                                color = '#ef4444';
-                                border = '1px solid #ef4444';
-                              }
-
-                              return (
-                                <div key={oIdx} style={{
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  backgroundColor: bg,
-                                  color: color,
-                                  border: border,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  fontWeight: (isUserChoice || isCorrectChoice) ? 600 : 400
-                                }}>
-                                  <span>{String.fromCharCode(65 + oIdx)}. {optText}</span>
-                                  {isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981' }}>[Correct Answer]</span>}
-                                  {isUserChoice && !isCorrectChoice && <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>[Your Choice]</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Quiz Modal Footer Actions */}
-            <div style={{
-              padding: '16px 24px',
-              borderTop: '1px solid var(--border-color, #2e2e3e)',
-              display: 'flex',
-              justify: 'space-between',
-              alignItems: 'center',
-              backgroundColor: 'var(--bg-primary, #12121a)'
-            }}>
-              {!quizModal.completed ? (
-                <>
-                  <button
-                    onClick={handleCloseQuizModal}
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 20px', fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-
-                  {quizModal.currentIdx < quizModal.questions.length - 1 ? (
-                    <button
-                      onClick={handleNextQuizQuestion}
-                      disabled={!isCurrentQuestionAnswered()}
-                      className="btn btn-primary"
-                      style={{
-                        padding: '8px 24px',
-                        fontSize: '13px',
-                        backgroundColor: '#e50914',
-                        border: 'none',
-                        color: '#ffffff',
-                        borderRadius: '8px',
-                        fontWeight: 600,
-                        cursor: !isCurrentQuestionAnswered() ? 'not-allowed' : 'pointer',
-                        opacity: !isCurrentQuestionAnswered() ? 0.5 : 1
-                      }}
-                    >
-                      Next ➔
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleSubmitQuiz}
-                      disabled={quizModal.isSubmitting || !isCurrentQuestionAnswered()}
-                      className="btn btn-primary"
-                      style={{
-                        padding: '8px 24px',
-                        fontSize: '13px',
-                        backgroundColor: '#10b981',
-                        border: 'none',
-                        color: '#ffffff',
-                        borderRadius: '8px',
-                        fontWeight: 700,
-                        cursor: (quizModal.isSubmitting || !isCurrentQuestionAnswered()) ? 'not-allowed' : 'pointer',
-                        opacity: (quizModal.isSubmitting || !isCurrentQuestionAnswered()) ? 0.5 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}
-                    >
-                      {quizModal.isSubmitting ? 'Submitting...' : 'Submit Quiz 🚀'}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: '12px' }}>
-                  <button
-                    onClick={() => setQuizModal(prev => ({ ...prev, completed: false, currentIdx: 0, userAnswers: {} }))}
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 20px', fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
-                  >
-                    🔄 Retake Quiz
-                  </button>
-                  {quizModal.results?.percentage >= 70 && (
-                    <button
-                      onClick={() => {
-                        handleCloseQuizModal();
-                        navigate('/certificates');
-                      }}
-                      style={{
-                        padding: '8px 20px',
-                        fontSize: '13px',
-                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                        border: 'none',
-                        color: '#ffffff',
-                        borderRadius: '8px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 2px 10px rgba(99, 102, 241, 0.4)'
-                      }}
-                    >
-                      📜 View Certificate
-                    </button>
-                  )}
-                  <button
-                    onClick={handleCloseQuizModal}
-                    className="btn btn-primary"
-                    style={{ padding: '8px 24px', fontSize: '13px', backgroundColor: '#e50914', border: 'none', color: '#ffffff', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Continue Course
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* ================= OFFICIAL COURSE CERTIFICATE MODAL ================= */}
+      <CertificatePanel
+        certificate={earnedCertificate || (() => {
+          try {
+            const certs = JSON.parse(localStorage.getItem('earned_certificates') || '[]');
+            return certs.find(c => String(c.courseId) === String(location.state?.course?.id || video?.course_id || id)) || certs[0] || null;
+          } catch {
+            return null;
+          }
+        })()}
+        isOpen={showCertificateModal}
+        onClose={() => setShowCertificateModal(false)}
+        onViewAllCertificates={() => navigate('/certificates')}
+      />
 
       {/* Hidden Global Audio Element for Learning Aids */}
       <audio
@@ -6676,6 +5175,10 @@ const VideoWatch = () => {
                       <img
                         src={docPreviewModal.fileUrl}
                         alt={docPreviewModal.title}
+                        width={800}
+                        height={500}
+                        loading="lazy"
+                        decoding="async"
                         style={{
                           maxWidth: '100%',
                           maxHeight: '100%',
@@ -6871,494 +5374,29 @@ const VideoWatch = () => {
       )}
 
       {/* ----------------------------------------------------
-          LIVE STUDY ROOM CHAT & SYNC DRAWER
+          LIVE STUDY ROOM CHAT & SYNC DRAWER AND MODAL
           ---------------------------------------------------- */}
-      {showStudyRoomDrawer && activeStudyRoom && (
-        <div style={{
-          position: 'fixed',
-          right: '24px',
-          bottom: '24px',
-          width: '380px',
-          height: '560px',
-          maxWidth: 'calc(100vw - 48px)',
-          maxHeight: 'calc(100vh - 100px)',
-          background: 'rgba(15, 23, 42, 0.95)',
-          border: '1px solid rgba(99, 102, 241, 0.4)',
-          borderRadius: '16px',
-          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(99, 102, 241, 0.25)',
-          backdropFilter: 'blur(16px)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 9999,
-          overflow: 'hidden'
-        }}>
-          {/* Drawer Header */}
-          <div style={{
-            padding: '14px 16px',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.15))',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '20px' }}>👥</span>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>{activeStudyRoom.title || t('studyRooms.liveDrawerTitle', 'Virtual Study Room')}</span>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-                </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Code: <strong style={{ color: '#a5b4fc', letterSpacing: '0.5px' }}>{activeStudyRoom.roomId}</strong></span>
-                  <button 
-                    onClick={handleCopyStudyInvite}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: studyInviteCopied ? '#34d399' : '#818cf8',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      padding: 0,
-                      fontWeight: 600
-                    }}
-                  >
-                    {studyInviteCopied ? '✓ Copied' : '📋 Copy Link'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                onClick={() => setShowStudyRoomDrawer(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '28px',
-                  height: '28px',
-                  color: '#94a3b8',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                title="Minimize Drawer"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {/* Sync status strip */}
-          <div style={{
-            padding: '8px 14px',
-            background: 'rgba(16, 185, 129, 0.08)',
-            borderBottom: '1px solid rgba(16, 185, 129, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '11px',
-            color: '#34d399'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>⚡</span>
-              <span>{t('studyRooms.syncNotice', 'Playback sync active. Play & pause mirrored.')}</span>
-            </div>
-            <button
-              onClick={handleLeaveStudyRoom}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#f87171',
-                fontSize: '11px',
-                cursor: 'pointer',
-                fontWeight: 600
-              }}
-            >
-              Leave
-            </button>
-          </div>
-
-          {/* Active Members Bar */}
-          <div style={{
-            padding: '8px 14px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            overflowX: 'auto',
-            background: 'rgba(0, 0, 0, 0.2)'
-          }}>
-            <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', fontWeight: 600 }}>
-              Online ({studyRoomMembers.length || 1}):
-            </span>
-            {(studyRoomMembers.length > 0 ? studyRoomMembers : [{ username: currentUser?.username || 'You', isHost: true }]).map((m, idx) => (
-              <span
-                key={idx}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '11px',
-                  color: '#e2e8f0',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                <span>{m.username}</span>
-                {m.isHost && <span title="Host" style={{ fontSize: '10px' }}>👑</span>}
-              </span>
-            ))}
-          </div>
-
-          {/* Chat Messages Stream */}
-          <div style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            {studyRoomMessages.length === 0 ? (
-              <div style={{
-                textAlign: 'center',
-                margin: 'auto',
-                color: '#64748b',
-                padding: '20px'
-              }}>
-                <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#94a3b8' }}>Virtual Study Chat Ready</div>
-                <div style={{ fontSize: '11px', marginTop: '4px' }}>
-                  Ask questions, discuss doubts, or say hello! Playback pauses & seeks sync in real-time.
-                </div>
-              </div>
-            ) : (
-              studyRoomMessages.map((msg, i) => {
-                const isMe = msg.senderName === (currentUser?.username || currentUser?.name || (userEmail.split('@')[0]));
-                const isDoubt = msg.text && (msg.text.includes('?') || msg.text.includes('Doubt') || msg.text.includes('doubt'));
-                return (
-                  <div
-                    key={msg.id || i}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: isMe ? 'flex-end' : 'flex-start'
-                    }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginBottom: '2px',
-                      fontSize: '10px',
-                      color: '#64748b'
-                    }}>
-                      <span style={{ fontWeight: 600, color: isMe ? '#818cf8' : '#94a3b8' }}>
-                        {msg.senderName}
-                      </span>
-                      <span>{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                    </div>
-                    <div style={{
-                      maxWidth: '85%',
-                      padding: '8px 12px',
-                      borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                      background: isMe 
-                        ? 'linear-gradient(135deg, #4f46e5, #6366f1)' 
-                        : (isDoubt ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255, 255, 255, 0.08)'),
-                      border: isDoubt ? '1px solid rgba(234, 179, 8, 0.4)' : (isMe ? 'none' : '1px solid rgba(255, 255, 255, 0.05)'),
-                      color: isDoubt ? '#fef08a' : '#fff',
-                      fontSize: '12px',
-                      lineHeight: '1.4',
-                      wordBreak: 'break-word',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-                    }}>
-                      {msg.text}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Quick Doubt & Reaction Chips */}
-          <div style={{
-            padding: '6px 12px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-            display: 'flex',
-            gap: '6px',
-            overflowX: 'auto',
-            background: 'rgba(0,0,0,0.25)'
-          }}>
-            {[
-              { label: '✋ Doubt here!', text: '✋ Doubt here! Could we pause and discuss?' },
-              { label: '👍 Got it!', text: '👍 Got it! Clear concept.' },
-              { label: '⏸️ Please pause', text: '⏸️ Please pause the video for a second.' },
-              { label: '🤯 Mind blown!', text: '🤯 That explanation was awesome!' }
-            ].map((chip, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSendStudyMessage(chip.text)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.07)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '12px',
-                  padding: '3px 8px',
-                  color: '#cbd5e1',
-                  fontSize: '11px',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease'
-                }}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Chat Input Box */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendStudyMessage();
-            }}
-            style={{
-              padding: '10px 12px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              background: 'rgba(15, 23, 42, 0.98)',
-              display: 'flex',
-              gap: '8px'
-            }}
-          >
-            <input
-              type="text"
-              value={studyInputMessage}
-              onChange={(e) => setStudyInputMessage(e.target.value)}
-              placeholder={t('studyRooms.typeMessage', 'Ask a doubt or message...')}
-              style={{
-                flex: 1,
-                background: 'rgba(255, 255, 255, 0.07)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                color: '#fff',
-                fontSize: '12px',
-                outline: 'none'
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!studyInputMessage.trim()}
-              style={{
-                background: studyInputMessage.trim() ? '#4f46e5' : 'rgba(255, 255, 255, 0.1)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: studyInputMessage.trim() ? 'pointer' : 'default',
-                transition: 'background 0.2s ease'
-              }}
-            >
-              {t('studyRooms.send', 'Send')}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* ----------------------------------------------------
-          STUDY TOGETHER LAUNCH MODAL (Instant Host / Join)
-          ---------------------------------------------------- */}
-      {showStudyRoomModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--bg-secondary, #ffffff)',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            borderRadius: '20px',
-            width: '100%',
-            maxWidth: '520px',
-            overflow: 'hidden',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)'
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid var(--border-color, #e2e8f0)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.08))'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>👥</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '17px', color: 'var(--text-primary, #0f172a)', fontWeight: 700 }}>
-                    {t('studyRooms.modalTitle', 'Virtual Study Room & Watch Party')}
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary, #64748b)' }}>
-                    Watch together in real-time sync with friends
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowStudyRoomModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-secondary, #64748b)',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  padding: '4px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Option 1: Instant Host */}
-              <div style={{
-                padding: '16px',
-                borderRadius: '12px',
-                background: 'rgba(99, 102, 241, 0.08)',
-                border: '1.5px solid rgba(99, 102, 241, 0.3)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px' }}>🚀</span>
-                  <strong style={{ color: 'var(--text-primary, #0f172a)', fontSize: '14px', fontWeight: 700 }}>
-                    Host Watch Party for this Video
-                  </strong>
-                </div>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary, #334155)', lineHeight: '1.4' }}>
-                  Start a synchronized room right now for <strong>"{video?.title || 'this lesson'}"</strong>. Anyone with your room code or link can join and discuss doubts.
-                </p>
-                <button
-                  onClick={handleCreateWatchPartyNow}
-                  disabled={studyCreatingRoom}
-                  style={{
-                    marginTop: '4px',
-                    padding: '11px 16px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: studyCreatingRoom ? 'default' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)'
-                  }}
-                >
-                  <span>{studyCreatingRoom ? '⏳ Creating Party...' : '✨ Create & Enter Watch Party'}</span>
-                </button>
-              </div>
-
-              {/* Option 2: Join with Code */}
-              <div style={{
-                padding: '16px',
-                borderRadius: '12px',
-                background: 'var(--bg-tertiary, #f8fafc)',
-                border: '1.5px solid var(--border-color, #e2e8f0)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px' }}>🔑</span>
-                  <strong style={{ color: 'var(--text-primary, #0f172a)', fontSize: '14px', fontWeight: 700 }}>
-                    Join with Room Code
-                  </strong>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={studyJoinCodeInput}
-                    onChange={(e) => setStudyJoinCodeInput(e.target.value.toUpperCase())}
-                    placeholder="e.g. STUDY-REACT or STUDY-9821"
-                    style={{
-                      flex: 1,
-                      padding: '11px 14px',
-                      borderRadius: '8px',
-                      background: 'var(--bg-secondary, #ffffff)',
-                      border: '1.5px solid var(--border-color, #cbd5e1)',
-                      color: 'var(--text-primary, #0f172a)',
-                      fontSize: '13px',
-                      fontFamily: 'monospace',
-                      fontWeight: 700,
-                      letterSpacing: '0.5px',
-                      textTransform: 'uppercase',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={() => handleJoinWatchPartyByCode()}
-                    disabled={!studyJoinCodeInput.trim()}
-                    style={{
-                      padding: '11px 20px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: studyJoinCodeInput.trim() ? '#10b981' : 'rgba(16, 185, 129, 0.3)',
-                      color: '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: studyJoinCodeInput.trim() ? 'pointer' : 'default',
-                      boxShadow: studyJoinCodeInput.trim() ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
-                    }}
-                  >
-                    Join
-                  </button>
-                </div>
-              </div>
-
-              {/* Option 3: Explore Hub */}
-              <div style={{ textAlign: 'center', marginTop: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowStudyRoomModal(false);
-                    navigate('/study-rooms');
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#6366f1',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  👥 Explore all public Study Rooms & Watch Parties →
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <StudyRoomChat
+        activeStudyRoom={activeStudyRoom}
+        showStudyRoomDrawer={showStudyRoomDrawer}
+        setShowStudyRoomDrawer={setShowStudyRoomDrawer}
+        showStudyRoomModal={showStudyRoomModal}
+        setShowStudyRoomModal={setShowStudyRoomModal}
+        studyRoomMessages={studyRoomMessages}
+        studyRoomMembers={studyRoomMembers}
+        studyInputMessage={studyInputMessage}
+        setStudyInputMessage={setStudyInputMessage}
+        studyJoinCodeInput={studyJoinCodeInput}
+        setStudyJoinCodeInput={setStudyJoinCodeInput}
+        studyCreatingRoom={studyCreatingRoom}
+        studyInviteCopied={studyInviteCopied}
+        handleSendStudyMessage={handleSendStudyMessage}
+        handleLeaveStudyRoom={handleLeaveStudyRoom}
+        handleCreateWatchPartyNow={handleCreateWatchPartyNow}
+        handleJoinWatchPartyByCode={handleJoinWatchPartyByCode}
+        handleCopyStudyInvite={handleCopyStudyInvite}
+        onExploreHub={() => navigate('/study-rooms')}
+      />
     </div>
   );
 };

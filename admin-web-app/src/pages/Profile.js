@@ -3,6 +3,7 @@ import { api, setCurrentUser, getCurrentUser } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import PaginatedTable from '../components/PaginatedTable';
 import { getAssetUrl } from '../utils/assetUrl';
+import { formatDate } from '../utils/dateFormatter';
 
 const Profile = () => {
   const { t } = useLanguage();
@@ -294,7 +295,15 @@ const Profile = () => {
                 overflow: 'hidden'
               }}>
                 {profile.avatar ? (
-                  <img src={getAssetUrl(profile.avatar)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img 
+                    src={getAssetUrl(profile.avatar)} 
+                    alt="Avatar" 
+                    width={70} 
+                    height={70} 
+                    loading="lazy" 
+                    decoding="async" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
                 ) : (
                   (profile.name || profile.email || 'U').charAt(0).toUpperCase()
                 )}
@@ -430,7 +439,7 @@ const Profile = () => {
               renderRow={(dev, i) => (
                 <tr key={i}>
                   <td style={{ fontSize: '13px', fontFamily: 'monospace' }}>{dev.agent}</td>
-                  <td>{new Date(dev.lastLogin).toLocaleString()}</td>
+                  <td>{formatDate(dev.lastLogin)}</td>
                   <td>Dynamic IP (Active)</td>
                   <td>
                     <span className="badge badge-active" style={{ fontSize: '11px' }}>CONNECTED</span>

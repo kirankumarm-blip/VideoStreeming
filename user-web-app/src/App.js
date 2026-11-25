@@ -17,13 +17,16 @@ import FAQ from './pages/FAQ';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
 import logoImg from './assets/logo.png';
-import { getCurrentUser, setCurrentUser, getAccessToken, getRefreshToken, clearTokens, isValidToken, isTokenExpired, api } from './services/api';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
+import { validateApiConfiguration } from './utils/apiUrl';
 
-// Clean up any legacy password storage or invalid tokens on application startup
+// Clean up any legacy password storage, insecure server overrides, or invalid tokens on application startup
 try {
+  localStorage.removeItem('server_url');
+  localStorage.removeItem('serverUrl');
   const curAccess = localStorage.getItem('accessToken');
   if (curAccess && (!curAccess.trim() || curAccess === 'undefined' || curAccess === 'null')) {
     localStorage.removeItem('accessToken');
@@ -37,6 +40,13 @@ try {
   localStorage.removeItem('rememberedPassword');
   sessionStorage.removeItem('rememberedPassword');
 } catch (e) {}
+
+// Validate API configuration on application startup
+try {
+  validateApiConfiguration();
+} catch (e) {
+  console.error('API configuration validation failed:', e.message);
+}
 
 // Check for cross-portal SSO token handoff (e.g. redirected from Admin Portal)
 try {
@@ -70,31 +80,27 @@ try {
   console.error('SSO handoff error', e);
 }
 
-// Route protection for authenticated users: validates token existence and expiration
+// Route protection for authenticated users: validates token existence and expiration via AuthContext
 const ProtectedRoute = ({ children }) => {
-  const token = getAccessToken() || getRefreshToken();
-  const user = getCurrentUser();
-  if (!token || !isValidToken(token) || isTokenExpired(token) || !user) {
-    clearTokens();
+  const { isAuthenticated, user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
   return children;
 };
 
 // Route protection based on user roles
-// Note: Roles in localStorage are used only for menu visibility and routing assistance.
-// Actual role-based authorization and data access are strictly enforced on every API request by the backend.
 const RoleRoute = ({ children, allowedRoles }) => {
-  const token = getAccessToken() || getRefreshToken();
-  const user = getCurrentUser();
-  if (!token || !isValidToken(token) || isTokenExpired(token) || !user) {
-    clearTokens();
+  const { isAuthenticated, user, role, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
-  const role = String(user.role || '').toLowerCase();
+  const currentRole = String(role || user.role || '').toLowerCase();
   const normalizedAllowed = (allowedRoles || []).map(r => String(r).toLowerCase());
-  const isMatch = normalizedAllowed.includes(role) || 
-    (normalizedAllowed.includes('user') && (role === 'user' || role === 'student' || role === 'end_user' || role === 'learner' || role === '3'));
+  const isMatch = normalizedAllowed.includes(currentRole) || 
+    (normalizedAllowed.includes('user') && (currentRole === 'user' || currentRole === 'student' || currentRole === 'end_user' || currentRole === 'learner' || currentRole === '3'));
   if (!isMatch) {
     return <Navigate to="/" replace />;
   }
@@ -104,71 +110,20 @@ const RoleRoute = ({ children, allowedRoles }) => {
 // Sub-component to manage navigation rendering based on route
 const AppLayout = ({ theme, setTheme }) => {
   const location = useLocation();
-  const user = getCurrentUser();
+  const { user, isAuthenticated, isLearner, logout, isLoading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isVerifyingSession, setIsVerifyingSession] = useState(true);
-  
-  // App load session verification: call /auth/me to verify session
-  useEffect(() => {
-    let isMounted = true;
-
-    const verifySession = async () => {
-      const token = getAccessToken() || getRefreshToken();
-
-      // If no token or token is expired, clear tokens immediately and finish verification
-      if (!token || !isValidToken(token) || isTokenExpired(token)) {
-        if (token && isTokenExpired(token)) {
-          clearTokens();
-        }
-        if (isMounted) setIsVerifyingSession(false);
-        return;
-      }
-
-      // If token exists and is not expired, verify session with backend
-      try {
-        const response = await api.auth.me();
-        const raw = Array.isArray(response) ? (response[0] || {}) : (response || {});
-        const resData = (raw && typeof raw === 'object' && 'json' in raw) ? raw.json : raw;
-        const verifiedUser = resData?.user || resData?.data || resData;
-        if (verifiedUser && (verifiedUser.id || verifiedUser.email || verifiedUser.name)) {
-          setCurrentUser(verifiedUser);
-        }
-      } catch (err) {
-        console.warn('Session verification /auth/me on app load:', err);
-        // Only clear tokens if the backend explicitly returned a 401 Unauthorized
-        if (err && (err.status === 401 || err.statusCode === 401)) {
-          clearTokens();
-        }
-      } finally {
-        if (isMounted) {
-          setIsVerifyingSession(false);
-        }
-      }
-    };
-
-    verifySession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // Hide global navigation on Login / Signup / Reset Password screens
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
   const isLegalOrPublicPage = ['/faq', '/privacy', '/terms'].includes(location.pathname);
 
-  // 1 hour inactivity auto-logout listener with Cross-Tab Sync
-  // Prevent browser Back navigation from restoring protected views after logout
+  // Inactivity auto-logout listener and navigation security
   useEffect(() => {
     const handleNavigationSecurity = () => {
-      const activeUser = getCurrentUser();
-      const activeToken = getRefreshToken() || getAccessToken();
       const currentHash = window.location.hash || '';
       const isPublic = currentHash.includes('/login') || currentHash.includes('/signup') || currentHash.includes('/forgot-password') || currentHash.includes('/reset-password') || currentHash.includes('/faq') || currentHash.includes('/privacy') || currentHash.includes('/terms');
-      if (!isPublic && (!activeUser || !isValidToken(activeToken) || isTokenExpired(activeToken))) {
-        clearTokens();
-        window.history.replaceState(null, '', window.location.pathname + '#/login');
-        window.location.hash = '/login';
+      if (!isPublic && (!isAuthenticated || !user)) {
+        logout();
       }
     };
     window.addEventListener('popstate', handleNavigationSecurity);
@@ -177,7 +132,7 @@ const AppLayout = ({ theme, setTheme }) => {
       window.removeEventListener('popstate', handleNavigationSecurity);
       window.removeEventListener('hashchange', handleNavigationSecurity);
     };
-  }, []);
+  }, [isAuthenticated, user, logout]);
 
   useEffect(() => {
     if (!user || isAuthPage) return;
@@ -188,7 +143,6 @@ const AppLayout = ({ theme, setTheme }) => {
     const checkAndPerformAutoLogout = async () => {
       const lastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
       if (!lastActivity) {
-        // Initialize last activity if missing so freshly logged-in users are not prematurely logged out
         localStorage.setItem('lastUserActivity', Date.now().toString());
         timeoutId = setTimeout(checkAndPerformAutoLogout, INACTIVITY_TIMEOUT_MS);
         return;
@@ -197,16 +151,7 @@ const AppLayout = ({ theme, setTheme }) => {
 
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
         sessionStorage.setItem('inactivityLoggedOut', 'true');
-        try {
-          await api.auth.logout(2);
-        } catch (err) {
-          console.error('Auto logout error', err);
-        } finally {
-          clearTokens();
-          window.history.replaceState(null, '', window.location.pathname + '#/login');
-          window.location.hash = '/login';
-          window.location.reload();
-        }
+        await logout(2);
       } else {
         const remainingTime = INACTIVITY_TIMEOUT_MS - timeSinceLastActivity;
         timeoutId = setTimeout(checkAndPerformAutoLogout, remainingTime);
@@ -232,12 +177,6 @@ const AppLayout = ({ theme, setTheme }) => {
           checkAndPerformAutoLogout();
         }
       }
-      if ((e.key === 'learner_user' || e.key === 'user' || e.key === 'accessToken') && !e.newValue) {
-        if (!window.location.hash.includes('/login') && !window.location.hash.includes('/signup')) {
-          window.location.hash = '/login';
-          window.location.reload();
-        }
-      }
     };
 
     const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
@@ -254,9 +193,8 @@ const AppLayout = ({ theme, setTheme }) => {
     window.addEventListener('storage', handleStorageChange);
     activityEvents.forEach(event => window.addEventListener(event, handleUserActivity));
 
-    // Always refresh timer on mount if valid user exists
     const initialLastActivity = parseInt(localStorage.getItem('lastUserActivity') || '0', 10);
-    const isRecentlyActive = initialLastActivity && (Date.now() - initialLastActivity < 30000); // 30 sec grace on fresh login
+    const isRecentlyActive = initialLastActivity && (Date.now() - initialLastActivity < 30000);
     if (initialLastActivity && !isRecentlyActive && (Date.now() - initialLastActivity >= INACTIVITY_TIMEOUT_MS)) {
       checkAndPerformAutoLogout();
     } else {
@@ -268,7 +206,7 @@ const AppLayout = ({ theme, setTheme }) => {
       window.removeEventListener('storage', handleStorageChange);
       activityEvents.forEach(event => window.removeEventListener(event, handleUserActivity));
     };
-  }, [user?.id || user?.email, isAuthPage]);
+  }, [user?.id || user?.email, isAuthPage, logout]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => !prev);
@@ -279,14 +217,11 @@ const AppLayout = ({ theme, setTheme }) => {
   }, [location.pathname]);
 
   const userRole = String(user?.role || '').toLowerCase();
-  const isLearner = userRole === 'user' || userRole === 'student' || userRole === 'end_user' || userRole === 'learner' || userRole === '3';
-  const showSidebar = !isAuthPage && user && isLearner;
-  const isFullWidthPage = isAuthPage || isLegalOrPublicPage || (user && isLearner);
+  const isLearnerRole = isLearner || (userRole === 'user' || userRole === 'student' || userRole === 'end_user' || userRole === 'learner' || userRole === '3');
+  const showSidebar = !isAuthPage && user && isLearnerRole;
+  const isFullWidthPage = isAuthPage || isLegalOrPublicPage || (user && isLearnerRole);
 
-  const activeToken = getAccessToken() || getRefreshToken();
-  const isAuthenticated = Boolean(user && isValidToken(activeToken) && !isTokenExpired(activeToken));
-
-  if (isVerifyingSession) {
+  if (isLoading) {
     return (
       <div 
         style={{
@@ -344,7 +279,7 @@ const AppLayout = ({ theme, setTheme }) => {
           zIndex: 100
         }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-            <img src={logoImg} alt="XLURN" style={{ height: '32px' }} />
+            <img src={logoImg} alt="XLURN" width={112} height={32} decoding="async" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
             <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>XLURN</span>
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -427,6 +362,13 @@ const AppLayout = ({ theme, setTheme }) => {
             </RoleRoute>
           } />
 
+          {/* Alias route for live-webcasts */}
+          <Route path="/live-webcasts" element={
+            <RoleRoute allowedRoles={['user']}>
+              <LiveClasses />
+            </RoleRoute>
+          } />
+
           <Route path="/live-demo" element={
             <RoleRoute allowedRoles={['user']}>
               <LiveClasses initialDemoMode={true} />
@@ -440,6 +382,12 @@ const AppLayout = ({ theme, setTheme }) => {
           } />
 
           <Route path="/watch/:id" element={
+            <RoleRoute allowedRoles={['user']}>
+              <VideoWatch />
+            </RoleRoute>
+          } />
+
+          <Route path="/course/:id" element={
             <RoleRoute allowedRoles={['user']}>
               <VideoWatch />
             </RoleRoute>
@@ -488,15 +436,13 @@ class ErrorBoundary extends React.Component {
 
 // Helper component to redirect authenticated user to their role-specific dashboard
 const DashboardRedirect = () => {
-  const token = getAccessToken() || getRefreshToken();
-  const user = getCurrentUser();
-  if (!token || !isValidToken(token) || isTokenExpired(token) || !user) {
-    clearTokens();
+  const { isAuthenticated, user, isLearner } = useAuth();
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
   const role = String(user.role || '').toLowerCase();
-  const isLearner = role === 'user' || role === 'student' || role === 'end_user' || role === 'learner' || role === '3';
-  if (!isLearner) return <Navigate to="/login" replace />;
+  const isLearnerRole = isLearner || role === 'user' || role === 'student' || role === 'end_user' || role === 'learner' || role === '3';
+  if (!isLearnerRole) return <Navigate to="/login" replace />;
   return (
     <ErrorBoundary>
       <UserDashboard />
@@ -522,9 +468,11 @@ function App() {
   return (
     <ErrorBoundary>
       <LanguageProvider>
-        <ThemeCustomizerProvider>
-          <AppContent />
-        </ThemeCustomizerProvider>
+        <AuthProvider>
+          <ThemeCustomizerProvider>
+            <AppContent />
+          </ThemeCustomizerProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ErrorBoundary>
   );

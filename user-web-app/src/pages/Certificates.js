@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getCurrentUser } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../utils/dateFormatter';
 
 const DEFAULT_CERTIFICATES = [
   {
@@ -33,6 +34,7 @@ const DEFAULT_CERTIFICATES = [
 const Certificates = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [certificates, setCertificates] = useState([]);
   const [previewCert, setPreviewCert] = useState(null);
   const [previewDataUrl, setPreviewDataUrl] = useState(null);
@@ -43,8 +45,8 @@ const Certificates = () => {
     try {
       const storedRaw = localStorage.getItem('earned_certificates');
       const stored = storedRaw ? JSON.parse(storedRaw) : [];
-      const user = getCurrentUser() || {};
-      const currentUserName = user.name || user.fullname || user.username || (user.email ? user.email.split('@')[0] : 'Alex Graham');
+      const currentUser = user || {};
+      const currentUserName = currentUser.name || currentUser.fullname || currentUser.username || (currentUser.email ? currentUser.email.split('@')[0] : 'Alex Graham');
 
       let combined = [];
       if (Array.isArray(stored) && stored.length > 0) {
@@ -52,6 +54,7 @@ const Certificates = () => {
         const markedStored = stored.map(c => ({
           ...c,
           learnerName: c.learnerName || currentUserName,
+          issueDate: formatDate(c.issueDate || c.date || c.created_at, { dateOnly: true }),
           isNew: true
         }));
         const storedCredIds = new Set(markedStored.map(c => c.credentialId));
@@ -161,7 +164,7 @@ const Certificates = () => {
     ctx.fillText('THIS IS OFFICIALLY PRESENTED TO', 800, 315);
 
     // 8. Learner Name
-    const u = getCurrentUser() || {};
+    const u = user || {};
     const recipient = cert.learnerName || u.name || u.fullname || (u.email ? u.email.split('@')[0] : 'Alex Graham');
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 56px "Georgia", serif';
@@ -642,9 +645,14 @@ const Certificates = () => {
               <img
                 src={previewDataUrl}
                 alt={`Certificate for ${previewCert.title}`}
+                width={800}
+                height={500}
+                loading="lazy"
+                decoding="async"
                 style={{
                   maxWidth: '100%',
                   height: 'auto',
+                  aspectRatio: '16 / 10',
                   borderRadius: '8px',
                   boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
                   border: '1px solid rgba(255,255,255,0.1)'

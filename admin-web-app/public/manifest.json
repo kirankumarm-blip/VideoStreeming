@@ -1,11 +1,17 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "XLurn",
+  "name": "XLurn Learning",
+  "description": "XLurn Learning - Admin Management Portal",
   "icons": [
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    },
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "843x292"
     },
     {
       "src": "logo192.png",
@@ -18,8 +24,8 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/VideoStreeming/admin/",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#0f172a",
   "background_color": "#ffffff"
 }

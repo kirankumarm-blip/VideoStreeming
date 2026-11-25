@@ -94,8 +94,13 @@ describe('Admin Session Security & Expiry Management', () => {
     const adminUser = { id: 'a3', name: 'Admin', email: 'admin3@test.com', role: 'admin' };
     setSessionData(adminUser, Date.now() + 3600000);
 
-    // Set dummy legacy tokens and local server URL
+    // Set local backend environment and dummy legacy tokens
+    const prevApiBase = process.env.REACT_APP_API_BASE_URL;
+    const prevWebhook = process.env.REACT_APP_WEBHOOK_BASE_URL;
+    delete process.env.REACT_APP_WEBHOOK_BASE_URL;
+    process.env.REACT_APP_API_BASE_URL = 'http://localhost:5000';
     localStorage.setItem('server_url', 'http://localhost:5000');
+    localStorage.setItem('serverUrl', 'http://localhost:5000');
     localStorage.setItem('admin_accessToken', 'dummy-token');
     localStorage.setItem('admin_refreshToken', 'dummy-refresh');
 
@@ -110,6 +115,8 @@ describe('Admin Session Security & Expiry Management', () => {
       expect(getCurrentUser()).toBeNull();
       expect(localStorage.getItem('admin_accessToken')).toBeNull();
       expect(localStorage.getItem('admin_refreshToken')).toBeNull();
+      expect(localStorage.getItem('server_url')).toBeNull();
+      expect(localStorage.getItem('serverUrl')).toBeNull();
       expect(sessionStorage.getItem('admin_session_user')).toBeNull();
       expect(sessionStorage.getItem('admin_session_expires_at')).toBeNull();
 
@@ -123,6 +130,16 @@ describe('Admin Session Security & Expiry Management', () => {
       );
     } finally {
       global.fetch = originalFetch;
+      if (prevApiBase !== undefined) {
+        process.env.REACT_APP_API_BASE_URL = prevApiBase;
+      } else {
+        delete process.env.REACT_APP_API_BASE_URL;
+      }
+      if (prevWebhook !== undefined) {
+        process.env.REACT_APP_WEBHOOK_BASE_URL = prevWebhook;
+      } else {
+        delete process.env.REACT_APP_WEBHOOK_BASE_URL;
+      }
     }
   });
 });
