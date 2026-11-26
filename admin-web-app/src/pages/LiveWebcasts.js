@@ -14,6 +14,28 @@ export const formatAttendeeDisplay = (count, isLoading, isUnavailable) => {
   return String(count);
 };
 
+export const toggleStreamAudioTracks = (stream, nextEnabledState) => {
+  if (!stream || typeof stream.getAudioTracks !== 'function') {
+    return nextEnabledState;
+  }
+  const audioTracks = stream.getAudioTracks();
+  audioTracks.forEach(t => {
+    t.enabled = Boolean(nextEnabledState);
+  });
+  return audioTracks.length > 0 ? audioTracks.some(t => t.enabled) : Boolean(nextEnabledState);
+};
+
+export const getAudioTrackActiveState = (stream, fallbackState = true) => {
+  if (!stream || typeof stream.getAudioTracks !== 'function') {
+    return Boolean(fallbackState);
+  }
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    return Boolean(fallbackState);
+  }
+  return audioTracks.some(t => t.enabled);
+};
+
 const LiveWebcasts = ({ theme }) => {
   const { t } = useLanguage();
   const currentUser = getCurrentUser() || {};
@@ -63,6 +85,47 @@ const LiveWebcasts = ({ theme }) => {
   const wsRef = useRef(null);
   const chatEndRef = useRef(null);
   const broadcastChannelRef = useRef(null);
+
+  // Derive mic active state directly from active MediaStream audio tracks, fallback to isMicOn state
+  const isAudioActive = getAudioTrackActiveState(mediaStreamRef.current, isMicOn);
+
+  // Synchronize mic state from the physical audio tracks
+  const syncMicTrackState = (stream) => {
+    const s = stream || mediaStreamRef.current;
+    if (s && typeof s.getAudioTracks === 'function') {
+      const tracks = s.getAudioTracks();
+      if (tracks.length > 0) {
+        const anyActive = tracks.some(t => t.enabled);
+        setIsMicOn(anyActive);
+        return anyActive;
+      }
+    }
+    return isMicOn;
+  };
+
+  // Listen to track state changes (hardware mute, browser mute, end)
+  const attachAudioTrackListeners = (stream) => {
+    if (!stream || typeof stream.getAudioTracks !== 'function') return;
+    stream.getAudioTracks().forEach(track => {
+      track.onmute = () => syncMicTrackState(stream);
+      track.onunmute = () => syncMicTrackState(stream);
+      track.onended = () => syncMicTrackState(stream);
+    });
+  };
+
+  // Toggle microphone muting on MediaStream audio tracks directly
+  const toggleMic = () => {
+    const nextMicState = !isMicOn;
+    if (mediaStreamRef.current) {
+      // Mute or unmute outgoing audio tracks so learners do not hear instructor when muted
+      mediaStreamRef.current.getAudioTracks().forEach(t => {
+        t.enabled = nextMicState;
+      });
+      syncMicTrackState();
+    } else {
+      setIsMicOn(nextMicState);
+    }
+  };
 
   // Broadcast to WebSocket and cross-tab BroadcastChannel
   const sendSocketMessage = (payload) => {
@@ -351,12 +414,12 @@ const LiveWebcasts = ({ theme }) => {
         'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
       );
       videoEl.src = streamSource;
-      videoEl.muted = !isMicOn;
+      videoEl.muted = !isAudioActive;
       videoEl.play().catch(err => {
         console.warn('Lecture video play error:', err);
       });
     }
-  }, [isCameraOn, isScreenSharing, selectedClass?.streamUrl, isMicOn]);
+  }, [isCameraOn, isScreenSharing, selectedClass?.streamUrl, isAudioActive]);
 
   // Clean up media tracks on component unmount
   useEffect(() => {
@@ -438,11 +501,25 @@ const LiveWebcasts = ({ theme }) => {
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach(t => t.stop());
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: isMicOn
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: true
+          });
+        } catch (mediaErr) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+          });
+        }
+        // Ensure outgoing audio tracks match the desired mic state
+        stream.getAudioTracks().forEach(t => {
+          t.enabled = isMicOn;
         });
+        attachAudioTrackListeners(stream);
         mediaStreamRef.current = stream;
+        syncMicTrackState(stream);
         setIsCameraOn(true);
         setIsScreenSharing(false);
         if (selectedClass) {
@@ -479,8 +556,18 @@ const LiveWebcasts = ({ theme }) => {
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach(t => t.stop());
         }
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        } catch (displayErr) {
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        }
+        stream.getAudioTracks().forEach(t => {
+          t.enabled = isMicOn;
+        });
+        attachAudioTrackListeners(stream);
         mediaStreamRef.current = stream;
+        syncMicTrackState(stream);
         stream.getVideoTracks()[0].onended = () => {
           setIsScreenSharing(false);
           peerConnectionsRef.current.forEach(pc => pc.close());
@@ -823,7 +910,7 @@ const LiveWebcasts = ({ theme }) => {
               ref={videoPreviewRef}
               autoPlay
               playsInline
-              muted={isCameraOn || isScreenSharing ? true : !isMicOn}
+              muted={isCameraOn || isScreenSharing ? true : !isAudioActive}
               controls={!isCameraOn && !isScreenSharing}
               loop={!isCameraOn && !isScreenSharing}
               style={{
@@ -864,6 +951,26 @@ const LiveWebcasts = ({ theme }) => {
                   animation: isBroadcasting ? 'pulse 1.2s infinite' : 'none'
                 }} />
                 {isBroadcasting ? t('liveClass.liveBadge', 'LIVE BROADCAST') : t('liveClass.readyBadge', 'STUDIO PREVIEW')}
+              </span>
+
+              {/* Microphone Status Badge driven by audio track state */}
+              <span
+                data-testid="live-mic-badge"
+                style={{
+                  background: isAudioActive ? 'rgba(16, 185, 129, 0.85)' : 'rgba(239, 68, 68, 0.85)',
+                  color: '#fff',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  backdropFilter: 'blur(8px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>{isAudioActive ? '🎙️' : '🔇'}</span>
+                {isAudioActive ? t('liveClass.micLive', 'Mic Live') : t('liveClass.micMuted', 'Mic Muted')}
               </span>
 
               <span style={{
@@ -943,12 +1050,13 @@ const LiveWebcasts = ({ theme }) => {
               </button>
 
               <button
-                onClick={() => setIsMicOn(!isMicOn)}
+                data-testid="mic-toggle-btn"
+                onClick={toggleMic}
                 style={{
                   padding: '10px 16px',
                   borderRadius: '8px',
-                  background: isMicOn ? 'var(--bg-primary)' : '#ef4444',
-                  color: isMicOn ? 'var(--text-primary)' : '#fff',
+                  background: isAudioActive ? 'var(--bg-primary)' : '#ef4444',
+                  color: isAudioActive ? 'var(--text-primary)' : '#fff',
                   border: '1px solid var(--border-color)',
                   fontWeight: 600,
                   fontSize: '13px',
@@ -958,8 +1066,8 @@ const LiveWebcasts = ({ theme }) => {
                   gap: '6px'
                 }}
               >
-                <span>{isMicOn ? '🎙️' : '🔇'}</span>
-                {isMicOn ? t('liveClass.micLive', 'Mic Muted: No') : t('liveClass.micMuted', 'Mic Muted')}
+                <span>{isAudioActive ? '🎙️' : '🔇'}</span>
+                {isAudioActive ? t('liveClass.micLive', 'Mic Live') : t('liveClass.micMuted', 'Mic Muted')}
               </button>
 
               <button
