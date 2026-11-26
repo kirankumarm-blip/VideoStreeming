@@ -15,6 +15,7 @@ import { decryptUrl } from '../utils/crypto';
 import { getAssetUrl } from '../utils/assetUrl';
 import { formatDate, isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
 import { getUserStatusConfig, USER_STATUS_CONFIG } from '../utils/statusConfig';
+import { formatMetricValue, getMetricNumber } from '../utils/metricFormatter';
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
 const resolveMediaUrl = (rawUrl) => {
@@ -2950,30 +2951,36 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <div className="animate-fade-in glass-card">
                 <h2 style={{ fontSize: '20px', marginBottom: '24px' }}>Admin Performance Metrics</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
-                  {admins.map(admin => (
-                    <div key={admin.id} className="glass-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent-secondary)' }}>{admin.name}</h3>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{admin.email}</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', fontSize: '13px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Videos Uploaded:</span>
-                          <span style={{ fontWeight: 700 }}>{videos.filter(v => v.uploadedBy === admin.id).length || 5}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Issues Resolved:</span>
-                          <span style={{ fontWeight: 700, color: '#10b981' }}>{admin.issuesResolved || 12}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Approvals Completed:</span>
-                          <span style={{ fontWeight: 700 }}>{admin.approvalsCount || 18}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Active Time:</span>
-                          <span style={{ fontWeight: 700 }}>{admin.activeHours || 42} hrs</span>
+                  {admins.map(admin => {
+                    const uploadedCount = admin.videosUploaded !== undefined && admin.videosUploaded !== null
+                      ? admin.videosUploaded
+                      : (Array.isArray(videos) ? videos.filter(v => v.uploadedBy === admin.id).length : null);
+
+                    return (
+                      <div key={admin.id} className="glass-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent-secondary)' }}>{admin.name}</h3>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{admin.email}</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px', fontSize: '13px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Videos Uploaded:</span>
+                            <span style={{ fontWeight: 700 }}>{formatMetricValue(uploadedCount)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Issues Resolved:</span>
+                            <span style={{ fontWeight: 700, color: '#10b981' }}>{formatMetricValue(admin.issuesResolved)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Approvals Completed:</span>
+                            <span style={{ fontWeight: 700 }}>{formatMetricValue(admin.approvalsCount)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Active Time:</span>
+                            <span style={{ fontWeight: 700 }}>{formatMetricValue(admin.activeHours, { suffix: ' hrs' })}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -3762,25 +3769,25 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <div className="glass-card">
                     <h4 style={{ marginBottom: '12px' }}>CPU Load</h4>
                     <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${serverMonitoring?.cpuUsage || 28}%`, height: '100%', background: '#3b82f6' }} />
+                      <div style={{ width: `${getMetricNumber(serverMonitoring?.cpuUsage, 0)}%`, height: '100%', background: '#3b82f6' }} />
                     </div>
-                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{serverMonitoring?.cpuUsage || 28}% Core Usage</span>
+                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{formatMetricValue(serverMonitoring?.cpuUsage, { suffix: '% Core Usage' })}</span>
                   </div>
 
                   <div className="glass-card">
                     <h4 style={{ marginBottom: '12px' }}>RAM Usage</h4>
                     <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${serverMonitoring?.ramUsage || 64}%`, height: '100%', background: '#10b981' }} />
+                      <div style={{ width: `${getMetricNumber(serverMonitoring?.ramUsage, 0)}%`, height: '100%', background: '#10b981' }} />
                     </div>
-                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{serverMonitoring?.ramUsage || 64}% Allocated</span>
+                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{formatMetricValue(serverMonitoring?.ramUsage, { suffix: '% Allocated' })}</span>
                   </div>
 
                   <div className="glass-card">
                     <h4 style={{ marginBottom: '12px' }}>AWS S3 Storage</h4>
                     <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${serverMonitoring?.storageUsage || 85}%`, height: '100%', background: '#f59e0b' }} />
+                      <div style={{ width: `${getMetricNumber(serverMonitoring?.storageUsage, 0)}%`, height: '100%', background: '#f59e0b' }} />
                     </div>
-                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{serverMonitoring?.storageUsage || 85}% Primary Bucket Capacity</span>
+                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{formatMetricValue(serverMonitoring?.storageUsage, { suffix: '% Primary Bucket Capacity' })}</span>
                   </div>
                 </div>
 

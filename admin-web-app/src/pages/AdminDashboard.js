@@ -15,6 +15,7 @@ import logoImg from '../assets/logo.png';
 import LiveWebcasts from './LiveWebcasts';
 import { getAssetUrl } from '../utils/assetUrl';
 import { isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
+import { formatMetricValue, getMetricNumber } from '../utils/metricFormatter';
 
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
@@ -6812,7 +6813,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   </div>
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.dashboard.dailyWatchTime', 'Daily Watch Time')}</span>
-                    <span className="stat-value">{getFormattedSeconds(stats?.today_watch_sec) || (contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) || 150) + " min"}</span>
+                    <span className="stat-value">{getFormattedSeconds(stats?.today_watch_sec) || (contentAnalytics?.watchTimePerVideo ? `${contentAnalytics.watchTimePerVideo.reduce((sum, v) => sum + v.minutes, 0)} min` : '--')}</span>
                     <span style={{ 
                       fontSize: '11px', 
                       color: parseFloat(stats?.daily_watch_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
@@ -6820,16 +6821,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     }}>
                       {stats?.daily_watch_growth_percent 
                         ? `${parseFloat(stats.daily_watch_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.daily_watch_growth_percent))}% vs yesterday` 
-                        : '↑ 8% vs yesterday'}
+                        : '--'}
                     </span>
                   </div>
                   <div className="glass-card stat-card">
                     <span className="stat-label">{t('admin.dashboard.monthlyWatchTime', 'Monthly Watch Time')}</span>
-                    <span className="stat-value">{getFormattedSeconds(stats?.month_watch_sec) || ((contentAnalytics?.watchTimePerVideo?.reduce((sum, v) => sum + v.minutes, 0) * 30) || 4500) + " min"}</span>
+                    <span className="stat-value">{getFormattedSeconds(stats?.month_watch_sec) || (contentAnalytics?.watchTimePerVideo ? `${contentAnalytics.watchTimePerVideo.reduce((sum, v) => sum + v.minutes, 0) * 30} min` : '--')}</span>
                     <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
                       {stats?.monthly_target_percent 
                         ? `${stats.monthly_target_percent}% of monthly target` 
-                        : '92% of monthly target'}
+                        : '--'}
                     </span>
                   </div>
                 </div>
@@ -6845,11 +6846,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Growth Trend</h3>
                         <LineChart data={stats?.user_growth || stats?.userGrowth || userAnalytics?.registrations || userGrowthData} />
                         <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                          <span>Daily signups: {stats?.daily_signups || stats?.dailySignups || '+5'}</span>
+                          <span>Daily signups: {stats?.daily_signups || stats?.dailySignups || '--'}</span>
                           <span>•</span>
-                          <span>Monthly signups: {stats?.monthly_signups || stats?.monthlySignups || '+120'}</span>
+                          <span>Monthly signups: {stats?.monthly_signups || stats?.monthlySignups || '--'}</span>
                           <span>•</span>
-                          <span>Active users: {stats?.total_users || stats?.cards?.activeUsers || 87}</span>
+                          <span>Active users: {formatMetricValue(stats?.total_users ?? stats?.cards?.activeUsers)}</span>
                         </div>
                       </div>
                       
@@ -10274,19 +10275,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <h3>User Growth Analytics</h3>
                     <LineChart data={userAnalytics?.registrations || userGrowthData} />
                     <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '12px', marginTop: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                      <span>DAU: <strong>{userAnalytics?.dau || 87}</strong></span>
-                      <span>MAU: <strong>{userAnalytics?.mau || 240}</strong></span>
-                      <span>Retention: <strong>{userAnalytics?.retentionRate || 78}%</strong></span>
+                      <span>DAU: <strong>{formatMetricValue(userAnalytics?.dau)}</strong></span>
+                      <span>MAU: <strong>{formatMetricValue(userAnalytics?.mau)}</strong></span>
+                      <span>Retention: <strong>{formatMetricValue(userAnalytics?.retentionRate, { suffix: '%' })}</strong></span>
                     </div>
                   </div>
                   
                   <div className="glass-card">
                     <h3>Device Statistics</h3>
-                    <DonutChart data={userAnalytics?.deviceUsage || [
-                      { label: 'Mobile', count: 70 },
-                      { label: 'Desktop', count: 20 },
-                      { label: 'TV', count: 10 }
-                    ]} />
+                    <DonutChart data={userAnalytics?.deviceUsage || []} />
                   </div>
                 </div>
 
@@ -10296,15 +10293,15 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Likes:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.likes || 154}</span>
+                        <span style={{ fontWeight: 700 }}>{formatMetricValue(engagementAnalytics?.likes)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Comments:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.comments || 64}</span>
+                        <span style={{ fontWeight: 700 }}>{formatMetricValue(engagementAnalytics?.comments)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Shares:</span>
-                        <span style={{ fontWeight: 700 }}>{engagementAnalytics?.shares || 102}</span>
+                        <span style={{ fontWeight: 700 }}>{formatMetricValue(engagementAnalytics?.shares)}</span>
                       </div>
                     </div>
                   </div>
@@ -10314,11 +10311,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>CDN latency:</span>
-                        <span style={{ fontWeight: 700, color: '#10b981' }}>{streamingAnalytics?.cdnPerformanceMs || 38} ms</span>
+                        <span style={{ fontWeight: 700, color: '#10b981' }}>{formatMetricValue(streamingAnalytics?.cdnPerformanceMs, { suffix: ' ms' })}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Buffering Ratio:</span>
-                        <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{streamingAnalytics?.bufferingRatioPercent || 0.85}%</span>
+                        <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{formatMetricValue(streamingAnalytics?.bufferingRatioPercent, { suffix: '%' })}</span>
                       </div>
                     </div>
                   </div>
@@ -10587,17 +10584,17 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <div className="glass-card">
                     <h4>CPU Load</h4>
                     <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${serverMonitoring?.cpuUsage || 28}%`, height: '100%', background: '#3b82f6' }} />
+                      <div style={{ width: `${getMetricNumber(serverMonitoring?.cpuUsage, 0)}%`, height: '100%', background: '#3b82f6' }} />
                     </div>
-                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{serverMonitoring?.cpuUsage || 28}%</span>
+                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{formatMetricValue(serverMonitoring?.cpuUsage, { suffix: '%' })}</span>
                   </div>
 
                   <div className="glass-card">
                     <h4>RAM Allocation</h4>
                     <div style={{ width: '100%', height: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${serverMonitoring?.ramUsage || 64}%`, height: '100%', background: '#10b981' }} />
+                      <div style={{ width: `${getMetricNumber(serverMonitoring?.ramUsage, 0)}%`, height: '100%', background: '#10b981' }} />
                     </div>
-                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{serverMonitoring?.ramUsage || 64}%</span>
+                    <span style={{ fontSize: '13px', marginTop: '8px', display: 'block' }}>{formatMetricValue(serverMonitoring?.ramUsage, { suffix: '%' })}</span>
                   </div>
                 </div>
 

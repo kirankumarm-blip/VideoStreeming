@@ -2226,7 +2226,9 @@ const UserDashboard = () => {
                     <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔥</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('metrics.streak')}</div>
                     <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '8px' }}>
-                      {dashboardData?.progressDashboard?.currentStreak || 5} {language === 'hi' ? 'दिन' : language === 'kn' ? 'ದಿನಗಳು' : 'Days'}
+                      {dashboardData?.progressDashboard?.currentStreak !== undefined && dashboardData?.progressDashboard?.currentStreak !== null
+                        ? `${dashboardData.progressDashboard.currentStreak} ${language === 'hi' ? 'दिन' : language === 'kn' ? 'ದಿನಗಳು' : 'Days'}`
+                        : '--'}
                     </div>
                   </div>
 
@@ -2234,7 +2236,9 @@ const UserDashboard = () => {
                     <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏱️</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('metrics.hoursWatched')}</div>
                     <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '8px' }}>
-                      {dashboardData?.progressDashboard?.hoursWatched || 4.2} hrs
+                      {dashboardData?.progressDashboard?.hoursWatched !== undefined && dashboardData?.progressDashboard?.hoursWatched !== null
+                        ? `${dashboardData.progressDashboard.hoursWatched} hrs`
+                        : '--'}
                     </div>
                   </div>
 
@@ -2242,7 +2246,9 @@ const UserDashboard = () => {
                     <div style={{ fontSize: '32px', marginBottom: '12px' }}>✅</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('metrics.completed')}</div>
                     <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '8px' }}>
-                      {dashboardData?.progressDashboard?.coursesCompleted || 0}
+                      {dashboardData?.progressDashboard?.coursesCompleted !== undefined && dashboardData?.progressDashboard?.coursesCompleted !== null
+                        ? dashboardData.progressDashboard.coursesCompleted
+                        : '--'}
                     </div>
                   </div>
 
@@ -2250,7 +2256,9 @@ const UserDashboard = () => {
                     <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏆</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('metrics.certificatesEarned')}</div>
                     <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '8px' }}>
-                      {dashboardData?.progressDashboard?.certificatesEarned || 0}
+                      {dashboardData?.progressDashboard?.certificatesEarned !== undefined && dashboardData?.progressDashboard?.certificatesEarned !== null
+                        ? dashboardData.progressDashboard.certificatesEarned
+                        : '--'}
                     </div>
                   </div>
                 </div>
@@ -2259,11 +2267,13 @@ const UserDashboard = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 700 }}>🎯 {t('metrics.weeklyGoal')}</h3>
                     <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>
-                      {dashboardData?.progressDashboard?.weeklyProgress || 10}%
+                      {dashboardData?.progressDashboard?.weeklyProgress !== undefined && dashboardData?.progressDashboard?.weeklyProgress !== null
+                        ? `${dashboardData.progressDashboard.weeklyProgress}%`
+                        : '--'}
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '12px', background: 'var(--bg-tertiary)', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ width: `${dashboardData?.progressDashboard?.weeklyProgress || 10}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)' }} />
+                    <div style={{ width: `${dashboardData?.progressDashboard?.weeklyProgress ?? 0}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)' }} />
                   </div>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '12px' }}>
                     {language === 'hi' ? 'अपना साप्ताहिक लक्ष्य पूरा करने के लिए वीडियो देखना जारी रखें!' : language === 'kn' ? 'ನಿಮ್ಮ ಸಾಪ್ತಾಹಿಕ ಗುರಿಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ವೀಡಿಯೊಗಳನ್ನು ವೀಕ್ಷಿಸುವುದನ್ನು ಮುಂದುವರಿಸಿ!' : 'Keep watching videos to hit your weekly learning target!'}
