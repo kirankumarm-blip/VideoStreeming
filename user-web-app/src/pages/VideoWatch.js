@@ -2,6 +2,7 @@ import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl } from '../utils/apiUrl';
 import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
+import logger from '../utils/logger';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -519,7 +520,7 @@ const VideoWatch = () => {
             if (active) setOfflineBlobUrl(null);
           }
         } catch (e) {
-          console.warn('Offline check warning:', e);
+          logger.warn('Offline check warning:', e);
         }
       }
     })();
@@ -568,7 +569,7 @@ const VideoWatch = () => {
       videoRef.current.load();
       setIsPlaying(true);
       videoRef.current.play().catch(err => {
-        console.log("Autoplay prevented:", err);
+        logger.debug("Autoplay prevented:", err);
         setIsPlaying(false);
       });
     }
@@ -585,7 +586,7 @@ const VideoWatch = () => {
     fetch('https://api.ipify.org?format=json')
       .then(r => r.json())
       .then(data => setIpAddress(data.ip))
-      .catch(err => console.log("Failed to fetch IP, using fallback", err));
+      .catch(err => logger.debug("Failed to fetch IP, using fallback", err));
   }, []);
 
   // ----------------------------------------------------
@@ -809,7 +810,7 @@ const VideoWatch = () => {
         setPreviewLoading(false);
       })
       .catch((err) => {
-        console.warn("Direct preview fetch failed, using fallback:", err);
+        logger.warn("Direct preview fetch failed, using fallback:", err);
         if (isMounted) {
           setPreviewLoading(false);
           setPreviewFetchError(err.message || 'Unable to fetch file directly');
@@ -856,7 +857,7 @@ const VideoWatch = () => {
             setFetchedVttTranscripts(prev => ({ ...prev, [subtitleLang]: parsed }));
           }
         })
-        .catch(err => console.warn(`Failed to fetch VTT for ${subtitleLang}:`, err));
+        .catch(err => logger.warn(`Failed to fetch VTT for ${subtitleLang}:`, err));
     }
   }, [multilingualData, subtitleLang, fetchedVttTranscripts]);
 
@@ -873,7 +874,7 @@ const VideoWatch = () => {
         audioRef.current.play().then(() => {
           setIsAudioPlaying(true);
         }).catch(err => {
-          console.log("Audio autoplay prevented:", err);
+          logger.debug("Audio autoplay prevented:", err);
           setIsAudioPlaying(false);
         });
       }
@@ -1048,7 +1049,7 @@ const VideoWatch = () => {
             }
           }
         } catch (cErr) {
-          console.warn("Could not load course list in VideoWatch:", cErr);
+          logger.warn("Could not load course list in VideoWatch:", cErr);
         }
       }
 
@@ -1075,7 +1076,7 @@ const VideoWatch = () => {
         try {
           videoData = await api.videos.get(id);
         } catch (apiError) {
-          console.warn("Could not load video details from API, using state or fallback", apiError);
+          logger.warn("Could not load video details from API, using state or fallback", apiError);
         }
       }
 
@@ -1128,7 +1129,7 @@ const VideoWatch = () => {
       try {
         list = await api.videos.list({ category: videoData.category });
       } catch (listError) {
-        console.warn("Could not load recommendations", listError);
+        logger.warn("Could not load recommendations", listError);
       }
       
       const filteredRecs = Array.isArray(list) 
@@ -1396,7 +1397,7 @@ const VideoWatch = () => {
         handleNavigateToVideo(nextPlayableLesson, activeCourse);
       }, 300);
     } else {
-      console.log("No further unlocked lessons found in this course.");
+      logger.debug("No further unlocked lessons found in this course.");
     }
   };
 
@@ -1652,7 +1653,7 @@ const VideoWatch = () => {
           isResumingRef.current = true;
           videoRef.current.currentTime = thisRecord.lastPosition;
           prevTimeRef.current = thisRecord.lastPosition;
-          videoRef.current.play().catch(e => console.log(e));
+          videoRef.current.play().catch(e => logger.debug(e));
         }
       });
     }
@@ -1668,7 +1669,7 @@ const VideoWatch = () => {
           audioRef.current.pause();
           setIsAudioPlaying(false);
         }
-        videoRef.current.play().catch(e => console.log(e));
+        videoRef.current.play().catch(e => logger.debug(e));
       }
     }
   };
@@ -1719,7 +1720,7 @@ const VideoWatch = () => {
         if (videoRef.current) {
           videoRef.current.currentTime = currentPos;
           if (isPlaying) {
-            videoRef.current.play().catch(e => console.log(e));
+            videoRef.current.play().catch(e => logger.debug(e));
           }
         }
       }, 800);
@@ -1782,7 +1783,7 @@ const VideoWatch = () => {
         setActiveCue(match || null);
       }
       if (!isPlaying) {
-        videoRef.current.play().catch(e => console.log(e));
+        videoRef.current.play().catch(e => logger.debug(e));
         setIsPlaying(true);
       }
     }
@@ -2010,7 +2011,7 @@ const VideoWatch = () => {
           setIsPlaying(false);
         }
         if (audioRef.current) {
-          audioRef.current.play().then(() => setIsAudioPlaying(true)).catch(e => console.log(e));
+          audioRef.current.play().then(() => setIsAudioPlaying(true)).catch(e => logger.debug(e));
         }
       }
     } else {
@@ -2411,7 +2412,7 @@ const VideoWatch = () => {
         video_url: videoUrl
       });
     } catch (e) {
-      console.warn('Direct blob download fallback:', e);
+      logger.warn('Direct blob download fallback:', e);
       window.open(srcUrl || video?.videoUrl || video?.video_url, '_blank');
     }
   };

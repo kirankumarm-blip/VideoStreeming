@@ -1,5 +1,6 @@
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
+import logger from '../utils/logger';
 export { getAssetUrl, getAssetBaseUrl, getApiBaseUrl, calculateBackoffDelay };
 
 export const getBaseUrl = () => {
@@ -1822,7 +1823,7 @@ export const api = {
       let lastError = null;
       for (const targetUrl of candidateUrls) {
         try {
-          console.log(`[updateTranscriptCourse] Calling ${targetUrl} with formstep=transcriptCourse...`);
+          logger.debug(`[updateTranscriptCourse] Calling ${targetUrl} with formstep=transcriptCourse...`);
           const isDarpanx = targetUrl.includes('darpanx.com');
           const isRelativeWebhook = targetUrl.startsWith('/webhook');
           const shouldUseCredentials = !isDarpanx && !isRelativeWebhook;
@@ -1858,10 +1859,10 @@ export const api = {
               return { success: true, message: text };
             }
           } else {
-            console.warn(`[updateTranscriptCourse] HTTP ${response.status} from ${targetUrl}, trying next candidate...`);
+            logger.warn(`[updateTranscriptCourse] HTTP ${response.status} from ${targetUrl}, trying next candidate...`);
           }
         } catch (fetchErr) {
-          console.warn(`[updateTranscriptCourse] Network error on ${targetUrl}:`, fetchErr.message);
+          logger.warn(`[updateTranscriptCourse] Network error on ${targetUrl}:`, fetchErr.message);
           lastError = fetchErr;
         }
       }

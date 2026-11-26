@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import logger from '../utils/logger';
 
 const ThemeCustomizerContext = createContext();
 
@@ -81,7 +82,7 @@ export const ThemeCustomizerProvider = ({ children, externalTheme, setExternalTh
         mode: initialMode
       };
     } catch (e) {
-      console.warn('Could not parse theme settings', e);
+      logger.warn('Could not parse theme settings', e);
       return {
         ...DEFAULT_THEME_SETTINGS,
         mode: localStorage.getItem('theme') || 'dark'

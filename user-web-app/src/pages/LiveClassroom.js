@@ -6,6 +6,7 @@ import { getAccessToken, isValidToken } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl } from '../utils/apiUrl';
+import logger from '../utils/logger';
 
 /**
  * Builds authenticated headers for poll voting.
@@ -109,14 +110,14 @@ const LiveClassroom = () => {
       try {
         wsRef.current.send(JSON.stringify(payload));
       } catch (e) {
-        console.warn('WS send failed:', e);
+        logger.warn('WS send failed:', e);
       }
     }
     if (broadcastChannelRef.current) {
       try {
         broadcastChannelRef.current.postMessage(payload);
       } catch (e) {
-        console.warn('BroadcastChannel postMessage failed:', e);
+        logger.warn('BroadcastChannel postMessage failed:', e);
       }
     }
   };
@@ -229,7 +230,7 @@ const LiveClassroom = () => {
         };
       }
     } catch (e) {
-      console.warn('BroadcastChannel not supported:', e);
+      logger.warn('BroadcastChannel not supported:', e);
     }
     return () => {
       try { broadcastChannelRef.current?.close(); } catch (e) {}
@@ -274,7 +275,7 @@ const LiveClassroom = () => {
         setAttendeesLoading(false);
       }
     } catch (err) {
-      console.warn('Backend live class unreachable, using fallback session:', err);
+      logger.warn('Backend live class unreachable, using fallback session:', err);
       // API call failed with network or runtime exception
       setAttendeesUnavailable(true);
       setAttendeesLoading(false);
@@ -339,7 +340,7 @@ const LiveClassroom = () => {
           const playPromise = videoRef.current.play();
           if (playPromise !== undefined) {
             playPromise.catch(err => {
-              console.warn('Learner play stream autoplay policy restriction, retrying muted:', err);
+              logger.warn('Learner play stream autoplay policy restriction, retrying muted:', err);
               if (videoRef.current) {
                 videoRef.current.muted = true;
                 videoRef.current.play().catch(e => console.error('Muted autoplay failed:', e));
@@ -430,7 +431,7 @@ const LiveClassroom = () => {
         }
       };
     } catch (wsErr) {
-      console.warn('WebSocket could not be established:', wsErr);
+      logger.warn('WebSocket could not be established:', wsErr);
     }
   }, [id, liveClass?.streamUrl]);
 

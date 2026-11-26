@@ -1,6 +1,7 @@
 import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl } from '../utils/assetUrl';
 import { formatDate } from '../utils/dateFormatter';
+import logger from '../utils/logger';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -162,7 +163,7 @@ const HoverThumbnail = ({ video }) => {
       setIsHovered(true);
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(e => console.log("Autoplay failed/blocked", e));
+        videoRef.current.play().catch(e => logger.debug("Autoplay failed/blocked", e));
       }
     }, 500); // 500ms delay to filter accidental mouseovers
   };
@@ -375,7 +376,7 @@ const UserDashboard = () => {
       const list = await offlineStorage.getAllVideos();
       setOfflineVideosList(list);
     } catch (e) {
-      console.warn('Could not load offline videos:', e);
+      logger.warn('Could not load offline videos:', e);
     }
   };
   const [exploreVideosList, setExploreVideosList] = useState([]);
@@ -516,7 +517,7 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       const data = await api.dashboard.getUser('getExplore Video');
-      console.log("Explore videos from API:", data);
+      logger.debug("Explore videos from API:", data);
       const list = filterValidVideoItems(data);
       setExploreVideosList(list);
       setHasFetchedExplore(true);
@@ -556,7 +557,7 @@ const UserDashboard = () => {
         }
       }
       const data = await api.dashboard.getUser('getCategoryVideo', payload);
-      console.log(`Category videos for category_id: ${categoryId}, state: ${categoryState}, sub_category: ${subCategory}:`, data);
+      logger.debug(`Category videos for category_id: ${categoryId}, state: ${categoryState}, sub_category: ${subCategory}:`, data);
       const list = filterValidVideoItems(data);
       setCategoryVideosList(list);
     } catch (e) {
@@ -571,7 +572,7 @@ const UserDashboard = () => {
     setPlaylistLoading(true);
     try {
       const res = await api.user.getPlayList();
-      console.log("Playlists from vdUser API (getPlayList):", res);
+      logger.debug("Playlists from vdUser API (getPlayList):", res);
 
       // Extract raw items
       let raw = [];
@@ -643,7 +644,7 @@ const UserDashboard = () => {
     setWatchHistoryLoading(true);
     try {
       const res = await api.user.getWatchHistory();
-      console.log("Watch History from vdUser API (getWatchHistory):", res);
+      logger.debug("Watch History from vdUser API (getWatchHistory):", res);
       let raw = [];
       if (Array.isArray(res)) {
         raw = res;
@@ -739,7 +740,7 @@ const UserDashboard = () => {
     setCategoriesLoading(true);
     try {
       const res = await api.user.getAllCategories();
-      console.log("Categories from vdUser API (getAllCategories):", res);
+      logger.debug("Categories from vdUser API (getAllCategories):", res);
 
       let raw = [];
       if (Array.isArray(res)) {
@@ -846,7 +847,7 @@ const UserDashboard = () => {
     }
     try {
       const data = await api.dashboard.getUser(formStep);
-      console.log(`User dashboard data (${formStep || 'home'}) from API:`, data);
+      logger.debug(`User dashboard data (${formStep || 'home'}) from API:`, data);
       
       if (formStep === 'getwatchLaterVideos' || formStep === 'watchLater') {
         const list = filterValidVideoItems(data);

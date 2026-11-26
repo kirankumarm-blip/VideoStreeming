@@ -16,6 +16,7 @@ import { getAssetUrl } from '../utils/assetUrl';
 import { formatDate, isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
 import { getUserStatusConfig, USER_STATUS_CONFIG } from '../utils/statusConfig';
 import { formatMetricValue, getMetricNumber } from '../utils/metricFormatter';
+import logger from '../utils/logger';
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
 const resolveMediaUrl = (rawUrl) => {
@@ -1093,7 +1094,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const fetchGenders = async () => {
     try {
       const res = await api.dashboard.getSuperAdmin('getGender');
-      console.log('Fetched genders:', res);
+      logger.debug('Fetched genders:', res);
       let list = [];
       if (Array.isArray(res)) {
         list = res.map(item => item.json || item);
@@ -1291,7 +1292,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         adminData = res;
       }
     } catch (e) {
-      console.warn("Failed to fetch admin details, using local data", e);
+      logger.warn("Failed to fetch admin details, using local data", e);
     }
     
     const matchedGender = genders.find(g => 

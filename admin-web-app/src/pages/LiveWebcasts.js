@@ -3,6 +3,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { getCurrentUser } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
+import logger from '../utils/logger';
 
 export const isValidAttendeeCount = (val) => {
   return typeof val === 'number' && !isNaN(val) && isFinite(val) && val >= 0;
@@ -133,14 +134,14 @@ const LiveWebcasts = ({ theme }) => {
       try {
         wsRef.current.send(JSON.stringify(payload));
       } catch (e) {
-        console.warn('WS send failed:', e);
+        logger.warn('WS send failed:', e);
       }
     }
     if (broadcastChannelRef.current) {
       try {
         broadcastChannelRef.current.postMessage(payload);
       } catch (e) {
-        console.warn('BroadcastChannel postMessage failed:', e);
+        logger.warn('BroadcastChannel postMessage failed:', e);
       }
     }
   };
@@ -213,7 +214,7 @@ const LiveWebcasts = ({ theme }) => {
         const pc = peerConnectionsRef.current.get(studentId);
         if (pc && msg.answer) {
           pc.setRemoteDescription(new RTCSessionDescription(msg.answer)).catch(err => {
-            console.warn('Set remote description error:', err);
+            logger.warn('Set remote description error:', err);
           });
         }
       } else if (msg.type === 'WEBRTC_ICE_CANDIDATE') {
@@ -221,7 +222,7 @@ const LiveWebcasts = ({ theme }) => {
         const pc = peerConnectionsRef.current.get(studentId);
         if (pc && msg.candidate) {
           pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(err => {
-            console.warn('Add ice candidate error:', err);
+            logger.warn('Add ice candidate error:', err);
           });
         }
       }
@@ -241,7 +242,7 @@ const LiveWebcasts = ({ theme }) => {
         };
       }
     } catch (e) {
-      console.warn('BroadcastChannel not supported in this browser:', e);
+      logger.warn('BroadcastChannel not supported in this browser:', e);
     }
     return () => {
       try { broadcastChannelRef.current?.close(); } catch (e) {}
@@ -268,7 +269,7 @@ const LiveWebcasts = ({ theme }) => {
         }
       }
     } catch (err) {
-      console.warn('Backend live classes unavailable, activating fallback session list:', err);
+      logger.warn('Backend live classes unavailable, activating fallback session list:', err);
     } finally {
       setLoading(false);
     }
@@ -316,7 +317,7 @@ const LiveWebcasts = ({ theme }) => {
         setAttendeesLoading(false);
       }
     } catch (err) {
-      console.warn('Backend class detail unreachable, using local session:', err);
+      logger.warn('Backend class detail unreachable, using local session:', err);
       setAttendeesUnavailable(true);
       setAttendeesLoading(false);
     }
@@ -380,7 +381,7 @@ const LiveWebcasts = ({ theme }) => {
         }
       };
     } catch (wsErr) {
-      console.warn('WebSocket could not be established:', wsErr);
+      logger.warn('WebSocket could not be established:', wsErr);
     }
   }, [selectedClass?.id]);
 
@@ -402,7 +403,7 @@ const LiveWebcasts = ({ theme }) => {
         videoEl.srcObject = mediaStreamRef.current;
         videoEl.muted = true;
         videoEl.play().catch(err => {
-          console.warn('Camera preview play error:', err);
+          logger.warn('Camera preview play error:', err);
         });
       }
     } else {
@@ -416,7 +417,7 @@ const LiveWebcasts = ({ theme }) => {
       videoEl.src = streamSource;
       videoEl.muted = !isAudioActive;
       videoEl.play().catch(err => {
-        console.warn('Lecture video play error:', err);
+        logger.warn('Lecture video play error:', err);
       });
     }
   }, [isCameraOn, isScreenSharing, selectedClass?.streamUrl, isAudioActive]);
@@ -529,7 +530,7 @@ const LiveWebcasts = ({ theme }) => {
           });
         }
       } catch (err) {
-        console.warn('Camera access denied or unavailable', err);
+        logger.warn('Camera access denied or unavailable', err);
         alert(t('liveClass.cameraNotice', 'Webcam access was not granted or no camera is connected. Check browser camera permissions.'));
         setIsCameraOn(false);
       }
@@ -588,7 +589,7 @@ const LiveWebcasts = ({ theme }) => {
           });
         }
       } catch (err) {
-        console.warn('Screen share cancelled', err);
+        logger.warn('Screen share cancelled', err);
         setIsScreenSharing(false);
       }
     }
@@ -604,7 +605,7 @@ const LiveWebcasts = ({ theme }) => {
       try {
         await toggleCamera();
       } catch (e) {
-        console.warn('Auto-camera start notice:', e);
+        logger.warn('Auto-camera start notice:', e);
       }
     }
 
@@ -632,7 +633,7 @@ const LiveWebcasts = ({ theme }) => {
         body: JSON.stringify({ status: nextStatus })
       });
     } catch (err) {
-      console.warn('Backend broadcast status update skipped:', err);
+      logger.warn('Backend broadcast status update skipped:', err);
     }
   };
 
@@ -732,7 +733,7 @@ const LiveWebcasts = ({ theme }) => {
         body: JSON.stringify({ question: pollQuestion.trim(), options: cleanOptions })
       });
     } catch (err) {
-      console.warn('Backend poll sync skipped:', err);
+      logger.warn('Backend poll sync skipped:', err);
     }
   };
 
@@ -772,7 +773,7 @@ const LiveWebcasts = ({ theme }) => {
         body: JSON.stringify(scheduleForm)
       });
     } catch (err) {
-      console.warn('Backend schedule save skipped:', err);
+      logger.warn('Backend schedule save skipped:', err);
     }
   };
 

@@ -1,4 +1,5 @@
 // IndexedDB Offline Video Storage (JioCinema / Netflix style in-app offline playback)
+import logger from './logger';
 const DB_NAME = 'StreamHubOfflineDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'offline_videos';
@@ -104,7 +105,7 @@ export const offlineStorage = {
         request.onerror = () => reject(request.error);
       });
     } catch (e) {
-      console.warn('offlineStorage.getAllVideos error:', e);
+      logger.warn('offlineStorage.getAllVideos error:', e);
       return [];
     }
   },
@@ -121,7 +122,7 @@ export const offlineStorage = {
         request.onerror = () => reject(request.error);
       });
     } catch (e) {
-      console.warn('offlineStorage.getVideo error:', e);
+      logger.warn('offlineStorage.getVideo error:', e);
       return null;
     }
   },

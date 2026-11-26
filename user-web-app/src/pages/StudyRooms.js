@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAccessToken } from '../services/api';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
 import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
+import logger from '../utils/logger';
 
 const StudyRooms = () => {
   const navigate = useNavigate();
@@ -120,7 +121,7 @@ const StudyRooms = () => {
 
       // Do not automatically retry authentication errors (HTTP 401 / 403)
       if (res.status === 401 || res.status === 403) {
-        console.warn('Study rooms polling paused: Authentication required (HTTP 401/403)');
+        logger.warn('Study rooms polling paused: Authentication required (HTTP 401/403)');
         setAuthError(true);
         return;
       }

@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import PaginatedTable from '../components/PaginatedTable';
 import ThreeDLoader from '../components/ThreeDLoader';
 import { useLanguage } from '../context/LanguageContext';
+import logger from '../utils/logger';
 
 const UserQuizzes = () => {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ const UserQuizzes = () => {
           setCourses(courseList);
         }
       } catch (cErr) {
-        console.warn('Could not load course list for UserQuizzes:', cErr);
+        logger.warn('Could not load course list for UserQuizzes:', cErr);
       }
       
       let rawList = [];
@@ -121,7 +122,7 @@ const UserQuizzes = () => {
 
       setQuizzes(formatted);
     } catch (err) {
-      console.warn("Failed to fetch quiz history from API", err);
+      logger.warn("Failed to fetch quiz history from API", err);
       setQuizzes([]);
     } finally {
       setLoading(false);

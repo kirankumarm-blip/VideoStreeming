@@ -9,6 +9,7 @@ import PremiumSelect from './PremiumSelect';
 import { getAssetUrl } from '../utils/assetUrl';
 import { formatDate } from '../utils/dateFormatter';
 import logoImg from '../assets/logo.png';
+import logger from '../utils/logger';
 
 const Navigation = ({ toggleSidebar, theme, setTheme }) => {
   const { user, logout } = useAuth();
@@ -78,7 +79,7 @@ const Navigation = ({ toggleSidebar, theme, setTheme }) => {
       const categories = normalizeList(categoriesRes).map(cat => cat.json || cat);
       setSearchIndex({ courses, videos, categories });
     } catch (err) {
-      console.warn("Failed to load global search index:", err);
+      logger.warn("Failed to load global search index:", err);
     }
   };
 

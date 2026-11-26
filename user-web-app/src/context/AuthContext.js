@@ -10,6 +10,7 @@ import {
   isValidToken, 
   isTokenExpired 
 } from '../services/api';
+import logger from '../utils/logger';
 
 export const AuthContext = createContext(null);
 
@@ -217,11 +218,11 @@ export const AuthProvider = ({ children }) => {
     try {
       if (api && api.auth && typeof api.auth.logout === 'function') {
         Promise.resolve(api.auth.logout(logoutType)).catch((err) => {
-          console.warn('Logout API background error:', err);
+          logger.warn('Logout API background error:', err);
         });
       }
     } catch (e) {
-      console.warn('Logout API error:', e);
+      logger.warn('Logout API error:', e);
     }
     clearTokens();
     dispatch({ type: 'LOGOUT' });

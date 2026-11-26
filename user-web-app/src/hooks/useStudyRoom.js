@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { getApiBaseUrl } from '../utils/apiUrl';
 import { getAssetBaseUrl } from '../utils/assetUrl';
 import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
+import logger from '../utils/logger';
 
 export const useStudyRoom = ({
   video,
@@ -75,7 +76,7 @@ export const useStudyRoom = ({
               setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
             }
             if (data.room.isPlaying) {
-              videoRef.current.play().catch(e => console.log('Autoplay sync notice:', e));
+              videoRef.current.play().catch(e => logger.debug('Autoplay sync notice:', e));
             } else {
               videoRef.current.pause();
             }
@@ -86,7 +87,7 @@ export const useStudyRoom = ({
             if (Math.abs(videoRef.current.currentTime - data.currentTime) > 1.5) {
               videoRef.current.currentTime = data.currentTime;
             }
-            videoRef.current.play().catch(e => console.log(e));
+            videoRef.current.play().catch(e => logger.debug(e));
           }
           triggerStudyBanner(`▶️ ${data.senderName || 'Peer'} resumed playback`);
           setTimeout(() => { isRemoteSyncRef.current = false; }, 400);
@@ -126,11 +127,11 @@ export const useStudyRoom = ({
     };
 
     socket.onerror = (err) => {
-      console.log('Study Room WS error:', err);
+      logger.debug('Study Room WS error:', err);
     };
 
     socket.onclose = () => {
-      console.log('Study Room WS closed');
+      logger.debug('Study Room WS closed');
     };
 
     return () => {

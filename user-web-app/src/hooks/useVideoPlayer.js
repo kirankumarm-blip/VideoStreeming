@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import logger from '../utils/logger';
 
 export const SUPPORTED_SUBTITLE_LANGUAGES = [
   { code: 'en', label: 'English', name: 'English' },
@@ -63,7 +64,7 @@ export const useVideoPlayer = ({
       if (isPlaying) {
         videoRef.current.pause();
       } else {
-        videoRef.current.play().catch(e => console.log('Playback notice:', e));
+        videoRef.current.play().catch(e => logger.debug('Playback notice:', e));
       }
     }
   }, [isPlaying]);
@@ -92,7 +93,7 @@ export const useVideoPlayer = ({
         setActiveCue(match || null);
       }
       if (!isPlaying) {
-        videoRef.current.play().catch(e => console.log(e));
+        videoRef.current.play().catch(e => logger.debug(e));
         setIsPlaying(true);
       }
     }
@@ -130,7 +131,7 @@ export const useVideoPlayer = ({
         if (videoRef.current) {
           videoRef.current.currentTime = currentPos;
           if (isPlaying) {
-            videoRef.current.play().catch(e => console.log(e));
+            videoRef.current.play().catch(e => logger.debug(e));
           }
         }
       }, 800);

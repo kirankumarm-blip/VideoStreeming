@@ -7,6 +7,7 @@ import PaginatedTable from '../components/PaginatedTable';
 import { getAssetUrl } from '../utils/assetUrl';
 import { validatePassword } from '../utils/passwordPolicy';
 import { formatDate } from '../utils/dateFormatter';
+import logger from '../utils/logger';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -183,7 +184,7 @@ const Profile = () => {
         bio: resBio
       }));
     } catch (err) {
-      console.warn('Failed to fetch profile from vdUser getProfile:', err);
+      logger.warn('Failed to fetch profile from vdUser getProfile:', err);
     } finally {
       setAccountLoading(false);
     }
@@ -323,7 +324,7 @@ const Profile = () => {
             payload.avatar = avRes.user.avatar;
           }
         } catch (avErr) {
-          console.warn('Avatar upload fallback error:', avErr);
+          logger.warn('Avatar upload fallback error:', avErr);
         }
       }
 

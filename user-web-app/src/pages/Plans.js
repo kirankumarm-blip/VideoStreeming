@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import logger from '../utils/logger';
 
 const PLAN_STYLES = {
   free: {
@@ -62,7 +63,7 @@ const Plans = () => {
           setPlansData(list);
         }
       } catch (err) {
-        console.warn('Could not fetch subscription plans from vd_subscriptions:', err);
+        logger.warn('Could not fetch subscription plans from vd_subscriptions:', err);
       } finally {
         if (isMounted) setLoading(false);
       }

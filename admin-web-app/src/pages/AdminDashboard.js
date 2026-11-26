@@ -16,6 +16,7 @@ import LiveWebcasts from './LiveWebcasts';
 import { getAssetUrl } from '../utils/assetUrl';
 import { isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
 import { formatMetricValue, getMetricNumber } from '../utils/metricFormatter';
+import logger from '../utils/logger';
 
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
@@ -1464,7 +1465,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             setCategories(catsList);
           }
         } catch (catErr) {
-          console.warn('Failed to fetch direct categories for edit video:', catErr);
+          logger.warn('Failed to fetch direct categories for edit video:', catErr);
         }
       }
 
@@ -2298,7 +2299,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     isFetchingGendersRef.current = true;
     try {
       const res = await api.users.getGender();
-      console.log('Fetched user genders:', res);
+      logger.debug('Fetched user genders:', res);
       let list = [];
       if (Array.isArray(res)) {
         list = res.map(item => item.json || item);
@@ -2489,7 +2490,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             else if (resAuthor.id || resAuthor.first_name || resAuthor.name) list = [resAuthor];
           }
         } catch (e) {
-          console.warn('getAuthorAdmin failed, trying fallback:', e);
+          logger.warn('getAuthorAdmin failed, trying fallback:', e);
         }
 
         // 2. Fallback to getAuthorAdmins / getAthorAdmins
@@ -2510,7 +2511,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               }
             }
           } catch (e) {
-            console.warn('getAuthorAdmins fallback failed:', e);
+            logger.warn('getAuthorAdmins fallback failed:', e);
           }
         }
 
@@ -2527,7 +2528,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               else if (resAdmins.id || resAdmins.alpha_id || resAdmins.name) list = [resAdmins];
             }
           } catch (e) {
-            console.warn('getAdmins fallback failed:', e);
+            logger.warn('getAdmins fallback failed:', e);
           }
         }
 
@@ -2567,7 +2568,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     setLoadingQuizTypes(true);
     try {
       let res = await api.vdcategories.getQuizTypes();
-      console.log('Fetched quiz types response from getQuizTypes:', res);
+      logger.debug('Fetched quiz types response from getQuizTypes:', res);
       let list = [];
       if (Array.isArray(res)) {
         list = res.flat ? res.flat(Infinity) : res.reduce((acc, val) => acc.concat(Array.isArray(val) ? val : [val]), []);
@@ -2595,7 +2596,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }).filter(item => item.id && item.name);
 
       if (formatted.length > 0) {
-        console.log('Mapped quizTypesList from API:', formatted);
+        logger.debug('Mapped quizTypesList from API:', formatted);
         setQuizTypesList(formatted);
       } else {
         setQuizTypesList([
@@ -2605,7 +2606,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         ]);
       }
     } catch (err) {
-      console.warn('Error fetching quiz types list from API, using fallback:', err);
+      logger.warn('Error fetching quiz types list from API, using fallback:', err);
       setQuizTypesList([
         { id: '1', name: 'Multiple Choice(MCQ)' },
         { id: '2', name: 'True or False' },
@@ -4142,7 +4143,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         videoElement.src = objectUrl;
         videoElement.load();
       } catch (err) {
-        console.warn("Could not read video duration from file", err);
+        logger.warn("Could not read video duration from file", err);
         resolve(0);
       }
     });
@@ -4213,10 +4214,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       // Background subtitle & transcription generation for course chapter video
       const transcriptPromise = (async () => {
         try {
-          console.log(`[Course Transcription Background] Generating speech subtitles & transcripts for chapter ${chapterId}, video ${videoId} (fileId: ${targetFileId}, file: ${file.name})...`);
+          logger.debug(`[Course Transcription Background] Generating speech subtitles & transcripts for chapter ${chapterId}, video ${videoId} (fileId: ${targetFileId}, file: ${file.name})...`);
           const subRes = await api.videos.generateSubtitles(targetFileId, file.name);
           if (subRes && subRes.subtitles && subRes.transcripts) {
-            console.log(`[Course Transcription Background] Ready: subtitles & transcripts for chapter ${chapterId}, video ${videoId}`);
+            logger.debug(`[Course Transcription Background] Ready: subtitles & transcripts for chapter ${chapterId}, video ${videoId}`);
             const currentEntry = courseTranscriptsRef.current[`${chapterId}_${videoId}`];
             if (currentEntry) {
               currentEntry.data = subRes;
@@ -4230,7 +4231,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             const existingCourseId = editingCourse?.id || editingCourse?.course_id || courseForm?.id || courseForm?.course_id;
             if (existingCourseId) {
               try {
-                console.log(`[Course Transcription Background] Subtitles ready for course ${existingCourseId}: calling transcriptCourse API immediately for chapter ${chapterId}, video ${videoId}...`);
+                logger.debug(`[Course Transcription Background] Subtitles ready for course ${existingCourseId}: calling transcriptCourse API immediately for chapter ${chapterId}, video ${videoId}...`);
                 await api.videos.updateTranscriptCourse({
                   formstep: "transcriptCourse",
                   course_id: String(existingCourseId),
@@ -4257,16 +4258,16 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                     }
                   ]
                 });
-                console.log(`[Course Transcription Background] Successfully called transcriptCourse API immediately for course ${existingCourseId}, chapter ${chapterId}, video ${videoId}!`);
+                logger.debug(`[Course Transcription Background] Successfully called transcriptCourse API immediately for course ${existingCourseId}, chapter ${chapterId}, video ${videoId}!`);
               } catch (immedSyncErr) {
-                console.warn(`[Course Transcription Background] Immediate transcriptCourse sync warning:`, immedSyncErr.message);
+                logger.warn(`[Course Transcription Background] Immediate transcriptCourse sync warning:`, immedSyncErr.message);
               }
             }
 
             return subRes;
           }
         } catch (subErr) {
-          console.warn(`[Course Transcription Background] Subtitle generation warning for chapter ${chapterId}, video ${videoId}:`, subErr.message);
+          logger.warn(`[Course Transcription Background] Subtitle generation warning for chapter ${chapterId}, video ${videoId}:`, subErr.message);
         }
         return null;
       })();
@@ -4939,14 +4940,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         try {
           await api.notifications.sendCampaign('all', 'New Course Published', `"${payload.title || 'A new course'}" has been published. Check it out now!`);
         } catch (notifErr) {
-          console.warn("Course notification call warning:", notifErr);
+          logger.warn("Course notification call warning:", notifErr);
         }
       }
 
       // 2. Background: Once subtitle generation completes for all selected videos, call transcriptCourse API
       (async () => {
         try {
-          console.log('[Course Transcription Sync] First response submitted. Awaiting subtitle generation for all selected videos...');
+          logger.debug('[Course Transcription Sync] First response submitted. Awaiting subtitle generation for all selected videos...');
           
           // Wait for all video subtitle generation promises to finish for all chapters and videos
           for (const ch of submittedChapters) {
@@ -4960,13 +4961,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   const pData = await matchEntry.promise;
                   if (pData) matchEntry.data = pData;
                 } catch (pErr) {
-                  console.warn('[Course Transcription Sync] Promise await warning for video:', pErr.message);
+                  logger.warn('[Course Transcription Sync] Promise await warning for video:', pErr.message);
                 }
               }
             }
           }
 
-          console.log('[Course Transcription Sync] All subtitles generated! Assembling transcriptCourse API call...');
+          logger.debug('[Course Transcription Sync] All subtitles generated! Assembling transcriptCourse API call...');
           let returnedChapters = [];
           if (Array.isArray(courseRes)) {
             returnedChapters = courseRes;
@@ -5025,10 +5026,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               });
               if (matchingCourse) {
                 overallCourseId = matchingCourse.id || matchingCourse.course_id || matchingCourse.courseId;
-                console.log('[Course Transcription Sync] Found created course ID from listCourses:', overallCourseId);
+                logger.debug('[Course Transcription Sync] Found created course ID from listCourses:', overallCourseId);
               }
             } catch (fetchIdErr) {
-              console.warn('[Course Transcription Sync] listCourses fetch ID warning:', fetchIdErr.message);
+              logger.warn('[Course Transcription Sync] listCourses fetch ID warning:', fetchIdErr.message);
             }
           }
 
@@ -5084,7 +5085,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       subData = promisedData;
                     }
                   } catch (pErr) {
-                    console.warn(`[Course Transcription Sync] Promise await warning:`, pErr.message);
+                    logger.warn(`[Course Transcription Sync] Promise await warning:`, pErr.message);
                   }
                 }
                 if (!subData && matchEntry.data && (matchEntry.data.subtitles || matchEntry.data.transcripts || matchEntry.data.transcript)) {
@@ -5109,11 +5110,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
               const targetFileId = matchEntry?.fileId || origVideo?.videoId || origVideo?.fileId;
               const targetFileName = matchEntry?.fileName || origVideo?.fileName;
               if (!subData && targetFileId && targetFileName && isVideoChangedOrNew) {
-                console.log(`[Course Transcription Sync] Generating real Whisper subtitles on-demand for target fileId ${targetFileId}...`);
+                logger.debug(`[Course Transcription Sync] Generating real Whisper subtitles on-demand for target fileId ${targetFileId}...`);
                 try {
                   subData = await api.videos.generateSubtitles(targetFileId, targetFileName);
                 } catch (genErr) {
-                  console.warn(`[Course Transcription Sync] generateSubtitles fallback error:`, genErr.message);
+                  logger.warn(`[Course Transcription Sync] generateSubtitles fallback error:`, genErr.message);
                 }
               }
 
@@ -5147,7 +5148,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
           }
 
           if (isEditMode && processedChapters.length === 0) {
-            console.log('[Course Transcription Sync] Edit course completed with no changed or newly added videos. Skipping transcriptCourse sync.');
+            logger.debug('[Course Transcription Sync] Edit course completed with no changed or newly added videos. Skipping transcriptCourse sync.');
             return;
           }
 
@@ -5161,11 +5162,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             chapters: processedChapters
           };
 
-          console.log('[Course Transcription Sync] All selected video subtitles ready! Calling transcriptCourse API now:', transcriptCoursePayload);
+          logger.debug('[Course Transcription Sync] All selected video subtitles ready! Calling transcriptCourse API now:', transcriptCoursePayload);
           await api.videos.updateTranscriptCourse(transcriptCoursePayload);
-          console.log('[Course Transcription Sync] Successfully called transcriptCourse API after subtitle generation!');
+          logger.debug('[Course Transcription Sync] Successfully called transcriptCourse API after subtitle generation!');
         } catch (syncAllErr) {
-          console.warn('[Course Transcription Sync] Error in course transcript sync flow:', syncAllErr.message);
+          logger.warn('[Course Transcription Sync] Error in course transcript sync flow:', syncAllErr.message);
         }
       })();
 
@@ -5177,7 +5178,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             await deleteFn(uploadingDraftIdRef.current);
           }
         } catch (dErr) {
-          console.warn("Could not delete draft after publishing:", dErr);
+          logger.warn("Could not delete draft after publishing:", dErr);
         }
         uploadingDraftIdRef.current = null;
         lastFetchedCourseDraftRef.current = null;
@@ -5405,7 +5406,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         userData = res;
       }
     } catch (e) {
-      console.warn("Failed to fetch user details, using local data", e);
+      logger.warn("Failed to fetch user details, using local data", e);
     }
     
     const matchedGender = genders.find(g => 
@@ -6241,7 +6242,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         try {
           await api.notifications.sendCampaign('all', 'New Video Added', `"${registerPayload.title || 'A new video'}" has been uploaded. Watch it now!`);
         } catch (notifErr) {
-          console.warn("Video notification call warning:", notifErr);
+          logger.warn("Video notification call warning:", notifErr);
         }
       }
 
@@ -6261,10 +6262,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
         (async () => {
           try {
-            console.log(`[Transcription Background] Generating speech subtitles & transcripts for video ID: ${targetVidId}...`);
+            logger.debug(`[Transcription Background] Generating speech subtitles & transcripts for video ID: ${targetVidId}...`);
             const subRes = await api.videos.generateSubtitles(targetFileId, targetFileName);
             if (subRes && subRes.subtitles && subRes.transcripts) {
-              console.log(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript, vd_id=${targetVidId}, video_id=${extractedVideoId || targetVidId}...`);
+              logger.debug(`[Transcription Background] Subtitles ready, calling vdadminVideos with formstep=transcript, vd_id=${targetVidId}, video_id=${extractedVideoId || targetVidId}...`);
               await api.videos.updateTranscript({
                 formstep: "transcript",
                 vd_id: String(targetVidId),
@@ -6278,10 +6279,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 transcripts: subRes.transcripts,
                 transcript: subRes.transcript || subRes.transcripts?.en || []
               });
-              console.log(`[Transcription Background] Successfully updated subtitles and transcripts for video ID ${targetVidId}!`);
+              logger.debug(`[Transcription Background] Successfully updated subtitles and transcripts for video ID ${targetVidId}!`);
             }
           } catch (bgErr) {
-            console.warn(`[Transcription Background] Warning during background subtitle sync:`, bgErr.message);
+            logger.warn(`[Transcription Background] Warning during background subtitle sync:`, bgErr.message);
           }
         })();
       }
