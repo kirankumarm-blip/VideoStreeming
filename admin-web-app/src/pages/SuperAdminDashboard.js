@@ -17,6 +17,7 @@ import { formatDate, isValidDob, formatDobForSubmission } from '../utils/dateFor
 import { getUserStatusConfig, USER_STATUS_CONFIG } from '../utils/statusConfig';
 import { formatMetricValue, getMetricNumber } from '../utils/metricFormatter';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
 const resolveMediaUrl = (rawUrl) => {
@@ -641,6 +642,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   const showSuccess = (message, onConfirm = null) => {
+    toast.success(message);
     setCustomAlert({
       show: true,
       type: 'success',
@@ -652,6 +654,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   };
 
   const showError = (message, onConfirm = null) => {
+    toast.error(message);
     setCustomAlert({
       show: true,
       type: 'error',
@@ -3108,7 +3111,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   </table>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
-                  <button className="btn btn-primary" onClick={() => alert("Permissions matrix updated successfully!")}>
+                  <button className="btn btn-primary" onClick={() => showSuccess("Permissions matrix updated successfully!")}>
                     Save Changes
                   </button>
                 </div>
@@ -3250,8 +3253,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                 try {
                                   await api.videos.update(v.id, { status: 'active' });
                                   fetchVideos();
+                                  showSuccess('Video approved successfully!');
                                 } catch (err) {
-                                  alert(err.message);
+                                  showError(err.message || 'Failed to approve video');
                                 }
                               }}
                               className="btn btn-secondary"
@@ -3264,8 +3268,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                                 try {
                                   await api.videos.update(v.id, { status: 'rejected' });
                                   fetchVideos();
+                                  showSuccess('Video rejected successfully!');
                                 } catch (err) {
-                                  alert(err.message);
+                                  showError(err.message || 'Failed to reject video');
                                 }
                               }}
                               className="btn btn-secondary"
@@ -3314,10 +3319,17 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                               Dismiss
                             </button>
                             <button 
-                              onClick={async () => {
-                                await api.moderation.resolve(rep.id, 'delete');
-                                fetchModerationData();
-                                fetchVideos();
+                              onClick={() => {
+                                showConfirmDelete('Are you sure you want to delete this reported video?', async () => {
+                                  try {
+                                    await api.moderation.resolve(rep.id, 'delete');
+                                    fetchModerationData();
+                                    fetchVideos();
+                                    showSuccess('Reported video deleted successfully!');
+                                  } catch (err) {
+                                    showError(err.message || 'Failed to delete video');
+                                  }
+                                });
                               }}
                               className="btn btn-secondary"
                               style={{ padding: '6px 12px', fontSize: '12px', color: '#ef4444' }}
@@ -3740,10 +3752,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   const message = form.message.value;
                   try {
                     await api.notifications.sendCampaign(activeTab.replace('notif_', ''), title, message);
-                    alert("Campaign dispatched successfully!");
+                    showSuccess("Campaign dispatched successfully!");
                     form.reset();
                   } catch (err) {
-                    alert(err.message || "Failed to send campaign");
+                    showError(err.message || "Failed to send campaign");
                   }
                 }}>
                   <div className="form-group">
@@ -3863,9 +3875,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   e.preventDefault();
                   try {
                     await api.settings.update(settings);
-                    alert("Settings updated successfully!");
+                    showSuccess("Settings updated successfully!");
                   } catch (err) {
-                    alert(err.message || "Failed to update settings");
+                    showError(err.message || "Failed to update settings");
                   }
                 }}>
                   {activeTab === 'set_general' && (
@@ -3988,10 +4000,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <div className="glass-card" style={{ background: 'var(--bg-tertiary)', border: 'none' }}>
                     <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Operations</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <button className="btn btn-primary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => alert(`${activeTab} execution triggered successfully!`)}>
+                      <button className="btn btn-primary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => showSuccess(`${activeTab} execution triggered successfully!`)}>
                         Trigger Task Run
                       </button>
-                      <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => alert("Report generated and queued for export.")}>
+                      <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => showSuccess("Report generated and queued for export.")}>
                         Generate Module Report
                       </button>
                     </div>
@@ -4792,13 +4804,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               try {
                 if (editingPlan) {
                   await api.plans.update(editingPlan.id, planForm.name, planForm.price, planForm.durationDays, planForm.features);
+                  showSuccess('Plan updated successfully!');
                 } else {
                   await api.plans.create(planForm.name, planForm.price, planForm.durationDays, planForm.features);
+                  showSuccess('Plan created successfully!');
                 }
                 setShowPlanModal(false);
                 fetchSubscriptionData();
               } catch (err) {
-                alert(err.message || 'Failed to save plan');
+                showError(err.message || 'Failed to save plan');
               }
             }}>
               <div className="form-group">

@@ -11,6 +11,7 @@ import { getCurrentUser, getAccessToken, getRefreshToken, clearTokens, isValidTo
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { ROLES } from './constants/roles';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import RoleRoute from './components/auth/RoleRoute';
@@ -337,7 +338,9 @@ function App() {
       <LanguageProvider>
         <ThemeCustomizerProvider>
           <AuthProvider>
-            <AppContent />
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
           </AuthProvider>
         </ThemeCustomizerProvider>
       </LanguageProvider>

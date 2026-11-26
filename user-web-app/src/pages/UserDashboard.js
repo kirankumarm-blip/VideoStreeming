@@ -2,6 +2,8 @@ import { offlineStorage } from '../utils/offlineStorage';
 import { getAssetUrl } from '../utils/assetUrl';
 import { formatDate } from '../utils/dateFormatter';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
+import ConfirmDialog from '../components/ConfirmDialog';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -370,6 +372,16 @@ const UserDashboard = () => {
   const [watchLaterSearch, setWatchLaterSearch] = useState('');
   const [downloadsList, setDownloadsList] = useState([]);
   const [offlineVideosList, setOfflineVideosList] = useState([]);
+  const [offlineDeleteConfirm, setOfflineDeleteConfirm] = useState({ isOpen: false, videoId: null });
+
+  const handleConfirmDeleteOffline = async () => {
+    if (offlineDeleteConfirm.videoId) {
+      await offlineStorage.deleteVideo(offlineDeleteConfirm.videoId);
+      loadOfflineVideos();
+      toast.success('Video removed from offline storage');
+    }
+    setOfflineDeleteConfirm({ isOpen: false, videoId: null });
+  };
 
   const loadOfflineVideos = async () => {
     try {
@@ -3127,11 +3139,8 @@ const UserDashboard = () => {
                                 <span>Play Offline</span>
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (window.confirm('Delete this video from offline storage?')) {
-                                    await offlineStorage.deleteVideo(offVid.id);
-                                    loadOfflineVideos();
-                                  }
+                                onClick={() => {
+                                  setOfflineDeleteConfirm({ isOpen: true, videoId: offVid.id });
                                 }}
                                 style={{
                                   background: 'rgba(239, 68, 68, 0.1)',
@@ -3215,7 +3224,7 @@ const UserDashboard = () => {
                             Issued on: {formatDate(h.watchDate, { dateOnly: true })}
                           </div>
                           <button 
-                            onClick={() => alert(`LinkedIn Share Triggered for course: "${h.video.title}"!`)}
+                            onClick={() => toast.info(`LinkedIn Share Triggered for course: "${h.video.title}"!`)}
                             className="btn btn-secondary"
                             style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px' }}
                           >
@@ -3377,7 +3386,7 @@ const UserDashboard = () => {
                         </div>
                       </div>
                       <button 
-                        onClick={() => alert("Subscription Manage API Triggered!")}
+                        onClick={() => toast.info("Subscription Manage API Triggered!")}
                         className="btn btn-secondary"
                         style={{ padding: '10px 20px', borderRadius: '20px', fontWeight: 600 }}
                       >
@@ -3510,6 +3519,15 @@ const UserDashboard = () => {
             )}
           </>
         )}
+
+        <ConfirmDialog
+          isOpen={offlineDeleteConfirm.isOpen}
+          title="Remove Download"
+          message="Are you sure you want to delete this video from offline storage?"
+          confirmText="Delete"
+          onConfirm={handleConfirmDeleteOffline}
+          onCancel={() => setOfflineDeleteConfirm({ isOpen: false, videoId: null })}
+        />
       </div>
   );
 };

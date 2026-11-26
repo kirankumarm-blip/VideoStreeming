@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../utils/dateFormatter';
+import { toast } from '../context/ToastContext';
 
 const DEFAULT_CERTIFICATES = [
   {
@@ -287,7 +288,7 @@ const Certificates = () => {
       setPreviewDataUrl(dataUrl);
     } catch (err) {
       console.error('Failed to generate certificate', err);
-      alert('Error generating certificate. Please try again.');
+      toast.error('Error generating certificate. Please try again.');
     } finally {
       setIsGenerating(false);
     }

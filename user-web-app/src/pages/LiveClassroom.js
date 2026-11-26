@@ -7,6 +7,7 @@ import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl } from '../utils/apiUrl';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
 
 /**
  * Builds authenticated headers for poll voting.
@@ -1097,7 +1098,7 @@ const LiveClassroom = () => {
                       </div>
 
                       <button
-                        onClick={() => alert(`Downloading ${res.name}...`)}
+                        onClick={() => toast.info(`Downloading ${res.name}...`)}
                         style={{
                           padding: '6px 14px',
                           borderRadius: '6px',

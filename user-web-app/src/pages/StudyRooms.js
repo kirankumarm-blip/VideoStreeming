@@ -6,6 +6,7 @@ import { getAccessToken } from '../services/api';
 import { getApiBaseUrl, calculateBackoffDelay } from '../utils/apiUrl';
 import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
 
 const StudyRooms = () => {
   const navigate = useNavigate();
@@ -640,7 +641,7 @@ const StudyRooms = () => {
                     onClick={() => {
                       const shareUrl = `${window.location.origin}/#/watch/${room.videoId || 1}?room=${room.id}`;
                       navigator.clipboard.writeText(shareUrl);
-                      alert(`Invite link for room ${room.id} copied to clipboard!`);
+                      toast.success(`Invite link for room ${room.id} copied to clipboard!`);
                     }}
                     style={{
                       padding: '10px 12px',

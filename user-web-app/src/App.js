@@ -20,6 +20,7 @@ import logoImg from './assets/logo.png';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ThemeCustomizerProvider, useThemeCustomizer } from './context/ThemeCustomizerContext';
+import { ToastProvider } from './context/ToastContext';
 import { ThemeCustomizerDrawer, ScreenIdChip } from './components/AppearanceCustomizer';
 import { validateApiConfiguration } from './utils/apiUrl';
 
@@ -470,7 +471,9 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <ThemeCustomizerProvider>
-            <AppContent />
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
           </ThemeCustomizerProvider>
         </AuthProvider>
       </LanguageProvider>

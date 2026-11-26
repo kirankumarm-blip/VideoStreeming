@@ -3,6 +3,8 @@ import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import { getApiBaseUrl } from '../utils/apiUrl';
 import { generateCorrelationId, handleFormApiError } from '../utils/formErrorHandler';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
+import ConfirmDialog from '../components/ConfirmDialog';
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -463,6 +465,7 @@ const VideoWatch = () => {
   const [offlineBlobUrl, setOfflineBlobUrl] = useState(null);
   const [offlineDownloadProgress, setOfflineDownloadProgress] = useState(null);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [showOfflineDeleteConfirm, setShowOfflineDeleteConfirm] = useState(false);
   const downloadMenuRef = useRef(null);
 
   // Custom Alert Modal State (Same as UserDashboard / Login page)
@@ -2357,17 +2360,21 @@ const VideoWatch = () => {
           video_url: targetUrl
         });
       } catch (e) {}
-      alert('Video saved for offline playback! You can watch it anytime from the Downloads tab without internet.');
+      toast.success('Video saved for offline playback! You can watch it anytime from the Downloads tab without internet.');
     } catch (err) {
       console.error('Offline save error:', err);
       setOfflineDownloadProgress(null);
-      alert('Could not save in-app: ' + err.message + '. Starting standard file download...');
+      toast.warn('Could not save in-app: ' + err.message + '. Starting standard file download...');
       handleDownloadSystemMP4();
     }
   };
 
-  const handleDeleteOffline = async () => {
-    if (!window.confirm('Remove this video from offline downloads?')) return;
+  const handleDeleteOffline = () => {
+    setShowOfflineDeleteConfirm(true);
+  };
+
+  const confirmDeleteOffline = async () => {
+    setShowOfflineDeleteConfirm(false);
     try {
       await offlineStorage.deleteVideo(id);
       setIsSavedOffline(false);
@@ -2376,9 +2383,10 @@ const VideoWatch = () => {
         setOfflineBlobUrl(null);
       }
       setShowDownloadMenu(false);
-      alert('Video removed from offline storage.');
+      toast.success('Video removed from offline storage.');
     } catch (e) {
       console.error(e);
+      toast.error('Failed to remove video from offline storage.');
     }
   };
 
@@ -2707,7 +2715,7 @@ const VideoWatch = () => {
                 alignItems: 'center',
                 gap: '6px',
                 cursor: 'pointer'
-              }} onClick={() => alert("Link copied to clipboard (Simulated)")}>
+              }} onClick={() => toast.success("Link copied to clipboard")}>
                 🔗 {t('watch.share', 'Share')}
               </button>
 
@@ -5397,6 +5405,15 @@ const VideoWatch = () => {
         handleJoinWatchPartyByCode={handleJoinWatchPartyByCode}
         handleCopyStudyInvite={handleCopyStudyInvite}
         onExploreHub={() => navigate('/study-rooms')}
+      />
+
+      <ConfirmDialog
+        isOpen={showOfflineDeleteConfirm}
+        title="Remove Download"
+        message="Are you sure you want to remove this video from offline downloads?"
+        confirmText="Remove"
+        onConfirm={confirmDeleteOffline}
+        onCancel={() => setShowOfflineDeleteConfirm(false)}
       />
     </div>
   );

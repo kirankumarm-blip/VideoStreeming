@@ -4,6 +4,7 @@ import { getCurrentUser } from '../services/api';
 import { FALLBACK_LIVE_CLASSES } from '../services/liveClassMock';
 import { getAssetUrl, getAssetBaseUrl } from '../utils/assetUrl';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
 
 export const isValidAttendeeCount = (val) => {
   return typeof val === 'number' && !isNaN(val) && isFinite(val) && val >= 0;
@@ -531,7 +532,7 @@ const LiveWebcasts = ({ theme }) => {
         }
       } catch (err) {
         logger.warn('Camera access denied or unavailable', err);
-        alert(t('liveClass.cameraNotice', 'Webcam access was not granted or no camera is connected. Check browser camera permissions.'));
+        toast.error(t('liveClass.cameraNotice', 'Webcam access was not granted or no camera is connected. Check browser camera permissions.'));
         setIsCameraOn(false);
       }
     }
@@ -696,7 +697,7 @@ const LiveWebcasts = ({ theme }) => {
     if (!pollQuestion.trim() || !selectedClass) return;
     const cleanOptions = pollOptions.filter(o => o.trim().length > 0);
     if (cleanOptions.length < 2) {
-      alert(t('liveClass.minOptionsAlert', 'Please provide at least 2 options for the poll.'));
+      toast.warn(t('liveClass.minOptionsAlert', 'Please provide at least 2 options for the poll.'));
       return;
     }
 

@@ -17,6 +17,7 @@ import { getAssetUrl } from '../utils/assetUrl';
 import { isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
 import { formatMetricValue, getMetricNumber } from '../utils/metricFormatter';
 import logger from '../utils/logger';
+import { toast } from '../context/ToastContext';
 
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
@@ -319,11 +320,19 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     if (currentUser) {
       const userRole = String(currentUser.role || currentUser.role_id || '').toLowerCase();
       if (userRole === 'user' || userRole === 'student' || userRole === 'end_user') {
-        alert('Access Denied: End users cannot log into the Admin Portal.');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        window.location.href = '#/login';
+        toast.error('Access Denied: End users cannot log into the Admin Portal.');
+        showError('Access Denied: End users cannot log into the Admin Portal.', () => {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          window.location.href = '#/login';
+        });
+        setTimeout(() => {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          window.location.href = '#/login';
+        }, 2500);
       }
     }
   }, [currentUser?.id, currentUser?.role]);
@@ -353,17 +362,20 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     buttonText: 'OK'
   });
 
-  const showError = (message) => {
+  const showError = (message, onConfirm = null) => {
+    toast.error(message);
     setCustomAlert({
       show: true,
       title: 'Oops!',
       message,
       type: 'error',
-      buttonText: 'Try Again'
+      buttonText: 'Try Again',
+      onConfirm
     });
   };
 
   const showSuccess = (message, onConfirm = null) => {
+    toast.success(message);
     setCustomAlert({
       show: true,
       title: 'Success!',
@@ -832,11 +844,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       }
 
       setShowAssignModal(false);
-      if (typeof showSuccess === 'function') {
-        showSuccess(`Assigned successfully for ${assignForm.title}`);
-      } else {
-        alert(`Assigned successfully for ${assignForm.title}`);
-      }
+      showSuccess(`Assigned successfully for ${assignForm.title}`);
 
       // Refresh list data from server
       fetchCourses(selectedAdminId);
@@ -845,11 +853,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         fetchDashboardData(activeTab);
       }
     } catch (err) {
-      if (typeof showError === 'function') {
-        showError(err.message || 'Failed to assign authors');
-      } else {
-        alert(err.message || 'Failed to assign authors');
-      }
+      showError(err.message || 'Failed to assign authors');
     }
   };
 
@@ -4035,7 +4039,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
       setCourseThumbnailUrl(completeRes.minioUrl);
     } catch (err) {
-      alert(`Failed to upload thumbnail: ${err.message}`);
+      showError(`Failed to upload thumbnail: ${err.message}`);
     } finally {
       setThumbnailUploading(false);
     }
@@ -4074,7 +4078,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const completeRes = await api.videos.completeChunkUpload(uploadId, file.name, totalChunks);
       setCourseBannerUrl(completeRes.minioUrl);
     } catch (err) {
-      alert(`Failed to upload banner: ${err.message}`);
+      showError(`Failed to upload banner: ${err.message}`);
     } finally {
       setBannerUploading(false);
     }
@@ -4292,7 +4296,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     } catch (err) {
       console.error(err);
       updateVideoProp(chapterId, videoId, 'uploadStatus', 'error');
-      alert(`Failed to upload video: ${err.message}`);
+      showError(`Failed to upload video: ${err.message}`);
     }
   };
 
@@ -4340,7 +4344,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     } catch (err) {
       console.error(err);
       updateVideoProp(chapterId, videoId, 'thumbStatus', 'error');
-      alert(`Failed to upload thumbnail: ${err.message}`);
+      showError(`Failed to upload thumbnail: ${err.message}`);
     }
   };
 
@@ -4391,7 +4395,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     } catch (err) {
       console.error(err);
       updateResourceProp(chapterId, resourceId, 'uploadStatus', 'error');
-      alert(`Failed to upload resource: ${err.message}`);
+      showError(`Failed to upload resource: ${err.message}`);
     }
   };
 
@@ -5225,7 +5229,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
     } catch (e) {
       console.error(e);
       setUploadProgress('');
-      alert('Failed to submit course: ' + e.message);
+      showError('Failed to submit course: ' + e.message);
     }
   };
 
@@ -5743,11 +5747,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       const bulkFn = api.users?.bulkUploadUsers || api.users?.bulkUpload || api.bulkUploadUsers;
       const res = await bulkFn(formData);
       
-      if (typeof showSuccess === 'function') {
-        showSuccess(res?.message || 'Bulk users uploaded successfully!');
-      } else {
-        alert(res?.message || 'Bulk users uploaded successfully!');
-      }
+      showSuccess(res?.message || 'Bulk users uploaded successfully!');
       setShowBulkUserModal(false);
       setBulkFile(null);
       fetchUsers();
@@ -5780,11 +5780,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         return;
       }
 
-      if (typeof showError === 'function') {
-        showError(err.message || 'Failed to upload bulk users');
-      } else {
-        alert(err.message || 'Failed to upload bulk users');
-      }
+      showError(err.message || 'Failed to upload bulk users');
     } finally {
       setBulkUploading(false);
     }
@@ -10629,7 +10625,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </h2>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
-                  alert("Settings updated successfully!");
+                  showSuccess("Settings updated successfully!");
                 }}>
                   {activeTab === 'set_general' && (
                     <>
@@ -10715,10 +10711,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <div className="glass-card" style={{ background: 'var(--bg-tertiary)', border: 'none' }}>
                     <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>Operations</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <button className="btn btn-primary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => alert(`${activeTab} execution triggered successfully!`)}>
+                      <button className="btn btn-primary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => showSuccess(`${activeTab} execution triggered successfully!`)}>
                         Trigger Task Run
                       </button>
-                      <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => alert("Report generated and queued for export.")}>
+                      <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px' }} onClick={() => showSuccess("Report generated and queued for export.")}>
                         Generate Module Report
                       </button>
                     </div>
