@@ -73,4 +73,45 @@ export function formatTime(input) {
   return `${hoursStr}:${minutes} ${ampm}`;
 }
 
+/**
+ * Validates that dobStr is in valid YYYY-MM-DD format,
+ * represents a real calendar date (e.g. not Feb 30),
+ * year is between 1900 and current year, and is not in the future.
+ */
+export function isValidDob(dobStr) {
+  try {
+    if (!dobStr || typeof dobStr !== 'string') return false;
+    const trimmed = dobStr.trim();
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+    if (!match) return false;
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const day = parseInt(match[3], 10);
+    if (year < 1900) return false;
+    const now = new Date();
+    if (year > now.getFullYear()) return false;
+    if (month < 1 || month > 12) return false;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (day < 1 || day > daysInMonth) return false;
+    const dateObj = new Date(year, month - 1, day);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (dateObj > today) return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Returns original YYYY-MM-DD string without timezone conversion,
+ * or null if invalid / empty.
+ */
+export function formatDobForSubmission(rawDob) {
+  if (!rawDob) return null;
+  const str = String(rawDob).trim();
+  const dateOnly = str.includes('T') ? str.split('T')[0] : str;
+  if (!isValidDob(dateOnly)) return null;
+  return dateOnly;
+}
+
 export default formatDate;

@@ -12,6 +12,7 @@ import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
 import LiveWebcasts from './LiveWebcasts';
 import { getAssetUrl } from '../utils/assetUrl';
+import { isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
 
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
@@ -2099,6 +2100,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Please select date of birth');
       return;
     }
+    if (!isValidDob(authorAdminForm.dob)) {
+      showError('Please enter a valid date of birth');
+      return;
+    }
     if (!authorAdminForm.address || !authorAdminForm.address.trim()) {
       showError('Please fill out address');
       return;
@@ -2132,7 +2137,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         phonenumber: authorAdminForm.mobile.trim(),
         mobile: authorAdminForm.mobile.trim(),
         gender_id: authorAdminForm.gender ? (parseInt(authorAdminForm.gender, 10) || authorAdminForm.gender) : null,
-        date_of_birth: authorAdminForm.dob ? new Date(authorAdminForm.dob).toISOString() : null,
+        date_of_birth: formatDobForSubmission(authorAdminForm.dob),
         address: authorAdminForm.address.trim(),
         state_id: authorAdminForm.state_id || authorAdminForm.state,
         state: String(authorAdminForm.state || authorAdminForm.state_id).trim(),
@@ -5247,6 +5252,10 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Please select date of birth');
       return;
     }
+    if (!isValidDob(userForm.dob)) {
+      showError('Please enter a valid date of birth');
+      return;
+    }
     if (!userForm.address || !userForm.address.trim()) {
       showError('Please fill out address');
       return;
@@ -5276,7 +5285,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         email: userForm.email.trim(),
         phonenumber: userForm.mobile.trim(),
         gender_id: userForm.gender ? (parseInt(userForm.gender, 10) || userForm.gender) : null,
-        date_of_birth: userForm.dob ? new Date(userForm.dob).toISOString() : null,
+        date_of_birth: formatDobForSubmission(userForm.dob),
         address: userForm.address.trim(),
         state_id: userForm.state_id || null,
         state: userForm.state ? userForm.state.trim() : '',

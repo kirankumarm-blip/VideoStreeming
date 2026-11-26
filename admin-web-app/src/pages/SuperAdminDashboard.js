@@ -11,7 +11,7 @@ import PremiumDatePicker from '../components/PremiumDatePicker';
 import logoImg from '../assets/logo.png';
 import { decryptUrl } from '../utils/crypto';
 import { getAssetUrl } from '../utils/assetUrl';
-import { formatDate } from '../utils/dateFormatter';
+import { formatDate, isValidDob, formatDobForSubmission } from '../utils/dateFormatter';
 import { getUserStatusConfig, USER_STATUS_CONFIG } from '../utils/statusConfig';
 export { getUserStatusConfig, USER_STATUS_CONFIG };
 
@@ -489,6 +489,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select date of birth');
       return;
     }
+    if (!isValidDob(authorAdminForm.dob)) {
+      showError('Please enter a valid date of birth');
+      return;
+    }
     if (!authorAdminForm.address || !authorAdminForm.address.trim()) {
       showError('Please fill out address');
       return;
@@ -522,7 +526,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         phonenumber: authorAdminForm.mobile.trim(),
         mobile: authorAdminForm.mobile.trim(),
         gender_id: authorAdminForm.gender ? (parseInt(authorAdminForm.gender, 10) || authorAdminForm.gender) : null,
-        date_of_birth: authorAdminForm.dob ? new Date(authorAdminForm.dob).toISOString() : null,
+        date_of_birth: formatDobForSubmission(authorAdminForm.dob),
         address: authorAdminForm.address.trim(),
         state_id: authorAdminForm.state_id || authorAdminForm.state,
         state: String(authorAdminForm.state || authorAdminForm.state_id).trim(),
@@ -1135,6 +1139,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select date of birth');
       return;
     }
+    if (!isValidDob(adminForm.dob)) {
+      showError('Please enter a valid date of birth');
+      return;
+    }
     if (!adminForm.address || !adminForm.address.trim()) {
       showError('Please fill out address');
       return;
@@ -1172,7 +1180,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         admin_id: resolvedClientId,
         phonenumber: adminForm.mobile.trim(),
         gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
-        date_of_birth: adminForm.dob ? new Date(adminForm.dob).toISOString() : null,
+        date_of_birth: formatDobForSubmission(adminForm.dob),
         address: adminForm.address.trim(),
         stat_id: adminForm.state_id || adminForm.state,
         state_id: adminForm.state_id || adminForm.state,
