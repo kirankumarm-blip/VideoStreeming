@@ -8,6 +8,8 @@ import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActi
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
+import InternationalPhoneInput, { validateInternationalPhoneNumber, resolveInitialCountry } from '../components/InternationalPhoneInput';
+import { validatePostalCode, getPostalCodePlaceholder } from '../utils/postalCodeValidator';
 import logoImg from '../assets/logo.png';
 import { decryptUrl } from '../utils/crypto';
 import { getAssetUrl } from '../utils/assetUrl';
@@ -111,6 +113,10 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
   const [reviewVideo, setReviewVideo] = useState(null);
 
   // Admins CRUD states
+  const DEFAULT_COUNTRY = { code: 'IN', dialCode: '+91', name: 'India', flag: '🇮🇳' };
+  const [adminCountry, setAdminCountry] = useState(DEFAULT_COUNTRY);
+  const [clientCountry, setClientCountry] = useState(DEFAULT_COUNTRY);
+  const [authorAdminCountry, setAuthorAdminCountry] = useState(DEFAULT_COUNTRY);
   const [admins, setAdmins] = useState([]);
   const [adminForm, setAdminForm] = useState({ firstName: '', lastName: '', email: '', client_id: '', mobile: '', gender: '', dob: '', city: '', state: '', state_id: '', city_id: '', zipcode: '', address: '' });
   const [editingAdmin, setEditingAdmin] = useState(null);
@@ -242,6 +248,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     const actualClients = (clients || []).filter(c => String(c.id) !== '0');
     const initialClientId = (selectedClientId && selectedClientId !== '0') ? selectedClientId : (actualClients[0]?.id || '');
 
+    setAuthorAdminCountry(DEFAULT_COUNTRY);
     setAuthorAdminForm({
       firstName: '',
       lastName: '',
@@ -259,6 +266,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       admin_id: ''
     });
     setCitiesList([]);
+    setAuthorAdminCountry(DEFAULT_COUNTRY);
     setShowAuthorAdminModal(true);
     if (statesList.length === 0) fetchStates();
     if (genders.length === 0) fetchGenders();
@@ -339,6 +347,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       admin_id: resolvedAdminId
     });
 
+    setAuthorAdminCountry(resolveInitialCountry(rawRecord.country_iso || rawRecord.country_code, rawRecord.phonenumber || rawRecord.mobile));
     setShowAuthorAdminModal(true);
     fetchDropdownClients();
   };
@@ -473,12 +482,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select admin');
       return;
     }
-    if (!authorAdminForm.mobile || !authorAdminForm.mobile.trim()) {
-      showError('Please fill out phone number');
-      return;
-    }
-    if (authorAdminForm.mobile.replace(/\D/g, '').length !== 10) {
-      showError('Phone number must be exactly 10 digits');
+    const phoneValidation = validateInternationalPhoneNumber(
+      authorAdminForm.mobile,
+      authorAdminCountry.code,
+      authorAdminCountry.name
+    );
+    if (!phoneValidation.isValid) {
+      showError(phoneValidation.error);
       return;
     }
     if (!authorAdminForm.gender) {
@@ -505,12 +515,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select city');
       return;
     }
-    if (!authorAdminForm.zipcode || !authorAdminForm.zipcode.trim()) {
-      showError('Please fill out zipcode');
-      return;
-    }
-    if (authorAdminForm.zipcode.replace(/\D/g, '').length !== 6) {
-      showError('Zipcode must be exactly 6 digits');
+    const postalValidation = validatePostalCode(
+      authorAdminForm.zipcode,
+      authorAdminCountry.code,
+      authorAdminCountry.name
+    );
+    if (!postalValidation.isValid) {
+      showError(postalValidation.error);
       return;
     }
 
@@ -523,8 +534,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         first_name: authorAdminForm.firstName.trim(),
         last_name: authorAdminForm.lastName.trim(),
         email: authorAdminForm.email.trim(),
-        phonenumber: authorAdminForm.mobile.trim(),
-        mobile: authorAdminForm.mobile.trim(),
+        phonenumber: phoneValidation.nationalNumber || authorAdminForm.mobile.trim(),
+        mobile: phoneValidation.nationalNumber || authorAdminForm.mobile.trim(),
+        country_code: authorAdminCountry.dialCode,
+        country_iso: authorAdminCountry.code,
+        dial_code: authorAdminCountry.dialCode,
         gender_id: authorAdminForm.gender ? (parseInt(authorAdminForm.gender, 10) || authorAdminForm.gender) : null,
         date_of_birth: formatDobForSubmission(authorAdminForm.dob),
         address: authorAdminForm.address.trim(),
@@ -532,7 +546,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         state: String(authorAdminForm.state || authorAdminForm.state_id).trim(),
         city_id: authorAdminForm.city_id || authorAdminForm.city,
         city: String(authorAdminForm.city || authorAdminForm.city_id).trim(),
-        zipcode: authorAdminForm.zipcode.trim(),
+        zipcode: postalValidation.postalCode || authorAdminForm.zipcode.trim(),
         client_id: authorAdminForm.client_id || selectedClientId || '0',
         admin_id: authorAdminForm.admin_id || ''
       };
@@ -1123,12 +1137,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select client');
       return;
     }
-    if (!adminForm.mobile || !adminForm.mobile.trim()) {
-      showError('Please fill out phone number');
-      return;
-    }
-    if (adminForm.mobile.length !== 10) {
-      showError('Phone number must be exactly 10 digits');
+    const phoneValidation = validateInternationalPhoneNumber(
+      adminForm.mobile,
+      adminCountry.code,
+      adminCountry.name
+    );
+    if (!phoneValidation.isValid) {
+      showError(phoneValidation.error);
       return;
     }
     if (!adminForm.gender) {
@@ -1155,12 +1170,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select city');
       return;
     }
-    if (!adminForm.zipcode || !adminForm.zipcode.trim()) {
-      showError('Please fill out zipcode');
-      return;
-    }
-    if (adminForm.zipcode.length !== 6) {
-      showError('Zipcode must be exactly 6 digits');
+    const postalValidation = validatePostalCode(
+      adminForm.zipcode,
+      adminCountry.code,
+      adminCountry.name
+    );
+    if (!postalValidation.isValid) {
+      showError(postalValidation.error);
       return;
     }
 
@@ -1178,7 +1194,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         email: adminForm.email.trim(),
         client_id: resolvedClientId,
         admin_id: resolvedClientId,
-        phonenumber: adminForm.mobile.trim(),
+        phonenumber: phoneValidation.nationalNumber || adminForm.mobile.trim(),
+        mobile: phoneValidation.nationalNumber || adminForm.mobile.trim(),
+        country_code: adminCountry.dialCode,
+        country_iso: adminCountry.code,
+        dial_code: adminCountry.dialCode,
         gender_id: adminForm.gender ? (parseInt(adminForm.gender, 10) || adminForm.gender) : null,
         date_of_birth: formatDobForSubmission(adminForm.dob),
         address: adminForm.address.trim(),
@@ -1187,7 +1207,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
         city_id: adminForm.city_id || adminForm.city,
         state: String(adminForm.state || adminForm.state_id).trim(),
         city: String(adminForm.city || adminForm.city_id).trim(),
-        zipcode: adminForm.zipcode.trim()
+        zipcode: postalValidation.postalCode || adminForm.zipcode.trim()
       };
 
       if (editingAdmin) {
@@ -1347,6 +1367,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       address: adminData.address || ''
     });
 
+    setAdminCountry(resolveInitialCountry(adminData.country_iso || adminData.country_code, adminData.phonenumber || adminData.mobile));
     setShowAdminModal(true);
   };
 
@@ -1543,12 +1564,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please fill out client name');
       return;
     }
-    if (!clientForm.mobile || !clientForm.mobile.trim()) {
-      showError('Please fill out phone number');
-      return;
-    }
-    if (clientForm.mobile.replace(/\D/g, '').length !== 10) {
-      showError('Phone number must be exactly 10 digits');
+    const phoneValidation = validateInternationalPhoneNumber(
+      clientForm.mobile,
+      clientCountry.code,
+      clientCountry.name
+    );
+    if (!phoneValidation.isValid) {
+      showError(phoneValidation.error);
       return;
     }
     if (!clientForm.address_line1 || !clientForm.address_line1.trim()) {
@@ -1563,12 +1585,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       showError('Please select city');
       return;
     }
-    if (!clientForm.zipcode || !clientForm.zipcode.trim()) {
-      showError('Please fill out zipcode');
-      return;
-    }
-    if (clientForm.zipcode.replace(/\D/g, '').length !== 6) {
-      showError('Zipcode must be exactly 6 digits');
+    const postalValidation = validatePostalCode(
+      clientForm.zipcode,
+      clientCountry.code,
+      clientCountry.name
+    );
+    if (!postalValidation.isValid) {
+      showError(postalValidation.error);
       return;
     }
 
@@ -1576,15 +1599,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
     try {
       const payload = {
         name: clientForm.name.trim(),
-        phonenumber: clientForm.mobile.trim(),
-        mobile: clientForm.mobile.trim(),
+        phonenumber: phoneValidation.nationalNumber || clientForm.mobile.trim(),
+        mobile: phoneValidation.nationalNumber || clientForm.mobile.trim(),
+        country_code: clientCountry.dialCode,
+        country_iso: clientCountry.code,
+        dial_code: clientCountry.dialCode,
         address_line1: clientForm.address_line1.trim(),
         address_line2: clientForm.address_line2 ? clientForm.address_line2.trim() : '',
         state_id: clientForm.state_id || null,
         state: clientForm.state ? clientForm.state.trim() : '',
         city_id: clientForm.city_id || null,
         city: clientForm.city ? clientForm.city.trim() : '',
-        zipcode: clientForm.zipcode.trim()
+        zipcode: postalValidation.postalCode || clientForm.zipcode.trim()
       };
 
       if (editingClient) {
@@ -1674,6 +1700,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       zipcode: client.zipcode || ''
     });
 
+    setClientCountry(resolveInitialCountry(client.country_iso || client.country_code, client.phonenumber || client.mobile));
     setShowClientModal(true);
   };
 
@@ -2555,6 +2582,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                     onClick={() => {
                       setEditingAdmin(null);
                       setAdminForm({ firstName: '', lastName: '', email: '', client_id: '', mobile: '', gender: '', dob: '', city: '', state: '', zipcode: '', address: '' });
+                      setAdminCountry(DEFAULT_COUNTRY);
                       setShowAdminModal(true);
                     }}
                     className="btn btn-primary"
@@ -2653,6 +2681,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                         city: '',
                         zipcode: ''
                       });
+                      setClientCountry(DEFAULT_COUNTRY);
                       setShowClientModal(true);
                     }}
                     className="btn btn-primary"
@@ -4091,19 +4120,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number</label>
-                  <input 
-                    type="tel" 
-                    className="form-input" 
+                  <InternationalPhoneInput
+                    selectedCountry={adminCountry}
+                    onCountryChange={setAdminCountry}
+                    value={adminForm.mobile}
+                    onChange={e => setAdminForm({...adminForm, mobile: e.target.value})}
                     placeholder="Enter phone number"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={adminForm.mobile} 
-                    onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setAdminForm({...adminForm, mobile: value});
-                    }} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                    disabled={adminFormLoading}
+                    required
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -4172,11 +4196,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <input 
                     type="text" 
                     className="form-input" 
-                    placeholder="Enter zipcode"
+                    placeholder={getPostalCodePlaceholder(adminCountry.code)}
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={adminForm.zipcode} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '').slice(0, 12);
                       setAdminForm({...adminForm, zipcode: value});
                     }} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
@@ -4335,22 +4359,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number *</label>
-                  <input 
-                    type="tel" 
-                    className="form-input" 
-                    placeholder="Enter phone number"
-                    style={{ background: editingAuthorAdmin ? '#e9ecef' : '#f5f5f5', color: editingAuthorAdmin ? '#6c757d' : '#333333', border: '1px solid #dddddd', cursor: editingAuthorAdmin ? 'not-allowed' : 'text' }}
-                    value={authorAdminForm.mobile} 
+                  <InternationalPhoneInput
+                    selectedCountry={authorAdminCountry}
+                    onCountryChange={setAuthorAdminCountry}
+                    value={authorAdminForm.mobile}
                     onChange={e => {
                       if (!editingAuthorAdmin) {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setAuthorAdminForm({...authorAdminForm, mobile: value});
+                        setAuthorAdminForm({...authorAdminForm, mobile: e.target.value});
                       }
-                    }} 
-                    readOnly={Boolean(editingAuthorAdmin)} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                    }}
+                    placeholder="Enter phone number"
+                    disabled={Boolean(editingAuthorAdmin) || authorAdminFormLoading}
+                    required
                   />
                 </div>
 
@@ -4436,11 +4456,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <input 
                     type="text" 
                     className="form-input" 
-                    placeholder="Enter zipcode"
+                    placeholder={getPostalCodePlaceholder(authorAdminCountry.code)}
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={authorAdminForm.zipcode} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '').slice(0, 12);
                       setAuthorAdminForm({...authorAdminForm, zipcode: value});
                     }} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
@@ -4504,19 +4524,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number *</label>
-                  <input 
-                    type="tel" 
-                    className="form-input" 
+                  <InternationalPhoneInput
+                    selectedCountry={clientCountry}
+                    onCountryChange={setClientCountry}
+                    value={clientForm.mobile}
+                    onChange={e => setClientForm({...clientForm, mobile: e.target.value})}
                     placeholder="Enter phone number"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={clientForm.mobile} 
-                    onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setClientForm({...clientForm, mobile: value});
-                    }} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                    disabled={clientFormLoading}
+                    required
                   />
                 </div>
 
@@ -4594,11 +4609,11 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   <input 
                     type="text" 
                     className="form-input" 
-                    placeholder="Enter zipcode"
+                    placeholder={getPostalCodePlaceholder(clientCountry.code)}
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={clientForm.zipcode} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '').slice(0, 12);
                       setClientForm({...clientForm, zipcode: value});
                     }} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}

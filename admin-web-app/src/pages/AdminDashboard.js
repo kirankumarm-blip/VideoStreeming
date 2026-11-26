@@ -9,6 +9,8 @@ import PaginatedTable, { UserAvatar, TableStatusBadge, TableRoleBadge, TableActi
 import ThreeDLoader from '../components/ThreeDLoader';
 import PremiumSelect from '../components/PremiumSelect';
 import PremiumDatePicker from '../components/PremiumDatePicker';
+import InternationalPhoneInput, { validateInternationalPhoneNumber, resolveInitialCountry } from '../components/InternationalPhoneInput';
+import { validatePostalCode, getPostalCodePlaceholder } from '../utils/postalCodeValidator';
 import logoImg from '../assets/logo.png';
 import LiveWebcasts from './LiveWebcasts';
 import { getAssetUrl } from '../utils/assetUrl';
@@ -539,6 +541,8 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [reviewVideo, setReviewVideo] = useState(null);
 
   // Users CRUD states
+  const DEFAULT_COUNTRY = { code: 'IN', dialCode: '+91', name: 'India', flag: '🇮🇳' };
+  const [userCountry, setUserCountry] = useState(DEFAULT_COUNTRY);
   const [users, setUsers] = useState([]);
   const [userLogs, setUserLogs] = useState([]);
   const [userForm, setUserForm] = useState({
@@ -855,6 +859,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
   const [subCategoryForm, setSubCategoryForm] = useState({ id: '', cat_id: '', name: '', description: '' });
 
   // Author Admin CRUD states
+  const [authorAdminCountry, setAuthorAdminCountry] = useState(DEFAULT_COUNTRY);
   const [authorAdmins, setAuthorAdmins] = useState([]);
   const [showAuthorAdminModal, setShowAuthorAdminModal] = useState(false);
   const [editingAuthorAdmin, setEditingAuthorAdmin] = useState(null);
@@ -1952,6 +1957,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       zipcode: ''
     });
     setCitiesList([]);
+    setAuthorAdminCountry(DEFAULT_COUNTRY);
     setShowAuthorAdminModal(true);
   };
 
@@ -2005,6 +2011,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       zipcode: rawRecord.zipcode || ''
     });
 
+    setAuthorAdminCountry(resolveInitialCountry(rawRecord.country_iso || rawRecord.country_code, rawRecord.phonenumber || rawRecord.mobile));
     setShowAuthorAdminModal(true);
   };
 
@@ -2084,12 +2091,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Please fill out email address');
       return;
     }
-    if (!authorAdminForm.mobile || !authorAdminForm.mobile.trim()) {
-      showError('Please fill out phone number');
-      return;
-    }
-    if (authorAdminForm.mobile.replace(/\D/g, '').length !== 10) {
-      showError('Phone number must be exactly 10 digits');
+    const phoneValidation = validateInternationalPhoneNumber(
+      authorAdminForm.mobile,
+      authorAdminCountry.code,
+      authorAdminCountry.name
+    );
+    if (!phoneValidation.isValid) {
+      showError(phoneValidation.error);
       return;
     }
     if (!authorAdminForm.gender) {
@@ -2116,12 +2124,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Please select city');
       return;
     }
-    if (!authorAdminForm.zipcode || !authorAdminForm.zipcode.trim()) {
-      showError('Please fill out zipcode');
-      return;
-    }
-    if (authorAdminForm.zipcode.replace(/\D/g, '').length !== 6) {
-      showError('Zipcode must be exactly 6 digits');
+    const postalValidation = validatePostalCode(
+      authorAdminForm.zipcode,
+      authorAdminCountry.code,
+      authorAdminCountry.name
+    );
+    if (!postalValidation.isValid) {
+      showError(postalValidation.error);
       return;
     }
 
@@ -2134,8 +2143,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         first_name: authorAdminForm.firstName.trim(),
         last_name: authorAdminForm.lastName.trim(),
         email: authorAdminForm.email.trim(),
-        phonenumber: authorAdminForm.mobile.trim(),
-        mobile: authorAdminForm.mobile.trim(),
+        phonenumber: phoneValidation.nationalNumber || authorAdminForm.mobile.trim(),
+        mobile: phoneValidation.nationalNumber || authorAdminForm.mobile.trim(),
+        country_code: authorAdminCountry.dialCode,
+        country_iso: authorAdminCountry.code,
+        dial_code: authorAdminCountry.dialCode,
         gender_id: authorAdminForm.gender ? (parseInt(authorAdminForm.gender, 10) || authorAdminForm.gender) : null,
         date_of_birth: formatDobForSubmission(authorAdminForm.dob),
         address: authorAdminForm.address.trim(),
@@ -2143,7 +2155,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         state: String(authorAdminForm.state || authorAdminForm.state_id).trim(),
         city_id: authorAdminForm.city_id || authorAdminForm.city,
         city: String(authorAdminForm.city || authorAdminForm.city_id).trim(),
-        zipcode: authorAdminForm.zipcode.trim()
+        zipcode: postalValidation.postalCode || authorAdminForm.zipcode.trim()
       };
 
       if (isEditing) {
@@ -5236,12 +5248,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Please enter a valid email address with a valid domain suffix (e.g. name@domain.com)');
       return;
     }
-    if (!userForm.mobile || !userForm.mobile.trim()) {
-      showError('Please fill out phone number');
-      return;
-    }
-    if (userForm.mobile.length !== 10) {
-      showError('Phone number must be exactly 10 digits');
+    const phoneValidation = validateInternationalPhoneNumber(
+      userForm.mobile,
+      userCountry.code,
+      userCountry.name
+    );
+    if (!phoneValidation.isValid) {
+      showError(phoneValidation.error);
       return;
     }
     if (!userForm.gender) {
@@ -5268,12 +5281,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       showError('Please fill out state');
       return;
     }
-    if (!userForm.zipcode || !userForm.zipcode.trim()) {
-      showError('Please fill out zipcode');
-      return;
-    }
-    if (userForm.zipcode.length !== 6) {
-      showError('Zipcode must be exactly 6 digits');
+    const postalValidation = validatePostalCode(
+      userForm.zipcode,
+      userCountry.code,
+      userCountry.name
+    );
+    if (!postalValidation.isValid) {
+      showError(postalValidation.error);
       return;
     }
 
@@ -5283,7 +5297,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         first_name: userForm.firstName.trim(),
         last_name: userForm.lastName.trim(),
         email: userForm.email.trim(),
-        phonenumber: userForm.mobile.trim(),
+        phonenumber: phoneValidation.nationalNumber || userForm.mobile.trim(),
+        mobile: phoneValidation.nationalNumber || userForm.mobile.trim(),
+        country_code: userCountry.dialCode,
+        country_iso: userCountry.code,
+        dial_code: userCountry.dialCode,
         gender_id: userForm.gender ? (parseInt(userForm.gender, 10) || userForm.gender) : null,
         date_of_birth: formatDobForSubmission(userForm.dob),
         address: userForm.address.trim(),
@@ -5291,7 +5309,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
         state: userForm.state ? userForm.state.trim() : '',
         city_id: userForm.city_id || null,
         city: userForm.city ? userForm.city.trim() : '',
-        zipcode: userForm.zipcode.trim()
+        zipcode: postalValidation.postalCode || userForm.zipcode.trim()
       };
 
       if (editingUser) {
@@ -5432,6 +5450,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
       zipcode: userData.zipcode || '',
       address: userData.address || ''
     });
+    setUserCountry(resolveInitialCountry(userData.country_iso || userData.country_code, userData.phonenumber || userData.mobile));
     setShowUserModal(true);
   };
 
@@ -7173,6 +7192,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               zipcode: '',
                               address: ''
                             });
+                            setUserCountry(DEFAULT_COUNTRY);
                             setShowUserModal(true);
                           }}
                           className="btn btn-primary"
@@ -10834,22 +10854,18 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number *</label>
-                  <input 
-                    type="tel" 
-                    className="form-input" 
-                    placeholder="Enter phone number"
-                    style={{ background: editingAuthorAdmin ? '#e9ecef' : '#f5f5f5', color: editingAuthorAdmin ? '#6c757d' : '#333333', border: '1px solid #dddddd', cursor: editingAuthorAdmin ? 'not-allowed' : 'text' }}
-                    value={authorAdminForm.mobile} 
+                  <InternationalPhoneInput
+                    selectedCountry={authorAdminCountry}
+                    onCountryChange={setAuthorAdminCountry}
+                    value={authorAdminForm.mobile}
                     onChange={e => {
                       if (!editingAuthorAdmin) {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setAuthorAdminForm({...authorAdminForm, mobile: value});
+                        setAuthorAdminForm({...authorAdminForm, mobile: e.target.value});
                       }
-                    }} 
-                    readOnly={Boolean(editingAuthorAdmin)} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                    }}
+                    placeholder="Enter phone number"
+                    disabled={Boolean(editingAuthorAdmin) || authorAdminFormLoading}
+                    required
                   />
                 </div>
 
@@ -10935,11 +10951,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <input 
                     type="text" 
                     className="form-input" 
-                    placeholder="Enter zipcode"
+                    placeholder={getPostalCodePlaceholder(authorAdminCountry.code)}
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={authorAdminForm.zipcode} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '').slice(0, 12);
                       setAuthorAdminForm({...authorAdminForm, zipcode: value});
                     }} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
@@ -11029,19 +11045,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ color: '#444444', fontWeight: 600 }}>Phone Number</label>
-                  <input 
-                    type="tel" 
-                    className="form-input" 
+                  <InternationalPhoneInput
+                    selectedCountry={userCountry}
+                    onCountryChange={setUserCountry}
+                    value={userForm.mobile}
+                    onChange={e => setUserForm({...userForm, mobile: e.target.value})}
                     placeholder="Enter phone number"
-                    style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
-                    value={userForm.mobile} 
-                    onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setUserForm({...userForm, mobile: value});
-                    }} 
-                    onInvalid={e => e.target.setCustomValidity('Please fill out phone number')}
-                    onInput={e => e.target.setCustomValidity('')}
-                    required 
+                    disabled={userFormLoading}
+                    required
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -11110,11 +11121,11 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                   <input 
                     type="text" 
                     className="form-input" 
-                    placeholder="Enter zipcode"
+                    placeholder={getPostalCodePlaceholder(userCountry.code)}
                     style={{ background: '#f5f5f5', color: '#333333', border: '1px solid #dddddd' }}
                     value={userForm.zipcode} 
                     onChange={e => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      const value = e.target.value.replace(/[^a-zA-Z0-9\s-]/g, '').slice(0, 12);
                       setUserForm({...userForm, zipcode: value});
                     }} 
                     onInvalid={e => e.target.setCustomValidity('Please fill out zipcode')}
