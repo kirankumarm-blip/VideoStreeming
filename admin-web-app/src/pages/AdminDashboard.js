@@ -6768,63 +6768,51 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
 
             {/* OVERVIEW CONTENT VIEW */}
             {activeTab === 'overview' && (
-              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              <div className="animate-fade-in flex-col gap-2xl">
 
                 {/* 🎯 PLATFORM METRIC CARDS */}
                 <div className="dashboard-stats-grid">
-                  <div className="glass-card stat-card">
+                  <div className="stat-card">
                     <span className="stat-label">{t('admin.statTotalUsers', 'Total Users')}</span>
                     <span className="stat-value">{stats?.total_users || stats?.cards?.totalUsers || users.length || 0}</span>
-                    <span style={{ 
-                      fontSize: '11px', 
-                      color: parseFloat(stats?.users_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
-                      fontWeight: 600 
-                    }}>
+                    <span className={parseFloat(stats?.users_growth_percent || 0) >= 0 ? "stat-trend-positive" : "stat-trend-negative"}>
                       {stats?.users_growth_percent 
                         ? `${parseFloat(stats.users_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.users_growth_percent))}% this month` 
                         : '↑ 12% this month'}
                     </span>
                   </div>
-                  <div className="glass-card stat-card">
+                  <div className="stat-card">
                     <span className="stat-label">{t('admin.statActiveUsers', 'Total Courses')}</span>
                     <span className="stat-value">{stats?.total_courses || stats?.cards?.totalCourses || (Array.isArray(courses) ? courses.length : 0) || 0}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🟢 Active in catalog</span>
+                    <span className="stat-trend-positive">🟢 Active in catalog</span>
                   </div>
-                  <div className="glass-card stat-card">
+                  <div className="stat-card">
                     <span className="stat-label">{t('admin.dashboard.totalVideosUploaded', 'Total Videos Uploaded')}</span>
                     <span className="stat-value">{stats?.total_videos || stats?.cards?.totalVideos || (Array.isArray(myVideos) ? myVideos.length : 0) || 0}</span>
-                    <span style={{ fontSize: '11px', color: '#a0a0ab' }}>All transcode jobs completed</span>
+                    <span className="stat-trend-neutral">All transcode jobs completed</span>
                   </div>
-                  <div className="glass-card stat-card">
+                  <div className="stat-card">
                     <span className="stat-label">{t('admin.statTotalViews', 'Total Views')}</span>
                     <span className="stat-value">{stats?.total_video_views || stats?.cards?.totalViews || 0}</span>
-                    <span style={{ 
-                      fontSize: '11px', 
-                      color: parseFloat(stats?.video_views_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
-                      fontWeight: 600 
-                    }}>
+                    <span className={parseFloat(stats?.video_views_growth_percent || 0) >= 0 ? "stat-trend-positive" : "stat-trend-negative"}>
                       {stats?.video_views_growth_percent 
                         ? `${parseFloat(stats.video_views_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.video_views_growth_percent))}% this week` 
                         : '↑ 34% this week'}
                     </span>
                   </div>
-                  <div className="glass-card stat-card">
+                  <div className="stat-card">
                     <span className="stat-label">{t('admin.dashboard.dailyWatchTime', 'Daily Watch Time')}</span>
                     <span className="stat-value">{getFormattedSeconds(stats?.today_watch_sec) || (contentAnalytics?.watchTimePerVideo ? `${contentAnalytics.watchTimePerVideo.reduce((sum, v) => sum + v.minutes, 0)} min` : '--')}</span>
-                    <span style={{ 
-                      fontSize: '11px', 
-                      color: parseFloat(stats?.daily_watch_growth_percent || 0) >= 0 ? '#10b981' : '#ef4444', 
-                      fontWeight: 600 
-                    }}>
+                    <span className={parseFloat(stats?.daily_watch_growth_percent || 0) >= 0 ? "stat-trend-positive" : "stat-trend-negative"}>
                       {stats?.daily_watch_growth_percent 
                         ? `${parseFloat(stats.daily_watch_growth_percent) >= 0 ? '↑' : '↓'} ${Math.abs(parseFloat(stats.daily_watch_growth_percent))}% vs yesterday` 
                         : '--'}
                     </span>
                   </div>
-                  <div className="glass-card stat-card">
+                  <div className="stat-card">
                     <span className="stat-label">{t('admin.dashboard.monthlyWatchTime', 'Monthly Watch Time')}</span>
                     <span className="stat-value">{getFormattedSeconds(stats?.month_watch_sec) || (contentAnalytics?.watchTimePerVideo ? `${contentAnalytics.watchTimePerVideo.reduce((sum, v) => sum + v.minutes, 0) * 30} min` : '--')}</span>
-                    <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                    <span className="stat-trend-positive">
                       {stats?.monthly_target_percent 
                         ? `${stats.monthly_target_percent}% of monthly target` 
                         : '--'}
@@ -6835,7 +6823,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                 {/* Main Dashboard layout (Split Column Grid) */}
                 <div className="admin-dashboard-layout">
                   {/* Left Column: Charts and Tables */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', minWidth: 0 }}>
+                  <div className="flex-col gap-2xl flex-min-zero">
                     
                     {/* SVG Line Charts */}
                     <div className="dashboard-charts-grid charts-grid-row">
@@ -7078,15 +7066,14 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             {/* AUTHOR ADMIN VIEW */}
             {activeTab === 'author_admin' && (
               <div className="animate-fade-in glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div className="admin-section-header">
                   <div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>Author Admin</h2>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Manage author admin accounts, profiles, and publishing access.</p>
+                    <h2 className="admin-section-title">Author Admin</h2>
+                    <p className="admin-section-subtitle">Manage author admin accounts, profiles, and publishing access.</p>
                   </div>
                   <button 
                     onClick={handleAddAuthorAdminClick}
                     className="btn btn-primary"
-                    style={{ padding: '8px 18px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
                     <i className="fa-solid fa-plus"></i> Add Author Admin
                   </button>
@@ -7112,7 +7099,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             <TableStatusBadge status={isAdminActive} />
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div className="flex-align-center gap-sm">
                               <TableActionButton
                                 icon="fa-solid fa-pen"
                                 title="Edit Author Admin"
@@ -7121,20 +7108,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               <button
                                 type="button"
                                 onClick={() => handleToggleAuthorAdminStatus(admin)}
-                                style={{
-                                  padding: '5px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  backgroundColor: isAdminActive ? '#fee2e2' : '#dcfce7',
-                                  color: isAdminActive ? '#dc2626' : '#16a34a',
-                                  transition: 'all 0.2s ease',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
+                                className={isAdminActive ? "status-toggle-btn status-toggle-deactivate" : "status-toggle-btn status-toggle-activate"}
                                 title={isAdminActive ? "Deactivate Author Admin" : "Activate Author Admin"}
                               >
                                 {isAdminActive ? 'InActive' : 'Active'}
@@ -7158,9 +7132,9 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
             {/* USERS_ALL CONTENT VIEW */}
             {activeTab === 'users_all' && (
               <div className="animate-fade-in glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                  <h2 style={{ fontSize: '20px' }}>{t('admin.tabUsers')}</h2>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="admin-section-header">
+                  <h2 className="admin-section-title">{t('admin.tabUsers')}</h2>
+                  <div className="flex-align-center gap-md">
                     <PremiumSelect
                       options={[
                         { id: 'all', name: 'All Status' },
@@ -7174,7 +7148,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                       style={{ width: '135px', minWidth: '135px' }}
                     />
                     {!isAuthorAdminUser && (
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <div className="flex-align-center gap-sm">
                         <button 
                           onClick={() => {
                             setEditingUser(null);
@@ -7194,7 +7168,6 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             setShowUserModal(true);
                           }}
                           className="btn btn-primary"
-                          style={{ padding: '8px 16px', fontSize: '13px' }}
                         >
                           {t('admin.addUser')}
                         </button>
@@ -7205,7 +7178,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             setShowBulkUserModal(true);
                           }}
                           className="btn btn-secondary"
-                          style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
+                          style={{ backgroundColor: '#10b981', color: '#ffffff', border: 'none' }}
                         >
                           <i className="fa-solid fa-file-excel" style={{ fontSize: '14px' }} /> Bulk User
                         </button>
@@ -7243,7 +7216,7 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                             </span>
                           </td>
                           <td onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div className="flex-align-center gap-sm">
                               <button 
                                 onClick={() => handleEditClick(user)}
                                 className="btn btn-secondary"
@@ -7253,27 +7226,13 @@ const AdminDashboard = ({ isSidebarOpen, toggleSidebar, theme, activeTabOverride
                               </button>
                               <button 
                                 onClick={() => handleToggleUserStatus(user, isUserActive ? false : true)}
-                                className="btn"
-                                style={{ 
-                                  padding: '6px 12px', 
-                                  fontSize: '12px', 
-                                  border: 'none', 
-                                  backgroundColor: isUserActive ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
-                                  color: isUserActive ? '#ef4444' : '#10b981' 
-                                }}
+                                className={isUserActive ? "btn-action-icon btn-action-danger" : "btn-action-icon btn-action-success"}
                               >
                                 {isUserActive ? 'Disable' : 'Enable'}
                               </button>
                               <button 
                                 onClick={() => handleToggleUserStatus(user, false, true)}
-                                className="btn"
-                                style={{ 
-                                  padding: '6px 12px', 
-                                  fontSize: '12px', 
-                                  border: 'none', 
-                                  backgroundColor: 'rgba(245, 158, 11, 0.1)', 
-                                  color: '#f59e0b' 
-                                }}
+                                className="btn-action-icon btn-action-warning"
                               >
                                 Block
                               </button>

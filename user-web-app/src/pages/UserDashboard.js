@@ -2664,28 +2664,7 @@ const UserDashboard = () => {
                               <div 
                                 key={pl.id}
                                 onClick={() => setSelectedPlaylist(pl)}
-                                className="glass-card"
-                                style={{
-                                  padding: '0',
-                                  borderRadius: '16px',
-                                  overflow: 'hidden',
-                                  cursor: 'pointer',
-                                  border: '1px solid var(--border-color)',
-                                  background: 'var(--bg-secondary)',
-                                  transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
-                                  display: 'flex',
-                                  flexDirection: 'column'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(-4px)';
-                                  e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.18)';
-                                  e.currentTarget.style.borderColor = 'var(--accent-color, #2563eb)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform = 'translateY(0)';
-                                  e.currentTarget.style.boxShadow = 'none';
-                                  e.currentTarget.style.borderColor = 'var(--border-color)';
-                                }}
+                                className="glass-card playlist-card-interactive"
                               >
                                 {/* Playlist Cover Image with Video Count Badge */}
                                 <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: '#0f172a' }}>
@@ -2852,18 +2831,7 @@ const UserDashboard = () => {
                         return (
                           <div 
                             key={item.id}
-                            className="glass-card"
-                            style={{
-                              display: 'flex',
-                              gap: '20px',
-                              padding: '16px',
-                              borderRadius: '16px',
-                              border: '1px solid var(--border-color)',
-                              background: 'var(--bg-secondary)',
-                              alignItems: 'center',
-                              flexWrap: 'wrap',
-                              transition: 'all 0.2s ease'
-                            }}
+                            className="glass-card media-list-card"
                           >
                             {/* Thumbnail with duration & progress bar */}
                             <div 

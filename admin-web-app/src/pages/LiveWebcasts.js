@@ -790,26 +790,11 @@ const LiveWebcasts = ({ theme }) => {
   };
 
   return (
-    <div style={{
-      padding: '24px',
-      background: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
-      minHeight: '100%',
-      boxSizing: 'border-box'
-    }}>
+    <div className="webcast-container">
       {/* Top Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '24px',
-        paddingBottom: '16px',
-        borderBottom: '1px solid var(--border-color)'
-      }}>
+      <div className="webcast-header">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="flex-align-center" style={{ gap: '10px' }}>
             <span style={{ fontSize: '26px' }}>📡</span>
             <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
               {t('liveClass.adminTitle', 'Live Webcast Studio & Virtual Classroom')}
@@ -837,22 +822,10 @@ const LiveWebcasts = ({ theme }) => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div className="flex-align-center gap-md">
           <button
             onClick={() => setShowScheduleModal(true)}
-            style={{
-              padding: '10px 18px',
-              borderRadius: '8px',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
-              fontWeight: 600,
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
+            className="btn btn-secondary flex-align-center gap-sm"
           >
             <span>📅</span>
             {t('liveClass.scheduleNew', 'Schedule Webcast')}
@@ -1681,27 +1654,9 @@ const LiveWebcasts = ({ theme }) => {
 
       {/* Modal: Launch Poll */}
       {showPollModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--bg-secondary)',
-            borderRadius: '16px',
-            border: '1px solid var(--border-color)',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '480px',
-            boxSizing: 'border-box'
-          }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700 }}>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card animate-fade-in">
+            <h3 className="admin-modal-title">
               📊 {t('liveClass.createPollTitle', 'Launch Live Poll to Learners')}
             </h3>
 
@@ -1827,27 +1782,9 @@ const LiveWebcasts = ({ theme }) => {
 
       {/* Modal: Schedule Webcast */}
       {showScheduleModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'var(--bg-secondary)',
-            borderRadius: '16px',
-            border: '1px solid var(--border-color)',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '520px',
-            boxSizing: 'border-box'
-          }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700 }}>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card animate-fade-in" style={{ maxWidth: '520px' }}>
+            <h3 className="admin-modal-title">
               📅 {t('liveClass.scheduleWebcastTitle', 'Schedule New Virtual Webcast')}
             </h3>
 

@@ -107,18 +107,7 @@ export const ToastProvider = ({ children }) => {
       {/* Toast Notification Container */}
       <aside
         aria-label="Notifications"
-        style={{
-          position: 'fixed',
-          top: '24px',
-          right: '24px',
-          zIndex: 99999,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          pointerEvents: 'none',
-          maxWidth: '420px',
-          width: 'calc(100% - 48px)'
-        }}
+        className="toast-container-aside"
       >
         {toasts.map((item) => {
           const colors = getToastColors(item.type);
@@ -126,59 +115,27 @@ export const ToastProvider = ({ children }) => {
             <div
               key={item.id}
               role="alert"
+              className="toast-item-card"
               style={{
-                pointerEvents: 'auto',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px',
-                padding: '14px 18px',
-                borderRadius: '12px',
-                background: 'var(--bg-secondary, #1a1a24)',
-                border: `1px solid ${colors.border}`,
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
-                color: 'var(--text-primary, #ffffff)',
-                fontSize: '14px',
-                lineHeight: '1.45',
-                animation: 'slideInRight 0.25s ease-out',
-                backdropFilter: 'blur(8px)',
-                position: 'relative',
-                overflow: 'hidden'
+                border: `1px solid ${colors.border}`
               }}
             >
               <div
+                className="toast-icon-box"
                 style={{
-                  fontSize: '18px',
-                  color: colors.color,
-                  lineHeight: 1,
-                  marginTop: '1px',
-                  flexShrink: 0
+                  color: colors.color
                 }}
               >
                 <i className={`fa-solid ${colors.icon}`}>{colors.fallbackIcon}</i>
               </div>
-              <div style={{ flex: 1, wordBreak: 'break-word' }}>
+              <div className="toast-message-text">
                 {typeof item.message === 'string' ? item.message : JSON.stringify(item.message)}
               </div>
               <button
                 type="button"
                 onClick={() => removeToast(item.id)}
                 aria-label="Close notification"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-secondary, #a1a1aa)',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  padding: '2px 4px',
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: 0.7,
-                  transition: 'opacity 0.15s ease'
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.7')}
+                className="toast-close-button"
               >
                 ✕
               </button>

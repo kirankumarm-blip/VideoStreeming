@@ -2334,34 +2334,34 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 
                 {/* 🎯 3-ROW GRID SUMMARY CARDS */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div className="flex-col gap-xl">
                   {/* Row 1 */}
                   <div className="dashboard-stats-grid">
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.statActiveLearners', 'Active Learners')}</span>
                       <span className="stat-value">{stats?.active_lerners ?? stats?.active_learners ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.active_leraners_percenatge !== undefined ? `+${stats.active_leraners_percenatge}% today` : ''}
                       </span>
                     </div>
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.statTotalUsers', 'Total Users')}</span>
                       <span className="stat-value">{stats?.total_users ?? stats?.cards?.totalUsers ?? users.length ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.users_growth_percent ? `↑ ${stats.users_growth_percent}% this month` : ''}
                       </span>
                     </div>
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.dashboard.totalVideosUploaded', 'Total Videos Uploaded')}</span>
                       <span className="stat-value">{stats?.total_videos ?? stats?.cards?.totalVideos ?? videos.length ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.upload_change !== undefined ? `+${stats.upload_change} today` : ''}
                       </span>
                     </div>
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.statTotalViews', 'Total Views')}</span>
                       <span className="stat-value">{stats?.total_video_views ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.video_views_growth_percent ? `↑ ${stats.video_views_growth_percent}% weekly` : ''}
                       </span>
                     </div>
@@ -2369,33 +2369,33 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                   {/* Row 2 */}
                   <div className="dashboard-stats-grid">
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.dashboard.dailyWatchTime', 'Daily Watch Time')}</span>
                       <span className="stat-value">
                         {stats?.today_watch_sec !== undefined ? getFormattedSeconds(stats.today_watch_sec) : '0 min'}
                       </span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.daily_watch_growth_percent ? `↑ ${stats.daily_watch_growth_percent}% vs yesterday` : ''}
                       </span>
                     </div>
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.dashboard.monthlyWatchTime', 'Monthly Watch Time')}</span>
                       <span className="stat-value">
                         {stats?.month_watch_sec !== undefined ? getFormattedSeconds(stats.month_watch_sec) : '0 min'}
                       </span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.monthly_target_percent ? `${stats.monthly_target_percent}% of monthly target` : ''}
                       </span>
                     </div>
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.statTotalCourses', 'Total Courses')}</span>
                       <span className="stat-value">{stats?.total_courses ?? stats?.totalCourses ?? stats?.cards?.totalCourses ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>🟢 Active catalog</span>
+                      <span className="stat-trend-positive">🟢 Active catalog</span>
                     </div>
-                    <div className="glass-card stat-card">
+                    <div className="stat-card">
                       <span className="stat-label">{t('admin.statVideosUploadedToday', 'Videos Uploaded Today')}</span>
                       <span className="stat-value">{stats?.today_uploads ?? 0}</span>
-                      <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
+                      <span className="stat-trend-positive">
                         {stats?.upload_change !== undefined ? `${stats.upload_change >= 0 ? '+' : ''}${stats.upload_change} vs yesterday` : ''}
                       </span>
                     </div>
@@ -2407,14 +2407,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 <div className="admin-dashboard-layout">
                   
                   {/* Left Column (Main Charts & Tables) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', minWidth: 0 }}>
+                  <div className="flex-col gap-2xl flex-min-zero">
                     
                     {/* User Growth Line & Active Users indicators */}
                     <div className="dashboard-charts-grid">
                       <div className="glass-card">
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Growth Trend</h3>
+                        <h3 className="card-heading">User Growth Trend</h3>
                         <LineChart data={stats?.user_growth || superAdminUserGrowth} />
-                        <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div className="chart-legend-row">
                           <span>Daily: {stats?.daily_signups !== undefined ? stats.daily_signups : 0}</span>
                           <span>•</span>
                           <span>Weekly: {stats?.weekly_signups !== undefined ? stats.weekly_signups : 0}</span>
@@ -2424,18 +2424,18 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       </div>
 
                       <div className="glass-card">
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Active Users Trend</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 600 }}>DAU (Daily Active Users)</span>
+                        <h3 className="card-heading">Active Users Trend</h3>
+                        <div className="flex-col gap-md" style={{ marginTop: '16px' }}>
+                          <div className="metric-list-item">
+                            <span className="metric-list-label">DAU (Daily Active Users)</span>
                             <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-secondary)' }}>{stats?.dau ?? 0}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 600 }}>WAU (Weekly Active Users)</span>
+                          <div className="metric-list-item">
+                            <span className="metric-list-label">WAU (Weekly Active Users)</span>
                             <span style={{ fontSize: '15px', fontWeight: 700, color: '#3b82f6' }}>{stats?.wau ?? 0}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 600 }}>MAU (Monthly Active Users)</span>
+                          <div className="metric-list-item">
+                            <span className="metric-list-label">MAU (Monthly Active Users)</span>
                             <span style={{ fontSize: '15px', fontWeight: 700, color: '#10b981' }}>{stats?.mau ?? 0}</span>
                           </div>
                         </div>
@@ -2444,13 +2444,13 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                     {/* Top 10 Videos Bar Chart */}
                     <div className="glass-card">
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Top 10 Videos by Views</h3>
+                      <h3 className="card-heading">Top 10 Videos by Views</h3>
                       <BarChart data={stats?.top_videos || []} />
                     </div>
 
                     {/* Trending Content */}
                     <div className="glass-card">
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Trending Content</h3>
+                      <h3 className="card-heading">Trending Content</h3>
                       <div className="table-container">
                         <PaginatedTable
                           headers={['Video', 'Views', 'Watch Time', 'Growth']}
@@ -2470,22 +2470,22 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
                     {/* Donut Chart: User Engagement */}
                     <div className="glass-card">
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>User Engagement</h3>
+                      <h3 className="card-heading">User Engagement</h3>
                       <DonutChart data={stats?.engagement_donut_graph?.engagementShare || []} />
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginTop: '20px' }} className="engage-cards">
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div className="grid-auto-fit-cards engage-cards">
+                        <div className="metric-box">
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Session</span>
                           <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgSession || '0 min'}</span>
                         </div>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div className="metric-box">
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Watch Time</span>
                           <span style={{ fontSize: '14px', fontWeight: 700 }}>{stats?.engagement_donut_graph?.engagementMetrics?.avgWatchTime || '0 min'}</span>
                         </div>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div className="metric-box">
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Retention Rate</span>
                           <span style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>{stats?.engagement_donut_graph?.engagementMetrics?.retentionRate || '0%'}</span>
                         </div>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div className="metric-box">
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Bounce Rate</span>
                           <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-primary)' }}>{stats?.engagement_donut_graph?.engagementMetrics?.bounceRate || '0%'}</span>
                         </div>
@@ -2581,8 +2581,8 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
             {/* ADMINS_ALL CONTENT VIEW */}
             {activeTab === 'admins_all' && (
               <div className="animate-fade-in glass-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '20px' }}>All Administrators</h2>
+                <div className="admin-section-header">
+                  <h2 className="admin-section-title">All Administrators</h2>
                   <button 
                     onClick={() => {
                       setEditingAdmin(null);
@@ -2591,7 +2591,6 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                       setShowAdminModal(true);
                     }}
                     className="btn btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '13px' }}
                   >
                     Add Admin
                   </button>
@@ -2621,7 +2620,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                             <TableRoleBadge role={roleName} />
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div className="flex-align-center gap-sm">
                               <TableActionButton
                                 icon="fa-solid fa-pen"
                                 title="Edit Admin"
@@ -2630,20 +2629,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                               <button
                                 type="button"
                                 onClick={() => handleToggleAdminStatus(admin)}
-                                style={{
-                                  padding: '5px 12px',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  backgroundColor: isAdminActive ? '#fee2e2' : '#dcfce7',
-                                  color: isAdminActive ? '#dc2626' : '#16a34a',
-                                  transition: 'all 0.2s ease',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
+                                className={isAdminActive ? "status-toggle-btn status-toggle-deactivate" : "status-toggle-btn status-toggle-activate"}
                                 title={isAdminActive ? "Deactivate Admin" : "Activate Admin"}
                               >
                                 {isAdminActive ? 'InActive' : 'Active'}
@@ -4658,9 +4644,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
       {/* --- CATEGORY CRUD MODAL --- */}
       {showCategoryModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card animate-fade-in">
+            <h3 className="admin-modal-title">{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
             <form onSubmit={handleCategorySubmit}>
               <div className="form-group">
                 <label className="form-label">Category Name</label>
@@ -4678,15 +4664,14 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <div className="form-group">
                 <label className="form-label">Description</label>
                 <textarea 
-                  className="form-input" 
+                  className="form-input form-textarea-fixed" 
                   placeholder="Enter category description (optional)..."
                   value={categoryForm.description} 
                   onChange={e => setCategoryForm({...categoryForm, description: e.target.value.replace(/^\s+/, '')})}
                   rows="3" 
-                  style={{ resize: 'none' }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <div className="admin-form-actions">
                 <button type="button" onClick={() => setShowCategoryModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Submit</button>
               </div>
@@ -4697,9 +4682,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
       {/* --- SUB CATEGORY CRUD MODAL --- */}
       {showSubCategoryModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card animate-fade-in">
+            <h3 className="admin-modal-title">
               {editingSubCategory ? 'Edit Sub Category' : 'Add Sub Category'}
             </h3>
             <form onSubmit={handleSubCategorySubmit}>
@@ -4736,16 +4721,15 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">Description</label>
                 <textarea 
-                  className="form-input" 
+                  className="form-input form-textarea-fixed" 
                   placeholder="Enter sub category description (optional)..."
                   value={subCategoryForm.description} 
                   onChange={e => setSubCategoryForm({...subCategoryForm, description: e.target.value.replace(/^\s+/, '')})}
                   rows="3" 
-                  style={{ resize: 'none' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <div className="admin-form-actions">
                 <button type="button" onClick={() => setShowSubCategoryModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Submit</button>
               </div>
@@ -4756,9 +4740,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
 
       {/* --- ASSIGN VIDEO MODAL --- */}
       {showAssignModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>Assign Admins to Video</h3>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card animate-fade-in">
+            <h3 className="admin-modal-title">Assign Admins to Video</h3>
             <form onSubmit={handleAssignSubmit}>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                 Select which administrators can manage and view metrics for this course video lesson.
@@ -4785,7 +4769,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                 ))}
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <div className="admin-form-actions">
                 <button type="button" onClick={() => setShowAssignModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Submit</button>
               </div>
@@ -4796,9 +4780,9 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
       
       {/* --- PLAN CRUD MODAL --- */}
       {showPlanModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>{editingPlan ? 'Edit Subscription Plan' : 'Add New Plan'}</h3>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card animate-fade-in">
+            <h3 className="admin-modal-title">{editingPlan ? 'Edit Subscription Plan' : 'Add New Plan'}</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
               try {
@@ -4855,7 +4839,7 @@ const SuperAdminDashboard = ({ isSidebarOpen, toggleSidebar, theme }) => {
                   placeholder="e.g. Ad-free, 4K Streaming"
                 />
               </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <div className="admin-form-actions">
                 <button type="button" onClick={() => setShowPlanModal(false)} className="btn btn-secondary">Cancel</button>
                 <button type="submit" className="btn btn-primary">Submit</button>
               </div>
